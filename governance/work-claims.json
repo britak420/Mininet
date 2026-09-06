@@ -927,7 +927,7 @@
     },
     {
       "issue": 92,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/kel-freshness",
       "lease_expires": "2026-09-11",
@@ -940,7 +940,8 @@
       "decision_ids": [
         "D-0459"
       ],
-      "notes": "D-0459: a witness policy now comes from the identity's own signed KEL. The witness layer exists to tell a first-contact verifier that a presented head is the one the identity's witnesses saw, but the WitnessPolicy naming those witnesses was supplied by the caller -- so whoever handed a verifier a certificate also handed it the standard the certificate was judged against. An attacker stands up witnesses of their own, has them receipt a forged branch correctly, supplies a policy naming them, and the verifier reports WitnessedRecent for a head the real controller never signed. Every assurance level above Pinned was decorative against the only attacker they exist for. Establishment now carries witness_threshold beside its witness set, Kel::declared_witness_policy reads the policy back from the latest establishment event, assess_kel_assurance takes it from there, and WitnessEvidence::policy is removed so the forgery is unrepresentable rather than merely checked. Controller::appoint_witnesses/retire_witnesses are the typed declaration ops. The threshold is encoded only when the witness set is non-empty, so every identity predating this keeps its exact bytes and SCID -- verified against an origin/main worktree, not assumed, and pinned in tests. Discharges the 'WitnessPolicy read from a real Establishment event' item left open in Phase 3 of the KEL witness design doc. Roadmap R9 ready -> active. Coordination evidence only, not approval or authority."
+      "notes": "D-0459: a witness policy now comes from the identity's own signed KEL. The witness layer exists to tell a first-contact verifier that a presented head is the one the identity's witnesses saw, but the WitnessPolicy naming those witnesses was supplied by the caller -- so whoever handed a verifier a certificate also handed it the standard the certificate was judged against. An attacker stands up witnesses of their own, has them receipt a forged branch correctly, supplies a policy naming them, and the verifier reports WitnessedRecent for a head the real controller never signed. Every assurance level above Pinned was decorative against the only attacker they exist for. Establishment now carries witness_threshold beside its witness set, Kel::declared_witness_policy reads the policy back from the latest establishment event, assess_kel_assurance takes it from there, and WitnessEvidence::policy is removed so the forgery is unrepresentable rather than merely checked. Controller::appoint_witnesses/retire_witnesses are the typed declaration ops. The threshold is encoded only when the witness set is non-empty, so every identity predating this keeps its exact bytes and SCID -- verified against an origin/main worktree, not assumed, and pinned in tests. Discharges the 'WitnessPolicy read from a real Establishment event' item left open in Phase 3 of the KEL witness design doc. Roadmap R9 ready -> active. Coordination evidence only, not approval or authority. Closed 2026-09-05: PR #314 merged.",
+      "pull_request": 314
     },
     {
       "issue": 92,
@@ -975,6 +976,23 @@
       ],
       "notes": "D-0461: roadmap R2 closes. R2 named a SCHEDULED main run passing end to end, and that distinction earned its place -- push-triggered runs were green on 2026-09-04 while the scheduled runs of 09-01, 09-02 and 09-03 were red, because the scheduled run re-runs the same tree against a moving external world rather than against the moment of the merge. Scheduled ci run 860 (2026-09-05 08:22 UTC) passed on head 01ad0ce, and governance-policy 734, reproducibility 636, android-ci 505, android-reproducibility 496 and CodeQL's Push-on-main 904 are all green on that same head. governance-canonical has no run there by design (it triggers on pull_request_target) and was green on #313/#314/#316 -- recorded explicitly because 'no run' and 'passed' look identical in a summary. The one surviving exception is named rather than hidden: dependency-audit warns rather than gates on advisories (D-0441/D-0450), and stays a warning until there is a triage process for an advisory against a pinned dependency. Coordination evidence only, not approval or authority. Closed 2026-09-05: PR #317 merged.",
       "pull_request": 317
+    },
+    {
+      "issue": 92,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/validator-authenticated-handshake",
+      "lease_expires": "2026-09-13",
+      "paths": [
+        "crates/mini-consensus/",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0463"
+      ],
+      "notes": "D-0463: a validator-authenticated bearer handshake, closing R8's last remaining named gap. mini_consensus::validator_channel::ValidatorHandshakeAttestation lets a validator device sign mini_bearer::Channel::channel_binding with an already-delegated, VOTE-capable key -- the same construction mini-presence already uses for device co-presence, no new cryptography, no new capability bit. verify_validator_handshake rejects a mismatched channel binding (so an attestation captured on one channel can never be replayed on another), a mismatched claimed root/device, or a device that is not currently a VOTE-capable delegate; send_validator_handshake/recv_validator_handshake carry it over an already-established Channel and Bearer, proven end to end over a real TCP socket. Deliberately opt-in and not wired into net::TcpMesh, whose links stay anonymous by their own existing, documented design (consensus messages self-identify at the payload level already) -- this is a capability a caller reaches for when link-level identity specifically matters, available alongside that design rather than replacing it. Used D-0463 rather than D-0462 to avoid colliding with the concurrently open peer-discovery PR, which claimed D-0462 first and had not yet merged. Coordination evidence only, not approval or authority."
     }
   ]
 }

@@ -349,6 +349,26 @@ given time.
   on who has been proven faulty is a governance question; and re-admission
   is undecided. 13 tests, most of them about accusations that must fail.
 
+- **shipped (D-0463)** — `mini-consensus` gains a **validator-authenticated
+  bearer handshake**, closing R8's last remaining named gap.
+  `validator_channel::ValidatorHandshakeAttestation` lets a validator device
+  sign `mini_bearer::Channel::channel_binding` with an already-delegated,
+  `VOTE`-capable key, so a caller can learn which validator is on the other
+  end of an already-established channel; `verify_validator_handshake`
+  rejects a mismatched binding (so an attestation captured on one channel
+  can never be replayed on another), a mismatched claimed root/device, or a
+  device that isn't currently a `VOTE`-capable delegate. The same
+  construction `mini-presence` already uses for device co-presence — no new
+  cryptography, no new capability bit. **What it does not do:** it is
+  opt-in and not wired into `net::TcpMesh`, whose links stay anonymous by
+  their own existing design (consensus messages already self-identify at
+  the payload level); it proves which identity is on a link, not that the
+  identity behaves once authenticated; and it carries no revocation check
+  beyond the KEL a caller already holds, the same limit `verify_vote`
+  already has. 10 tests, including a real-socket end-to-end pass and a
+  raw-ciphertext regression proving an attestation never crosses the wire
+  unencrypted.
+
 - **prototype** — `mini-value`: stealth addresses, linkable ring
   signatures, Bulletproofs confidential amounts (D-0036/D-0040). Real,
   tested, founder-reviewed, **pending external audit** — see `docs/

@@ -193,11 +193,25 @@ gossip, nothing ejects automatically (adopting an exclusion is a governance
 action, or fabricating a removal becomes the attack), and only double-voting
 is covered — silence, censorship and invalid proposals are not self-proving
 in the same way.
-**Closed by:** the three remaining gaps — state sync, peer discovery, and a
-validator-authenticated bearer handshake — with tests that fail without the
-fix, plus the honest limits restated for whatever remains. The shielded-spend
-validity rule named in D-0457 also lands here: today the chain finalizes a
-key image on a proposer's say-so.
+**More progress:** **D-0463** closes the validator-authenticated-handshake
+gap. `mini_consensus::validator_channel` lets a validator device sign
+`mini_bearer::Channel::channel_binding` with an already-delegated,
+`VOTE`-capable key — the same construction `mini-presence` already uses for
+device co-presence, no new cryptography — so a caller can learn *which*
+validator is on the other end of an already-established channel.
+Deliberately opt-in and not wired into `net::TcpMesh` itself, whose links
+stay anonymous by their own existing design; this is a capability available
+alongside that design, for a caller that specifically needs link-level
+identity (e.g. admitting only known validators to a connection). A second
+gap — peer discovery — is closed by **D-0462** on a concurrently open pull
+request not yet merged as of this writing; see that decision for what it
+adds once it lands.
+**Closed by:** the remaining gap — state sync, also substantially closed by
+D-0207's catch-up/state-sync primitives though not wired into
+`TcpMesh::establish` either — with tests that fail without the fix, plus the
+honest limits restated for whatever remains. The shielded-spend validity
+rule named in D-0457 also lands here: today the chain finalizes a key image
+on a proposer's say-so.
 
 ### R9 — KEL freshness and witnesses (M3) · `active`
 The stale-KEL revocation gap, audit #12 finding F4. A device whose delegation

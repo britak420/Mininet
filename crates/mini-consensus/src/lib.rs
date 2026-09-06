@@ -97,12 +97,18 @@
 //!   the wire (D-0206), the same construction `mini-sync`/`mini-cli`'s
 //!   `sync connect`/`listen` already use. `Channel`'s handshake is
 //!   deliberately anonymous, though — it proves nothing about *which*
-//!   validator is on the other end. Consensus payloads still carry the real
-//!   identity (every vote and proposal is a real `did:mini` signature), so
-//!   a tampering, lying, or merely silent peer can stall the protocol but
-//!   never forge a finalized block — do not put a bare mesh on a hostile
-//!   network expecting anything beyond confidentiality and liveness under
-//!   an honest majority.
+//!   validator is on the other end by itself. Consensus payloads still
+//!   carry the real identity (every vote and proposal is a real `did:mini`
+//!   signature), so a tampering, lying, or merely silent peer can stall the
+//!   protocol but never forge a finalized block — do not put a bare mesh on
+//!   a hostile network expecting anything beyond confidentiality and
+//!   liveness under an honest majority. [`validator_channel`] adds an
+//!   *opt-in* way to prove which validator is on the other end of one
+//!   already-established `Channel` — signing over `Channel::channel_binding`
+//!   with an already-delegated, `VOTE`-capable device key, the same
+//!   construction `mini-presence` already uses for device co-presence — but
+//!   it is not required by or wired into `TcpMesh` itself, whose links stay
+//!   anonymous by the same design just described.
 //! - **Not gated behind D-0047.** No new cryptography: this composes
 //!   `mini-chain`'s existing vote/finality verification, `did_mini`'s
 //!   delegation/signing, and `mini-settlement`'s claim verification. The only
@@ -120,6 +126,7 @@ mod round;
 mod snapshot;
 mod state_sync;
 mod store;
+mod validator_channel;
 mod wire;
 
 #[cfg(test)]
@@ -138,4 +145,8 @@ pub use state_sync::{
     StateSyncPayload, StateSyncRequest, StateSyncResponse, MAX_STATE_SYNC_BLOCKS,
 };
 pub use store::{ConsensusArchive, ConsensusArchiveConfig};
+pub use validator_channel::{
+    recv_validator_handshake, send_validator_handshake, sign_validator_handshake,
+    verify_validator_handshake, ValidatorHandshakeAttestation,
+};
 pub use wire::{sign_proposal, verify_proposal, ConsensusMessage, Proposal, MAX_MESSAGE_BYTES};

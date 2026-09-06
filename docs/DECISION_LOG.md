@@ -17773,3 +17773,94 @@ pinned dependency, which is what would let `dependency-audit` gate rather
 than warn.
 
 **Supersedes / superseded by:** discharges roadmap R2. Supersedes nothing.
+
+### D-0463 — Validator-authenticated bearer handshake: an opt-in attestation over `Channel::channel_binding` — R8's last remaining named gap  ·  *Proposed*
+
+**Date:** 2026-09-06 · **Refs:** D-0460 (named the three remaining R8 gaps),
+D-0462 (peer discovery, the second of the three — allocated on a
+concurrently-open PR, hence this entry using the next free number rather
+than colliding with it), D-0206 (the `Channel` handshake this attests over,
+frozen anonymous by D-0015), the presence-attestation construction in
+`mini-presence` this reuses, roadmap R8, [#92](../../issues/92).
+
+**Decision:** `mini_consensus::validator_channel` closes R8's last remaining
+named gap — "`mini_bearer::Channel`'s handshake is anonymous, so it proves
+nothing about *which* validator is on the other end." `ValidatorHandshakeAttestation`
+lets a validator device sign `Channel::channel_binding` with an
+already-delegated, `Capabilities::VOTE`-capable key; `verify_validator_handshake`
+checks the binding matches the channel it is actually presented over (so an
+attestation captured on one channel can never be replayed on another),
+resolves the claimed root/device against a `mini_chain::ValidatorOracle`,
+and confirms the device is a currently-delegated, unrevoked `VOTE` holder of
+that root. `send_validator_handshake`/`recv_validator_handshake` carry it
+over an already-established `Channel` and `Bearer`, proven end to end over a
+real TCP socket.
+
+**Why this is additive, not a change to `Channel` or `TcpMesh`:** `Channel`'s
+anonymous handshake is D-0015's frozen design, not an oversight — an
+identity-carrying transport handshake would leak who is talking to whom
+before a single consensus byte moves. `mini-bearer`'s own docs already named
+the fix: "Authenticity is a payload concern; presence attestations sign over
+`Channel::channel_binding` so a signature cannot be transplanted onto a
+different channel" — `mini-presence` already does exactly this for two
+devices' co-presence, and this is the same construction for a validator, no
+new cryptography. `net::TcpMesh`'s links stay anonymous by its own existing,
+documented design ("consensus messages self-identify... the transport only
+needs to move bytes to everyone, not know who is who") — this module is not
+wired into it, and does not need to be: it is a capability a caller reaches
+for when link-level identity specifically matters (admitting only known
+validators to a connection, attributing a wedged or hostile link to a
+root), available alongside the existing anonymous mesh rather than replacing
+it.
+
+**Why `channel_binding` alone is enough:** the attestation carries no nonce,
+timestamp, or epoch. `channel_binding` is unique per handshake (fresh
+ephemeral X25519 keys every time), so an attestation that verifies against
+one channel's binding cannot be replayed against any other channel, past or
+future, with the same or a different peer — adding a nonce field on top
+would only add something nothing checks.
+
+**What this does not close, stated plainly:**
+
+- **Proves delegation, not honesty.** A validator that authenticates
+  correctly is still free to go silent, censor, or propose invalid blocks.
+- **No revocation check beyond the KEL a caller already has**, the same
+  freshness limit `mini_chain::verify_vote`/`assess_kel_assurance` already
+  carry.
+- **Opt-in.** Nothing in `net::TcpMesh` requires or performs this; a caller
+  wanting an identity-gated link must call it explicitly.
+
+**Constitutional impact:** none. No new cryptography (composes existing
+Ed25519 signing/verification and `did_mini::verify_delegation`, the same
+`Capabilities::VOTE` `mini_chain::verify_vote` already requires — no new
+capability bit). No frozen invariant touched: D-0015's anonymous-handshake
+freeze is upheld, not weakened, since the handshake itself is unchanged and
+this is a payload signed after it completes. No voice/value edge: this
+module touches `did-mini`, `mini-chain`, `mini-bearer` — none of them
+value crates.
+
+**Implementation status:** shipped —
+`crates/mini-consensus/src/validator_channel.rs` (new: `ValidatorHandshakeAttestation`,
+`sign_validator_handshake`, `verify_validator_handshake`,
+`send_validator_handshake`, `recv_validator_handshake`, 10 tests including a
+real-socket end-to-end pass and a raw-ciphertext regression), `error.rs`
+(`ConsensusError::Identity`, `ValidatorHandshakeChannelMismatch`,
+`ValidatorHandshakeIdentityMismatch`, `ValidatorHandshakeMissingVoteCapability`),
+`lib.rs` (module wiring, "Honest limits" updated).
+
+**Failure point:** a validator that appoints witnesses or devices it also
+controls authenticates correctly against its own compromised process — the
+same honest limit every delegation check in this tree already states.
+Nothing here detects a validator lying about its own good behavior once
+authenticated; that is what the accountability work (D-0460) and future
+liveness/censorship detection are for, not this.
+
+**Required follow-up:** none named beyond what is already tracked — R8 is
+now fully closed on the engineering side named at D-0460's writing (state
+sync, peer discovery, validator-authenticated handshake all have shipped
+primitives); whether/how to actually gate real deployments' link admission
+on this attestation is a host/deployment decision, not an engineering gap.
+
+**Supersedes / superseded by:** extends D-0206's `Channel` construction and
+the `mini-presence` attestation pattern to validators; supersedes nothing.
+Closes the last of roadmap R8's three named gaps.

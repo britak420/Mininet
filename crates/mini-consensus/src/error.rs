@@ -58,6 +58,19 @@ pub enum ConsensusError {
     SnapshotNotNewer { current: u64, got: u64 },
     /// Persistent history already contains different bytes for this height.
     ArchiveConflict { height: u64 },
+    /// `did-mini` identity/delegation verification failed while checking a
+    /// validator-handshake attestation.
+    Identity(did_mini::IdentityError),
+    /// A validator-handshake attestation's `channel_binding` did not match
+    /// the channel it was actually presented over — the transplant attack
+    /// `crate::validator_channel`'s binding exists to prevent.
+    ValidatorHandshakeChannelMismatch,
+    /// A validator-handshake attestation's claimed root or device did not
+    /// match the KEL supplied to verify it.
+    ValidatorHandshakeIdentityMismatch,
+    /// A validator-handshake attestation's device is delegated but was
+    /// never appointed `did_mini::Capabilities::VOTE`.
+    ValidatorHandshakeMissingVoteCapability,
 }
 
 impl core::fmt::Display for ConsensusError {
@@ -103,6 +116,19 @@ impl core::fmt::Display for ConsensusError {
                 f,
                 "persistent archive contains conflicting bytes at height {height}"
             ),
+            ConsensusError::Identity(e) => write!(f, "identity: {e}"),
+            ConsensusError::ValidatorHandshakeChannelMismatch => write!(
+                f,
+                "validator-handshake attestation does not match this channel's binding"
+            ),
+            ConsensusError::ValidatorHandshakeIdentityMismatch => write!(
+                f,
+                "validator-handshake attestation's claimed identity does not match the supplied KEL"
+            ),
+            ConsensusError::ValidatorHandshakeMissingVoteCapability => write!(
+                f,
+                "validator-handshake device is not a VOTE-capable delegate of its claimed root"
+            ),
         }
     }
 }
@@ -130,5 +156,11 @@ impl From<mini_bearer::BearerError> for ConsensusError {
 impl From<std::io::Error> for ConsensusError {
     fn from(error: std::io::Error) -> Self {
         ConsensusError::Storage(error.to_string())
+    }
+}
+
+impl From<did_mini::IdentityError> for ConsensusError {
+    fn from(e: did_mini::IdentityError) -> Self {
+        ConsensusError::Identity(e)
     }
 }
