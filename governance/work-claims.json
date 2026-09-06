@@ -979,6 +979,25 @@
     },
     {
       "issue": 92,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/consensus-peer-discovery",
+      "lease_expires": "2026-09-12",
+      "paths": [
+        "crates/mini-consensus/",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md",
+        "README.md"
+      ],
+      "decision_ids": [
+        "D-0462"
+      ],
+      "notes": "D-0462: peer discovery over a real socket, narrowing roadmap R8's three remaining named gaps to two. mini-net::pex already had the request/response peer-exchange logic (PexMessage, RoutingTable, AddressBook, build_response/absorb_response), fully unit-tested without ever touching a socket -- that crate's own docs named a real-transport adapter as pending work, deliberately not built inside mini-net itself since D-0042 committed that crate to staying transport-agnostic. mini-consensus::discovery::pex_over_tcp/serve_pex_over_tcp are that adapter: the same anonymous, forward-secret mini_bearer::Channel handshake catch_up_over_tcp/state_sync_over_tcp already use, carrying PexMessage bytes instead of block history, so a node can ask an already-known peer for others it knows and grow a real address book with no directory server. Not wired into TcpMesh::establish itself -- that constructor's deadlock-free dial/accept convention still needs one address list every node agrees on up front, so turning a discovered book into a mesh topology stays a host decision, named rather than silently assumed. A PexMessage::Response remains an unauthenticated hint exactly as mini-net::pex already documented; the address recorded for a requester is the connection's own observed source address, so a peer dialing from an ephemeral port rather than its own listener is not correctly discovered -- mini-net::pex's own already-named limitation, not a new one. Coordination evidence only, not approval or authority. Closed 2026-09-06: PR #318 merged.",
+      "pull_request": 318
+    },
+    {
+      "issue": 92,
       "status": "active",
       "contributor": "claude-agent",
       "branch": "claude/validator-authenticated-handshake",
