@@ -17872,3 +17872,96 @@ stay connected).
 **Supersedes / superseded by:** extends D-0206/D-0207's real-transport
 adapters with a third; supersedes nothing. Narrows roadmap R8's three
 remaining named gaps to two.
+
+### D-0464 — Witness receipt collection protocol: typed request/response messages, and the D-0459 fix extended to the signing side  ·  *Proposed*
+
+**Date:** 2026-09-06 · **Refs:** D-0321 (Phase 1 receipt types), D-0326
+(Phase 2 state machine), D-0328/D-0329/D-0459 (Phase 3), D-0463 (allocated
+on a concurrently open PR; this entry uses the next free number rather
+than colliding with it), `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+Phase 4, roadmap R9.
+
+**Decision:** `did-mini::witness_protocol` ships Phase 4 —
+`SubmitEventForWitnessingRequest`/`Response` and
+`FetchWitnessReceiptRequest`/`Response`, canonical wire-encoded, plus pure
+handler functions (`handle_submit_for_witnessing`,
+`handle_fetch_witness_receipt`) operating over a `WitnessJournal`. No
+network transport, no persistence, no gossip — pure message shapes and
+pure logic, matching Phase 1's receipt types landing before Phase 2's
+state machine landed before Phase 3's KEL wiring. Also ships
+`WitnessJournal::observe_declared`, a new entry point that derives the
+witness policy from the submitted KEL's own `declared_witness_policy`
+rather than accepting one as a parameter.
+
+**Why `observe_declared` had to exist before the protocol messages
+could:** `SubmitEventForWitnessingRequest` needed a policy source, and
+`WitnessJournal::observe`/`observe_verified` both take `policy` as a
+caller-supplied argument. A request type carrying a policy field would
+have reopened exactly the forgery D-0459 closed for
+`assess_kel_assurance` — a requester submits a KEL, claims a policy
+naming a witness this node holds, and an honest-but-naive witness signs a
+receipt for an identity that never appointed it. Every assurance level
+this project can report is only as strong as its weakest policy source;
+D-0459 closed the verifying side, and until now the signing side carried
+the identical hole. `observe_declared` closes it the same way D-0459 did:
+not by adding a check a caller could still route around, but by removing
+the parameter — `SubmitEventForWitnessingRequest` has exactly one field,
+`kel`, so the forgery has no field to live in. `handle_submit_for_witnessing`
+calls `observe_declared`, never `observe`/`observe_verified` directly.
+
+**Why there is no `FetchWitnessCertificate` server operation**, despite
+the design doc naming it as Phase 4's own illustrative example:
+`WitnessedEventCertificate::assemble` already exists (Phase 1) and is a
+pure function over receipts a caller already holds. A multi-witness
+certificate is something a *requester* builds locally by collecting one
+`SubmitEventForWitnessingResponse` from each witness it asks — no single
+witness has another witness's receipt without Phase 5's gossip, which
+does not exist yet. `FetchWitnessReceiptRequest` is what one witness can
+honestly answer instead: its own already-issued receipt for
+`(identity, sequence)`, read-only and side-effect-free, so a client that
+lost its copy — or an aggregator gathering from several witnesses — need
+not resubmit a whole KEL.
+
+**Constitutional impact:** none. No new cryptography (composes existing
+`Kel::verify`/`declared_witness_policy`/`WitnessJournal::observe`, all
+already shipped). No frozen invariant touched; strengthens M3's signing
+side the way D-0459 strengthened its verifying side. No voice/value edge
+— this is `did-mini` identity plumbing.
+
+**Implementation status:** shipped —
+`crates/did-mini/src/witness_protocol.rs` (new: both request/response
+pairs, `RejectionReason`, both handlers, 12 tests including a structural
+regression pinning that the request type has no policy field to smuggle
+one through), `crates/did-mini/src/witness_state.rs`
+(`WitnessJournal::observe_declared`), `crates/did-mini/src/witness.rs`
+(`encode_did`/`decode_did`/`encode_digest`/`decode_digest` widened from
+private to `pub(crate)` for reuse, no behavior change),
+`docs/design/kel-witness-receipts-and-duplicity-gossip.md` (Phase 4
+marked shipped).
+
+**Failure point:** `handle_submit_for_witnessing` is not itself
+networked, so nothing here yet stops a well-formed request from an
+attacker who has no relationship to the identity at all from being
+*sent* — the honest response to such a request is simply `Rejected`, at
+the cost of the CPU `Kel::verify` spends re-deriving that answer, which a
+real service will eventually need to rate-limit. `observe_declared`
+inherits `observe_verified`'s existing "re-verifies the whole chain from
+inception on every call" limit (Directive 14's simplest-correct-thing
+choice, not a bounded/incremental verify). `FetchWitnessReceiptRequest`
+answers by `(identity, sequence)` with no authentication of the
+requester, which is fine for what it returns (a receipt the requester
+could equally get from the original submission) but would need
+reconsideration if this crate ever wanted per-requester audit logging or
+rate limiting of witness reads.
+
+**Required follow-up:** Phase 5 (gossip summaries, targeted fetch on
+disagreement), Phase 6 (a persistent witness service — durable state,
+crash recovery, quotas — the natural home for `WitnessJournal` moving out
+of memory), Phase 7 (witness rotation and recovery), and a real socket
+adapter carrying these messages, the equivalent of
+`mini-consensus::discovery` for `mini-net::pex`, for whichever crate
+first runs a witness service.
+
+**Supersedes / superseded by:** extends D-0321/D-0326/D-0459; supersedes
+nothing. Advances Phase 4 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+committed plan.

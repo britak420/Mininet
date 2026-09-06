@@ -135,8 +135,21 @@ exactly what this PR is.
    every call), persistence for the duplicity registry (Phase 6), and
    any real call site that actually *gates* an authority decision on a
    `KelAssurance` level or feeds real proofs into `DuplicityRegistry`.
-4. **Receipt collection protocol** — typed request/response messages
-   (`SubmitEventForWitnessing`, `FetchWitnessCertificate`, etc.).
+4. **Receipt collection protocol (shipped, D-0464)** — typed request/
+   response messages in `did-mini::witness_protocol`:
+   `SubmitEventForWitnessingRequest`/`Response` (carries a whole `Kel`, no
+   policy field — the policy is read from the KEL's own
+   `declared_witness_policy`, per `WitnessJournal::observe_declared`,
+   extending D-0459's fix to the signing side) and
+   `FetchWitnessReceiptRequest`/`Response` (a single witness's own
+   already-issued receipt). No `FetchWitnessCertificate` server operation:
+   `WitnessedEventCertificate::assemble` (Phase 1) is already the pure
+   aggregator, and a certificate is something a requester builds locally
+   from several witnesses' responses, not something one witness can hand
+   back without Phase 5's gossip. Pure message types and handler functions
+   only — no network transport, matching Phase 1-3's own staging; a real
+   socket adapter is separate, later work for whichever crate first runs a
+   witness service.
 5. **Gossip summaries** — piggybacked on existing sync/relay/forge
    traffic, targeted fetch on disagreement only.
 6. **Persistent witness service** — durable state, crash recovery,

@@ -223,11 +223,18 @@ built the receipt types, the witness state machine, duplicity proofs and
 `Pinned` decorative: the `WitnessPolicy` was caller-supplied, so an attacker
 could name witnesses they controlled and earn the strongest assurance level
 for a forged branch. It now comes from the identity's own signed KEL.
-**Closed by:** the remaining phases — receipt collection (4), gossip (5),
-persistence (6), witness rotation (7) — plus a real call site that *gates*
-an authority decision on an assurance level. That last one is a
-founder-facing policy call: which governance action requires which minimum
-level is not an engineering choice.
+**More progress:** **D-0464** ships Phase 4's typed receipt-collection
+protocol (`did-mini::witness_protocol`) — pure request/response messages
+and handlers, no network yet — and extends D-0459's fix to the signing
+side: `WitnessJournal::observe_declared` reads the policy from a
+submitted KEL's own history rather than accepting one as a parameter, so
+`SubmitEventForWitnessingRequest` has no field a forged policy could live
+in.
+**Closed by:** the remaining phases — gossip (5), persistence (6),
+witness rotation (7) — plus a real call site that *gates* an authority
+decision on an assurance level. That last one is a founder-facing policy
+call: which governance action requires which minimum level is not an
+engineering choice.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap
