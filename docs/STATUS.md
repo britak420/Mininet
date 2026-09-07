@@ -275,19 +275,36 @@ given time.
   `resolve_project`'s actual quorum gating, which remains purely
   `author_verified`'s boolean — which governance action (if any) should
   require which minimum assurance level is a founder-facing policy
-  call, not decided unilaterally here. **Not yet real:** no
-  bounded/incremental re-verify (`observe_verified` re-verifies the
-  whole chain from inception on every call, not just the new suffix),
-  no fork-proof construction for the harder "conflicting descendant"
-  case, no recovery-aware handling (every rotation is treated
-  identically), `WitnessPolicy` is still not carried by real
-  `Establishment` events (a certificate still cannot be checked against
-  a live `Kel` end-to-end — the caller supplies the policy directly), no
-  persistence for `DuplicityRegistry` (in-memory only), no
-  `WitnessedRecentAndGossiped` (needs Phase 5 gossip), no real call site
-  yet gates an authority decision on a `KelAssurance` level or feeds
-  real proofs into `DuplicityRegistry`, no gossip. Each remaining phase
-  is its own later PR, gated behind external review (D-0047) before any
+  call, not decided unilaterally here. **Policy binding shipped
+  (D-0459):** `Establishment` now carries `witness_threshold` beside its
+  witness set, `Kel::declared_witness_policy` reads the policy back from
+  the most recent establishment event, and `assess_kel_assurance` takes
+  it from there — `WitnessEvidence::policy` is gone. A caller-supplied
+  policy meant whoever handed a verifier a certificate also handed it
+  the standard the certificate was judged against; every assurance level
+  above `Pinned` was decorative against the only attacker that mattered.
+  `Controller::appoint_witnesses`/`retire_witnesses` are the typed
+  declaration ops; every identity predating this keeps its exact bytes
+  and SCID, checked against a real `origin/main` build. **Phase 4
+  shipped (D-0464):** `did_mini::witness_protocol` —
+  `SubmitEventForWitnessingRequest`/`Response` and
+  `FetchWitnessReceiptRequest`/`Response`, canonical wire-encoded, plus
+  pure handlers over a `WitnessJournal`; no network yet. Extends
+  D-0459's fix to the signing side: the new
+  `WitnessJournal::observe_declared` reads the policy from a submitted
+  KEL's own history, so the request type carries no policy field a
+  forgery could use — 12 tests, including one pinning that the request
+  struct has exactly one field. **Not yet real:** no bounded/incremental
+  re-verify (`observe_verified`/`observe_declared` re-verify the whole
+  chain from inception on every call, not just the new suffix), no
+  fork-proof construction for the harder "conflicting descendant" case,
+  no recovery-aware handling (every rotation is treated identically), no
+  persistence for `DuplicityRegistry` or `WitnessJournal` (in-memory
+  only), no `WitnessedRecentAndGossiped` (needs Phase 5 gossip), no real
+  call site yet gates an authority decision on a `KelAssurance` level or
+  feeds real proofs into `DuplicityRegistry`, no network transport for
+  Phase 4's protocol messages, no gossip. Each remaining phase is its
+  own later PR, gated behind external review (D-0047) before any
   high-value authority decision may depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire
