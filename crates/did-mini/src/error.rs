@@ -158,6 +158,10 @@ pub enum IdentityError {
     /// not actually demonstrate equivocation: different witness, identity,
     /// sequence, or policy generation, or an identical event digest.
     WitnessEquivocationMismatch,
+    /// [`crate::compare_head_summaries`] was given two
+    /// [`crate::KelHeadSummary`]s naming different identities — they are
+    /// not comparable, and the caller has a bug.
+    MismatchedGossipIdentity,
 }
 
 impl fmt::Display for IdentityError {
@@ -293,6 +297,10 @@ impl fmt::Display for IdentityError {
             IdentityError::WitnessEquivocationMismatch => write!(
                 f,
                 "the two receipts do not demonstrate witness equivocation"
+            ),
+            IdentityError::MismatchedGossipIdentity => write!(
+                f,
+                "cannot compare KEL head summaries for two different identities"
             ),
         }
     }

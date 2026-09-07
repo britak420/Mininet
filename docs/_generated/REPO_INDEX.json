@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 73,
-    "files": 916,
+    "files": 917,
     "headings": 3182,
-    "rust_symbols": 9051
+    "rust_symbols": 9073
   },
   "crates": {
     "did-mini": {
@@ -2939,7 +2939,7 @@
       "title": "use std::collections::HashMap;"
     },
     {
-      "bytes": 14525,
+      "bytes": 14915,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -2968,9 +2968,9 @@
         "establishment",
         "does"
       ],
-      "lines": 311,
+      "lines": 319,
       "path": "crates/did-mini/src/error.rs",
-      "sha256": "dcd78a0d0b9fd18e28679a78af13d1b368efa501cf29167b00ffaf9e6d472eb2",
+      "sha256": "6ad2f0efb4b48e2e3b696ccf089da6fedb252083e1dd01f8be290631fea9e217",
       "symbols": [
         {
           "kind": "enum",
@@ -2979,32 +2979,32 @@
         },
         {
           "kind": "impl",
-          "line": 163,
+          "line": 167,
           "name": "fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 164,
+          "line": 168,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 301,
+          "line": 309,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 303,
+          "line": 311,
           "name": "From<CryptoError>"
         },
         {
           "kind": "fn",
-          "line": 304,
+          "line": 312,
           "name": "from"
         },
         {
           "kind": "type",
-          "line": 310,
+          "line": 318,
           "name": "Result"
         }
       ],
@@ -3228,6 +3228,148 @@
         }
       ],
       "title": "use std::collections::HashMap;"
+    },
+    {
+      "bytes": 13989,
+      "group": "crate:did-mini",
+      "headings": [],
+      "keywords": [
+        "kel",
+        "phase",
+        "kelheadsummary",
+        "witness",
+        "identity",
+        "state",
+        "own",
+        "evidence",
+        "already",
+        "event",
+        "gossip",
+        "retrieval",
+        "witness_policy_generation",
+        "summarize",
+        "head",
+        "summary",
+        "sequence",
+        "fetch",
+        "design",
+        "receipt",
+        "peers",
+        "targeted",
+        "module",
+        "type"
+      ],
+      "lines": 347,
+      "path": "crates/did-mini/src/gossip.rs",
+      "sha256": "2ef499805150bd1e696421be9330748cbf78d04236597d9de933075a4ff392f7",
+      "symbols": [
+        {
+          "kind": "struct",
+          "line": 61,
+          "name": "KelHeadSummary"
+        },
+        {
+          "kind": "impl",
+          "line": 73,
+          "name": "KelHeadSummary"
+        },
+        {
+          "kind": "fn",
+          "line": 76,
+          "name": "summarize"
+        },
+        {
+          "kind": "fn",
+          "line": 90,
+          "name": "from_witness_state"
+        },
+        {
+          "kind": "fn",
+          "line": 100,
+          "name": "encode"
+        },
+        {
+          "kind": "fn",
+          "line": 117,
+          "name": "decode"
+        },
+        {
+          "kind": "enum",
+          "line": 141,
+          "name": "HeadAgreement"
+        },
+        {
+          "kind": "fn",
+          "line": 163,
+          "name": "compare_head_summaries"
+        },
+        {
+          "kind": "mod",
+          "line": 190,
+          "name": "tests"
+        },
+        {
+          "kind": "fn",
+          "line": 194,
+          "name": "a_summary_for"
+        },
+        {
+          "kind": "fn",
+          "line": 199,
+          "name": "a_summary_round_trips_through_encode_decode"
+        },
+        {
+          "kind": "fn",
+          "line": 207,
+          "name": "an_identity_with_no_witness_policy_summarizes_generation_as_none"
+        },
+        {
+          "kind": "fn",
+          "line": 214,
+          "name": "an_identity_with_a_witness_policy_summarizes_its_generation"
+        },
+        {
+          "kind": "fn",
+          "line": 225,
+          "name": "identical_summaries_agree"
+        },
+        {
+          "kind": "fn",
+          "line": 236,
+          "name": "same_sequence_different_digest_is_a_disagreement"
+        },
+        {
+          "kind": "fn",
+          "line": 254,
+          "name": "a_higher_sequence_is_ahead_by_the_difference"
+        },
+        {
+          "kind": "fn",
+          "line": 277,
+          "name": "comparing_summaries_for_different_identities_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 289,
+          "name": "from_witness_state_carries_the_accepted_head_exactly"
+        },
+        {
+          "kind": "fn",
+          "line": 317,
+          "name": "trailing_bytes_are_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 326,
+          "name": "a_truncated_summary_is_rejected_not_panicked"
+        },
+        {
+          "kind": "fn",
+          "line": 335,
+          "name": "an_unknown_generation_presence_tag_is_rejected"
+        }
+      ],
+      "title": "use crate::codec::{Reader, Writer};"
     },
     {
       "bytes": 4694,
@@ -3459,21 +3601,20 @@
       "title": "use mini_crypto::VerifyingKey;"
     },
     {
-      "bytes": 5584,
+      "bytes": 5669,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
         "scid",
         "did",
         "kel",
-        "self",
         "event",
         "spec-01",
+        "self",
         "controller",
         "method",
         "str",
         "delegation",
-        "fmt",
         "identifier",
         "one",
         "device",
@@ -3483,14 +3624,15 @@
         "duplicity",
         "error",
         "freshness",
+        "gossip",
         "identity_mode",
         "limits",
         "witness",
         "witness_protocol"
       ],
-      "lines": 154,
+      "lines": 156,
       "path": "crates/did-mini/src/lib.rs",
-      "sha256": "83a244772fc1f14893d0108b8fd7123f2da75eb327447348ac483f281d1e4796",
+      "sha256": "f220691c0c5fed80ee00b12a870967b66638a0176b605365e679ad6bb0b3ae51",
       "symbols": [
         {
           "kind": "mod",
@@ -3540,81 +3682,86 @@
         {
           "kind": "mod",
           "line": 59,
-          "name": "identity_mode"
+          "name": "gossip"
         },
         {
           "kind": "mod",
           "line": 60,
-          "name": "kel"
+          "name": "identity_mode"
         },
         {
           "kind": "mod",
           "line": 61,
-          "name": "limits"
+          "name": "kel"
         },
         {
           "kind": "mod",
           "line": 62,
-          "name": "witness"
+          "name": "limits"
         },
         {
           "kind": "mod",
           "line": 63,
-          "name": "witness_protocol"
+          "name": "witness"
         },
         {
           "kind": "mod",
           "line": 64,
+          "name": "witness_protocol"
+        },
+        {
+          "kind": "mod",
+          "line": 65,
           "name": "witness_state"
         },
         {
           "kind": "const",
-          "line": 96,
+          "line": 98,
           "name": "METHOD"
         },
         {
           "kind": "struct",
-          "line": 103,
-          "name": "Did"
-        },
-        {
-          "kind": "impl",
           "line": 105,
           "name": "Did"
         },
         {
+          "kind": "impl",
+          "line": 107,
+          "name": "Did"
+        },
+        {
           "kind": "fn",
-          "line": 108,
+          "line": 110,
           "name": "from_scid"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 120,
           "name": "parse"
         },
         {
           "kind": "fn",
-          "line": 129,
+          "line": 131,
           "name": "scid"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 136,
           "name": "as_str"
         },
         {
           "kind": "impl",
-          "line": 139,
+          "line": 141,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 142,
           "name": "fmt"
         },
         {
           "kind": "fn",
-          "line": 145,
+          "line": 147,
           "name": "validate_scid"
         }
       ],
@@ -75887,7 +76034,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1089364,
+      "bytes": 1095572,
       "group": "docs",
       "headings": [
         {
@@ -76299,27 +76446,27 @@
         "real",
         "founder",
         "android",
-        "beta",
         "slice",
+        "beta",
         "review",
         "audit",
         "closes",
         "signed",
         "roadmap",
         "doctrine",
+        "phase",
         "decision",
         "log",
         "batch",
         "local",
         "release",
-        "phase",
         "first",
         "transport",
-        "witness"
+        "design"
       ],
-      "lines": 18058,
+      "lines": 18161,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "f2493e60704dfac7fdb5c3f0de79e4eda1085e0ed6623d0f4f7dcac50fb2b84d",
+      "sha256": "e797f1e1f75438cb24b31f6500e15097e81f6320b4b01f9037c0bfc4f3849db1",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -77334,7 +77481,7 @@
       "title": "Mininet roadmap: from two-phone proof to self-governed network"
     },
     {
-      "bytes": 20711,
+      "bytes": 21287,
       "group": "docs",
       "headings": [
         {
@@ -77414,72 +77561,72 @@
         },
         {
           "level": 3,
-          "line": 260,
+          "line": 268,
           "text": "R10 \u2014 BLE and local-radio transport \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 267,
+          "line": 275,
           "text": "R11 \u2014 A client application people can actually use \u00b7 `ready`"
         },
         {
           "level": 1,
-          "line": 276,
+          "line": 284,
           "text": "Phase 4 \u2014 The gates code cannot close"
         },
         {
           "level": 3,
-          "line": 283,
+          "line": 291,
           "text": "R12 \u2014 External cryptography audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 294,
+          "line": 302,
           "text": "R13 \u2014 FROST DKG audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 300,
+          "line": 308,
           "text": "R14 \u2014 Legal counsel review \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 304,
+          "line": 312,
           "text": "R15 \u2014 Sybil resistance and personhood \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 316,
+          "line": 324,
           "text": "R16 \u2014 Tokenomics validation \u00b7 `outside`"
         },
         {
           "level": 1,
-          "line": 324,
+          "line": 332,
           "text": "Phase 5 \u2014 Release engineering"
         },
         {
           "level": 3,
-          "line": 326,
+          "line": 334,
           "text": "R17 \u2014 Adversarial testing at real-world scale \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 333,
+          "line": 341,
           "text": "R18 \u2014 Genesis, validator set, and activation \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 340,
+          "line": 348,
           "text": "R19 \u2014 Release, install, and rollback on real targets \u00b7 `ready`"
         },
         {
           "level": 3,
-          "line": 348,
+          "line": 356,
           "text": "R20 \u2014 The honest launch statement \u00b7 `blocked`"
         },
         {
           "level": 2,
-          "line": 361,
+          "line": 369,
           "text": "What is deliberately *not* on this list"
         }
       ],
@@ -77509,9 +77656,9 @@
         "pull",
         "again"
       ],
-      "lines": 373,
+      "lines": 381,
       "path": "docs/ROADMAP_TO_RELEASE.md",
-      "sha256": "7d5d8aff9b7f1b0060e044da707ae6f7a0b253a65b132d9c9da77fba4483f90b",
+      "sha256": "0fe32ca385c480ab27ea0e61b6921c91c033d5242bce36e2c82213a75a99d818",
       "symbols": [],
       "title": "The road to release"
     },
@@ -77650,7 +77797,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 164672,
+      "bytes": 165539,
       "group": "docs",
       "headings": [
         {
@@ -77685,77 +77832,77 @@
         },
         {
           "level": 2,
-          "line": 338,
+          "line": 352,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 728,
+          "line": 742,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 775,
+          "line": 789,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 997,
+          "line": 1011,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1191,
+          "line": 1205,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1252,
+          "line": 1266,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1282,
+          "line": 1296,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1609,
+          "line": 1623,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2087,
+          "line": 2101,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2178,
+          "line": 2192,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2258,
+          "line": 2272,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2324,
+          "line": 2338,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2341,
+          "line": 2355,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2377,
+          "line": 2391,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2442,
+          "line": 2456,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -77785,9 +77932,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2477,
+      "lines": 2491,
       "path": "docs/STATUS.md",
-      "sha256": "dc858638d4cba804036eb4d5adf18d8d395a140cca047e3974ca2b3059818c1a",
+      "sha256": "2d78f7471a3a1761ed7990198e57ad68590dc61abbd5cb1793c99ff535aa3b0e",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -82544,7 +82691,7 @@
       "title": "Long-term inflation and whale-attack resistance \u2014 founder decision (D-0074)"
     },
     {
-      "bytes": 12346,
+      "bytes": 13598,
       "group": "docs",
       "headings": [
         {
@@ -82554,64 +82701,64 @@
         },
         {
           "level": 2,
-          "line": 22,
+          "line": 26,
           "text": "The gap this closes"
         },
         {
           "level": 2,
-          "line": 33,
+          "line": 37,
           "text": "Decision"
         },
         {
           "level": 2,
-          "line": 59,
+          "line": 63,
           "text": "Why design-only, this PR"
         },
         {
           "level": 2,
-          "line": 72,
+          "line": 76,
           "text": "Phased plan this repo commits to (see report \u00a729 for full detail)"
         },
         {
           "level": 2,
-          "line": 167,
+          "line": 185,
           "text": "Hard rules carried forward from the report"
         },
         {
           "level": 2,
-          "line": 188,
+          "line": 206,
           "text": "What this document originally covered, and what D-0321/D-0326 added"
         }
       ],
       "keywords": [
         "witness",
         "phase",
-        "receipts",
         "gossip",
+        "receipt",
+        "kel",
+        "receipts",
         "report",
         "what",
         "identity",
-        "kel",
-        "receipt",
         "state",
-        "verification",
-        "event",
         "design",
         "duplicity",
         "audit",
         "repo",
         "full",
+        "first",
+        "real",
+        "verification",
         "own",
+        "shipped",
         "verifier",
-        "conflicting",
+        "event",
         "invariant",
-        "gap",
-        "design-only",
-        "phased"
+        "gap"
       ],
-      "lines": 204,
+      "lines": 222,
       "path": "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
-      "sha256": "da6dfc0fc995c5a25bc389117363b8a019ef7c57d3a56a05b61029d45466a4c2",
+      "sha256": "82c7ffe46a06a70ceec36d2e425d7972f12b30377813da65701983448d1f135d",
       "symbols": [],
       "title": "KEL witness receipts and duplicity gossip (audit #12 F4, invariant M3)"
     },
@@ -94017,7 +94164,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 65079,
+      "bytes": 66889,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -94046,9 +94193,9 @@
         "independently",
         "both"
       ],
-      "lines": 1037,
+      "lines": 1056,
       "path": "governance/work-claims.json",
-      "sha256": "adcf17893c249580e04706378d00bdca79f8005908a2641e2ce0d4021b410bee",
+      "sha256": "06881646d5f56218e7eab4ca4f588dea9b18bcf562767c90754847cb100a46b4",
       "symbols": [],
       "title": "{"
     },

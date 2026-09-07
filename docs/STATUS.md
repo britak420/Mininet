@@ -294,17 +294,31 @@ given time.
   `WitnessJournal::observe_declared` reads the policy from a submitted
   KEL's own history, so the request type carries no policy field a
   forgery could use — 12 tests, including one pinning that the request
-  struct has exactly one field. **Not yet real:** no bounded/incremental
+  struct has exactly one field. **KEL head gossip summaries shipped
+  (Phase 5's first slice, D-0466):** `did_mini::gossip`'s
+  `KelHeadSummary` — a compact, unsigned `(identity, sequence,
+  event_digest, witness_policy_generation)` claim, buildable from a live
+  `Kel` or from a witness's own accepted state — and
+  `compare_head_summaries`, a pure function classifying a pair as
+  `Agrees`/`Disagreement { at_sequence }`/`Ahead { by }`/`Behind { by }`;
+  11 tests. No new evidence-retrieval request type: resolving a
+  `Disagreement` or `Ahead` reuses D-0464's existing
+  `SubmitEventForWitnessingRequest`/`FetchWitnessReceiptRequest` rather
+  than duplicating them. **A persistent witness journal (Phase 6,
+  D-0465) has shipped on a concurrently-open PR**, not yet merged to
+  `main` as of this writing. **Not yet real:** no bounded/incremental
   re-verify (`observe_verified`/`observe_declared` re-verify the whole
   chain from inception on every call, not just the new suffix), no
   fork-proof construction for the harder "conflicting descendant" case,
   no recovery-aware handling (every rotation is treated identically), no
-  persistence for `DuplicityRegistry` or `WitnessJournal` (in-memory
-  only), no `WitnessedRecentAndGossiped` (needs Phase 5 gossip), no real
-  call site yet gates an authority decision on a `KelAssurance` level or
-  feeds real proofs into `DuplicityRegistry`, no network transport for
-  Phase 4's protocol messages, no gossip. Each remaining phase is its
-  own later PR, gated behind external review (D-0047) before any
+  persistence for `DuplicityRegistry` (in-memory only), no
+  `WitnessedRecentAndGossiped` (a `KelHeadSummary` is not yet wired into
+  any real gossip transport — `mini-sync`/`mini-relay`/`mini-forge`
+  piggybacking remains open), no real call site yet gates an authority
+  decision on a `KelAssurance` level or feeds real proofs into
+  `DuplicityRegistry`, no network transport for Phase 4's protocol
+  messages. Each remaining phase is its own later PR, gated behind
+  external review (D-0047) before any
   high-value authority decision may depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire
