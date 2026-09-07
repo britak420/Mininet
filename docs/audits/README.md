@@ -19,6 +19,10 @@ or substantially addresses, so the mapping between "what was asked" and
 | [`external-full-codebase-audit-2026-08-05.md`](external-full-codebase-audit-2026-08-05.md) | — | Received external review; unverified reviewer, no tooling run. 7 findings confirmed and fixed, the rest tracked |
 | [`external-full-codebase-audit-2026-08-05-response.md`](external-full-codebase-audit-2026-08-05-response.md) | — | Disposition record for the above. Closes no gate |
 | [`day0-release-code-hardening-20260805.md`](day0-release-code-hardening-20260805.md) | — | Internal release-hardening evidence: 9 original defects fixed under D-0442; exact-body finality and monetary wire follow-on under D-0443. Not an external audit |
+| [`PROJECT_BUILD_HISTORY.md`](PROJECT_BUILD_HISTORY.md) | — | GitHub-only chronological reconstruction of architecture, decisions, corrections and current blockers; internal, not external sign-off |
+| [`PR_HISTORY_LEDGER.md`](PR_HISTORY_LEDGER.md) | — | Auditor navigation ledger plus per-PR worksheet/procedure; merged history is evidence, never correctness proof |
+| [`AUDIT_EVIDENCE_INDEX.md`](AUDIT_EVIDENCE_INDEX.md) | — | Current claim→mechanism→evidence→gate map; PASS/PARTIAL/FAIL bounded to the recorded scope |
+| [`EXTERNAL_AUDIT_MASTER_REPORT.md`](EXTERNAL_AUDIT_MASTER_REPORT.md) | — | AI-drafted internal readiness report across all 18 Founder Directives; overall production verdict NO-GO, closes no external gate |
 
 ## Required scope header (D-0441)
 
