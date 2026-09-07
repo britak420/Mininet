@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 73,
-    "files": 915,
+    "files": 916,
     "headings": 3182,
-    "rust_symbols": 9007
+    "rust_symbols": 9051
   },
   "crates": {
     "did-mini": {
@@ -17576,15 +17576,15 @@
       "title": "use std::net::{SocketAddr, TcpListener, TcpStream};"
     },
     {
-      "bytes": 5924,
+      "bytes": 7504,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
         "consensuserror",
         "write",
         "height",
-        "got",
         "message",
+        "got",
         "u64",
         "error",
         "result",
@@ -17594,20 +17594,20 @@
         "malformed",
         "round",
         "chain",
-        "state",
         "block",
         "transport",
         "node",
         "expected",
-        "archive",
-        "contains",
         "maximum",
-        "snapshot",
-        "current"
+        "match",
+        "validator-handshake",
+        "attestation",
+        "mini_chain",
+        "did_mini"
       ],
-      "lines": 144,
+      "lines": 176,
       "path": "crates/mini-consensus/src/error.rs",
-      "sha256": "7678c4bededbbeff338c1b55179c53adc738de01ad18d7a9aaa9816aaaeb4b10",
+      "sha256": "89fdcc2ba24dc7f77b8c076098c54361af4095cd3128b81e21d800d57e43bf4b",
       "symbols": [
         {
           "kind": "type",
@@ -17621,67 +17621,77 @@
         },
         {
           "kind": "impl",
-          "line": 65,
+          "line": 78,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 66,
+          "line": 79,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 113,
+          "line": 139,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 115,
+          "line": 141,
           "name": "From<mini_chain::ChainError>"
         },
         {
           "kind": "fn",
-          "line": 116,
+          "line": 142,
           "name": "from"
         },
         {
           "kind": "impl",
-          "line": 121,
+          "line": 147,
           "name": "From<mini_execution::ExecutionError>"
         },
         {
           "kind": "fn",
-          "line": 122,
+          "line": 148,
           "name": "from"
         },
         {
           "kind": "impl",
-          "line": 127,
+          "line": 153,
           "name": "From<mini_bearer::BearerError>"
         },
         {
           "kind": "fn",
-          "line": 128,
+          "line": 154,
           "name": "from"
         },
         {
           "kind": "impl",
-          "line": 133,
+          "line": 159,
           "name": "From<std::io::Error>"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 160,
           "name": "from"
         },
         {
           "kind": "impl",
-          "line": 139,
+          "line": 165,
           "name": "From<mini_net::NetError>"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 166,
+          "name": "from"
+        },
+        {
+          "kind": "impl",
+          "line": 171,
+          "name": "From<did_mini::IdentityError>"
+        },
+        {
+          "kind": "fn",
+          "line": 172,
           "name": "from"
         }
       ],
@@ -17825,7 +17835,7 @@
       "title": "use mini_chain::{verify_vote, ValidatorOracle, Vote, VoteKind};"
     },
     {
-      "bytes": 8551,
+      "bytes": 9218,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
@@ -17854,73 +17864,78 @@
         "same",
         "votes"
       ],
-      "lines": 150,
+      "lines": 161,
       "path": "crates/mini-consensus/src/lib.rs",
-      "sha256": "8bfcc6685e42f24ddc3e35cd6fc64619d93bc5c2d48527cd819c8d3a933ee669",
+      "sha256": "eb899640c07907174deef04d492026d7b745b2065714fded41ab1cc8502d76e7",
       "symbols": [
         {
           "kind": "mod",
-          "line": 120,
+          "line": 126,
           "name": "catchup"
         },
         {
           "kind": "mod",
-          "line": 121,
+          "line": 127,
           "name": "consequence"
         },
         {
           "kind": "mod",
-          "line": 122,
+          "line": 128,
           "name": "discovery"
         },
         {
           "kind": "mod",
-          "line": 123,
+          "line": 129,
           "name": "error"
         },
         {
           "kind": "mod",
-          "line": 124,
+          "line": 130,
           "name": "evidence"
         },
         {
           "kind": "mod",
-          "line": 125,
+          "line": 131,
           "name": "node"
         },
         {
           "kind": "mod",
-          "line": 126,
+          "line": 132,
           "name": "round"
         },
         {
           "kind": "mod",
-          "line": 127,
+          "line": 133,
           "name": "snapshot"
         },
         {
           "kind": "mod",
-          "line": 128,
+          "line": 134,
           "name": "state_sync"
         },
         {
           "kind": "mod",
-          "line": 129,
+          "line": 135,
           "name": "store"
         },
         {
           "kind": "mod",
-          "line": 130,
+          "line": 136,
+          "name": "validator_channel"
+        },
+        {
+          "kind": "mod",
+          "line": 137,
           "name": "wire"
         },
         {
           "kind": "mod",
-          "line": 133,
+          "line": 140,
           "name": "snapshot_sync_tests"
         },
         {
           "kind": "mod",
-          "line": 135,
+          "line": 142,
           "name": "net"
         }
       ],
@@ -19664,6 +19679,248 @@
         }
       ],
       "title": "use std::fs::{self, File, OpenOptions};"
+    },
+    {
+      "bytes": 22972,
+      "group": "crate:mini-consensus",
+      "headings": [],
+      "keywords": [
+        "channel",
+        "validator",
+        "same",
+        "handshake",
+        "own",
+        "device",
+        "mini-consensus",
+        "other",
+        "already",
+        "attestation",
+        "const",
+        "validatorhandshakeattestation",
+        "signature",
+        "kel",
+        "binding",
+        "identity",
+        "anonymous",
+        "vote",
+        "mini_chain",
+        "one",
+        "signed",
+        "wire",
+        "transcript",
+        "mini_bearer"
+      ],
+      "lines": 546,
+      "path": "crates/mini-consensus/src/validator_channel.rs",
+      "sha256": "55fc0dc9084e98460c2d26f7e3d70c80eab4cf99a5a10ee2dff439c9cd76dbdc",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 62,
+          "name": "HANDSHAKE_AAD"
+        },
+        {
+          "kind": "const",
+          "line": 69,
+          "name": "HANDSHAKE_SIGN_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 74,
+          "name": "WIRE_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 78,
+          "name": "MAX_SIGS"
+        },
+        {
+          "kind": "const",
+          "line": 82,
+          "name": "MAX_DID_BYTES"
+        },
+        {
+          "kind": "struct",
+          "line": 87,
+          "name": "ValidatorHandshakeAttestation"
+        },
+        {
+          "kind": "impl",
+          "line": 98,
+          "name": "ValidatorHandshakeAttestation"
+        },
+        {
+          "kind": "fn",
+          "line": 99,
+          "name": "transcript"
+        },
+        {
+          "kind": "fn",
+          "line": 107,
+          "name": "signature"
+        },
+        {
+          "kind": "fn",
+          "line": 115,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 134,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 177,
+          "name": "sign_validator_handshake"
+        },
+        {
+          "kind": "fn",
+          "line": 199,
+          "name": "verify_validator_handshake"
+        },
+        {
+          "kind": "fn",
+          "line": 227,
+          "name": "send_validator_handshake"
+        },
+        {
+          "kind": "fn",
+          "line": 242,
+          "name": "recv_validator_handshake"
+        },
+        {
+          "kind": "fn",
+          "line": 264,
+          "name": "put_str"
+        },
+        {
+          "kind": "fn",
+          "line": 269,
+          "name": "take_did"
+        },
+        {
+          "kind": "struct",
+          "line": 282,
+          "name": "SliceReader"
+        },
+        {
+          "kind": "impl",
+          "line": 287,
+          "name": "SliceReader<'a>"
+        },
+        {
+          "kind": "fn",
+          "line": 288,
+          "name": "new"
+        },
+        {
+          "kind": "fn",
+          "line": 292,
+          "name": "take"
+        },
+        {
+          "kind": "fn",
+          "line": 302,
+          "name": "u8"
+        },
+        {
+          "kind": "fn",
+          "line": 306,
+          "name": "u32"
+        },
+        {
+          "kind": "fn",
+          "line": 312,
+          "name": "finished"
+        },
+        {
+          "kind": "mod",
+          "line": 318,
+          "name": "tests"
+        },
+        {
+          "kind": "fn",
+          "line": 322,
+          "name": "validator"
+        },
+        {
+          "kind": "fn",
+          "line": 333,
+          "name": "a_signed_attestation_survives_a_wire_round_trip_byte_for_byte"
+        },
+        {
+          "kind": "fn",
+          "line": 346,
+          "name": "an_attestation_from_unappointed_or_uncapable_devices_does_not_verify"
+        },
+        {
+          "kind": "fn",
+          "line": 370,
+          "name": "an_attestation_cannot_be_transplanted_onto_a_different_channel"
+        },
+        {
+          "kind": "fn",
+          "line": 383,
+          "name": "a_device_without_vote_capability_cannot_authenticate_as_a_validator"
+        },
+        {
+          "kind": "fn",
+          "line": 399,
+          "name": "a_truncated_frame_is_rejected_not_panicked"
+        },
+        {
+          "kind": "fn",
+          "line": 411,
+          "name": "trailing_garbage_after_a_valid_attestation_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 422,
+          "name": "an_absurd_signature_count_is_rejected_before_allocating"
+        },
+        {
+          "kind": "fn",
+          "line": 435,
+          "name": "a_signature_over_the_undomained_channel_binding_does_not_verify"
+        },
+        {
+          "kind": "struct",
+          "line": 464,
+          "name": "Directory"
+        },
+        {
+          "kind": "impl",
+          "line": 465,
+          "name": "Directory"
+        },
+        {
+          "kind": "fn",
+          "line": 466,
+          "name": "insert"
+        },
+        {
+          "kind": "impl",
+          "line": 470,
+          "name": "ValidatorOracle"
+        },
+        {
+          "kind": "fn",
+          "line": 471,
+          "name": "kel"
+        },
+        {
+          "kind": "fn",
+          "line": 477,
+          "name": "a_validator_authenticates_itself_over_a_real_socket"
+        },
+        {
+          "kind": "fn",
+          "line": 509,
+          "name": "a_validator_handshake_crosses_the_wire_as_ciphertext_never_plaintext"
+        }
+      ],
+      "title": "use did_mini::{verify_delegation, Capabilities, Controller, Did, IndexedSig, Kel};"
     },
     {
       "bytes": 26527,
@@ -75630,7 +75887,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1083843,
+      "bytes": 1089364,
       "group": "docs",
       "headings": [
         {
@@ -76060,9 +76317,9 @@
         "transport",
         "witness"
       ],
-      "lines": 17968,
+      "lines": 18058,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "e550f8470521c1d553608cadfa310aa5b2bcd031774f86ff7444266b44394c2d",
+      "sha256": "f2493e60704dfac7fdb5c3f0de79e4eda1085e0ed6623d0f4f7dcac50fb2b84d",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -77077,7 +77334,7 @@
       "title": "Mininet roadmap: from two-phone proof to self-governed network"
     },
     {
-      "bytes": 19193,
+      "bytes": 20711,
       "group": "docs",
       "headings": [
         {
@@ -77152,77 +77409,77 @@
         },
         {
           "level": 3,
-          "line": 213,
+          "line": 234,
           "text": "R9 \u2014 KEL freshness and witnesses (M3) \u00b7 `active`"
         },
         {
           "level": 3,
-          "line": 239,
+          "line": 260,
           "text": "R10 \u2014 BLE and local-radio transport \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 246,
+          "line": 267,
           "text": "R11 \u2014 A client application people can actually use \u00b7 `ready`"
         },
         {
           "level": 1,
-          "line": 255,
+          "line": 276,
           "text": "Phase 4 \u2014 The gates code cannot close"
         },
         {
           "level": 3,
-          "line": 262,
+          "line": 283,
           "text": "R12 \u2014 External cryptography audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 273,
+          "line": 294,
           "text": "R13 \u2014 FROST DKG audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 279,
+          "line": 300,
           "text": "R14 \u2014 Legal counsel review \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 283,
+          "line": 304,
           "text": "R15 \u2014 Sybil resistance and personhood \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 295,
+          "line": 316,
           "text": "R16 \u2014 Tokenomics validation \u00b7 `outside`"
         },
         {
           "level": 1,
-          "line": 303,
+          "line": 324,
           "text": "Phase 5 \u2014 Release engineering"
         },
         {
           "level": 3,
-          "line": 305,
+          "line": 326,
           "text": "R17 \u2014 Adversarial testing at real-world scale \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 312,
+          "line": 333,
           "text": "R18 \u2014 Genesis, validator set, and activation \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 319,
+          "line": 340,
           "text": "R19 \u2014 Release, install, and rollback on real targets \u00b7 `ready`"
         },
         {
           "level": 3,
-          "line": 327,
+          "line": 348,
           "text": "R20 \u2014 The honest launch statement \u00b7 `blocked`"
         },
         {
           "level": 2,
-          "line": 340,
+          "line": 361,
           "text": "What is deliberately *not* on this list"
         }
       ],
@@ -77252,9 +77509,9 @@
         "pull",
         "again"
       ],
-      "lines": 352,
+      "lines": 373,
       "path": "docs/ROADMAP_TO_RELEASE.md",
-      "sha256": "cd27d5496b1bc07b0da132a731b63debe4a531b61d54cc9b30a260f01894c2df",
+      "sha256": "7d5d8aff9b7f1b0060e044da707ae6f7a0b253a65b132d9c9da77fba4483f90b",
       "symbols": [],
       "title": "The road to release"
     },
@@ -77393,7 +77650,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 163347,
+      "bytes": 164672,
       "group": "docs",
       "headings": [
         {
@@ -77433,72 +77690,72 @@
         },
         {
           "level": 2,
-          "line": 709,
+          "line": 728,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 756,
+          "line": 775,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 978,
+          "line": 997,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1172,
+          "line": 1191,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1233,
+          "line": 1252,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1263,
+          "line": 1282,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1590,
+          "line": 1609,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2068,
+          "line": 2087,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2159,
+          "line": 2178,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2239,
+          "line": 2258,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2305,
+          "line": 2324,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2322,
+          "line": 2341,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2358,
+          "line": 2377,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2423,
+          "line": 2442,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -77528,9 +77785,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2458,
+      "lines": 2477,
       "path": "docs/STATUS.md",
-      "sha256": "195b42f838b14e2233c1c98516960cf1d715c3d9ba8993c1abcc72c0559afeeb",
+      "sha256": "dc858638d4cba804036eb4d5adf18d8d395a140cca047e3974ca2b3059818c1a",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -93760,7 +94017,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 61638,
+      "bytes": 65079,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -93789,9 +94046,9 @@
         "independently",
         "both"
       ],
-      "lines": 1000,
+      "lines": 1037,
       "path": "governance/work-claims.json",
-      "sha256": "7428ebcff9f73b12512f97356bfc9026d51478ec4473afdc45bbdca6619c2f11",
+      "sha256": "adcf17893c249580e04706378d00bdca79f8005908a2641e2ce0d4021b410bee",
       "symbols": [],
       "title": "{"
     },
