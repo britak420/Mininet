@@ -1,5 +1,15 @@
 # Pull-request history ledger — how to reconstruct every change
 
+**Audit scope**
+
+| Field | Value |
+|---|---|
+| Reviewed at | `main` @ `2721f95db0f8be105d9582d64939d1110ed823b8` |
+| Workspace size at that commit | 72 crates; resolved dependency count not independently measured in this GitHub-only review |
+| Method | GitHub-only review of pull-request history, repository documentation, and current trust-model records. This ledger was not generated from a local clone and did not execute builds/tests |
+| Tool versions | GitHub repository connector only; no code-analysis toolchain executed |
+| Revalidation trigger | Any merge that materially changes a cited subsystem, supersedes a cited D-number, changes current gate status, or alters the repository's canonical PR/decision/failure history |
+
 **Scope:** GitHub repository history only. Pull requests and issues share GitHub's number namespace, so missing PR numbers do **not** imply missing history. For any row below, the linked PR description, commits, review conversation and merge commit are the primary evidence; this ledger is a navigation/reasoning layer.
 
 **Audit rule:** never infer current correctness from “merged.” A merged PR proves that a change entered the canonical Git history. Later PRs may fix, supersede, narrow or invalidate its claims. Always read forward to the current `main`, `docs/DECISION_LOG.md`, `docs/FAILURE_BOOK.md`, `docs/STATUS.md`, and `docs/ROADMAP_TO_RELEASE.md`.
