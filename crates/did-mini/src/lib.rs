@@ -62,6 +62,7 @@ mod kel;
 mod limits;
 mod witness;
 mod witness_protocol;
+mod witness_rotation;
 mod witness_state;
 
 use mini_crypto::{encoding, Multihash};
@@ -89,6 +90,7 @@ pub use witness_protocol::{
     FetchWitnessReceiptResponse, RejectionReason, SubmitEventForWitnessingRequest,
     SubmitEventForWitnessingResponse,
 };
+pub use witness_rotation::verify_policy_transition;
 pub use witness_state::{
     ControllerDuplicityProof, WitnessEquivocationProof, WitnessIdentityState, WitnessJournal,
     WitnessObservation,
