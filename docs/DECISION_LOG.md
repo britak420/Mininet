@@ -18492,3 +18492,121 @@ in Phase 7's own remaining scope.
 **Supersedes / superseded by:** extends D-0321/D-0326; supersedes nothing.
 Advances Phase 7 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
 committed plan.
+
+### D-0472 — PEX-discovered peers drive real gossip fanout, over real TCP  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0092 (`mini_net::pex`, `AddressBook`,
+`PexMessage`), roadmap [#24](../../issues/24) (peer discovery, overlay
+routing & NAT traversal), roadmap [#45](../../issues/45)/R8 (this crate's
+own PEX-over-TCP precedent reused by `mini_consensus::discovery`),
+Directive 11, [#92](../../issues/92).
+
+**Decision:** `mini-net`'s own `STATUS.md` entry for D-0092 named the
+gap directly: "`mini-net`'s gossip logic is still proven live over real
+sockets separately from [PEX]; the two aren't wired together yet (that
+integration — routing PEX-discovered peers into gossip fanout — is
+follow-up, not done here)." `mini_net::gossip::dialable_fanout(routing,
+book, target, fanout, exclude)` closes it: it composes
+`RoutingTable::closest_peers`, `AddressBook::get` and the existing
+`fanout_peers` into the one query a gossiping node actually needs — the
+nearest peers to `target` this node can both route to *and* dial,
+skipping any peer that is routing-known but still address-less (e.g. a
+PEX hint nobody has followed up on yet) and skipping a caller-named
+`exclude` (typically the peer a message just arrived from, so gossip
+never bounces straight back to its own sender).
+
+**Why this was a real gap, not just an untested one:** `RoutingTable`
+alone names ids, never addresses (`PeerId`'s own docs: "not a
+cryptographic key and not an identity — purely a position in the routing
+overlay"). Before this, a caller wanting to gossip to "my closest peers"
+had no library function that cross-referenced `AddressBook` for them —
+either every caller reimplemented the same filter/take composition
+itself (D-0026's "two places doing the same operation is how one ends up
+subtly wrong" reasoning, previously applied to hashing in D-0470), or
+skipped the check and risked handing a socket-dialing caller a `PeerId`
+it cannot actually connect to.
+
+**Why this stays a pure function, not a new `mini-bearer` dependency for
+the library:** this crate's own docs already commit to "this crate's own
+library code stays transport-agnostic (D-0042); the live demo is what
+actually puts gossip frames on a real socket" (`Cargo.toml`'s own
+comment on why `mini-bearer` is a dev-dependency only, used by
+`examples/gossip_live_demo.rs`). Reversing that into a normal dependency
+was not this slice's call to make unilaterally. `dialable_fanout` keeps
+the crate's public API exactly as transport-agnostic as `build_response`/
+`absorb_response` already are; the real-socket proof lives in a test,
+composing already-public functions over a real `mini_bearer::TcpBearer`,
+the same way `tests/pex_over_tcp.rs` already proved PEX itself without
+adding any transport dependency to the library.
+
+**What ships:**
+
+- `mini_net::gossip::dialable_fanout` (new, re-exported from the crate
+  root): pure, deterministic (matching this module's own already-stated
+  "closest-first, not randomized" honest limit), four new unit tests in
+  `tests/net.rs` (skips an address-less routing-known peer, excludes a
+  named sender even though it is dialable, caps at the requested size
+  nearest-first, returns empty when nothing is dialable).
+- `crates/mini-net/tests/pex_driven_gossip_mesh.rs` (new, 2 tests): the
+  end-to-end proof over real sockets.
+  `a_node_gossips_to_a_peer_it_only_ever_learned_about_through_pex_over_real_tcp`
+  runs the same PEX round `tests/pex_over_tcp.rs` already proves (A knows
+  only B; B already knows C), then goes one step further than that test
+  does: A selects C as a fanout target purely through `dialable_fanout`
+  (never a hardcoded address), dials a connection A never had before the
+  test ran, and gossips a message that C's own `GossipRouter` accepts
+  exactly once. `a_message_already_seen_is_never_forwarded_back_to_its_own_sender`
+  isolates the exclusion guarantee alone, closing the loop a naive
+  "fan out to my closest peers" implementation would otherwise create.
+
+**What this does not do, stated plainly:**
+
+- **Not a running mesh.** `dialable_fanout` is a selection function for
+  one node's one fanout decision — a caller still assembles the loop that
+  actually runs a live multi-hop mesh (many nodes, PEX rounds refreshing
+  routing state over time, messages actually crossing more than one
+  relay), the same way `mini_consensus::discovery::pex_over_tcp` wires
+  this crate's PEX logic specifically for the consensus mesh rather than
+  this crate doing it generically. `examples/gossip_live_demo.rs`'s own
+  "hub-and-spoke, not a mesh" / "no peer discovery" honest limits are
+  unchanged by this — that example still doesn't build one; the new test
+  proves the composition exists in library-callable form instead.
+- **No bucket-refresh-by-liveness-ping.** `routing.rs`'s own stated
+  honest limit — a full bucket still simply refuses new candidates rather
+  than evicting a stale one — is untouched.
+- **No randomized fanout.** `gossip.rs`'s own stated honest limit —
+  deterministic closest-first selection, not the randomized/weighted
+  selection real gossip networks use to resist eclipse attacks — is
+  untouched; `dialable_fanout` inherits `fanout_peers`'s exact ordering.
+- **No wire-format or transport changes.** Reuses `PexMessage`,
+  `AddressBook`, and `TcpBearer` entirely unchanged.
+
+**Constitutional impact:** none. No new cryptography — `dialable_fanout`
+touches no cryptographic material at all. No voice/value edge: `mini-net`
+has, and gains, no dependency on any value or governance-quorum crate;
+this PR adds no new crate dependency to `mini-net` at all (the test-only
+socket wiring uses the pre-existing `mini-bearer` dev-dependency).
+
+**Implementation status:** shipped — `crates/mini-net/src/gossip.rs`
+(new `dialable_fanout` function), `crates/mini-net/src/lib.rs`
+(re-export), `crates/mini-net/tests/net.rs` (4 new unit tests),
+`crates/mini-net/tests/pex_driven_gossip_mesh.rs` (new file, 2
+real-socket integration tests).
+
+**Failure point:** `dialable_fanout` trusts its `AddressBook` exactly as
+much as `pex.rs`'s own trust model already documents — a `PexMessage::
+Response` is an unauthenticated hint, and dialing anything it names still
+goes through the same untrusted-until-proven bearer/channel path every
+other connection in this tree does. This function adds no new trust
+decision; it only makes an existing one (which peers are worth trying to
+reach) actually reachable from real routing/address state instead of a
+caller-assembled list.
+
+**Required follow-up:** wiring `dialable_fanout` into an actual running
+multi-node mesh (refreshing routing/address state from ongoing PEX
+rounds over time, not just one round) remains open, as do the two honest
+limits named above (liveness-ping bucket refresh, randomized fanout).
+None of the three are this slice's scope — each is independently
+tracked in `routing.rs`/`gossip.rs`'s own module docs and roadmap #24.
+
+**Supersedes / superseded by:** extends D-0092; supersedes nothing.

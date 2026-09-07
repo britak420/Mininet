@@ -14,6 +14,8 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::peer::PeerId;
+use crate::pex::{AddressBook, PeerRecord};
+use crate::routing::RoutingTable;
 
 /// Tracks recently-seen message ids so a peer forwards each message at most
 /// once, bounded so an attacker flooding distinct message ids cannot grow
@@ -70,4 +72,37 @@ impl GossipRouter {
 /// honest limit: this is deterministic, not randomized, for this slice.
 pub fn fanout_peers(candidates: &[PeerId], fanout: usize) -> Vec<PeerId> {
     candidates.iter().take(fanout).copied().collect()
+}
+
+/// Select up to `fanout` peers to forward a message to, the way a real
+/// caller actually can: [`RoutingTable`] alone names *ids*, not addresses
+/// ([`PeerId`]'s own docs), so a peer this node has only ever heard about
+/// through routing — never through a [`crate::pex::PexMessage::Response`]
+/// or a live connection's observed source address — cannot be dialed yet
+/// and must not be handed to a caller as a fanout target. This composes
+/// [`RoutingTable::closest_peers`], [`AddressBook::get`] and
+/// [`fanout_peers`] into the one query a gossiping node actually needs:
+/// the nearest peers to `target` it can both route to *and* dial, skipping
+/// `exclude` (typically the peer a message just arrived from, so gossip
+/// never bounces straight back to its own sender) and anything
+/// routing-known but still address-less.
+///
+/// Pure and transport-agnostic, matching this crate's existing
+/// "logic first, real socket later" pattern (see the crate-level docs'
+/// honest limits) — nothing here dials anything; a caller does that with
+/// the [`PeerRecord`]s returned.
+pub fn dialable_fanout(
+    routing: &RoutingTable,
+    book: &AddressBook,
+    target: &PeerId,
+    fanout: usize,
+    exclude: Option<&PeerId>,
+) -> Vec<PeerRecord> {
+    routing
+        .closest_peers(target, routing.len())
+        .into_iter()
+        .filter(|id| exclude != Some(id))
+        .filter_map(|id| book.get(&id).map(|addr| PeerRecord { id, addr }))
+        .take(fanout)
+        .collect()
 }

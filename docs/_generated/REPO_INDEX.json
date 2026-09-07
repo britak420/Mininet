@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 74,
-    "files": 921,
-    "headings": 3186,
-    "rust_symbols": 9147
+    "files": 928,
+    "headings": 3270,
+    "rust_symbols": 9157
   },
   "crates": {
     "did-mini": {
@@ -1764,7 +1764,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 25105,
+      "bytes": 25103,
       "group": "root",
       "headings": [
         {
@@ -1836,7 +1836,7 @@
       ],
       "lines": 404,
       "path": "README.md",
-      "sha256": "cbaa073d6473ccdc402c6a1aebdd0da9464a2d66a9531b1189b6fbb779eb437d",
+      "sha256": "f8bdc05e9c87dd8e69e2ed48428e71755a3c219e6db5fa611cb7c80ae94eb9e0",
       "symbols": [],
       "title": "Mininet"
     },
@@ -38517,79 +38517,84 @@
       "title": "use core::fmt;"
     },
     {
-      "bytes": 2741,
+      "bytes": 4316,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
         "self",
         "message",
+        "fanout",
         "capacity",
         "seen",
-        "fanout",
+        "peerid",
+        "routing",
+        "ids",
         "gossiprouter",
         "new",
-        "ids",
-        "order",
         "len",
+        "peer",
+        "routingtable",
+        "order",
         "usize",
         "gossip",
-        "is_empty",
-        "same",
         "forward",
         "honest",
-        "randomized",
-        "peer",
-        "hashset",
-        "vecdeque",
-        "peerid",
-        "oldest",
-        "msg_id",
-        "record_seen"
+        "real",
+        "peerrecord",
+        "caller",
+        "target",
+        "is_empty",
+        "fanout_peers"
       ],
-      "lines": 74,
+      "lines": 109,
       "path": "crates/mini-net/src/gossip.rs",
-      "sha256": "0aa999d454dd9251f7efb5aef09577b946881f00fa100fedaf1b268c4ca80981",
+      "sha256": "8ec2c650f32a47c40815133b403b1b678f191157f5b974bd8f7cf84da6ef2f84",
       "symbols": [
         {
           "kind": "struct",
-          "line": 23,
+          "line": 25,
           "name": "GossipRouter"
         },
         {
           "kind": "impl",
-          "line": 29,
+          "line": 31,
           "name": "GossipRouter"
         },
         {
           "kind": "fn",
-          "line": 32,
+          "line": 34,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 43,
+          "line": 45,
           "name": "record_seen"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 59,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 62,
+          "line": 64,
           "name": "is_empty"
         },
         {
           "kind": "fn",
-          "line": 71,
+          "line": 73,
           "name": "fanout_peers"
+        },
+        {
+          "kind": "fn",
+          "line": 94,
+          "name": "dialable_fanout"
         }
       ],
       "title": "use std::collections::{HashSet, VecDeque};"
     },
     {
-      "bytes": 2538,
+      "bytes": 2555,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
@@ -38620,7 +38625,7 @@
       ],
       "lines": 55,
       "path": "crates/mini-net/src/lib.rs",
-      "sha256": "be7f684f12e9469cb0e2e4fc72621fe32c8781ccda919c58d6cb01fe28ca6dbf",
+      "sha256": "57728a5096d5fcb96e6d526b360793aa6e1bd5eb788a65080ae4748787613424",
       "symbols": [
         {
           "kind": "mod",
@@ -39022,7 +39027,7 @@
       "title": "use crate::peer::PeerId;"
     },
     {
-      "bytes": 4092,
+      "bytes": 6681,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
@@ -39030,17 +39035,18 @@
         "assert_eq",
         "local",
         "table",
+        "new",
         "router",
         "peerid",
         "assert",
-        "new",
+        "insert",
         "len",
         "record_seen",
-        "bytes",
         "routingtable",
+        "bytes",
+        "addr",
         "near",
         "far",
-        "insert",
         "bucket_size",
         "seed",
         "bit",
@@ -39048,75 +39054,156 @@
         "low_bits",
         "closest",
         "msg_id",
-        "fanout_peers",
-        "gossiprouter"
+        "selected"
       ],
-      "lines": 138,
+      "lines": 225,
       "path": "crates/mini-net/tests/net.rs",
-      "sha256": "0302ce57707d6477deca18986f1779b19e927c60a8ea112a8adfaaaac91bf035",
+      "sha256": "9272d0bd9c98afc1379f4d15eadf56647f45b2f129da72b4027d99a880f679e2",
       "symbols": [
         {
           "kind": "fn",
-          "line": 3,
+          "line": 8,
           "name": "peer"
         },
         {
           "kind": "fn",
-          "line": 14,
+          "line": 19,
           "name": "generated_peer_ids_are_unpredictable_and_distinct"
         },
         {
           "kind": "fn",
-          "line": 22,
+          "line": 27,
           "name": "xor_distance_is_zero_iff_equal"
         },
         {
           "kind": "fn",
-          "line": 30,
+          "line": 35,
           "name": "bucket_index_is_none_for_self"
         },
         {
           "kind": "fn",
-          "line": 36,
+          "line": 41,
           "name": "bucket_index_reflects_shared_prefix_length"
         },
         {
           "kind": "fn",
-          "line": 52,
+          "line": 57,
           "name": "routing_table_rejects_local_id"
         },
         {
           "kind": "fn",
-          "line": 60,
+          "line": 65,
           "name": "routing_table_rejects_duplicate_insert"
         },
         {
           "kind": "fn",
-          "line": 70,
+          "line": 75,
           "name": "routing_table_bucket_has_bounded_capacity"
         },
         {
           "kind": "fn",
-          "line": 92,
+          "line": 97,
           "name": "closest_peers_are_sorted_nearest_first"
         },
         {
           "kind": "fn",
-          "line": 106,
+          "line": 111,
           "name": "gossip_router_forwards_once_then_drops_duplicates"
         },
         {
           "kind": "fn",
-          "line": 116,
+          "line": 121,
           "name": "gossip_router_evicts_oldest_past_capacity"
         },
         {
           "kind": "fn",
-          "line": 130,
+          "line": 135,
           "name": "fanout_peers_caps_at_requested_size"
+        },
+        {
+          "kind": "fn",
+          "line": 144,
+          "name": "addr"
+        },
+        {
+          "kind": "fn",
+          "line": 149,
+          "name": "dialable_fanout_skips_routing_known_peers_with_no_address"
+        },
+        {
+          "kind": "fn",
+          "line": 174,
+          "name": "dialable_fanout_excludes_the_named_peer_even_if_dialable"
+        },
+        {
+          "kind": "fn",
+          "line": 199,
+          "name": "dialable_fanout_caps_at_the_requested_size_nearest_first"
+        },
+        {
+          "kind": "fn",
+          "line": 217,
+          "name": "dialable_fanout_is_empty_when_nothing_is_dialable"
         }
       ],
-      "title": "use mini_net::{fanout_peers, GossipRouter, PeerId, RoutingTable, BUCKET_SIZE};"
+      "title": "use std::net::{IpAddr, Ipv4Addr, SocketAddr};"
+    },
+    {
+      "bytes": 6441,
+      "group": "crate:mini-net",
+      "headings": [],
+      "keywords": [
+        "unwrap",
+        "bearer",
+        "frame",
+        "pexmessage",
+        "text",
+        "stream",
+        "pex",
+        "message",
+        "peer",
+        "never",
+        "c_id",
+        "new",
+        "knows",
+        "mini_net",
+        "tcpbearer",
+        "peerid",
+        "b_routing",
+        "b_book",
+        "response",
+        "a_id",
+        "a_routing",
+        "targets",
+        "decode_message",
+        "address"
+      ],
+      "lines": 152,
+      "path": "crates/mini-net/tests/pex_driven_gossip_mesh.rs",
+      "sha256": "6177fec04d2578339946e29871338e218c8521488da6c4231a70c7427d2bf7a7",
+      "symbols": [
+        {
+          "kind": "fn",
+          "line": 25,
+          "name": "encode_message"
+        },
+        {
+          "kind": "fn",
+          "line": 33,
+          "name": "decode_message"
+        },
+        {
+          "kind": "fn",
+          "line": 41,
+          "name": "a_node_gossips_to_a_peer_it_only_ever_learned_about_through_pex_over_real_tcp"
+        },
+        {
+          "kind": "fn",
+          "line": 130,
+          "name": "a_message_already_seen_is_never_forwarded_back_to_its_own_sender"
+        }
+      ],
+      "title": "use std::net::{TcpListener, TcpStream};"
     },
     {
       "bytes": 5920,
@@ -76135,7 +76222,7 @@
       "title": "Universal addressing \u2014 connecting to Mininet from almost any device without DNS"
     },
     {
-      "bytes": 5053,
+      "bytes": 6382,
       "group": "docs",
       "headings": [
         {
@@ -76146,68 +76233,73 @@
         {
           "level": 2,
           "line": 8,
+          "text": "Full reconstruction pack"
+        },
+        {
+          "level": 2,
+          "line": 19,
           "text": "The claims, and where each is enforced"
         },
         {
           "level": 2,
-          "line": 26,
+          "line": 37,
           "text": "What could kill it \u2014 the threat model"
         },
         {
           "level": 2,
-          "line": 36,
+          "line": 47,
           "text": "The gates \u2014 what more code cannot close"
         },
         {
           "level": 2,
-          "line": 59,
+          "line": 70,
           "text": "Internal audit deliverables already written"
         },
         {
           "level": 2,
-          "line": 69,
+          "line": 80,
           "text": "Verify it yourself"
         },
         {
           "level": 2,
-          "line": 82,
+          "line": 93,
           "text": "The honesty policy itself"
         },
         {
           "level": 2,
-          "line": 90,
+          "line": 101,
           "text": "Where to go next"
         }
       ],
       "keywords": [
         "gates",
-        "what",
-        "you",
+        "audits",
         "review",
+        "what",
+        "close",
         "audit",
+        "you",
         "each",
         "threat",
-        "close",
-        "claims",
-        "enforced",
-        "project",
-        "audits",
         "start",
+        "claim",
+        "evidence",
+        "external",
+        "they",
         "here",
-        "more",
-        "code",
+        "full",
+        "reconstruction",
+        "enforced",
         "cannot",
         "internal",
-        "already",
-        "claim",
         "exactly",
-        "every",
-        "invariant",
-        "they"
+        "these",
+        "documents",
+        "identity"
       ],
-      "lines": 97,
+      "lines": 108,
       "path": "docs/AUDITOR_START.md",
-      "sha256": "c9efc7b64bc58eb4d49d1013f9b77bbe47f98ee4f8c24be2e9d58f18e11e9c40",
+      "sha256": "ce8ff355b1bc24789a76cd6e21770fb5512532fd8ef9bfad5c5151c96532a42e",
       "symbols": [],
       "title": "Start here \u2014 for an auditor or skeptic"
     },
@@ -76576,7 +76668,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1115443,
+      "bytes": 1122458,
       "group": "docs",
       "headings": [
         {
@@ -77006,9 +77098,9 @@
         "first",
         "witness"
       ],
-      "lines": 18495,
+      "lines": 18613,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "e5525bf8ec797fb8cc5235ffe54f024811e1046e53a074c25692b5638268c652",
+      "sha256": "16e17d87a0172c2599ce8e3a2072d42eede29ee5c1d4c7dd25ca4cf21e2ae74d",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -78339,7 +78431,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 168150,
+      "bytes": 169199,
       "group": "docs",
       "headings": [
         {
@@ -78399,52 +78491,52 @@
         },
         {
           "level": 2,
-          "line": 1304,
+          "line": 1320,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1334,
+          "line": 1350,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1661,
+          "line": 1677,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2139,
+          "line": 2155,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2230,
+          "line": 2246,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2310,
+          "line": 2326,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2376,
+          "line": 2392,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2393,
+          "line": 2409,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2429,
+          "line": 2445,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2494,
+          "line": 2510,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -78474,9 +78566,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2529,
+      "lines": 2545,
       "path": "docs/STATUS.md",
-      "sha256": "de7c7dd0a95f3945394226cf950e7808d96a0b34692cbd9f537a9f28560a8a42",
+      "sha256": "91d9d96a557fb7ae06e825eb9e0ee2192346d408e0201194ec36923b3f04291e",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -78879,7 +78971,405 @@
       "title": "Windows client security boundary"
     },
     {
-      "bytes": 4343,
+      "bytes": 9696,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Audit evidence index \u2014 claim \u2192 mechanism \u2192 evidence \u2192 remaining gate"
+        },
+        {
+          "level": 2,
+          "line": 48,
+          "text": "Evidence precedence"
+        },
+        {
+          "level": 2,
+          "line": 61,
+          "text": "Reviewer output requirement"
+        }
+      ],
+      "keywords": [
+        "evidence",
+        "partial",
+        "governance",
+        "audit",
+        "claim",
+        "review",
+        "external",
+        "gate",
+        "value",
+        "fail",
+        "independent",
+        "mechanism",
+        "remaining",
+        "current",
+        "prs",
+        "repository",
+        "personhood",
+        "consensus",
+        "reviewer",
+        "dependency",
+        "code",
+        "github",
+        "protocol",
+        "canonical"
+      ],
+      "lines": 75,
+      "path": "docs/audits/AUDIT_EVIDENCE_INDEX.md",
+      "sha256": "19fd6efbe9fbf4ce9ec0b780641073460a5728ccd66f6a751010a60fb67feecd",
+      "symbols": [],
+      "title": "Audit evidence index \u2014 claim \u2192 mechanism \u2192 evidence \u2192 remaining gate"
+    },
+    {
+      "bytes": 15079,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "External audit master report \u2014 readiness, values, and exact blockers"
+        },
+        {
+          "level": 2,
+          "line": 19,
+          "text": "Value verdicts"
+        },
+        {
+          "level": 3,
+          "line": 21,
+          "text": "1. Humanity before technology \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 28,
+          "text": "2. No indispensable central authority \u2014 FAIL"
+        },
+        {
+          "level": 3,
+          "line": 35,
+          "text": "3. Network outlives its creators \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 42,
+          "text": "4. Money never outranks legitimacy \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 49,
+          "text": "5. Canonical truth for money \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 56,
+          "text": "6. Design for failure \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 63,
+          "text": "7. Free forks, earned legitimacy \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 70,
+          "text": "8. Human as root of trust \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 77,
+          "text": "9. Structural privacy \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 84,
+          "text": "10. Every optimization names its cost \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 91,
+          "text": "11. Weakest device matters \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 98,
+          "text": "12. AI serves humanity, never rules \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 105,
+          "text": "13. Think in centuries \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 112,
+          "text": "14. Simplicity is security \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 119,
+          "text": "15. Honest majority, malicious minority \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 126,
+          "text": "16. Voice/value wall \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 133,
+          "text": "17. Future child test \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 140,
+          "text": "18. Edge convenient, core independent \u2014 PARTIAL"
+        },
+        {
+          "level": 2,
+          "line": 147,
+          "text": "External legitimacy gates"
+        },
+        {
+          "level": 2,
+          "line": 161,
+          "text": "Overall judgment"
+        }
+      ],
+      "keywords": [
+        "partial",
+        "external",
+        "exact",
+        "independent",
+        "mechanism",
+        "governance",
+        "value",
+        "authority",
+        "failure",
+        "audit",
+        "legitimacy",
+        "point",
+        "proving",
+        "canonical",
+        "pass",
+        "review",
+        "repository",
+        "still",
+        "path",
+        "report",
+        "fail",
+        "money",
+        "never",
+        "human"
+      ],
+      "lines": 168,
+      "path": "docs/audits/EXTERNAL_AUDIT_MASTER_REPORT.md",
+      "sha256": "0e170fe6cdc6fb572a7d29424950cc5667899426ceb6ace804d9aca91f44da81",
+      "symbols": [],
+      "title": "External audit master report \u2014 readiness, values, and exact blockers"
+    },
+    {
+      "bytes": 14696,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Mininet build history \u2014 auditor reconstruction"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "1. Foundational phase \u2014 identity, equal-weight finality, storage receipts, networking"
+        },
+        {
+          "level": 2,
+          "line": 27,
+          "text": "2. Cryptography prototype phase \u2014 privacy, Bulletproofs, FROST, DKG"
+        },
+        {
+          "level": 2,
+          "line": 36,
+          "text": "3. Canonical settlement and self-hosted forge spine"
+        },
+        {
+          "level": 2,
+          "line": 45,
+          "text": "4. Networked consensus and recovery"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "5. Identity freshness and witness assurance"
+        },
+        {
+          "level": 2,
+          "line": 67,
+          "text": "6. Personhood \u2014 the project\u2019s primary unresolved security dependency"
+        },
+        {
+          "level": 2,
+          "line": 77,
+          "text": "7. Storage \u2014 possession became real; operator independence did not"
+        },
+        {
+          "level": 2,
+          "line": 91,
+          "text": "8. Privacy and value path"
+        },
+        {
+          "level": 2,
+          "line": 109,
+          "text": "9. Economics and anti-collusion"
+        },
+        {
+          "level": 2,
+          "line": 120,
+          "text": "10. Search, social, intake and client surfaces"
+        },
+        {
+          "level": 2,
+          "line": 131,
+          "text": "11. Governance and the centralization red flag"
+        },
+        {
+          "level": 2,
+          "line": 143,
+          "text": "12. Current release picture"
+        }
+      ],
+      "keywords": [
+        "pull",
+        "phase",
+        "storage",
+        "review",
+        "repository",
+        "build",
+        "history",
+        "identity",
+        "value",
+        "first",
+        "added",
+        "finality",
+        "cryptography",
+        "frost",
+        "self-hosted",
+        "current",
+        "release",
+        "status",
+        "gate",
+        "external",
+        "implementation",
+        "distinct",
+        "explicit",
+        "auditor"
+      ],
+      "lines": 154,
+      "path": "docs/audits/PROJECT_BUILD_HISTORY.md",
+      "sha256": "8c978d5549a487f41eb2a58a25120c84ee432d77b1e3bdc41428ac3ff6d7b5eb",
+      "symbols": [],
+      "title": "Mininet build history \u2014 auditor reconstruction"
+    },
+    {
+      "bytes": 16976,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Pull-request history ledger \u2014 how to reconstruct every change"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "Era 1 \u2014 core protocol bootstrap"
+        },
+        {
+          "level": 2,
+          "line": 29,
+          "text": "Era 2 \u2014 identity, bounty, settlement, custody and external-gate formalization"
+        },
+        {
+          "level": 2,
+          "line": 38,
+          "text": "Era 3 \u2014 self-hosted Forge, release and recovery spine"
+        },
+        {
+          "level": 2,
+          "line": 55,
+          "text": "Era 4 \u2014 networked consensus"
+        },
+        {
+          "level": 2,
+          "line": 72,
+          "text": "Era 5 \u2014 governance honesty and canonical values"
+        },
+        {
+          "level": 2,
+          "line": 85,
+          "text": "Era 6 \u2014 privacy/cost doctrine, object privacy and transport layers"
+        },
+        {
+          "level": 2,
+          "line": 104,
+          "text": "Era 7 \u2014 post-quantum and KEL witness evolution"
+        },
+        {
+          "level": 2,
+          "line": 118,
+          "text": "Era 8 \u2014 social, intake, search and client surfaces"
+        },
+        {
+          "level": 2,
+          "line": 136,
+          "text": "Era 9 \u2014 economics, storage and private-value adversarial hardening"
+        },
+        {
+          "level": 2,
+          "line": 148,
+          "text": "Complete-history audit procedure"
+        },
+        {
+          "level": 3,
+          "line": 159,
+          "text": "Per-PR worksheet"
+        }
+      ],
+      "keywords": [
+        "pull",
+        "era",
+        "history",
+        "later",
+        "forge",
+        "storage",
+        "audit",
+        "first",
+        "real",
+        "ledger",
+        "self-hosted",
+        "canonical",
+        "review",
+        "repository",
+        "current",
+        "personhood",
+        "pull-request",
+        "change",
+        "core",
+        "protocol",
+        "identity",
+        "bounty",
+        "settlement",
+        "release"
+      ],
+      "lines": 180,
+      "path": "docs/audits/PR_HISTORY_LEDGER.md",
+      "sha256": "7ebe132a4a50b472daf7a8ad4565f7b61ef7ce73a34b7483b27120994877b3e4",
+      "symbols": [],
+      "title": "Pull-request history ledger \u2014 how to reconstruct every change"
+    },
+    {
+      "bytes": 5087,
       "group": "docs",
       "headings": [
         {
@@ -78889,39 +79379,39 @@
         },
         {
           "level": 2,
-          "line": 23,
+          "line": 27,
           "text": "Required scope header (D-0441)"
         }
       ],
       "keywords": [
         "issues",
-        "what",
         "scope",
+        "what",
         "verdict",
         "open",
         "fixed",
         "audit",
         "audits",
-        "written",
-        "file",
         "closes",
         "pass",
+        "external",
+        "written",
+        "file",
         "built",
+        "current",
+        "gate",
+        "internal",
+        "evidence",
         "commit",
         "versions",
         "one",
         "required",
         "header",
-        "d-0441",
-        "review",
-        "each",
-        "github",
-        "issue",
-        "issue-8-constitutional-audit"
+        "d-0441"
       ],
-      "lines": 59,
+      "lines": 63,
       "path": "docs/audits/README.md",
-      "sha256": "200005464898d7c193e6f3bc34c5de8e9171e8d68f5ae125dc967d64ef71526b",
+      "sha256": "324cbc044ba69265c256d465e6575c608b70c55468212db63020a14fc6ee44e3",
       "symbols": [],
       "title": "Audits"
     },
@@ -84785,6 +85275,158 @@
       "title": "Treasury economic model \u2014 founder decision (D-0073)"
     },
     {
+      "bytes": 18142,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "External auditor test itinerary \u2014 from code-complete claims to real-value authorization"
+        },
+        {
+          "level": 2,
+          "line": 7,
+          "text": "0. Freeze the exact revision before testing"
+        },
+        {
+          "level": 2,
+          "line": 23,
+          "text": "Track A \u2014 applied cryptography and private value path \u2014 P0"
+        },
+        {
+          "level": 3,
+          "line": 27,
+          "text": "A1. Primitive correctness"
+        },
+        {
+          "level": 3,
+          "line": 38,
+          "text": "A2. Composition correctness"
+        },
+        {
+          "level": 3,
+          "line": 51,
+          "text": "A3. Chain-validity rule \u2014 mandatory before PASS"
+        },
+        {
+          "level": 3,
+          "line": 58,
+          "text": "A4. Transparent-path retirement"
+        },
+        {
+          "level": 3,
+          "line": 65,
+          "text": "Closure artifact"
+        },
+        {
+          "level": 2,
+          "line": 70,
+          "text": "Track B \u2014 treasury/FROST/DKG/custody \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 99,
+          "text": "Track C \u2014 unique-human/personhood legitimacy \u2014 P0 for real people/governance"
+        },
+        {
+          "level": 2,
+          "line": 126,
+          "text": "Track C2 \u2014 identity core: KEL, pre-rotation, delegation and recovery \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 151,
+          "text": "Track D \u2014 consensus, execution, state sync and validator networking \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 175,
+          "text": "Track E \u2014 identity/KEL witness freshness \u2014 P0 for authority-bearing identities"
+        },
+        {
+          "level": 2,
+          "line": 196,
+          "text": "Track F \u2014 storage integrity, capacity and operator independence \u2014 P0 for storage economics"
+        },
+        {
+          "level": 2,
+          "line": 216,
+          "text": "Track G \u2014 hardware/BLE/UWB/Wi-Fi acceptance \u2014 P0 for real-device personhood claims"
+        },
+        {
+          "level": 2,
+          "line": 233,
+          "text": "Track H \u2014 tokenomics, incentives and anti-collusion \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 257,
+          "text": "Track I \u2014 legal launch posture \u2014 P0 for real value"
+        },
+        {
+          "level": 2,
+          "line": 269,
+          "text": "Track J \u2014 reproducible builds \u2014 P0 for release"
+        },
+        {
+          "level": 2,
+          "line": 287,
+          "text": "Track J2 \u2014 dependency and software-supply-chain provenance \u2014 P0 for release"
+        },
+        {
+          "level": 2,
+          "line": 311,
+          "text": "Track K \u2014 governance decentralization / founder-removal drill \u2014 P0 before claiming no owner"
+        },
+        {
+          "level": 3,
+          "line": 315,
+          "text": "K0. Interim Founder-account operational security \u2014 required while D-0083 remains active"
+        },
+        {
+          "level": 3,
+          "line": 329,
+          "text": "K1. Remove the control point"
+        },
+        {
+          "level": 1,
+          "line": 345,
+          "text": "Final release ceremony"
+        }
+      ],
+      "keywords": [
+        "track",
+        "pass",
+        "key",
+        "revision",
+        "private",
+        "exact",
+        "path",
+        "release",
+        "scope",
+        "fail",
+        "gates",
+        "value",
+        "correctness",
+        "real",
+        "identity",
+        "remains",
+        "one",
+        "current",
+        "image",
+        "production",
+        "itinerary",
+        "claims",
+        "real-value",
+        "rule"
+      ],
+      "lines": 358,
+      "path": "docs/gates/EXTERNAL_AUDITOR_TEST_ITINERARY.md",
+      "sha256": "9dd9a7dcb11451c41eec74e3bdcfd5c6337a8f10a6cd70544aa773fccba05df9",
+      "symbols": [],
+      "title": "External auditor test itinerary \u2014 from code-complete claims to real-value authorization"
+    },
+    {
       "bytes": 4731,
       "group": "docs",
       "headings": [
@@ -84887,46 +85529,133 @@
       "title": "External review response template"
     },
     {
-      "bytes": 2191,
+      "bytes": 3724,
       "group": "docs",
       "headings": [
         {
           "level": 1,
           "line": 1,
           "text": "External legitimacy gates"
+        },
+        {
+          "level": 2,
+          "line": 16,
+          "text": "Unified completion pack"
         }
       ],
       "keywords": [
         "issues",
+        "audits",
         "gates",
-        "engage",
+        "review",
+        "evidence",
         "external",
+        "cryptography",
+        "never",
+        "engage",
         "scope",
         "outside",
-        "cryptography",
         "auditor",
+        "real",
         "file",
         "package",
-        "review",
+        "may",
         "legitimacy",
+        "unified",
+        "completion",
+        "pack",
         "requires",
+        "legal",
         "counsel",
-        "tokenomics",
-        "specialist",
-        "real",
-        "founder",
-        "research",
-        "what",
-        "action",
-        "crypto-audit-scope",
-        "dkg-audit-scope",
-        "same"
+        "tokenomics"
       ],
-      "lines": 31,
+      "lines": 42,
       "path": "docs/gates/README.md",
-      "sha256": "28bfe60bf4fd37684f71be2aa9a8eff28b351bb26f341fb018e4234484e24163",
+      "sha256": "1c160a4235f55e1b78ba61f32323583500647b49016f478e1f5d719b54213d84",
       "symbols": [],
       "title": "External legitimacy gates"
+    },
+    {
+      "bytes": 6985,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Real-value / real-people release checklist \u2014 binary NO-GO gate"
+        },
+        {
+          "level": 2,
+          "line": 5,
+          "text": "Current verdict"
+        },
+        {
+          "level": 2,
+          "line": 11,
+          "text": "P0 \u2014 must all be complete before real value"
+        },
+        {
+          "level": 2,
+          "line": 24,
+          "text": "P0 \u2014 must all be complete before real-people governance / Human Share"
+        },
+        {
+          "level": 2,
+          "line": 32,
+          "text": "P0 \u2014 must all be complete before production storage/provider rewards"
+        },
+        {
+          "level": 2,
+          "line": 39,
+          "text": "P0 \u2014 consensus and network release conditions"
+        },
+        {
+          "level": 2,
+          "line": 47,
+          "text": "P1 \u2014 required before broad public production claims"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "Release evidence bundle"
+        },
+        {
+          "level": 2,
+          "line": 74,
+          "text": "Automatic NO-GO conditions"
+        }
+      ],
+      "keywords": [
+        "release",
+        "pass",
+        "complete",
+        "production",
+        "review",
+        "evidence",
+        "independent",
+        "real",
+        "governance",
+        "required",
+        "external",
+        "real-people",
+        "no-go",
+        "storage",
+        "conditions",
+        "state",
+        "path",
+        "checklist",
+        "current",
+        "value",
+        "human",
+        "provider",
+        "network",
+        "claims"
+      ],
+      "lines": 89,
+      "path": "docs/gates/REAL_VALUE_RELEASE_CHECKLIST.md",
+      "sha256": "f162e288c413f969d7d48c508d2e90082f36ad1e4a1eb766bc81de102794e1e5",
+      "symbols": [],
+      "title": "Real-value / real-people release checklist \u2014 binary NO-GO gate"
     },
     {
       "bytes": 4389,
@@ -94706,7 +95435,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 72313,
+      "bytes": 73639,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -94735,9 +95464,9 @@
         "independently",
         "both"
       ],
-      "lines": 1114,
+      "lines": 1130,
       "path": "governance/work-claims.json",
-      "sha256": "339f94e81eea2ba869873224b309afc3d4f47e0e1ad2e59730e1fd3a35e4cdb4",
+      "sha256": "1c0986b08923fa844fd209a14e6e91f925cc20859021ce193b8a9d6c36519ce5",
       "symbols": [],
       "title": "{"
     },
