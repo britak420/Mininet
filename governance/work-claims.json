@@ -1077,6 +1077,7 @@
       "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/kel-gossip-sync-carrier",
+      "pull_request": 324,
       "lease_expires": "2026-09-14",
       "paths": [
         "crates/mini-sync/",
@@ -1090,6 +1091,25 @@
       ],
       "notes": "D-0467: KEL head gossip summaries ride ordinary sync traffic, closing design doc Phase 5 (both halves). New module mini_sync::gossip ships gossip_summary_carrier (wraps a KelHeadSummary as an ordinary mini-objects Object, GOSSIP_SUMMARY_CARRIER, mirroring kel_carrier's own KEL-wrapping pattern) and compare_gossip_carrier (decodes an ingested carrier and compares it against the receiver's own KelCache -- the same locally-cached state mini_sync::Ingest already maintains). Rides the existing MINI/SYNC1 reconciliation protocol with zero new wire messages; not self-certifying like a KEL carrier, so it gets no special Ingest::check branch -- it flows through the same ordinary author-provenance path every object already uses. No new evidence-retrieval request type (reuses D-0464's protocol / mini_sync::request_retrieval); turning a Disagreement/Ahead outcome into an automatic fetch is left as a host policy choice, matching mini_consensus::discovery::pex_over_tcp's own never-auto-wired precedent. 11 tests. Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #324 merged.",
       "pull_request": 324
+    },
+    {
+      "issue": 92,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/witness-rotation-old-policy-cert",
+      "pull_request": 325,
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/did-mini/",
+        "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0468"
+      ],
+      "notes": "D-0468: old-policy authorization for witness-set rotation, design doc Phase 7's first slice (research report SS17.2). New module did_mini::witness_rotation ships WitnessJournal::certify_policy_transition -- a witness that already holds accepted state for an identity certifies, under its own old retained policy generation, that a specific chain-valid direct-successor establishment event legitimately changes that identity's witness policy -- and verify_policy_transition, which checks a threshold of such receipts against the old policy (reusing Phase 1's WitnessedEventCertificate::verify unchanged) and independently confirms the presented event really is a policy change before trusting the certificate. No new receipt/certificate type: a certification is an ordinary WitnessReceiptStatement naming the retiring generation. WitnessIdentityState gained a new accepted_policy field (the whole old WitnessPolicy, not just its generation number) so a witness can know which policy/witnesses it is certifying a transition away from -- purely additive, no public constructor outside WitnessJournal::observe exists to break. Closes the hole where a compromised controller could drop every honest witness in one unwitnessed, self-signed rotation. Not built: SS17.3 (new-witness readiness threshold) and SS17.4 (unavailable-witness recovery, which must work without old-witness cooperation -- the opposite assumption this slice makes); no wiring into assess_kel_assurance. 12 tests. Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #325 merged."
     },
     {
       "issue": 45,

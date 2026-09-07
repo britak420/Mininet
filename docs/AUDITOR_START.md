@@ -5,6 +5,17 @@ us" — it's "here is exactly what we guarantee, exactly how it's enforced, and
 exactly where it isn't done yet." This page points you at the evidence and,
 just as importantly, at the honest gaps.
 
+## Full reconstruction pack
+
+For a GitHub-history-first review, start with these four documents before narrowing into a subsystem:
+
+- [`audits/PROJECT_BUILD_HISTORY.md`](audits/PROJECT_BUILD_HISTORY.md) — chronological reconstruction of how the protocol, forge, privacy, storage, consensus, identity, economics and clients were built and corrected.
+- [`audits/PR_HISTORY_LEDGER.md`](audits/PR_HISTORY_LEDGER.md) — pull-request dependency/history map plus the required worksheet for reviewing every merged or abandoned PR without treating "merged" as proof of correctness.
+- [`audits/AUDIT_EVIDENCE_INDEX.md`](audits/AUDIT_EVIDENCE_INDEX.md) — claim → enforcing mechanism → repository evidence → current PASS/PARTIAL/FAIL → remaining external gate.
+- [`audits/EXTERNAL_AUDIT_MASTER_REPORT.md`](audits/EXTERNAL_AUDIT_MASTER_REPORT.md) — value-by-value verdict against all eighteen canonical Founder Directives, including the current Founder-control red flag and exact long-term fixes.
+
+To execute the remaining outside work, use [`gates/EXTERNAL_AUDITOR_TEST_ITINERARY.md`](gates/EXTERNAL_AUDITOR_TEST_ITINERARY.md) and the binary [`gates/REAL_VALUE_RELEASE_CHECKLIST.md`](gates/REAL_VALUE_RELEASE_CHECKLIST.md). These documents do **not** close any gate; they make the evidence needed to close each one explicit.
+
 ## The claims, and where each is enforced
 
 Start with [`INVARIANTS.md`](INVARIANTS.md). Every frozen invariant carries a

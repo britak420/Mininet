@@ -337,21 +337,42 @@ given time.
   locally-cached "what do I believe" state `mini_sync::Ingest` already
   maintains; not self-certifying like a KEL carrier, so it gets no
   special ingest branch — it flows through the same ordinary
-  author-provenance path every object already uses; 11 tests. **Not yet
-  real:** no bounded/incremental re-verify (`observe_verified`/
-  `observe_declared` re-verify the whole chain from inception on every
-  call, not just the new suffix), no fork-proof construction for the
-  harder "conflicting descendant" case, no recovery-aware handling (every
-  rotation is treated identically), no persistence for `DuplicityRegistry`
-  (in-memory only), no automatic evidence-fetch policy (a
-  `Disagreement`/`Ahead` outcome is returned, never auto-resolved — a
-  host policy choice), no bounded retention/pruning for gossip-summary
-  objects, no witness-rotation-aware pruning (Phase 7, not started), no
-  real call site yet gates an authority decision on a
-  `KelAssurance` level or feeds real proofs into `DuplicityRegistry`, no
-  network transport for Phase 4's protocol messages. Each remaining phase
-  is its own later PR, gated behind external review (D-0047) before any
-  high-value authority decision may depend on this layer.
+  author-provenance path every object already uses; 11 tests.
+  **Witness rotation, Phase 7's first slice shipped (D-0468):**
+  `did_mini::witness_rotation`'s `WitnessJournal::certify_policy_transition`
+  lets a witness that already holds accepted state for an identity
+  certify, under its own *old* retained policy generation, that a
+  specific chain-valid direct-successor establishment event legitimately
+  changes that identity's witness policy — closing research report
+  §17.2's gap, where a compromised controller could otherwise drop every
+  honest witness in one unwitnessed, self-signed rotation. No new receipt
+  or certificate type: a certification is an ordinary
+  `WitnessReceiptStatement` naming the retiring generation, so Phase 1's
+  `WitnessedEventCertificate::verify` already does the threshold check
+  unchanged; `verify_policy_transition` adds only the independent check
+  that the presented event really is a policy change (witness set or
+  threshold differs, compared as a set, not list order) rather than
+  trusting the certificate's mere existence. `WitnessIdentityState`
+  gained an `accepted_policy` field (the *whole* old `WitnessPolicy`, not
+  just its generation number) so a witness can know which policy, and
+  which witnesses, it is certifying a transition away from; 12 tests.
+  **Not yet real:** no bounded/incremental re-verify
+  (`observe_verified`/`observe_declared` re-verify the whole chain from
+  inception on every call, not just the new suffix), no fork-proof
+  construction for the harder "conflicting descendant" case, no
+  recovery-aware handling (every rotation is treated identically), no
+  persistence for `DuplicityRegistry` (in-memory only), no automatic
+  evidence-fetch policy (a `Disagreement`/`Ahead` outcome is returned,
+  never auto-resolved — a host policy choice), no bounded
+  retention/pruning for gossip-summary objects, no "new witness
+  readiness" acknowledgement (§17.3) or unavailable-witness recovery
+  (§17.4, the rest of Phase 7), no real call site yet gates an authority
+  decision on a `KelAssurance` level, requires old-policy certification
+  before trusting a rotation, or feeds real proofs into
+  `DuplicityRegistry`, no network transport for Phase 4's protocol
+  messages. Each remaining phase is its own later PR, gated behind
+  external review (D-0047) before any high-value authority decision may
+  depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire
   tag `0x02`) is real — `VerifyingKey`/`Signature` parse and verify

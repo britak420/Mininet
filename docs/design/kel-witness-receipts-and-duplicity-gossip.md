@@ -8,12 +8,14 @@ D-0329), a local duplicity-proof registry (`DuplicityRegistry`, D-0330),
 a `mini-forge` bridge (`author_assurance`, D-0332), **witness policies
 bound to the identity's own signed KEL (D-0459)**, **a receipt collection
 protocol (D-0464, Phase 4)**, **a persistent witness journal
-(`mini-witness-service`, D-0465, Phase 6)**, and **KEL head gossip
-summaries, both the pure comparison (D-0466) and real sync-carried
-transport (`mini-sync`, D-0467) — closing Phase 5** shipped. Only wiring
-`author_assurance` into a real governance call site — a founder-facing
-policy call — and a bounded/incremental KEL re-verify remain open in
-Phase 3; Phases 7-10 not started.
+(`mini-witness-service`, D-0465, Phase 6)**, **KEL head gossip summaries,
+both the pure comparison (D-0466) and real sync-carried transport
+(`mini-sync`, D-0467) — closing Phase 5**, and **old-policy authorization
+for witness-set rotation (D-0468, Phase 7's first slice)** shipped. Only
+wiring `author_assurance` into a real governance call site — a
+founder-facing policy call — and a bounded/incremental KEL re-verify
+remain open in Phase 3; Phase 7's remaining pieces (new-witness
+readiness, unavailable-witness recovery) and Phases 8-10 not started.
 
 **Full research:** `docs/research/
 KEL_WITNESS_RECEIPTS_DUPLICITY_GOSSIP_RESEARCH_20260715.md`
@@ -180,9 +182,27 @@ exactly what this PR is.
    `WitnessJournal::observe_declared` (D-0464) over what was durably
    recorded, plus an identity-count quota. No network transport, no
    rotation-aware pruning — those remain Phase 7.
-7. **Witness rotation and recovery** — policy generations, old-policy
-   certification of witness-set changes, unavailable-witness recovery
-   that can't be triggered casually.
+7. **Witness rotation and recovery.** **First slice shipped (D-0468) —
+   old-policy authorization (research report §17.2):**
+   `did_mini::witness_rotation`'s `WitnessJournal::certify_policy_transition`
+   lets a witness that already holds accepted state for an identity
+   certify, under its own *old* retained policy generation, that a
+   specific chain-valid direct-successor establishment event legitimately
+   changes that identity's witness policy — no new receipt or certificate
+   type, since a certification is just an ordinary `WitnessReceiptStatement`
+   naming the retiring generation. `verify_policy_transition` checks
+   enough such receipts (bundled via Phase 1's existing
+   `WitnessedEventCertificate::assemble`) meet the *old* policy's
+   threshold, and independently confirms the presented event really is a
+   policy change (different witness set or threshold, membership compared
+   as a set rather than list order) rather than trusting the certificate's
+   mere existence. Still open: §17.3's "new witness readiness threshold"
+   (receipts from the *new* witnesses, structurally identical once built)
+   and §17.4's unavailable-witness recovery path (deliberately harder — it
+   must work *without* old-witness cooperation, the opposite assumption
+   this slice makes); no wiring into `assess_kel_assurance` — whether a
+   real verifier should *require* this certification is a founder-facing
+   policy call, not decided here.
 8. **Public-authority transparency** — per-witness append-only receipt
    logs for governance/release/validator/treasury roots only.
 9. **Adversarial network simulation** — forks, witness collusion,

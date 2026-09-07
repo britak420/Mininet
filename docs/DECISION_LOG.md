@@ -18496,3 +18496,126 @@ does not have to sequence two separate helpers by hand; the rest of
 D-0207's still-open list.
 
 **Supersedes / superseded by:** extends and does not supersede D-0207.
+### D-0468 — Old-policy authorization for witness-set rotation, so a compromised controller cannot silently drop honest witnesses — design doc Phase 7's first slice  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** research report §17.2/§17.3 (old-policy
+authorization / new-policy acknowledgement), D-0326 (`WitnessJournal`,
+`WitnessIdentityState`), D-0321 (`WitnessReceiptStatement`/`WitnessReceipt`/
+`WitnessedEventCertificate`, reused unchanged), D-0459 (the KEL-derived-
+policy discipline this extends to the rotation side), roadmap R9,
+[#92](../../issues/92).
+
+**Decision:** new module `did_mini::witness_rotation` closes the research
+report's §17.2: "The witness-policy-changing event should require
+certification under the old active policy. Otherwise, a compromised
+controller could remove honest witnesses before presenting a fork."
+Before this, `Controller::appoint_witnesses`/`retire_witnesses` could
+replace an identity's entire witness set with one self-signed rotation
+event — ordinary `Kel::verify` says nothing about witnesses, so nothing
+required the *old* witnesses to ever see, let alone agree to, their own
+removal. `WitnessJournal::certify_policy_transition` lets a witness that
+already holds accepted state for an identity certify, under its own *old*
+retained policy generation, that a specific chain-valid direct-successor
+establishment event legitimately changes that identity's witness policy.
+`verify_policy_transition` checks enough such receipts — bundled via
+Phase 1's existing `WitnessedEventCertificate::assemble`, unchanged — meet
+the *old* policy's threshold, and independently confirms the presented
+event really is a policy change before trusting the certificate at all.
+
+**Why no new receipt or certificate type:** a certification is not a new
+kind of statement — it is an ordinary `WitnessReceiptStatement` whose
+`witness_policy_generation` names the policy the signer is *retiring
+from*, over the event that retires it. Reusing the exact Phase 1 types
+means `WitnessedEventCertificate::verify` already does the threshold/
+membership/signature checking this needs, unchanged; `verify_policy_
+transition` only adds the one check that function cannot perform on its
+own — confirming the certificate is actually about a real policy
+transition, not an ordinary rotation that happens to carry a valid
+generation number.
+
+**Why `WitnessIdentityState` gained a new field:** the existing
+`witness_policy_generation: u64` field records only a *number* — it
+cannot say which witnesses or threshold that generation actually named.
+Certifying a transition away from a policy, and later verifying a
+certificate against it, both need the *whole* old `WitnessPolicy`. Rather
+than have callers separately retain policy history themselves (a hazard —
+a caller could easily retain the wrong or stale policy), `WitnessIdentityState`
+now also stores `accepted_policy: WitnessPolicy` (private field, new
+`accepted_policy()` accessor), populated the one place `WitnessIdentityState`
+is ever constructed (`WitnessJournal::observe`'s `Decision::Accept` arm).
+Purely additive: the existing public fields, `PartialEq`, and every
+existing call site are unchanged, since `WitnessIdentityState` has no
+public constructor outside `observe` itself.
+
+**Why "is this actually a policy change" compares witness sets, not
+generations:** every establishment event's generation is that event's own
+sequence number, so it strictly increases across *any* rotation — a
+policy-change check based on generation alone would be true for every
+rotation, defeating the entire point of distinguishing an ordinary
+rotation from a witness-set change. `is_policy_change` instead compares
+the old and new `WitnessPolicy`'s threshold and witness *set* (sorted
+before comparison, so re-declaring the same witnesses in a different list
+order is correctly not a change).
+
+**Why certifying a transition never mutates the journal's own state:**
+certifying is a distinct act from accepting the new head as this witness's
+own ongoing tracked state — a witness the new policy drops entirely still
+gets to certify its own removal, which would be impossible if certifying
+first required (or caused) adopting the new policy as this witness's own.
+
+**What this does not do, stated plainly:**
+
+- **No "new witness readiness threshold" (§17.3).** Only old-policy
+  certification is implemented. A high-assurance transition combining both
+  ("old witness threshold AND new witness readiness threshold") needs a
+  second, structurally identical operation signed under the *new*
+  generation instead — not built here.
+- **No unavailable-witness recovery path (§17.4).** Deliberately the
+  opposite assumption from this module: recovery exists precisely for
+  when old witnesses are *unavailable* to cooperate, so it cannot be built
+  by extending a mechanism that requires their cooperation.
+- **No wiring into `assess_kel_assurance` or any real authority decision.**
+  Whether/when a real verifier should *require* old-policy certification
+  before trusting a witness-set rotation is a founder-facing policy call,
+  the same kind of decision D-0328/D-0332's own predecessor phases left
+  open for their consuming call sites.
+
+**Constitutional impact:** none. No new cryptography — composes
+`sign_witness_receipt`/`WitnessedEventCertificate::verify` unchanged, the
+same Ed25519 signing every other receipt in this tree already uses. No
+voice/value edge: `witness_rotation` lives entirely inside `did-mini`,
+touching no value or governance-quorum crate.
+
+**Implementation status:** shipped — `crates/did-mini/src/witness_rotation.rs`
+(new: `WitnessJournal::certify_policy_transition`, `verify_policy_transition`,
+`is_policy_change`/`same_witness_set` private helpers, 12 tests covering a
+genuine transition producing a valid old-policy receipt, non-mutation of
+journal state, deterministic re-certification, rejecting an identity never
+previously observed, a gapped (non-direct-successor) rotation, a witness
+outside the old policy, an ordinary non-policy rotation, order-insensitive
+witness-set comparison, a threshold-only change counting as a policy
+change, full policy retirement counting as a policy change, a certificate
+checked against the wrong KEL, and old-policy threshold enforcement),
+`crates/did-mini/src/witness_state.rs` (`WitnessIdentityState::
+accepted_policy` field + accessor), `crates/did-mini/src/error.rs`
+(`IdentityError::NoRetainedWitnessState`, `NotAWitnessPolicyChange`),
+`crates/did-mini/src/lib.rs` (module wiring, `verify_policy_transition`
+re-export).
+
+**Failure point:** this only helps identities whose old witnesses are
+actually reachable and cooperative — the exact case §17.4 exists to
+handle differently. A compromised controller that also controls (or
+coerces) a threshold of the *old* witnesses can still certify an
+illegitimate transition; old-policy certification raises the cost of a
+silent witness-eviction attack from "one self-signed rotation" to
+"compromise a threshold of witnesses who were specifically chosen to be
+independent," not to zero.
+
+**Required follow-up:** §17.3 (new-witness readiness), §17.4
+(unavailable-witness recovery), and a real call site that decides when
+this certification is required, remain open — the same three items named
+in Phase 7's own remaining scope.
+
+**Supersedes / superseded by:** extends D-0321/D-0326; supersedes nothing.
+Advances Phase 7 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+committed plan.

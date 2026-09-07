@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 74,
-    "files": 921,
-    "headings": 3186,
-    "rust_symbols": 9209
+    "files": 928,
+    "headings": 3270,
+    "rust_symbols": 9231
   },
   "crates": {
     "did-mini": {
@@ -2943,7 +2943,7 @@
       "title": "use std::collections::HashMap;"
     },
     {
-      "bytes": 14915,
+      "bytes": 15815,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -2972,9 +2972,9 @@
         "establishment",
         "does"
       ],
-      "lines": 319,
+      "lines": 336,
       "path": "crates/did-mini/src/error.rs",
-      "sha256": "6ad2f0efb4b48e2e3b696ccf089da6fedb252083e1dd01f8be290631fea9e217",
+      "sha256": "0fd0d70b6b080dde568ccfffbcaecac822e1a32062dc532081b505c45c0e49ef",
       "symbols": [
         {
           "kind": "enum",
@@ -2983,32 +2983,32 @@
         },
         {
           "kind": "impl",
-          "line": 167,
+          "line": 176,
           "name": "fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 168,
+          "line": 177,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 309,
+          "line": 326,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 311,
+          "line": 328,
           "name": "From<CryptoError>"
         },
         {
           "kind": "fn",
-          "line": 312,
+          "line": 329,
           "name": "from"
         },
         {
           "kind": "type",
-          "line": 318,
+          "line": 335,
           "name": "Result"
         }
       ],
@@ -3605,7 +3605,7 @@
       "title": "use mini_crypto::VerifyingKey;"
     },
     {
-      "bytes": 5669,
+      "bytes": 5743,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -3614,11 +3614,11 @@
         "kel",
         "event",
         "spec-01",
-        "self",
         "controller",
         "method",
-        "str",
+        "self",
         "delegation",
+        "str",
         "identifier",
         "one",
         "device",
@@ -3634,9 +3634,9 @@
         "witness",
         "witness_protocol"
       ],
-      "lines": 156,
+      "lines": 158,
       "path": "crates/did-mini/src/lib.rs",
-      "sha256": "f220691c0c5fed80ee00b12a870967b66638a0176b605365e679ad6bb0b3ae51",
+      "sha256": "a524134de1e228a1739e22e272b25c6815c0ae7c79ae5fdd5664721d6b688883",
       "symbols": [
         {
           "kind": "mod",
@@ -3716,56 +3716,61 @@
         {
           "kind": "mod",
           "line": 65,
+          "name": "witness_rotation"
+        },
+        {
+          "kind": "mod",
+          "line": 66,
           "name": "witness_state"
         },
         {
           "kind": "const",
-          "line": 98,
+          "line": 100,
           "name": "METHOD"
         },
         {
           "kind": "struct",
-          "line": 105,
-          "name": "Did"
-        },
-        {
-          "kind": "impl",
           "line": 107,
           "name": "Did"
         },
         {
+          "kind": "impl",
+          "line": 109,
+          "name": "Did"
+        },
+        {
           "kind": "fn",
-          "line": 110,
+          "line": 112,
           "name": "from_scid"
         },
         {
           "kind": "fn",
-          "line": 120,
+          "line": 122,
           "name": "parse"
         },
         {
           "kind": "fn",
-          "line": 131,
+          "line": 133,
           "name": "scid"
         },
         {
           "kind": "fn",
-          "line": 136,
+          "line": 138,
           "name": "as_str"
         },
         {
           "kind": "impl",
-          "line": 141,
+          "line": 143,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 144,
           "name": "fmt"
         },
         {
           "kind": "fn",
-          "line": 147,
+          "line": 149,
           "name": "validate_scid"
         }
       ],
@@ -4428,7 +4433,144 @@
       "title": "use mini_crypto::SigningKey;"
     },
     {
-      "bytes": 37750,
+      "bytes": 21163,
+      "group": "crate:did-mini",
+      "headings": [],
+      "keywords": [
+        "witness",
+        "policy",
+        "old",
+        "kel",
+        "event",
+        "new",
+        "identity",
+        "own",
+        "witnesses",
+        "verify",
+        "already",
+        "witnessjournal",
+        "phase",
+        "rotation",
+        "accepted",
+        "state",
+        "certify",
+        "generation",
+        "same",
+        "witnessedeventcertificate",
+        "verify_policy_transition",
+        "establishment",
+        "certification",
+        "controller"
+      ],
+      "lines": 513,
+      "path": "crates/did-mini/src/witness_rotation.rs",
+      "sha256": "1a445facd05b29e71d04b90687d93c8e25fac9444279b7e5431ceb4644abd593",
+      "symbols": [
+        {
+          "kind": "impl",
+          "line": 69,
+          "name": "WitnessJournal"
+        },
+        {
+          "kind": "fn",
+          "line": 97,
+          "name": "certify_policy_transition"
+        },
+        {
+          "kind": "fn",
+          "line": 153,
+          "name": "verify_policy_transition"
+        },
+        {
+          "kind": "fn",
+          "line": 178,
+          "name": "is_policy_change"
+        },
+        {
+          "kind": "fn",
+          "line": 187,
+          "name": "same_witness_set"
+        },
+        {
+          "kind": "mod",
+          "line": 199,
+          "name": "tests"
+        },
+        {
+          "kind": "fn",
+          "line": 203,
+          "name": "a_witness"
+        },
+        {
+          "kind": "fn",
+          "line": 210,
+          "name": "appointed_and_observed"
+        },
+        {
+          "kind": "fn",
+          "line": 226,
+          "name": "certifying_a_genuine_witness_set_change_produces_a_valid_old_policy_receipt"
+        },
+        {
+          "kind": "fn",
+          "line": 267,
+          "name": "certifying_a_transition_never_mutates_the_journals_own_state"
+        },
+        {
+          "kind": "fn",
+          "line": 284,
+          "name": "certification_is_deterministic_across_calls"
+        },
+        {
+          "kind": "fn",
+          "line": 301,
+          "name": "an_identity_never_observed_before_cannot_be_certified"
+        },
+        {
+          "kind": "fn",
+          "line": 315,
+          "name": "a_gapped_successor_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 336,
+          "name": "a_witness_outside_the_old_policy_cannot_certify"
+        },
+        {
+          "kind": "fn",
+          "line": 352,
+          "name": "an_ordinary_non_policy_rotation_cannot_be_certified"
+        },
+        {
+          "kind": "fn",
+          "line": 370,
+          "name": "reordering_the_same_witness_set_is_not_a_policy_change"
+        },
+        {
+          "kind": "fn",
+          "line": 394,
+          "name": "a_threshold_only_change_is_a_policy_change"
+        },
+        {
+          "kind": "fn",
+          "line": 417,
+          "name": "retiring_the_witness_policy_entirely_is_a_policy_change"
+        },
+        {
+          "kind": "fn",
+          "line": 429,
+          "name": "verify_policy_transition_rejects_a_certificate_over_a_non_transition"
+        },
+        {
+          "kind": "fn",
+          "line": 469,
+          "name": "verify_policy_transition_enforces_the_old_policys_threshold"
+        }
+      ],
+      "title": "use mini_crypto::{SigningKey, VerifyingKey};"
+    },
+    {
+      "bytes": 38500,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -4447,19 +4589,19 @@
         "state",
         "identity",
         "accepted",
-        "self",
         "verify",
         "research",
         "own",
         "rather",
+        "self",
         "issued_receipt",
         "observe",
         "observe_verified",
         "witnessequivocationproof"
       ],
-      "lines": 901,
+      "lines": 916,
       "path": "crates/did-mini/src/witness_state.rs",
-      "sha256": "c9ac0a5b68970fe3b105da03687c42d83f361c71d97e593e8edf2e3808aeabdd",
+      "sha256": "03801335e51a5aebd63197db57d5394270d1d81612de52b6cb8ab7b662c195c1",
       "symbols": [
         {
           "kind": "const",
@@ -4473,247 +4615,252 @@
         },
         {
           "kind": "impl",
-          "line": 88,
+          "line": 89,
           "name": "WitnessIdentityState"
         },
         {
           "kind": "fn",
-          "line": 92,
+          "line": 93,
           "name": "accepted_event"
         },
         {
           "kind": "fn",
-          "line": 99,
+          "line": 100,
           "name": "issued_receipt"
         },
         {
+          "kind": "fn",
+          "line": 113,
+          "name": "accepted_policy"
+        },
+        {
           "kind": "enum",
-          "line": 107,
+          "line": 121,
           "name": "WitnessObservation"
         },
         {
           "kind": "struct",
-          "line": 132,
+          "line": 146,
           "name": "WitnessJournal"
         },
         {
           "kind": "impl",
-          "line": 136,
+          "line": 150,
           "name": "WitnessJournal"
         },
         {
           "kind": "fn",
-          "line": 137,
+          "line": 151,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 145,
+          "line": 159,
           "name": "state_for"
         },
         {
           "kind": "fn",
-          "line": 158,
+          "line": 172,
           "name": "observe"
         },
         {
           "kind": "fn",
-          "line": 260,
+          "line": 275,
           "name": "observe_verified"
         },
         {
           "kind": "fn",
-          "line": 290,
+          "line": 305,
           "name": "observe_declared"
         },
         {
           "kind": "enum",
-          "line": 306,
+          "line": 321,
           "name": "Decision"
         },
         {
           "kind": "struct",
-          "line": 326,
+          "line": 341,
           "name": "ControllerDuplicityProof"
         },
         {
           "kind": "impl",
-          "line": 333,
+          "line": 348,
           "name": "ControllerDuplicityProof"
         },
         {
           "kind": "fn",
-          "line": 337,
+          "line": 352,
           "name": "assemble"
         },
         {
           "kind": "fn",
-          "line": 355,
+          "line": 370,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 366,
+          "line": 381,
           "name": "decode"
         },
         {
           "kind": "struct",
-          "line": 400,
+          "line": 415,
           "name": "WitnessEquivocationProof"
         },
         {
           "kind": "impl",
-          "line": 406,
+          "line": 421,
           "name": "WitnessEquivocationProof"
         },
         {
           "kind": "fn",
-          "line": 411,
+          "line": 426,
           "name": "assemble"
         },
         {
           "kind": "fn",
-          "line": 435,
+          "line": 450,
           "name": "verify"
         },
         {
           "kind": "fn",
-          "line": 442,
+          "line": 457,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 453,
+          "line": 468,
           "name": "decode"
         },
         {
           "kind": "const",
-          "line": 466,
+          "line": 481,
           "name": "MAX_RECEIPT_BYTES"
         },
         {
           "kind": "mod",
-          "line": 469,
+          "line": 484,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 475,
+          "line": 490,
           "name": "a_witness"
         },
         {
           "kind": "fn",
-          "line": 490,
+          "line": 505,
           "name": "an_event"
         },
         {
           "kind": "fn",
-          "line": 503,
+          "line": 518,
           "name": "a_policy"
         },
         {
           "kind": "fn",
-          "line": 508,
+          "line": 523,
           "name": "first_seen_event_is_accepted_and_receipted"
         },
         {
           "kind": "fn",
-          "line": 532,
+          "line": 547,
           "name": "a_valid_direct_successor_is_accepted_and_updates_state"
         },
         {
           "kind": "fn",
-          "line": 551,
+          "line": 566,
           "name": "an_exact_duplicate_returns_the_same_receipt_without_resigning"
         },
         {
           "kind": "fn",
-          "line": 573,
+          "line": 588,
           "name": "a_stale_ancestor_is_rejected_without_a_receipt"
         },
         {
           "kind": "fn",
-          "line": 595,
+          "line": 610,
           "name": "a_conflicting_same_sequence_event_yields_a_duplicity_proof"
         },
         {
           "kind": "fn",
-          "line": 625,
+          "line": 640,
           "name": "a_conflicting_descendant_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 643,
+          "line": 658,
           "name": "observing_outside_the_policy_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 658,
+          "line": 673,
           "name": "a_controller_duplicity_proof_round_trips"
         },
         {
           "kind": "fn",
-          "line": 669,
+          "line": 684,
           "name": "assembling_a_duplicity_proof_from_different_sequences_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 681,
+          "line": 696,
           "name": "assembling_a_duplicity_proof_from_identical_events_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 693,
+          "line": 708,
           "name": "assembling_a_duplicity_proof_for_a_different_identity_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 705,
+          "line": 720,
           "name": "a_statement"
         },
         {
           "kind": "fn",
-          "line": 726,
+          "line": 741,
           "name": "a_witness_equivocation_proof_round_trips_and_verifies"
         },
         {
           "kind": "fn",
-          "line": 744,
+          "line": 759,
           "name": "assembling_an_equivocation_proof_from_the_same_digest_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 762,
+          "line": 777,
           "name": "assembling_an_equivocation_proof_from_different_witnesses_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 781,
+          "line": 796,
           "name": "observe_verified_accepts_a_genuinely_chain_valid_inception"
         },
         {
           "kind": "fn",
-          "line": 803,
+          "line": 818,
           "name": "observe_verified_accepts_a_genuine_rotation_as_a_direct_successor"
         },
         {
           "kind": "fn",
-          "line": 822,
+          "line": 837,
           "name": "observe_verified_rejects_a_kel_with_a_tampered_signature_and_leaves_state_untouched"
         },
         {
           "kind": "fn",
-          "line": 845,
+          "line": 860,
           "name": "observe_verified_rejects_an_empty_kel"
         },
         {
           "kind": "fn",
-          "line": 867,
+          "line": 882,
           "name": "observe_verified_still_detects_duplicate_stale_and_conflicting_events"
         },
         {
           "kind": "fn",
-          "line": 885,
+          "line": 900,
           "name": "an_equivocation_proof_fails_verification_against_the_wrong_key"
         }
       ],
@@ -76445,7 +76592,7 @@
       "title": "Universal addressing \u2014 connecting to Mininet from almost any device without DNS"
     },
     {
-      "bytes": 5053,
+      "bytes": 6382,
       "group": "docs",
       "headings": [
         {
@@ -76456,68 +76603,73 @@
         {
           "level": 2,
           "line": 8,
+          "text": "Full reconstruction pack"
+        },
+        {
+          "level": 2,
+          "line": 19,
           "text": "The claims, and where each is enforced"
         },
         {
           "level": 2,
-          "line": 26,
+          "line": 37,
           "text": "What could kill it \u2014 the threat model"
         },
         {
           "level": 2,
-          "line": 36,
+          "line": 47,
           "text": "The gates \u2014 what more code cannot close"
         },
         {
           "level": 2,
-          "line": 59,
+          "line": 70,
           "text": "Internal audit deliverables already written"
         },
         {
           "level": 2,
-          "line": 69,
+          "line": 80,
           "text": "Verify it yourself"
         },
         {
           "level": 2,
-          "line": 82,
+          "line": 93,
           "text": "The honesty policy itself"
         },
         {
           "level": 2,
-          "line": 90,
+          "line": 101,
           "text": "Where to go next"
         }
       ],
       "keywords": [
         "gates",
-        "what",
-        "you",
+        "audits",
         "review",
+        "what",
+        "close",
         "audit",
+        "you",
         "each",
         "threat",
-        "close",
-        "claims",
-        "enforced",
-        "project",
-        "audits",
         "start",
+        "claim",
+        "evidence",
+        "external",
+        "they",
         "here",
-        "more",
-        "code",
+        "full",
+        "reconstruction",
+        "enforced",
         "cannot",
         "internal",
-        "already",
-        "claim",
         "exactly",
-        "every",
-        "invariant",
-        "they"
+        "these",
+        "documents",
+        "identity"
       ],
-      "lines": 97,
+      "lines": 108,
       "path": "docs/AUDITOR_START.md",
-      "sha256": "c9efc7b64bc58eb4d49d1013f9b77bbe47f98ee4f8c24be2e9d58f18e11e9c40",
+      "sha256": "ce8ff355b1bc24789a76cd6e21770fb5512532fd8ef9bfad5c5151c96532a42e",
       "symbols": [],
       "title": "Start here \u2014 for an auditor or skeptic"
     },
@@ -76886,7 +77038,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1116154,
+      "bytes": 1123667,
       "group": "docs",
       "headings": [
         {
@@ -77301,24 +77453,24 @@
         "slice",
         "beta",
         "review",
-        "audit",
         "phase",
+        "audit",
         "closes",
         "signed",
         "roadmap",
+        "design",
         "doctrine",
         "decision",
         "log",
         "batch",
         "local",
         "release",
-        "design",
         "first",
         "witness"
       ],
-      "lines": 18499,
+      "lines": 18622,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "54ed006221e751de050a19fd512abd8be5c9dcf4649e10f825a3533308a33f24",
+      "sha256": "30c0a1ef0feec4b7c856f9ed08834576e4569f950d6e27eaa3357742f116e67b",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -78333,7 +78485,7 @@
       "title": "Mininet roadmap: from two-phone proof to self-governed network"
     },
     {
-      "bytes": 21610,
+      "bytes": 22188,
       "group": "docs",
       "headings": [
         {
@@ -78413,72 +78565,72 @@
         },
         {
           "level": 3,
-          "line": 272,
+          "line": 281,
           "text": "R10 \u2014 BLE and local-radio transport \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 279,
+          "line": 288,
           "text": "R11 \u2014 A client application people can actually use \u00b7 `ready`"
         },
         {
           "level": 1,
-          "line": 288,
+          "line": 297,
           "text": "Phase 4 \u2014 The gates code cannot close"
         },
         {
           "level": 3,
-          "line": 295,
+          "line": 304,
           "text": "R12 \u2014 External cryptography audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 306,
+          "line": 315,
           "text": "R13 \u2014 FROST DKG audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 312,
+          "line": 321,
           "text": "R14 \u2014 Legal counsel review \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 316,
+          "line": 325,
           "text": "R15 \u2014 Sybil resistance and personhood \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 328,
+          "line": 337,
           "text": "R16 \u2014 Tokenomics validation \u00b7 `outside`"
         },
         {
           "level": 1,
-          "line": 336,
+          "line": 345,
           "text": "Phase 5 \u2014 Release engineering"
         },
         {
           "level": 3,
-          "line": 338,
+          "line": 347,
           "text": "R17 \u2014 Adversarial testing at real-world scale \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 345,
+          "line": 354,
           "text": "R18 \u2014 Genesis, validator set, and activation \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 352,
+          "line": 361,
           "text": "R19 \u2014 Release, install, and rollback on real targets \u00b7 `ready`"
         },
         {
           "level": 3,
-          "line": 360,
+          "line": 369,
           "text": "R20 \u2014 The honest launch statement \u00b7 `blocked`"
         },
         {
           "level": 2,
-          "line": 373,
+          "line": 382,
           "text": "What is deliberately *not* on this list"
         }
       ],
@@ -78508,9 +78660,9 @@
         "pull",
         "again"
       ],
-      "lines": 385,
+      "lines": 394,
       "path": "docs/ROADMAP_TO_RELEASE.md",
-      "sha256": "56eb57ddee65de9fd24481e588d6d455284c3b14f6164dde7d4446cbe231031d",
+      "sha256": "c66c7a292f37f7bf8bac5c49f832f0f23c057a94f18d60dd466702c9710fa5ab",
       "symbols": [],
       "title": "The road to release"
     },
@@ -78649,7 +78801,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 167843,
+      "bytes": 169221,
       "group": "docs",
       "headings": [
         {
@@ -78684,77 +78836,77 @@
         },
         {
           "level": 2,
-          "line": 384,
+          "line": 405,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 774,
+          "line": 795,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 821,
+          "line": 842,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1043,
+          "line": 1064,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1237,
+          "line": 1258,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1298,
+          "line": 1319,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1328,
+          "line": 1349,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1655,
+          "line": 1676,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2133,
+          "line": 2154,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2224,
+          "line": 2245,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2304,
+          "line": 2325,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2370,
+          "line": 2391,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2387,
+          "line": 2408,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2423,
+          "line": 2444,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2488,
+          "line": 2509,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -78784,9 +78936,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2523,
+      "lines": 2544,
       "path": "docs/STATUS.md",
-      "sha256": "da4a90794bb9c9e358bab57213e0a735b193ba11b4d0cb090e6067394ef924f4",
+      "sha256": "e960b6fb13d30734b3dd66db73793b87a2d3b7b8f541a3d1df83847000609324",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -79189,7 +79341,405 @@
       "title": "Windows client security boundary"
     },
     {
-      "bytes": 4343,
+      "bytes": 9696,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Audit evidence index \u2014 claim \u2192 mechanism \u2192 evidence \u2192 remaining gate"
+        },
+        {
+          "level": 2,
+          "line": 48,
+          "text": "Evidence precedence"
+        },
+        {
+          "level": 2,
+          "line": 61,
+          "text": "Reviewer output requirement"
+        }
+      ],
+      "keywords": [
+        "evidence",
+        "partial",
+        "governance",
+        "audit",
+        "claim",
+        "review",
+        "external",
+        "gate",
+        "value",
+        "fail",
+        "independent",
+        "mechanism",
+        "remaining",
+        "current",
+        "prs",
+        "repository",
+        "personhood",
+        "consensus",
+        "reviewer",
+        "dependency",
+        "code",
+        "github",
+        "protocol",
+        "canonical"
+      ],
+      "lines": 75,
+      "path": "docs/audits/AUDIT_EVIDENCE_INDEX.md",
+      "sha256": "19fd6efbe9fbf4ce9ec0b780641073460a5728ccd66f6a751010a60fb67feecd",
+      "symbols": [],
+      "title": "Audit evidence index \u2014 claim \u2192 mechanism \u2192 evidence \u2192 remaining gate"
+    },
+    {
+      "bytes": 15079,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "External audit master report \u2014 readiness, values, and exact blockers"
+        },
+        {
+          "level": 2,
+          "line": 19,
+          "text": "Value verdicts"
+        },
+        {
+          "level": 3,
+          "line": 21,
+          "text": "1. Humanity before technology \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 28,
+          "text": "2. No indispensable central authority \u2014 FAIL"
+        },
+        {
+          "level": 3,
+          "line": 35,
+          "text": "3. Network outlives its creators \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 42,
+          "text": "4. Money never outranks legitimacy \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 49,
+          "text": "5. Canonical truth for money \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 56,
+          "text": "6. Design for failure \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 63,
+          "text": "7. Free forks, earned legitimacy \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 70,
+          "text": "8. Human as root of trust \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 77,
+          "text": "9. Structural privacy \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 84,
+          "text": "10. Every optimization names its cost \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 91,
+          "text": "11. Weakest device matters \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 98,
+          "text": "12. AI serves humanity, never rules \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 105,
+          "text": "13. Think in centuries \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 112,
+          "text": "14. Simplicity is security \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 119,
+          "text": "15. Honest majority, malicious minority \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 126,
+          "text": "16. Voice/value wall \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 133,
+          "text": "17. Future child test \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 140,
+          "text": "18. Edge convenient, core independent \u2014 PARTIAL"
+        },
+        {
+          "level": 2,
+          "line": 147,
+          "text": "External legitimacy gates"
+        },
+        {
+          "level": 2,
+          "line": 161,
+          "text": "Overall judgment"
+        }
+      ],
+      "keywords": [
+        "partial",
+        "external",
+        "exact",
+        "independent",
+        "mechanism",
+        "governance",
+        "value",
+        "authority",
+        "failure",
+        "audit",
+        "legitimacy",
+        "point",
+        "proving",
+        "canonical",
+        "pass",
+        "review",
+        "repository",
+        "still",
+        "path",
+        "report",
+        "fail",
+        "money",
+        "never",
+        "human"
+      ],
+      "lines": 168,
+      "path": "docs/audits/EXTERNAL_AUDIT_MASTER_REPORT.md",
+      "sha256": "0e170fe6cdc6fb572a7d29424950cc5667899426ceb6ace804d9aca91f44da81",
+      "symbols": [],
+      "title": "External audit master report \u2014 readiness, values, and exact blockers"
+    },
+    {
+      "bytes": 14696,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Mininet build history \u2014 auditor reconstruction"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "1. Foundational phase \u2014 identity, equal-weight finality, storage receipts, networking"
+        },
+        {
+          "level": 2,
+          "line": 27,
+          "text": "2. Cryptography prototype phase \u2014 privacy, Bulletproofs, FROST, DKG"
+        },
+        {
+          "level": 2,
+          "line": 36,
+          "text": "3. Canonical settlement and self-hosted forge spine"
+        },
+        {
+          "level": 2,
+          "line": 45,
+          "text": "4. Networked consensus and recovery"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "5. Identity freshness and witness assurance"
+        },
+        {
+          "level": 2,
+          "line": 67,
+          "text": "6. Personhood \u2014 the project\u2019s primary unresolved security dependency"
+        },
+        {
+          "level": 2,
+          "line": 77,
+          "text": "7. Storage \u2014 possession became real; operator independence did not"
+        },
+        {
+          "level": 2,
+          "line": 91,
+          "text": "8. Privacy and value path"
+        },
+        {
+          "level": 2,
+          "line": 109,
+          "text": "9. Economics and anti-collusion"
+        },
+        {
+          "level": 2,
+          "line": 120,
+          "text": "10. Search, social, intake and client surfaces"
+        },
+        {
+          "level": 2,
+          "line": 131,
+          "text": "11. Governance and the centralization red flag"
+        },
+        {
+          "level": 2,
+          "line": 143,
+          "text": "12. Current release picture"
+        }
+      ],
+      "keywords": [
+        "pull",
+        "phase",
+        "storage",
+        "review",
+        "repository",
+        "build",
+        "history",
+        "identity",
+        "value",
+        "first",
+        "added",
+        "finality",
+        "cryptography",
+        "frost",
+        "self-hosted",
+        "current",
+        "release",
+        "status",
+        "gate",
+        "external",
+        "implementation",
+        "distinct",
+        "explicit",
+        "auditor"
+      ],
+      "lines": 154,
+      "path": "docs/audits/PROJECT_BUILD_HISTORY.md",
+      "sha256": "8c978d5549a487f41eb2a58a25120c84ee432d77b1e3bdc41428ac3ff6d7b5eb",
+      "symbols": [],
+      "title": "Mininet build history \u2014 auditor reconstruction"
+    },
+    {
+      "bytes": 16976,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Pull-request history ledger \u2014 how to reconstruct every change"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "Era 1 \u2014 core protocol bootstrap"
+        },
+        {
+          "level": 2,
+          "line": 29,
+          "text": "Era 2 \u2014 identity, bounty, settlement, custody and external-gate formalization"
+        },
+        {
+          "level": 2,
+          "line": 38,
+          "text": "Era 3 \u2014 self-hosted Forge, release and recovery spine"
+        },
+        {
+          "level": 2,
+          "line": 55,
+          "text": "Era 4 \u2014 networked consensus"
+        },
+        {
+          "level": 2,
+          "line": 72,
+          "text": "Era 5 \u2014 governance honesty and canonical values"
+        },
+        {
+          "level": 2,
+          "line": 85,
+          "text": "Era 6 \u2014 privacy/cost doctrine, object privacy and transport layers"
+        },
+        {
+          "level": 2,
+          "line": 104,
+          "text": "Era 7 \u2014 post-quantum and KEL witness evolution"
+        },
+        {
+          "level": 2,
+          "line": 118,
+          "text": "Era 8 \u2014 social, intake, search and client surfaces"
+        },
+        {
+          "level": 2,
+          "line": 136,
+          "text": "Era 9 \u2014 economics, storage and private-value adversarial hardening"
+        },
+        {
+          "level": 2,
+          "line": 148,
+          "text": "Complete-history audit procedure"
+        },
+        {
+          "level": 3,
+          "line": 159,
+          "text": "Per-PR worksheet"
+        }
+      ],
+      "keywords": [
+        "pull",
+        "era",
+        "history",
+        "later",
+        "forge",
+        "storage",
+        "audit",
+        "first",
+        "real",
+        "ledger",
+        "self-hosted",
+        "canonical",
+        "review",
+        "repository",
+        "current",
+        "personhood",
+        "pull-request",
+        "change",
+        "core",
+        "protocol",
+        "identity",
+        "bounty",
+        "settlement",
+        "release"
+      ],
+      "lines": 180,
+      "path": "docs/audits/PR_HISTORY_LEDGER.md",
+      "sha256": "7ebe132a4a50b472daf7a8ad4565f7b61ef7ce73a34b7483b27120994877b3e4",
+      "symbols": [],
+      "title": "Pull-request history ledger \u2014 how to reconstruct every change"
+    },
+    {
+      "bytes": 5087,
       "group": "docs",
       "headings": [
         {
@@ -79199,39 +79749,39 @@
         },
         {
           "level": 2,
-          "line": 23,
+          "line": 27,
           "text": "Required scope header (D-0441)"
         }
       ],
       "keywords": [
         "issues",
-        "what",
         "scope",
+        "what",
         "verdict",
         "open",
         "fixed",
         "audit",
         "audits",
-        "written",
-        "file",
         "closes",
         "pass",
+        "external",
+        "written",
+        "file",
         "built",
+        "current",
+        "gate",
+        "internal",
+        "evidence",
         "commit",
         "versions",
         "one",
         "required",
         "header",
-        "d-0441",
-        "review",
-        "each",
-        "github",
-        "issue",
-        "issue-8-constitutional-audit"
+        "d-0441"
       ],
-      "lines": 59,
+      "lines": 63,
       "path": "docs/audits/README.md",
-      "sha256": "200005464898d7c193e6f3bc34c5de8e9171e8d68f5ae125dc967d64ef71526b",
+      "sha256": "324cbc044ba69265c256d465e6575c608b70c55468212db63020a14fc6ee44e3",
       "symbols": [],
       "title": "Audits"
     },
@@ -83543,7 +84093,7 @@
       "title": "Long-term inflation and whale-attack resistance \u2014 founder decision (D-0074)"
     },
     {
-      "bytes": 14078,
+      "bytes": 15532,
       "group": "docs",
       "headings": [
         {
@@ -83553,41 +84103,41 @@
         },
         {
           "level": 2,
-          "line": 26,
+          "line": 28,
           "text": "The gap this closes"
         },
         {
           "level": 2,
-          "line": 37,
+          "line": 39,
           "text": "Decision"
         },
         {
           "level": 2,
-          "line": 63,
+          "line": 65,
           "text": "Why design-only, this PR"
         },
         {
           "level": 2,
-          "line": 76,
+          "line": 78,
           "text": "Phased plan this repo commits to (see report \u00a729 for full detail)"
         },
         {
           "level": 2,
-          "line": 193,
+          "line": 213,
           "text": "Hard rules carried forward from the report"
         },
         {
           "level": 2,
-          "line": 214,
+          "line": 234,
           "text": "What this document originally covered, and what D-0321/D-0326 added"
         }
       ],
       "keywords": [
         "witness",
         "phase",
-        "receipts",
         "gossip",
         "kel",
+        "receipts",
         "report",
         "what",
         "receipt",
@@ -83598,19 +84148,19 @@
         "audit",
         "repo",
         "full",
+        "first",
         "real",
         "verification",
         "own",
         "verifier",
-        "event",
         "invariant",
         "gap",
         "design-only",
         "phased"
       ],
-      "lines": 230,
+      "lines": 250,
       "path": "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
-      "sha256": "aeb8693aeaa57b29246b9ef5a37e88feeac6c04cb8c5e014059cdbdd0ebce73c",
+      "sha256": "94a13c277eae48256a1c37d7e93449ad345b178109a49bb87861e925f2b53d75",
       "symbols": [],
       "title": "KEL witness receipts and duplicity gossip (audit #12 F4, invariant M3)"
     },
@@ -85095,6 +85645,158 @@
       "title": "Treasury economic model \u2014 founder decision (D-0073)"
     },
     {
+      "bytes": 18142,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "External auditor test itinerary \u2014 from code-complete claims to real-value authorization"
+        },
+        {
+          "level": 2,
+          "line": 7,
+          "text": "0. Freeze the exact revision before testing"
+        },
+        {
+          "level": 2,
+          "line": 23,
+          "text": "Track A \u2014 applied cryptography and private value path \u2014 P0"
+        },
+        {
+          "level": 3,
+          "line": 27,
+          "text": "A1. Primitive correctness"
+        },
+        {
+          "level": 3,
+          "line": 38,
+          "text": "A2. Composition correctness"
+        },
+        {
+          "level": 3,
+          "line": 51,
+          "text": "A3. Chain-validity rule \u2014 mandatory before PASS"
+        },
+        {
+          "level": 3,
+          "line": 58,
+          "text": "A4. Transparent-path retirement"
+        },
+        {
+          "level": 3,
+          "line": 65,
+          "text": "Closure artifact"
+        },
+        {
+          "level": 2,
+          "line": 70,
+          "text": "Track B \u2014 treasury/FROST/DKG/custody \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 99,
+          "text": "Track C \u2014 unique-human/personhood legitimacy \u2014 P0 for real people/governance"
+        },
+        {
+          "level": 2,
+          "line": 126,
+          "text": "Track C2 \u2014 identity core: KEL, pre-rotation, delegation and recovery \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 151,
+          "text": "Track D \u2014 consensus, execution, state sync and validator networking \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 175,
+          "text": "Track E \u2014 identity/KEL witness freshness \u2014 P0 for authority-bearing identities"
+        },
+        {
+          "level": 2,
+          "line": 196,
+          "text": "Track F \u2014 storage integrity, capacity and operator independence \u2014 P0 for storage economics"
+        },
+        {
+          "level": 2,
+          "line": 216,
+          "text": "Track G \u2014 hardware/BLE/UWB/Wi-Fi acceptance \u2014 P0 for real-device personhood claims"
+        },
+        {
+          "level": 2,
+          "line": 233,
+          "text": "Track H \u2014 tokenomics, incentives and anti-collusion \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 257,
+          "text": "Track I \u2014 legal launch posture \u2014 P0 for real value"
+        },
+        {
+          "level": 2,
+          "line": 269,
+          "text": "Track J \u2014 reproducible builds \u2014 P0 for release"
+        },
+        {
+          "level": 2,
+          "line": 287,
+          "text": "Track J2 \u2014 dependency and software-supply-chain provenance \u2014 P0 for release"
+        },
+        {
+          "level": 2,
+          "line": 311,
+          "text": "Track K \u2014 governance decentralization / founder-removal drill \u2014 P0 before claiming no owner"
+        },
+        {
+          "level": 3,
+          "line": 315,
+          "text": "K0. Interim Founder-account operational security \u2014 required while D-0083 remains active"
+        },
+        {
+          "level": 3,
+          "line": 329,
+          "text": "K1. Remove the control point"
+        },
+        {
+          "level": 1,
+          "line": 345,
+          "text": "Final release ceremony"
+        }
+      ],
+      "keywords": [
+        "track",
+        "pass",
+        "key",
+        "revision",
+        "private",
+        "exact",
+        "path",
+        "release",
+        "scope",
+        "fail",
+        "gates",
+        "value",
+        "correctness",
+        "real",
+        "identity",
+        "remains",
+        "one",
+        "current",
+        "image",
+        "production",
+        "itinerary",
+        "claims",
+        "real-value",
+        "rule"
+      ],
+      "lines": 358,
+      "path": "docs/gates/EXTERNAL_AUDITOR_TEST_ITINERARY.md",
+      "sha256": "9dd9a7dcb11451c41eec74e3bdcfd5c6337a8f10a6cd70544aa773fccba05df9",
+      "symbols": [],
+      "title": "External auditor test itinerary \u2014 from code-complete claims to real-value authorization"
+    },
+    {
       "bytes": 4731,
       "group": "docs",
       "headings": [
@@ -85197,46 +85899,133 @@
       "title": "External review response template"
     },
     {
-      "bytes": 2191,
+      "bytes": 3724,
       "group": "docs",
       "headings": [
         {
           "level": 1,
           "line": 1,
           "text": "External legitimacy gates"
+        },
+        {
+          "level": 2,
+          "line": 16,
+          "text": "Unified completion pack"
         }
       ],
       "keywords": [
         "issues",
+        "audits",
         "gates",
-        "engage",
+        "review",
+        "evidence",
         "external",
+        "cryptography",
+        "never",
+        "engage",
         "scope",
         "outside",
-        "cryptography",
         "auditor",
+        "real",
         "file",
         "package",
-        "review",
+        "may",
         "legitimacy",
+        "unified",
+        "completion",
+        "pack",
         "requires",
+        "legal",
         "counsel",
-        "tokenomics",
-        "specialist",
-        "real",
-        "founder",
-        "research",
-        "what",
-        "action",
-        "crypto-audit-scope",
-        "dkg-audit-scope",
-        "same"
+        "tokenomics"
       ],
-      "lines": 31,
+      "lines": 42,
       "path": "docs/gates/README.md",
-      "sha256": "28bfe60bf4fd37684f71be2aa9a8eff28b351bb26f341fb018e4234484e24163",
+      "sha256": "1c160a4235f55e1b78ba61f32323583500647b49016f478e1f5d719b54213d84",
       "symbols": [],
       "title": "External legitimacy gates"
+    },
+    {
+      "bytes": 6985,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Real-value / real-people release checklist \u2014 binary NO-GO gate"
+        },
+        {
+          "level": 2,
+          "line": 5,
+          "text": "Current verdict"
+        },
+        {
+          "level": 2,
+          "line": 11,
+          "text": "P0 \u2014 must all be complete before real value"
+        },
+        {
+          "level": 2,
+          "line": 24,
+          "text": "P0 \u2014 must all be complete before real-people governance / Human Share"
+        },
+        {
+          "level": 2,
+          "line": 32,
+          "text": "P0 \u2014 must all be complete before production storage/provider rewards"
+        },
+        {
+          "level": 2,
+          "line": 39,
+          "text": "P0 \u2014 consensus and network release conditions"
+        },
+        {
+          "level": 2,
+          "line": 47,
+          "text": "P1 \u2014 required before broad public production claims"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "Release evidence bundle"
+        },
+        {
+          "level": 2,
+          "line": 74,
+          "text": "Automatic NO-GO conditions"
+        }
+      ],
+      "keywords": [
+        "release",
+        "pass",
+        "complete",
+        "production",
+        "review",
+        "evidence",
+        "independent",
+        "real",
+        "governance",
+        "required",
+        "external",
+        "real-people",
+        "no-go",
+        "storage",
+        "conditions",
+        "state",
+        "path",
+        "checklist",
+        "current",
+        "value",
+        "human",
+        "provider",
+        "network",
+        "claims"
+      ],
+      "lines": 89,
+      "path": "docs/gates/REAL_VALUE_RELEASE_CHECKLIST.md",
+      "sha256": "f162e288c413f969d7d48c508d2e90082f36ad1e4a1eb766bc81de102794e1e5",
+      "symbols": [],
+      "title": "Real-value / real-people release checklist \u2014 binary NO-GO gate"
     },
     {
       "bytes": 4389,
@@ -95016,7 +95805,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 72560,
+      "bytes": 74658,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -95045,9 +95834,9 @@
         "independently",
         "both"
       ],
-      "lines": 1113,
+      "lines": 1133,
       "path": "governance/work-claims.json",
-      "sha256": "aa026ff7fe5c91c575d7e99de482653eca14be39e9bc4786322adb691e4d618d",
+      "sha256": "b1a60e11b5bdf713fd56f75c423a8f8e375b9cd153e474ffe385d101c5e20161",
       "symbols": [],
       "title": "{"
     },
