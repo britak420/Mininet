@@ -58,11 +58,16 @@
 #![forbid(unsafe_code)]
 #![warn(missing_debug_implementations)]
 
+mod gossip;
 mod ingest;
 mod message;
 mod private_protocol;
 mod protocol;
 
+pub use gossip::{
+    compare_gossip_carrier, gossip_summary_carrier, GossipCarrierOutcome, GOSSIP_SUMMARY_CARRIER,
+    MAX_GOSSIP_SUMMARY_CARRIER_BYTES,
+};
 pub use ingest::{kel_carrier, Ingest, IngestOutcome, KelCache, KEL_CARRIER};
 pub use private_protocol::{sync_private_route_bidirectional, PrivateSyncReport};
 pub use protocol::{

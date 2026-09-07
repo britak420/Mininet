@@ -5,11 +5,15 @@
 (`KelAssurance` classification, D-0328), Phase 3's second slice (real
 KEL-chain verification wired in front of `WitnessJournal::observe`,
 D-0329), a local duplicity-proof registry (`DuplicityRegistry`, D-0330),
-a `mini-forge` bridge (`author_assurance`, D-0332), and **witness policies
-bound to the identity's own signed KEL (D-0459)** shipped. Only wiring
+a `mini-forge` bridge (`author_assurance`, D-0332), **witness policies
+bound to the identity's own signed KEL (D-0459)**, **a receipt collection
+protocol (D-0464, Phase 4)**, **a persistent witness journal
+(`mini-witness-service`, D-0465, Phase 6)**, and **KEL head gossip
+summaries, both the pure comparison (D-0466) and real sync-carried
+transport (`mini-sync`, D-0467) — closing Phase 5** shipped. Only wiring
 `author_assurance` into a real governance call site — a founder-facing
 policy call — and a bounded/incremental KEL re-verify remain open in
-Phase 3; Phase 4 onward not started.
+Phase 3; Phases 7-10 not started.
 
 **Full research:** `docs/research/
 KEL_WITNESS_RECEIPTS_DUPLICITY_GOSSIP_RESEARCH_20260715.md`
@@ -150,10 +154,32 @@ exactly what this PR is.
    only — no network transport, matching Phase 1-3's own staging; a real
    socket adapter is separate, later work for whichever crate first runs a
    witness service.
-5. **Gossip summaries** — piggybacked on existing sync/relay/forge
-   traffic, targeted fetch on disagreement only.
-6. **Persistent witness service** — durable state, crash recovery,
-   bounded retention, quotas.
+5. **Gossip summaries (shipped, D-0466 + D-0467) — closed.**
+   `did_mini::gossip`'s `KelHeadSummary` (a compact, unsigned identity/
+   sequence/digest/policy-generation claim) and `compare_head_summaries`
+   (a pure function classifying two summaries as `Agrees`/
+   `Disagreement`/`Ahead`/`Behind`, D-0466). No new evidence-retrieval
+   request type: a `Disagreement` or `Ahead` outcome is resolved with
+   Phase 4's already-shipped `SubmitEventForWitnessingRequest`/
+   `FetchWitnessReceiptRequest`, the same "no duplicate op" reasoning
+   Phase 4 itself already applied. **Real transport (D-0467):**
+   `mini_sync::gossip_summary_carrier` wraps a summary as an ordinary
+   `mini-objects` object, so it rides the existing MINI/SYNC1
+   reconciliation protocol with zero new wire messages — the literal
+   "piggybacked on existing sync... traffic" this phase named.
+   `compare_gossip_carrier` decodes an ingested carrier and compares it
+   against the receiver's own `KelCache` (the same locally-cached "what
+   do I believe" state `mini_sync::Ingest` already maintains). Turning a
+   `Disagreement`/`Ahead` outcome into an automatic
+   `mini_sync::request_retrieval` call remains a host policy choice,
+   matching `mini_consensus::discovery::pex_over_tcp`'s own
+   never-auto-wired precedent.
+6. **Persistent witness service (shipped, D-0465)** — new crate
+   `mini-witness-service`'s `PersistentWitnessJournal` gives
+   `WitnessJournal` durable, crash-recoverable state by replaying
+   `WitnessJournal::observe_declared` (D-0464) over what was durably
+   recorded, plus an identity-count quota. No network transport, no
+   rotation-aware pruning — those remain Phase 7.
 7. **Witness rotation and recovery** — policy generations, old-policy
    certification of witness-set changes, unavailable-witness recovery
    that can't be triggered casually.

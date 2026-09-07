@@ -9,6 +9,7 @@ resolver = "2"
 members = [
     "crates/mini-crypto",
     "crates/did-mini",
+    "crates/mini-witness-service",
     "crates/mini-bearer",
     "crates/mini-presence",
     "crates/mini-reward",

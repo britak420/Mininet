@@ -275,36 +275,67 @@ given time.
   `resolve_project`'s actual quorum gating, which remains purely
   `author_verified`'s boolean — which governance action (if any) should
   require which minimum assurance level is a founder-facing policy
-  call, not decided unilaterally here. **Policy binding shipped
+  call, not decided unilaterally here. **Witness policy binding shipped
   (D-0459):** `Establishment` now carries `witness_threshold` beside its
   witness set, `Kel::declared_witness_policy` reads the policy back from
   the most recent establishment event, and `assess_kel_assurance` takes
-  it from there — `WitnessEvidence::policy` is gone. A caller-supplied
-  policy meant whoever handed a verifier a certificate also handed it
-  the standard the certificate was judged against; every assurance level
-  above `Pinned` was decorative against the only attacker that mattered.
+  it from there — `WitnessEvidence::policy` is gone, closing the hole
+  where a caller-supplied policy let an attacker name their own witnesses
+  and earn a forged branch the strongest assurance level.
   `Controller::appoint_witnesses`/`retire_witnesses` are the typed
   declaration ops; every identity predating this keeps its exact bytes
-  and SCID, checked against a real `origin/main` build. **Phase 4
-  shipped (D-0464):** `did_mini::witness_protocol` —
-  `SubmitEventForWitnessingRequest`/`Response` and
+  and SCID, checked against a real `origin/main` build. **Receipt
+  collection protocol shipped (Phase 4, D-0464):** `did_mini::
+  witness_protocol` — `SubmitEventForWitnessingRequest`/`Response` and
   `FetchWitnessReceiptRequest`/`Response`, canonical wire-encoded, plus
   pure handlers over a `WitnessJournal`; no network yet. Extends
   D-0459's fix to the signing side: the new
   `WitnessJournal::observe_declared` reads the policy from a submitted
   KEL's own history, so the request type carries no policy field a
   forgery could use — 12 tests, including one pinning that the request
-  struct has exactly one field. **Not yet real:** no bounded/incremental
-  re-verify (`observe_verified`/`observe_declared` re-verify the whole
-  chain from inception on every call, not just the new suffix), no
-  fork-proof construction for the harder "conflicting descendant" case,
-  no recovery-aware handling (every rotation is treated identically), no
-  persistence for `DuplicityRegistry` or `WitnessJournal` (in-memory
-  only), no `WitnessedRecentAndGossiped` (needs Phase 5 gossip), no real
-  call site yet gates an authority decision on a `KelAssurance` level or
-  feeds real proofs into `DuplicityRegistry`, no network transport for
-  Phase 4's protocol messages, no gossip. Each remaining phase is its
-  own later PR, gated behind external review (D-0047) before any
+  struct has exactly one field. **Persistent witness journal shipped
+  (Phase 6, D-0465):** new crate `mini-witness-service`'s
+  `PersistentWitnessJournal` gives `WitnessJournal` durable,
+  crash-recoverable state — every accepted observation is recorded to
+  disk (write-then-`rename`, atomic against a killed process, not a
+  power-loss guarantee) before being reported to its own caller, and
+  `open`/`open_with_capacity` rebuild exact in-memory state by replaying
+  each persisted `(kel, observed_epoch)` through `WitnessJournal::
+  observe_declared` unchanged, never a second, less-reviewed restore
+  path; bounded by an identity-count quota; 6 tests. **KEL head gossip
+  summaries shipped (Phase 5's first slice, D-0466):** `did_mini::
+  gossip`'s `KelHeadSummary` — a compact, unsigned `(identity, sequence,
+  event_digest, witness_policy_generation)` claim, buildable from a live
+  `Kel` or from a witness's own accepted state — and
+  `compare_head_summaries`, a pure function classifying a pair as
+  `Agrees`/`Disagreement { at_sequence }`/`Ahead { by }`/`Behind { by }`;
+  11 tests. No new evidence-retrieval request type: resolving a
+  `Disagreement` or `Ahead` reuses D-0464's existing
+  `SubmitEventForWitnessingRequest`/`FetchWitnessReceiptRequest` rather
+  than duplicating them. **Phase 5 closed (D-0467):** `mini_sync::
+  gossip_summary_carrier` wraps a `KelHeadSummary` as an ordinary
+  `mini-objects` object — `GOSSIP_SUMMARY_CARRIER` — so it rides the
+  existing MINI/SYNC1 reconciliation protocol with zero new wire
+  messages, exactly the design doc's own "piggybacked on existing
+  sync... traffic"; `compare_gossip_carrier` decodes an ingested carrier
+  and compares it against the receiver's own `KelCache`, the same
+  locally-cached "what do I believe" state `mini_sync::Ingest` already
+  maintains; not self-certifying like a KEL carrier, so it gets no
+  special ingest branch — it flows through the same ordinary
+  author-provenance path every object already uses; 11 tests. **Not yet
+  real:** no bounded/incremental re-verify (`observe_verified`/
+  `observe_declared` re-verify the whole chain from inception on every
+  call, not just the new suffix), no fork-proof construction for the
+  harder "conflicting descendant" case, no recovery-aware handling (every
+  rotation is treated identically), no persistence for `DuplicityRegistry`
+  (in-memory only), no automatic evidence-fetch policy (a
+  `Disagreement`/`Ahead` outcome is returned, never auto-resolved — a
+  host policy choice), no bounded retention/pruning for gossip-summary
+  objects, no witness-rotation-aware pruning (Phase 7, not started), no
+  real call site yet gates an authority decision on a
+  `KelAssurance` level or feeds real proofs into `DuplicityRegistry`, no
+  network transport for Phase 4's protocol messages. Each remaining phase
+  is its own later PR, gated behind external review (D-0047) before any
   high-value authority decision may depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire

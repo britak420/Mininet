@@ -17963,6 +17963,117 @@ stay connected).
 adapters with a third; supersedes nothing. Narrows roadmap R8's three
 remaining named gaps to two.
 
+### D-0465 — A persistent witness journal: crash recovery by replaying already-reviewed functions, never a bespoke restore path — design doc Phase 6  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0459 (policy comes from the KEL, never a
+caller-supplied parameter — the rule this crate's replay path also honors),
+D-0464 (`WitnessJournal::observe_declared`, the exact function replayed
+here — allocated on a concurrently-open PR at the time this work started,
+hence this entry using the next free number rather than colliding with it;
+merged to `main` before this PR did),
+`docs/design/kel-witness-receipts-and-duplicity-gossip.md` Phase 6,
+[#92](../../issues/92).
+
+**Decision:** new crate `mini-witness-service` gives `did_mini::WitnessJournal`
+a durable backing store. `PersistentWitnessJournal::open`/`open_with_capacity`
+replay every previously-accepted identity's `(kel, observed_epoch)` through
+`WitnessJournal::observe_declared` (D-0464) unchanged — the same
+already-reviewed, already-merged function live traffic uses, never a
+second, less-reviewed restore path. `observe_declared` (this crate's own
+method, named the same as the one it wraps) durably records
+`(kel_bytes, observed_epoch)` — exactly the two inputs replay needs — to a
+domain-tagged, length-prefixed record file, written to a `.tmp` path and
+`rename`d into place, *before* reporting an `Accepted` outcome to its own
+caller. Bounded by `MAX_TRACKED_IDENTITIES` (default 100,000), checked only
+for identities this journal has not already accepted.
+
+**Why a new crate, not a `did-mini` module:** `did-mini`'s own `Cargo.toml`
+states its scope deliberately — "this crate is security-critical and must
+stay easy to review and reproduce... It has NO network or chain
+dependency." Filesystem I/O is a capability that crate has never carried.
+This workspace already has a standing pattern for exactly this split — a
+pure, in-memory state machine anchored to a real process/store in a
+separate crate (`mini-chain` anchored by `mini-consensus`, `mini-update`
+anchored by `mini-installer`) — `mini-witness-service` is that anchor here.
+
+**Why replay, never a persisted derived value:** `WitnessIdentityState`'s
+fields are private outside `did-mini::witness_state`, so persisting the
+derived state directly would require a new, less-reviewed constructor into
+that module. Persisting only the two inputs `observe_declared` itself
+needs, and replaying through that unchanged function, makes byte-identical
+reconstruction a property of Ed25519's own determinism rather than of a
+second serialization format this crate would have to keep in lockstep with
+`did-mini`'s internals by hand — proven by this crate's own restart
+round-trip test asserting the replayed receipt equals the original byte for
+byte, not assumed.
+
+**Why persisting `observed_epoch`, not a fresh value on replay:** the
+original observation epoch is embedded inside the signed
+`WitnessReceiptStatement`; replaying with any other value would reconstruct
+a receipt with different bytes than the one already handed to a requester
+before the restart, defeating the entire guarantee this crate exists to
+provide.
+
+**Why the write happens before the `Accepted` outcome is returned:** closes
+the crash window where a receipt is handed to a real requester in memory
+but never durably recorded — the one guarantee Phase 6 exists to deliver.
+Every other outcome (`AlreadyAccepted`, `Stale`, `ControllerDuplicity`)
+never mutates journal state, so nothing is written for them.
+
+**What this does not do, stated plainly:**
+
+- **No `fsync` barrier.** `fs::write` then `fs::rename` is atomic against a
+  *killed process* — the previous complete file is never partially
+  overwritten in place — but this is not a claim of durability across an
+  OS-level crash or power failure, the same limit this workspace's other
+  atomic-replace patterns (`mini-consensus::store::ConsensusArchive`) already
+  state rather than leave implicit.
+- **No network transport.** Carrying `did_mini::witness_protocol`'s
+  messages (D-0464) over a real socket is separate, later work for
+  whichever crate first runs a witness service, the same split
+  `mini-consensus::discovery` already applies over `mini-net::pex`.
+- **No gossip (Phase 5), no witness-rotation-aware pruning (Phase 7).**
+  Retiring an old record, or reacting to a witness-set change, is a host
+  operation this crate does not perform on its own.
+- **Bounded by identity count only.** Disk space per identity is bounded
+  only by one KEL's own existing size cap; nothing here separately limits
+  total bytes on disk.
+
+**Constitutional impact:** none. No new cryptography — composes
+`WitnessJournal::observe_declared` unchanged, itself already governed by
+D-0459's rule that a witness policy is never accepted as an external
+parameter (applied again here: the replay path uses the exact same
+policy-from-KEL function the live path uses). No voice/value edge:
+`mini-witness-service` depends on `did-mini` and `mini-crypto` only,
+neither a value nor a governance-quorum crate.
+
+**Implementation status:** shipped — `crates/mini-witness-service/`
+(new crate: `PersistentWitnessJournal::open`/`open_with_capacity`/
+`observe_declared`/`state_for`/`tracked_identity_count`, domain-tagged
+record encode/decode, `WitnessServiceError`, 6 tests covering a byte-for-
+byte restart round-trip, resubmission-after-restart idempotence, a stray
+`.tmp` file being ignored on open, a corrupt state file being rejected
+rather than silently skipped, per-identity capacity enforcement, and an
+undeclared-policy identity being rejected with nothing persisted), workspace
+`Cargo.toml` (new member).
+
+**Failure point:** a witness process that crashes between `fs::rename`
+completing and its own in-memory acknowledgment reaching a caller could, in
+principle, re-answer the same request with `AlreadyAccepted` after restart
+rather than the original `Accepted` — this is the correct, safe outcome
+(the receipt already exists and is unchanged), not a defect, but is worth
+naming since it means a caller cannot distinguish "accepted just now" from
+"accepted before a restart" purely from this crate's return value alone.
+Power-loss-mid-write durability is explicitly not claimed, as stated above.
+
+**Required follow-up:** Phase 5 (gossip) and Phase 7 (rotation-aware
+pruning) remain open, as does wiring this crate's storage under a real
+network-facing witness process carrying `did_mini::witness_protocol`
+(D-0464) over a socket.
+
+**Supersedes / superseded by:** anchors `did_mini::WitnessJournal`
+(D-0326/D-0329/D-0459) to durable storage for the first time; supersedes
+nothing. Closes design doc Phase 6.
 ### D-0464 — Witness receipt collection protocol: typed request/response messages, and the D-0459 fix extended to the signing side  ·  *Proposed*
 
 **Date:** 2026-09-06 · **Refs:** D-0321 (Phase 1 receipt types), D-0326
@@ -18054,4 +18165,206 @@ first runs a witness service.
 
 **Supersedes / superseded by:** extends D-0321/D-0326/D-0459; supersedes
 nothing. Advances Phase 4 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+committed plan.
+
+### D-0466 — KEL head gossip summaries: a compact claim and a pure comparison, no new fetch protocol — design doc Phase 5's first slice  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0464 (the receipt collection protocol
+this reuses for evidence retrieval rather than duplicating), D-0459 (a
+summary's `witness_policy_generation` is read the same way, never
+caller-supplied), `docs/design/kel-witness-receipts-and-duplicity-gossip.md`
+Phase 5, roadmap R9, [#92](../../issues/92).
+
+**Decision:** new module `did_mini::gossip` ships the first slice of Phase
+5 — "peers gossip compact `KelHeadSummary`s during ordinary relevant
+interactions... disagreements trigger targeted evidence retrieval, not
+full-log flooding." `KelHeadSummary { identity, sequence, event_digest,
+witness_policy_generation: Option<u64> }` is a compact, unsigned claim
+about an identity's current KEL head — far smaller than the KEL itself —
+constructible either from a live `Kel` (`KelHeadSummary::summarize`) or
+from a witness's own accepted state (`KelHeadSummary::from_witness_state`).
+`compare_head_summaries` is a pure function over two summaries for the same
+identity, returning `Agrees`, `Disagreement { at_sequence }` (same
+sequence, different digest — real fork evidence), `Ahead { by }`, or
+`Behind { by }` (different sequence — summaries alone cannot say whether
+the shorter one is a genuine prefix). Comparing summaries for two different
+identities is rejected outright (`IdentityError::MismatchedGossipIdentity`)
+rather than silently producing a meaningless answer.
+
+**Why there is no new "fetch evidence" request type:** the design doc's
+own sentence has two halves — gossip the summary, then retrieve evidence on
+disagreement. The second half needs nothing new: D-0464's
+`SubmitEventForWitnessingRequest` already carries a whole `Kel` and
+re-verifies it from scratch via `WitnessJournal::observe_declared`, and its
+`FetchWitnessReceiptRequest` already returns a single witness's own
+already-issued receipt. A `Disagreement` or an `Ahead` peer is resolved the
+same way any first-contact KEL is — fetch the actual chain over whatever
+transport a caller already has, then run it through `Kel::verify`/
+`observe_declared`/`assess_kel_assurance`. Inventing a parallel fetch type
+here would duplicate machinery this crate already has — the identical
+reasoning D-0464's own module doc gives for not adding a
+`FetchWitnessCertificate` op.
+
+**Why a summary carries no signature:** it is a hint two peers compare,
+not evidence on its own — the same status `mini-net::PeerId` and a
+`PexMessage::Response` already carry for peer-exchange hints (D-0462). Its
+entire value is in triggering a *targeted* real KEL fetch, which is where
+the actual cryptographic verification happens; signing the summary itself
+would suggest a false authority it does not have.
+
+**Why `witness_policy_generation` is `Option<u64>`, not a bare `u64`:**
+`Kel::declared_witness_policy` derives a policy's generation from the
+sequence number of the establishment event that declared it, so an
+identity that appoints witnesses at inception has a real, valid generation
+`0` — treating "no policy at all" as generation zero would make that
+identity indistinguishable from the common case of an identity that has
+never appointed a witness. `None` says plainly what is true: there is
+nothing to compare on that axis for this identity.
+
+**What this does not do, stated plainly:**
+
+- **No network transport, no piggybacking wiring.** Carrying a
+  `KelHeadSummary` inside `mini-sync`/`mini-relay`/`mini-forge`'s existing
+  traffic is separate, later work for whichever of those crates first
+  carries this message — the same real-transport-adapter split this crate
+  has applied at every prior phase (Phase 1's types before Phase 2's state
+  machine, that state machine before Phase 3's KEL wiring, Phase 4's pure
+  protocol before its own future socket adapter).
+- **No witness-rotation handling (Phase 7).** `witness_policy_generation`
+  is carried and compared as an opaque value; this module never decides
+  whether a generation change reflects a legitimate rotation.
+- **`Ahead`/`Behind` are not proof of anything.** A peer claiming a later
+  sequence may simply know more, or may be looking at a branch that was
+  never accepted — the summary alone cannot distinguish these; only
+  fetching and verifying the actual chain can.
+
+**Constitutional impact:** none. No new cryptography — a summary is
+unsigned data, and the actual verification path (`Kel::verify`/
+`observe_declared`) is unchanged. No voice/value edge: `did-mini` remains
+free of any value-crate dependency.
+
+**Implementation status:** shipped — `crates/did-mini/src/gossip.rs` (new:
+`KelHeadSummary`, `HeadAgreement`, `compare_head_summaries`, 11 tests
+covering round-trip encoding, both constructors, all four comparison
+outcomes including symmetry, cross-identity rejection, and truncated/
+trailing/malformed-tag decode rejection), `crates/did-mini/src/error.rs`
+(`IdentityError::MismatchedGossipIdentity`), `crates/did-mini/src/lib.rs`
+(module wiring and re-exports).
+
+**Failure point:** a summary is only as honest as whoever gossiped it — a
+lying peer can claim any sequence/digest it likes, and nothing in this
+module catches that; the entire safety property comes from the fact that
+comparison output only ever recommends a real, independently-verified
+fetch, never substitutes for one. A caller that acted on a `HeadAgreement`
+value alone (without ever fetching and verifying evidence for a
+`Disagreement` or `Ahead` outcome) would have reintroduced exactly the
+bare-claim trust this whole design doc exists to remove — no call site
+does that today because no call site consumes this module's output yet.
+
+**Required follow-up:** Phase 5's second half — actually wiring
+`KelHeadSummary` gossip and evidence retrieval into a real transport
+(`mini-sync`, `mini-relay`, or `mini-forge`, whichever first needs it) —
+plus Phase 7 (witness rotation) and Phase 8-10 remain open.
+
+**Supersedes / superseded by:** extends D-0459/D-0464; supersedes nothing.
+Advances Phase 5 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+committed plan.
+
+### D-0467 — KEL head gossip summaries ride ordinary sync traffic: zero new wire messages — design doc Phase 5 closed  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0466 (`KelHeadSummary`/`compare_head_summaries`,
+what this carries), D-0464 (`SubmitEventForWitnessingRequest`/
+`FetchWitnessReceiptRequest`, what a `Disagreement`/`Ahead` outcome is
+resolved with), D-0462 (`mini_consensus::discovery::pex_over_tcp`, the
+precedent for "an adapter that is never auto-wired into policy"),
+`docs/design/kel-witness-receipts-and-duplicity-gossip.md` Phase 5,
+roadmap R9, [#92](../../issues/92).
+
+**Decision:** `mini-sync` gains `gossip_summary_carrier` and
+`compare_gossip_carrier`, closing Phase 5's second half — "piggybacked on
+existing sync... traffic" — literally: a `KelHeadSummary` (D-0466) wrapped
+as an ordinary `mini_objects::Object` (`GOSSIP_SUMMARY_CARRIER`, mirroring
+`mini_sync::kel_carrier`'s own wrapping of a `Kel`) rides the unmodified
+MINI/SYNC1 reconciliation protocol (`sync_bidirectional`/`serve_pull`)
+with zero new wire messages. `compare_gossip_carrier` decodes an
+already-ingested carrier and compares it against the receiver's own
+`KelCache` — the same locally-held "what do I currently believe" state
+`mini_sync::Ingest` already maintains for every peer it syncs with, so no
+separate witness-state dependency is needed for the comparison to be
+useful.
+
+**Why no new ingest branch:** unlike a `KEL_CARRIER`, a gossip summary is
+not self-certifying — nothing about a compact claim proves itself — so it
+is deliberately given no special case in `Ingest::check`. It flows through
+the exact same ordinary-object provenance path every other authored object
+already uses: an unknown author is rejected, a known author (root + device
+KEL cached) is checked and accepted like anything else. Passing that check
+proves who is *relaying* the claim (accountability against spam), never a
+claim about the *subject* identity's real head — `summary.identity` need
+not be, and usually is not, the relaying peer's own identity, since
+relaying what you have observed about someone else is the entire point of
+gossip.
+
+**Why there is still no new evidence-retrieval request type:** unchanged
+from D-0466 — a `Disagreement` or `Ahead` outcome is resolved by fetching
+the real KEL through D-0464's already-shipped
+`SubmitEventForWitnessingRequest`/`FetchWitnessReceiptRequest`, or through
+`mini_sync::request_retrieval` (already shipped, D-0408), not a new
+message this PR would have to invent and review.
+
+**Why turning a disagreement into an automatic fetch is not this PR's
+job:** `compare_gossip_carrier` returns the classification and stops —
+turning `Disagreement`/`Ahead` into an automatic `request_retrieval` call
+is a host policy choice (how aggressively to chase every disagreement,
+which peer to ask, what to do if the fetch itself disagrees again) this
+module does not get to make unilaterally. Matches
+`mini_consensus::discovery::pex_over_tcp`'s own precedent: a real,
+callable adapter, never auto-wired into the mesh's default behavior.
+
+**What this does not do, stated plainly:**
+
+- **No automatic evidence retrieval.** A `Disagreement`/`Ahead` outcome is
+  returned to the caller, not acted on.
+- **No bounded retention or pruning of gossip-summary objects.** A carrier
+  that rides the ordinary object-replication protocol persists exactly
+  like any other object a caller chooses to insert into their `Store`;
+  this crate does not add TTL or garbage collection for stale summaries.
+- **No wiring into `mini-relay` or `mini-forge`'s traffic.** Only
+  `mini-sync`'s existing object-reconciliation protocol is used here; the
+  design doc's "relay/forge" alternatives remain open for whichever of
+  those crates wants this capability next.
+
+**Constitutional impact:** none. No new cryptography — composes
+`did_mini::compare_head_summaries`/`KelHeadSummary` and
+`mini_objects::ObjectBuilder`/`verify_provenance` unchanged. No voice/
+value edge: `mini-sync` already depended on `did-mini` and `mini-objects`
+before this change; no new crate dependency added.
+
+**Implementation status:** shipped — `crates/mini-sync/src/gossip.rs`
+(new: `GOSSIP_SUMMARY_CARRIER`, `gossip_summary_carrier`,
+`GossipCarrierOutcome`, `compare_gossip_carrier`, 11 tests covering
+carrier round-trip, no-local-knowledge, agreement, same-sequence
+disagreement, both `Ahead`/`Behind` directions with the delta value
+checked, non-carrier/malformed/encrypted/oversized-payload rejection, and
+an end-to-end pass through `Ingest::check`'s ordinary author-provenance
+path with a real delegated device), `crates/mini-sync/src/lib.rs` (module
+wiring and re-exports).
+
+**Failure point:** a carrier's signature only proves who relayed it, never
+that the subject identity's real head matches what is claimed — the
+entire reason `compare_gossip_carrier` never treats `Agrees` as proof and
+a `Disagreement`/`Ahead` is only ever a reason to independently fetch and
+re-verify, stated in this module's own doc rather than left implicit. No
+retention policy is defined, so a deployment that inserts every received
+gossip-summary carrier into its `Store` unconditionally would grow
+unbounded over time — a host-level policy question this PR does not
+answer.
+
+**Required follow-up:** turning a `Disagreement`/`Ahead` outcome into an
+automatic evidence-fetch policy, bounded retention/pruning for
+gossip-summary objects, and Phase 7 (witness rotation) remain open. Phase
+5 itself — both halves — is now closed.
+
+**Supersedes / superseded by:** completes D-0466; supersedes nothing.
+Closes Phase 5 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
 committed plan.
