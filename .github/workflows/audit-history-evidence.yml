@@ -1,0 +1,40 @@
+name: audit-history-evidence
+
+# Public, read-only evidence capture for the bounded whole-history review.
+# Never uses pull_request_target, pushes, approves, or publishes a release.
+on:
+  pull_request:
+    paths:
+      - tools/audit_history_export.py
+      - .github/workflows/audit-history-evidence.yml
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  capture:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Capture every PR through the declared cutoff
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/audit_history_export.py --repo mininet-labs/Mininet \
+            --through 326 --expected-count 174 \
+            --canonical-sha 0ed3a4e523be195d39296eeca16a187fca6a599b \
+            --out /tmp/mininet-history-evidence
+      - name: Preserve public evidence (not an audit verdict)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mininet-pr-history-through-326
+          path: /tmp/mininet-history-evidence/
+          if-no-files-found: error
+          retention-days: 14
