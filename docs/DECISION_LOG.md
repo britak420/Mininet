@@ -18368,3 +18368,116 @@ gossip-summary objects, and Phase 7 (witness rotation) remain open. Phase
 **Supersedes / superseded by:** completes D-0466; supersedes nothing.
 Closes Phase 5 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
 committed plan.
+
+### D-0470 — `mini-media`: bounded-memory assembly and real want-list-driven transfer  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0026, D-0419, roadmap #35 (huge-file
+handling design), Directive 11, D-0432 (`mini-search-federation-net`, the
+precedent this reuses).
+
+**Decision:** two additions to `mini-media`, both closing gaps D-0419's own
+text named as open. First, `mini_crypto::HashAlgorithm::incremental` (a new
+`IncrementalHash` type wrapping BLAKE3/SHA-256's already-streaming
+constructions) plus `assemble_to_writer`/`assemble_superblock_to_writer`:
+stream an already-complete manifest's or superblock's payload straight to a
+caller-supplied `Write` sink, one chunk (≤1 MiB) at a time, instead of
+`assemble`/`assemble_superblock`'s single up-front `Vec::with_capacity`
+allocation (up to 256 MiB for a manifest, 64 GiB for a superblock) — the
+exact bound Directive 11 (the weakest device matters most) rules out.
+Integrity is unchanged: the whole written stream is hashed incrementally
+and checked against the manifest's/superblock's own recorded digest before
+either function returns `Ok`. Second, a new `sync` module —
+`pull_manifest`/`pull_superblock`/`serve_missing` — composes this crate's
+already-existing want-lists (`missing_chunks`/`missing_superblock_chunks`)
+with `mini_sync::request_retrieval`/`serve_retrieval`'s already-tested,
+transport-agnostic exact-object-retrieval exchange, over an
+already-established `mini_bearer::Bearer`/`Channel` — the same composition
+`mini-search-federation-net` (D-0432) already proved for an unrelated
+object type, reused unmodified. `pull_superblock` drives as many retrieval
+rounds as newly-arrived part manifests reveal (two, in practice: every
+missing part manifest, then every chunk those manifests turned out to
+need); `pull_manifest`'s flat want-list needs exactly one.
+
+**Reason:** D-0419's own "Failure point"/"Required follow-up" named both
+"no wiring into `mini-sync`'s want-list logic" and, implicitly through its
+64 GiB in-memory `assemble_superblock` buffer, the sharpest form of the
+weak-device problem roadmap #35 exists to solve — a device too small to
+hold the file it is trying to receive cannot use `assemble_superblock` at
+all, chunked transport notwithstanding. Both are closed here together
+rather than as separate follow-up PRs. `mini_sync::request_retrieval`
+already implements everything the network half needs; what was missing was
+purely the composition and a real end-to-end proof of it, exactly the
+"no production caller uses this yet" gap D-0419 named.
+
+**Why `mini_crypto` gained an incremental hasher instead of `mini-media`
+rolling its own:** `HashAlgorithm::digest` was already the one canonical
+place in this tree that computes a BLAKE3/SHA-256 digest; a second,
+crate-local streaming implementation would create exactly the situation
+`mini-consensus::chunked_snapshot` (D-0469) explicitly reasoned against for
+a *different* primitive — two places doing the same cryptographic
+operation is how one of them ends up subtly wrong. BLAKE3 and SHA-256 are
+already streaming constructions internally (`Hasher`/`Digest`'s own
+`update`), so exposing that is composition of the same primitive already
+in use, not new cryptography.
+
+**Why `pull_superblock` needs rounds but `serve_missing` does not:** the
+*want*-list is asymmetric — a client genuinely cannot know a part's chunk
+ids before that part's manifest arrives, so it must ask again once it
+knows more. A *server* only ever answers exactly what one already-received
+request names, so `serve_missing` is a plain loop over
+`receive_retrieval_request`/`serve_retrieval` pairs, ending the same way
+`mini-consensus::chunk_sync_over_tcp`'s peer-serving loop (D-0469) does: a
+clean transport close is normal completion, any other transport error
+still propagates.
+
+**Constitutional impact:** none. No new cryptography (composition of
+existing streaming hash constructions, stated above). No voice/value edge:
+`mini-media` gained `mini-sync`/`mini-bearer` dependencies — both already
+depended on by other content/object crates in this tree, neither a
+value crate (`mini-value`/`mini-bounty`/`mini-treasury`) nor a
+governance/review crate (`mini-forge`, `mini-chain` voting), so the P1/
+Directive 16 wall is untouched. Purely additive: no existing `mini-media`
+or `mini-crypto` function signature changed.
+
+**Implementation status:** shipped — `crates/mini-crypto/src/hash.rs`
+(new: `HashAlgorithm::incremental`, `IncrementalHash`, 4 tests proving
+incremental hashing matches `digest` under every split); `crates/
+mini-media/src/lib.rs` (new: `assemble_to_writer`; `MediaError` gained
+`Io`/`Sync` variants, both `#[non_exhaustive]`-additive); `crates/
+mini-media/src/superblock.rs` (new: `assemble_superblock_to_writer`, a
+private `HashingWriter` adapter composing per-part `assemble_to_writer`
+calls under one running whole-payload hash); `crates/mini-media/src/
+sync.rs` (new module: `pull_manifest`, `pull_superblock`, `serve_missing`,
+`MediaSyncReport`, 4 tests over real `mini_bearer::InProcessBearer` pairs —
+a flat manifest fetched and reassembled byte-identical, an
+already-complete manifest touching the channel not at all, a superblock
+resolved across multiple rounds and reassembled byte-identical, and a
+peer missing a part failing the pull outright rather than hanging or
+silently returning a partial result); 4 new streaming-assembly tests each
+in `crates/mini-media/tests/media.rs` and `tests/superblock.rs` (streamed
+output matches the existing in-memory `assemble`/`assemble_superblock`
+byte-for-byte, an incomplete store refuses to write anything, and a forged
+manifest is caught by `assemble_to_writer` exactly as `assemble` already
+catches it).
+
+**Failure point:** transport-agnostic by design, matching
+`mini_sync::request_retrieval` itself — no TCP dial/listen wrapper, no peer
+selection, and no retry across peers or rounds; a round a peer cannot fully
+satisfy fails the whole pull immediately (`mini_sync::request_retrieval`'s
+own protocol requires a response to cover every id requested), which a
+caller must retry itself, against this or another peer. No player/UI
+progressive-playback support — `assemble_to_writer` still requires every
+chunk present before writing anything, so "stream to disk without holding
+everything in RAM" is solved, "start rendering before the last chunk
+arrives" is not. `chunks_per_part`/chunk-count choices for weak-device
+transport granularity remain a caller decision, same as D-0419 already
+left open. No production caller (`mini-forge` release artifacts, a real
+media player) wired to any of this yet.
+
+**Required follow-up:** a production caller; multi-peer sourcing/retry
+policy; player/UI progressive-playback support; only if 64 GiB ever proves
+insufficient, deeper superblock nesting, per D-0419's own already-stated
+condition for that.
+
+**Supersedes / superseded by:** extends and does not supersede D-0026 or
+D-0419.

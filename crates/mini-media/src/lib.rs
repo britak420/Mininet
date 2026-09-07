@@ -24,9 +24,13 @@
 
 mod superblock;
 pub use superblock::{
-    assemble_superblock, missing_superblock_chunks, publish_large_media, read_superblock,
-    Superblock, MAX_PARTS, MAX_SUPERBLOCK_TOTAL_LEN, SUPERBLOCK_TYPE,
+    assemble_superblock, assemble_superblock_to_writer, missing_superblock_chunks,
+    publish_large_media, read_superblock, Superblock, MAX_PARTS, MAX_SUPERBLOCK_TOTAL_LEN,
+    SUPERBLOCK_TYPE,
 };
+
+mod sync;
+pub use sync::{pull_manifest, pull_superblock, serve_missing, MediaSyncReport};
 
 use did_mini::{Controller, Did};
 use mini_crypto::HashAlgorithm;
@@ -68,6 +72,13 @@ pub enum MediaError {
     Store(StoreError),
     /// Object build failure.
     Object(mini_objects::ObjectError),
+    /// Writing assembled bytes to a caller-supplied sink failed. Carries the
+    /// underlying error's message, since [`std::io::Error`] itself is
+    /// neither `Clone` nor `PartialEq`.
+    Io(String),
+    /// A `mini-sync` retrieval failed while fetching missing chunks or parts
+    /// from a peer.
+    Sync(mini_sync::SyncError),
 }
 
 impl core::fmt::Display for MediaError {
@@ -81,6 +92,8 @@ impl core::fmt::Display for MediaError {
             MediaError::Incomplete => write!(f, "chunks missing"),
             MediaError::Store(e) => write!(f, "store: {e}"),
             MediaError::Object(e) => write!(f, "object: {e}"),
+            MediaError::Io(message) => write!(f, "io: {message}"),
+            MediaError::Sync(e) => write!(f, "sync: {e}"),
         }
     }
 }
@@ -93,6 +106,11 @@ impl From<StoreError> for MediaError {
 impl From<mini_objects::ObjectError> for MediaError {
     fn from(e: mini_objects::ObjectError) -> Self {
         MediaError::Object(e)
+    }
+}
+impl From<mini_sync::SyncError> for MediaError {
+    fn from(e: mini_sync::SyncError) -> Self {
+        MediaError::Sync(e)
     }
 }
 
@@ -273,4 +291,55 @@ pub fn assemble<B: Backend>(store: &Store<B>, manifest: &Manifest) -> Result<Vec
         return Err(MediaError::DigestMismatch);
     }
     Ok(out)
+}
+
+/// Like [`assemble`], but streams the payload directly to `writer` one chunk
+/// (at most [`CHUNK_SIZE`] bytes) at a time instead of building the whole
+/// payload as one `Vec<u8>` first.
+///
+/// This is the bounded-memory path Directive 11 (the weakest device matters
+/// most) needs: `assemble`'s `Vec::with_capacity(cap)` asks for up to
+/// [`MAX_TOTAL_LEN`] (≈256 MiB) in one allocation, and
+/// [`crate::assemble_superblock`] asks for up to
+/// [`MAX_SUPERBLOCK_TOTAL_LEN`] (64 GiB) — both are exactly what a weak
+/// device cannot spare. The integrity guarantee is identical: the whole
+/// written stream is hashed incrementally and checked against the
+/// manifest's own recorded digest before this returns `Ok`, so a caller
+/// gets the same "verified or rejected, never silently truncated" property
+/// `assemble` gives, without the memory cost.
+pub fn assemble_to_writer<B: Backend, W: std::io::Write>(
+    store: &Store<B>,
+    manifest: &Manifest,
+    writer: &mut W,
+) -> Result<()> {
+    if !missing_chunks(store, manifest)?.is_empty() {
+        return Err(MediaError::Incomplete);
+    }
+    let cap = manifest.total_len.min(MAX_TOTAL_LEN);
+    let mut hasher = HashAlgorithm::Blake3.incremental();
+    let mut written: u64 = 0;
+    for c in &manifest.chunks {
+        let obj = store.get(c)?;
+        if obj.object_type != ObjectType::Custom(CHUNK_TYPE.to_string()) {
+            return Err(MediaError::BadChunk);
+        }
+        match &obj.payload {
+            Payload::Public(b) => {
+                if b.len() > CHUNK_SIZE || written + b.len() as u64 > cap {
+                    // Early abort: chunks exceed what the manifest declared.
+                    return Err(MediaError::DigestMismatch);
+                }
+                writer
+                    .write_all(b)
+                    .map_err(|e| MediaError::Io(e.to_string()))?;
+                hasher.update(b);
+                written += b.len() as u64;
+            }
+            Payload::Encrypted(_) => return Err(MediaError::BadChunk),
+        }
+    }
+    if written != manifest.total_len || hasher.finalize() != manifest.digest {
+        return Err(MediaError::DigestMismatch);
+    }
+    Ok(())
 }

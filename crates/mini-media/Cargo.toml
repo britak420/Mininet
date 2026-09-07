@@ -14,3 +14,5 @@ mini-crypto = { path = "../mini-crypto" }
 did-mini = { path = "../did-mini" }
 mini-objects = { path = "../mini-objects" }
 mini-store = { path = "../mini-store" }
+mini-bearer = { path = "../mini-bearer" }
+mini-sync = { path = "../mini-sync" }
