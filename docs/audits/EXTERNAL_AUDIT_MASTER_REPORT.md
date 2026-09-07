@@ -1,6 +1,18 @@
 # External audit master report — readiness, values, and exact blockers
 
+**Audit scope**
+
+| Field | Value |
+|---|---|
+| Reviewed at | `main` @ `2721f95db0f8be105d9582d64939d1110ed823b8` |
+| Workspace size at that commit | 72 crates; resolved dependency count not independently measured in this GitHub-only review |
+| Method | GitHub-only internal reconstruction of current value claims, mechanisms, blockers and external gates. No independent source-code audit, build/test execution, fuzzing, formal verification, hardware testing, legal review or cryptographic analysis was performed for this report |
+| Tool versions | GitHub repository connector only; no code-analysis toolchain executed |
+| Revalidation trigger | Any merge changing a value-bearing mechanism, authority boundary, current blocker/gate status, governance bootstrap state, or any source evidence supporting a PASS/PARTIAL/FAIL verdict |
+
 **Status:** auditor-facing working report. This does not close any external gate.
+
+**Authorship / non-substitution:** this is an **AI-drafted internal reconstruction** of repository evidence. It raises the review floor but is **not** an independent external audit and must never be cited as a substitute for the cryptography, custody, personhood, hardware, economics, legal, supply-chain or governance reviews it says are still required.
 
 **Method:** every value is marked PASS / PARTIAL / FAIL. Each verdict names the concrete mechanism that supports it and the exact failure point that prevents a stronger verdict. Centralized authority, founder-only control, backdoors, trusted coordinators, and any path from wealth to authority are treated as red flags.
 
