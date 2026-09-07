@@ -60,6 +60,7 @@ mod identity_mode;
 mod kel;
 mod limits;
 mod witness;
+mod witness_protocol;
 mod witness_state;
 
 use mini_crypto::{encoding, Multihash};
@@ -80,6 +81,11 @@ pub use limits::{MAX_DID_BYTES, MAX_KEYS, MAX_SIGNATURES, MAX_SIGNATURE_BYTES};
 pub use witness::{
     sign_witness_receipt, KeyEventKind, WitnessCertificateVersion, WitnessId, WitnessPolicy,
     WitnessReceipt, WitnessReceiptStatement, WitnessReceiptVersion, WitnessedEventCertificate,
+};
+pub use witness_protocol::{
+    handle_fetch_witness_receipt, handle_submit_for_witnessing, FetchWitnessReceiptRequest,
+    FetchWitnessReceiptResponse, RejectionReason, SubmitEventForWitnessingRequest,
+    SubmitEventForWitnessingResponse,
 };
 pub use witness_state::{
     ControllerDuplicityProof, WitnessEquivocationProof, WitnessIdentityState, WitnessJournal,

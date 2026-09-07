@@ -269,6 +269,38 @@ impl WitnessJournal {
         let event = kel.events().last().ok_or(IdentityError::EmptyKel)?;
         self.observe(event, policy, witness_id, witness_key, observed_epoch)
     }
+
+    /// Like [`Self::observe_verified`], but the policy is never a caller's
+    /// claim — it is read from `kel`'s own signed history via
+    /// [`Kel::declared_witness_policy`], exactly the fix D-0459 already made
+    /// for `assess_kel_assurance`, applied to the signing side of the same
+    /// certificate. Without this, whoever hands a witness a KEL and a
+    /// policy also hands it the standard its own membership is judged
+    /// against: an attacker submits a KEL, claims a policy naming a
+    /// `witness_id` this witness holds, and an honest-but-naive witness
+    /// signs a receipt for an identity that never appointed it. Deriving
+    /// the policy from the same KEL `Kel::verify` just authenticated closes
+    /// that — a submitted KEL's own controller-signed establishment event is
+    /// the only source [`WitnessId`] membership can come from here.
+    ///
+    /// Returns [`IdentityError::NoWitnessPolicyDeclared`] if `kel` declares
+    /// no witnesses at all — there is no authentic policy to check
+    /// `witness_id` against, so signing anyway would be exactly the
+    /// forgery this method exists to prevent.
+    pub fn observe_declared(
+        &mut self,
+        kel: &Kel,
+        witness_id: WitnessId,
+        witness_key: &SigningKey,
+        observed_epoch: u64,
+    ) -> Result<WitnessObservation> {
+        kel.verify()?;
+        let policy = kel
+            .declared_witness_policy()
+            .ok_or(IdentityError::NoWitnessPolicyDeclared)?;
+        let event = kel.events().last().ok_or(IdentityError::EmptyKel)?;
+        self.observe(event, &policy, witness_id, witness_key, observed_epoch)
+    }
 }
 
 enum Decision {
