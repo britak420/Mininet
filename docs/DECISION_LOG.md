@@ -18369,7 +18369,7 @@ gossip-summary objects, and Phase 7 (witness rotation) remain open. Phase
 Closes Phase 5 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
 committed plan.
 
-### D-0469 — Chunked, Merkle-authenticated execution-state transfer (`mini_consensus::chunked_snapshot`) · *Proposed*
+### D-0469 — Chunked, Merkle-authenticated execution-state transfer, over real TCP (`mini_consensus::chunked_snapshot` + `net::chunk_sync_over_tcp`) · *Proposed*
 
 **Date:** 2026-09-07 · **Refs:** D-0207, roadmap #45, Directive 11, `docs/
 ROADMAP_TO_RELEASE.md` R8.
@@ -18377,15 +18377,29 @@ ROADMAP_TO_RELEASE.md` R8.
 **Decision:** add `mini_consensus::chunked_snapshot`: a `SnapshotManifest`
 carrying the same `BlockHeader`/`QuorumCertificate` finality binding as
 `ConsensusSnapshot`, plus a Merkle root over the encoded execution state
-split into caller-chosen fixed-size chunks (1 KiB–1 MiB). `SnapshotChunker`
+split into requester-chosen fixed-size chunks (1 KiB–1 MiB). `SnapshotChunker`
 builds the manifest and serves any chunk plus its membership proof;
 `SnapshotAssembler` verifies the manifest's QC immediately (before fetching
 any chunk), verifies each chunk against `chunks_root` as it arrives, and on
-`finish` reassembles, decodes, and checks the result against
-`header.state_root == state.commitment()` exactly the way `ConsensusSnapshot::
-from_wire_bytes`/`into_chain` already do for the single-frame case. A
-`ChunkRequest`/`ChunkResponse` message pair exists for a future transport to
-carry; neither crosses a socket here.
+`finish` reassembles, decodes, and structurally checks the result — the same
+`header.state_root == state.commitment()` check `ConsensusSnapshot::
+from_wire_bytes` already does for the single-frame case — returning a plain
+`ConsensusSnapshot` rather than re-deciding trust. A `ManifestRequest`/
+`ManifestResponse` pair (peer's current snapshot, chunked at the size the
+*requester* asks for) and a `ChunkRequest`/`ChunkResponse` pair are carried
+over one real, freshly-handshaken, encrypted TCP connection by new
+`net::chunk_sync_over_tcp` (client)/`net::serve_chunk_sync_over_tcp` (server)
+— the exact same `Channel`/`TcpBearer` construction, connect/handshake/
+timeout discipline, and one-peer-one-pass-no-retry posture
+`state_sync_over_tcp`/`serve_state_sync_over_tcp` already use. The client
+hands its fully reassembled `ConsensusSnapshot` to `ConsensusNode::
+apply_state_sync` (wrapped as an ordinary `StateSyncResponse::Snapshot`), so
+archive persistence, history replacement, and round-restart all run through
+the exact same, already-tested code path an un-chunked snapshot response
+uses — chunking changes nothing about how a verified snapshot gets adopted,
+only how its bytes cross the wire. `ConsensusArchive::latest_snapshot` and
+`ConsensusNode::validators` are two small new public accessors this needed
+that didn't exist yet.
 
 **Reason:** D-0207's own "Required follow-up" and this crate's own module
 docs named "chunked Merkle state transfer" as the one piece of roadmap #45
@@ -18399,7 +18413,13 @@ reference every source's chunks are checked against. The manifest's
 `chunks_root` is deliberately not a new trust anchor: the receiver's actual
 authority is unchanged (the header/QC-bound state commitment), so a
 dishonest peer is caught exactly as it always was, just without forcing an
-honest receiver to download everything first to find out.
+honest receiver to download everything first to find out. Shipping the
+types alone without wiring them onto real transport — the shape this PR
+started in — would have left exactly the same "still too library-internal"
+gap named against the pre-D-0077 forge spine and against R9's earlier phases
+before their own transport slices landed; this PR closes both the data-
+structure gap and the transport gap together rather than opening a second,
+later PR for the second half.
 
 **Why a local Merkle tree instead of depending on `mini-spacetime`:**
 `mini_spacetime::merkle::MerkleTree`/`MerkleProof` already implement the
@@ -18412,41 +18432,67 @@ eighty lines of a standard, already-reviewed construction this tree already
 uses elsewhere. Composition of prior art already used in this repository,
 not new cryptography (project convention; Directive 14).
 
+**Why `finish` returns a `ConsensusSnapshot`, not a `LedgerChain`:**
+`SnapshotAssembler::new` already re-verifies the manifest's QC via
+`mini_chain::verify_finality` before any chunk is requested (fail fast, so a
+receiver never spends bandwidth on a snapshot whose finality proof was never
+going to hold up); by the time `finish` runs, finality is already known.
+Deciding *what to do* with a verified snapshot — turn it into a standalone
+`LedgerChain` via `ConsensusSnapshot::into_chain`, or install it into a
+running `ConsensusNode` via `apply_state_sync` — is the caller's call, not
+this module's; both are one unchanged existing public call away.
+
 **Constitutional impact:** none. No new cryptography — BLAKE3 leaf/node
 hashing via `mini_crypto::HashAlgorithm::Blake3`, the same RFC 6962-style
 domain separation `mini-spacetime::merkle` already uses; finality trust is
-delegated to `mini_chain::verify_finality`/`ConsensusSnapshot::into_chain`
-unchanged. No voice/value edge: `mini-consensus` already depended on
-`mini-chain`/`mini-execution`/`mini-crypto`; no new crate dependency added
-(the module deliberately does *not* add a dependency on `mini-spacetime`,
-per the reasoning above).
+delegated to `mini_chain::verify_finality`/`ConsensusSnapshot::into_chain`/
+`ConsensusNode::apply_state_sync` unchanged; the transport is the same
+`Channel` (ephemeral X25519 + HKDF-SHA256 + ChaCha20-Poly1305) every other
+consensus link in this crate already uses. No voice/value edge:
+`mini-consensus` already depended on `mini-chain`/`mini-execution`/
+`mini-crypto`/`mini-bearer`; no new crate dependency added (the module
+deliberately does *not* add a dependency on `mini-spacetime`, per the
+reasoning above).
 
-**Implementation status:** shipped — `crates/mini-consensus/src/
-chunked_snapshot.rs` (new: `SnapshotManifest`, `ChunkProof`,
-`ChunkResponse`, `ChunkRequest`, `SnapshotChunker`, `SnapshotAssembler`, 15
-tests covering wire round-trips for all four message types, full chunk-by-
-chunk reassembly into a working `LedgerChain`, out-of-order and duplicate
-chunk delivery, a tampered chunk failing its own proof, a proof spliced
-onto the wrong index, exact short-final-chunk length, `finish` before every
-chunk arrives, a non-quorate QC rejected before any chunk is fetched, an
-out-of-range index, an internally-inconsistent manifest, out-of-range chunk
-sizes, and truncation-never-panics), `crates/mini-consensus/src/lib.rs`
-(module wiring, re-exports, "Honest limits" doc updated to describe the new
-chunked path instead of listing it as missing).
+**Implementation status:** shipped —
+`crates/mini-consensus/src/chunked_snapshot.rs` (new: `SnapshotManifest`,
+`ChunkProof`, `ChunkResponse`, `ChunkRequest`, `ManifestRequest`,
+`ManifestResponse`, `SnapshotChunker`, `SnapshotAssembler`, 15 unit tests
+covering wire round-trips for every message type, full chunk-by-chunk
+reassembly into a working `LedgerChain` via `into_chain`, out-of-order and
+duplicate chunk delivery, a tampered chunk failing its own proof, a proof
+spliced onto the wrong index, exact short-final-chunk length, `finish`
+before every chunk arrives, a non-quorate QC rejected before any chunk is
+fetched, an out-of-range index, an internally-inconsistent manifest,
+out-of-range chunk sizes, and truncation-never-panics);
+`crates/mini-consensus/src/net.rs` (new: `chunk_sync_over_tcp`,
+`serve_chunk_sync_over_tcp`, a dedicated `CHUNK_SYNC_AAD` domain);
+`crates/mini-consensus/src/store.rs` (new: `ConsensusArchive::
+latest_snapshot`); `crates/mini-consensus/src/node.rs` (new:
+`ConsensusNode::validators`); `crates/mini-consensus/src/
+snapshot_sync_tests.rs` (2 new real-TCP integration tests: a long-offline
+node reaching the archive's latest snapshot height via the chunked path end
+to end, and a clean `None`/no-op result against a peer with no snapshot
+yet); `crates/mini-consensus/src/lib.rs` (module wiring, re-exports,
+"Honest limits" doc updated to describe the shipped chunked-and-wired path
+instead of listing chunking as missing).
 
-**Failure point:** not wired to any real transport — no `ChunkRequest`/
-`ChunkResponse` crosses `crate::net`'s TCP mesh, so a caller must drive
-chunk fetch/retry/reassembly itself today. No multi-peer chunk sourcing,
-retry/backoff policy, or eclipse-resistant peer selection. Chunk size is
-caller-chosen per manifest with no negotiation protocol. Everything else
-D-0207 already named as open (dynamic validator-set transitions, long-
-range/weak-subjectivity rules, physical weakest-device benchmarks) remains
-open, unchanged by this PR.
+**Failure point:** one peer, one pass, no retry — a single bad or missing
+chunk, or a dropped connection mid-transfer, fails the whole
+`chunk_sync_over_tcp` call; a caller wanting resilience retries against this
+or another peer itself, exactly the same posture `state_sync_over_tcp`
+already has. No multi-peer chunk sourcing, retry/backoff policy, or
+eclipse-resistant peer selection. The chunked path only ever transfers the
+archive's latest persisted *snapshot*, never the ordinary block suffix after
+it — a receiver may land short of the archive's true tip and still need an
+ordinary `state_sync_over_tcp`/`catch_up_over_tcp` call to close the gap.
+Everything else D-0207 already named as open (dynamic validator-set
+transitions, long-range/weak-subjectivity rules, physical weakest-device
+benchmarks) remains open, unchanged by this PR.
 
-**Required follow-up:** wire `ChunkRequest`/`ChunkResponse` onto
-`crate::net`'s real transport (mirroring how `mini_sync::gossip`, D-0467,
-wired an unrelated protocol onto real transport after its types shipped
-alone in D-0466); multi-peer chunk sourcing and retry policy; the rest of
+**Required follow-up:** multi-peer chunk sourcing and retry policy; folding
+the chunked path's trailing-suffix gap into one combined call so a caller
+does not have to sequence two separate helpers by hand; the rest of
 D-0207's still-open list.
 
 **Supersedes / superseded by:** extends and does not supersede D-0207.

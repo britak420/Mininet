@@ -58,7 +58,7 @@
 
 use mini_chain::{BlockHeader, QuorumCertificate, ValidatorOracle, ValidatorSet};
 use mini_crypto::HashAlgorithm;
-use mini_execution::{LedgerChain, LedgerState, MAX_LEDGER_SNAPSHOT_BYTES};
+use mini_execution::{LedgerState, MAX_LEDGER_SNAPSHOT_BYTES};
 
 use crate::catchup::{decode_qc, encode_qc};
 use crate::error::{ConsensusError, Result};
@@ -358,7 +358,8 @@ impl ChunkResponse {
 }
 
 /// Ask a specific peer for one chunk of the snapshot at `height` on
-/// `network_id`. Not wired to any transport here — see the module docs.
+/// `network_id`. Carried over real TCP by [`crate::net::chunk_sync_over_tcp`]/
+/// [`crate::net::serve_chunk_sync_over_tcp`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkRequest {
     pub network_id: [u8; 32],
@@ -393,6 +394,105 @@ impl ChunkRequest {
             height,
             index,
         })
+    }
+}
+
+/// Ask a peer for the chunked-transfer manifest of its current latest
+/// finalized snapshot on `network_id`, split into `chunk_size`-byte pieces.
+/// `chunk_size` is the *requester's* choice — a weak or lossy-linked caller
+/// asks for something small (down to [`MIN_CHUNK_BYTES`]) regardless of how
+/// large the serving peer's own state or link happens to be.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ManifestRequest {
+    pub network_id: [u8; 32],
+    pub chunk_size: u32,
+}
+
+impl ManifestRequest {
+    pub fn to_wire_bytes(&self) -> Vec<u8> {
+        let mut w = Vec::with_capacity(DOMAIN.len() + 36);
+        w.extend_from_slice(DOMAIN);
+        w.extend_from_slice(&self.network_id);
+        w.extend_from_slice(&self.chunk_size.to_be_bytes());
+        w
+    }
+
+    pub fn from_wire_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut r = Reader::new(bytes);
+        if r.take(DOMAIN.len())? != DOMAIN {
+            return Err(ConsensusError::Malformed);
+        }
+        let mut network_id = [0u8; 32];
+        network_id.copy_from_slice(r.take(32)?);
+        let chunk_size = r.u32()?;
+        if !r.finished() {
+            return Err(ConsensusError::Malformed);
+        }
+        Ok(Self {
+            network_id,
+            chunk_size,
+        })
+    }
+}
+
+const MANIFEST_RESPONSE_TAG_WRONG_NETWORK: u8 = 0;
+const MANIFEST_RESPONSE_TAG_UNAVAILABLE: u8 = 1;
+const MANIFEST_RESPONSE_TAG_MANIFEST: u8 = 2;
+
+/// What a peer can supply for one [`ManifestRequest`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ManifestResponse {
+    /// The request names a different settlement/consensus network.
+    WrongNetwork,
+    /// The peer retains no finalized snapshot at all yet.
+    Unavailable,
+    /// The peer's current chunked-transfer manifest. Boxed so the control
+    /// variants above do not pay the manifest's size on every response
+    /// value (mirrors [`crate::state_sync::StateSyncPayload::Snapshot`]).
+    Manifest(Box<SnapshotManifest>),
+}
+
+impl ManifestResponse {
+    pub fn to_wire_bytes(&self) -> Result<Vec<u8>> {
+        let mut w = Vec::new();
+        w.extend_from_slice(DOMAIN);
+        match self {
+            ManifestResponse::WrongNetwork => w.push(MANIFEST_RESPONSE_TAG_WRONG_NETWORK),
+            ManifestResponse::Unavailable => w.push(MANIFEST_RESPONSE_TAG_UNAVAILABLE),
+            ManifestResponse::Manifest(manifest) => {
+                w.push(MANIFEST_RESPONSE_TAG_MANIFEST);
+                put_bytes(&mut w, &manifest.to_wire_bytes()?);
+            }
+        }
+        if w.len() > mini_bearer::MAX_CHANNEL_PLAINTEXT_BYTES {
+            return Err(ConsensusError::TooLarge);
+        }
+        Ok(w)
+    }
+
+    pub fn from_wire_bytes(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() > mini_bearer::MAX_CHANNEL_PLAINTEXT_BYTES {
+            return Err(ConsensusError::TooLarge);
+        }
+        let mut r = Reader::new(bytes);
+        if r.take(DOMAIN.len())? != DOMAIN {
+            return Err(ConsensusError::Malformed);
+        }
+        let response = match r.u8()? {
+            MANIFEST_RESPONSE_TAG_WRONG_NETWORK => ManifestResponse::WrongNetwork,
+            MANIFEST_RESPONSE_TAG_UNAVAILABLE => ManifestResponse::Unavailable,
+            MANIFEST_RESPONSE_TAG_MANIFEST => {
+                let manifest_bytes = r.bytes(mini_bearer::MAX_CHANNEL_PLAINTEXT_BYTES)?;
+                ManifestResponse::Manifest(Box::new(SnapshotManifest::from_wire_bytes(
+                    manifest_bytes,
+                )?))
+            }
+            _ => return Err(ConsensusError::Malformed),
+        };
+        if !r.finished() {
+            return Err(ConsensusError::Malformed);
+        }
+        Ok(response)
     }
 }
 
@@ -551,17 +651,25 @@ impl SnapshotAssembler {
         Ok(self.is_complete())
     }
 
-    /// Reassemble every accepted chunk in order, decode the execution
-    /// state, and verify it against the manifest's header/QC exactly as
-    /// `ConsensusSnapshot::into_chain` already does for a single-frame
-    /// snapshot. Errors [`ConsensusError::Malformed`] if any chunk is still
-    /// missing.
-    pub fn finish(
-        self,
-        expected_network_id: [u8; 32],
-        validators: &ValidatorSet,
-        oracle: &dyn ValidatorOracle,
-    ) -> Result<LedgerChain> {
+    /// Reassemble every accepted chunk in order, decode the execution state,
+    /// and structurally check it against the manifest's header/QC exactly as
+    /// `ConsensusSnapshot::from_wire_bytes` already does for a single-frame
+    /// snapshot — `header.state_root == state.commitment()`, `qc.height ==
+    /// header.height`, `qc.block_hash == header.hash()`. Finality itself
+    /// (`>2/3` of `validators`) was already checked in [`Self::new`]; this
+    /// does not re-check it.
+    ///
+    /// Returns a plain [`ConsensusSnapshot`] rather than a live
+    /// `LedgerChain` — a caller with a `mini_chain::ValidatorSet`/
+    /// `ValidatorOracle` still in scope can turn it into one with
+    /// `ConsensusSnapshot::into_chain` unchanged (as `crate::net::
+    /// chunk_sync_over_tcp` does, via `ConsensusNode::apply_state_sync`,
+    /// which performs that same finality/state verification again itself —
+    /// exactly the layered "peer supplies bytes, never trust" discipline
+    /// `state_sync_over_tcp` already follows).
+    ///
+    /// Errors [`ConsensusError::Malformed`] if any chunk is still missing.
+    pub fn finish(self) -> Result<ConsensusSnapshot> {
         if !self.is_complete() {
             return Err(ConsensusError::Malformed);
         }
@@ -571,8 +679,7 @@ impl SnapshotAssembler {
         }
         let state =
             LedgerState::from_snapshot_bytes(&state_bytes).map_err(ConsensusError::Execution)?;
-        let snapshot = ConsensusSnapshot::new(self.manifest.header, self.manifest.qc, state)?;
-        snapshot.into_chain(expected_network_id, validators, oracle)
+        ConsensusSnapshot::new(self.manifest.header, self.manifest.qc, state)
     }
 }
 
@@ -698,8 +805,10 @@ mod tests {
         }
         assert!(assembler.is_complete());
 
-        let chain = assembler
-            .finish(mini_settlement::MININET_NETWORK_ID, &validators, &directory)
+        let reassembled = assembler.finish().unwrap();
+        assert_eq!(reassembled.state.commitment(), expected_commitment);
+        let chain = reassembled
+            .into_chain(mini_settlement::MININET_NETWORK_ID, &validators, &directory)
             .unwrap();
         assert_eq!(chain.height(), 1);
         assert_eq!(chain.state().commitment(), expected_commitment);
@@ -730,9 +839,7 @@ mod tests {
                 .unwrap();
         }
         assert!(assembler.is_complete());
-        assembler
-            .finish(mini_settlement::MININET_NETWORK_ID, &validators, &directory)
-            .unwrap();
+        assembler.finish().unwrap();
     }
 
     #[test]
@@ -813,12 +920,7 @@ mod tests {
 
         let mut assembler = SnapshotAssembler::new(manifest, &validators, &directory).unwrap();
         assembler.accept_chunk(&chunker.chunk(0).unwrap()).unwrap();
-        assert_eq!(
-            assembler
-                .finish(mini_settlement::MININET_NETWORK_ID, &validators, &directory)
-                .unwrap_err(),
-            ConsensusError::Malformed
-        );
+        assert_eq!(assembler.finish().unwrap_err(), ConsensusError::Malformed);
     }
 
     #[test]
@@ -905,8 +1007,6 @@ mod tests {
         let mut assembler =
             SnapshotAssembler::new(chunker.manifest().clone(), &validators, &directory).unwrap();
         assert!(assembler.accept_chunk(&chunker.chunk(0).unwrap()).unwrap());
-        assembler
-            .finish(mini_settlement::MININET_NETWORK_ID, &validators, &directory)
-            .unwrap();
+        assembler.finish().unwrap();
     }
 }

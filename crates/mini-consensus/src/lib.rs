@@ -89,10 +89,15 @@
 //!   a [`chunked_snapshot::SnapshotManifest`] plus Merkle-authenticated
 //!   [`chunked_snapshot::ChunkResponse`]s let a weak/lossy-linked device
 //!   verify and reassemble a state one small piece at a time, re-fetching
-//!   only a single bad chunk rather than the whole transfer — not yet wired
-//!   to any real transport or to multi-peer sourcing. Historical
-//!   validator-set transitions, long-range/weak-subjectivity rules, peer
-//!   selection/retry, and physical weakest-device benchmarks remain
+//!   only a single bad chunk rather than the whole transfer, at a chunk size
+//!   the *requester* picks. [`net::chunk_sync_over_tcp`]/[`net::
+//!   serve_chunk_sync_over_tcp`] carry the whole exchange over the same real,
+//!   encrypted, one-shot connection every other state-sync helper here uses,
+//!   ending in the same [`node::ConsensusNode::apply_state_sync`] call an
+//!   ordinary snapshot response already goes through — one peer, one pass,
+//!   no retry across peers or chunks. Historical validator-set transitions,
+//!   long-range/weak-subjectivity rules, multi-peer chunk sourcing/retry,
+//!   and physical weakest-device benchmarks remain
 //!   separate work.
 //! - **[`net::TcpMesh`] is transport, not discovery.** It still assumes
 //!   every peer's address is known and the mesh is fully connected (or
@@ -151,8 +156,8 @@ pub mod net;
 
 pub use catchup::{CatchupRequest, CatchupResponse, FinalizedBlock, MAX_CATCHUP_BLOCKS};
 pub use chunked_snapshot::{
-    ChunkProof, ChunkRequest, ChunkResponse, SnapshotAssembler, SnapshotChunker, SnapshotManifest,
-    MAX_CHUNKS, MAX_CHUNK_BYTES, MIN_CHUNK_BYTES,
+    ChunkProof, ChunkRequest, ChunkResponse, ManifestRequest, ManifestResponse, SnapshotAssembler,
+    SnapshotChunker, SnapshotManifest, MAX_CHUNKS, MAX_CHUNK_BYTES, MIN_CHUNK_BYTES,
 };
 pub use consequence::{EquivocatorRegistry, RecordOutcome};
 pub use discovery::{pex_over_tcp, serve_pex_over_tcp};

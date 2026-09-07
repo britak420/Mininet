@@ -203,6 +203,13 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
         &self.oracle
     }
 
+    /// This node's static validator set — what [`crate::net::
+    /// chunk_sync_over_tcp`] needs, alongside [`Self::oracle`], to verify a
+    /// chunked-transfer manifest's QC before requesting any chunk.
+    pub fn validators(&self) -> &ValidatorSet {
+        &self.validators
+    }
+
     /// Serve a catch-up request: every block this node has finalized after
     /// `from_height`, in ascending order, capped at
     /// [`MAX_CATCHUP_BLOCKS`] (a caller behind by more than that makes

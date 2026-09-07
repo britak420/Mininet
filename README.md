@@ -365,9 +365,9 @@ to people who will never meet them:
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
    and when it was superseded* (append-only; main sequence `D-0001`–`D-0469`
-   (`D-0469`, chunked Merkle-authenticated execution-state transfer for
-   weak/lossy links, is the newest at the time of this edit; the Mininet
-   Node Appliance
+   (`D-0469`, chunked Merkle-authenticated execution-state transfer over
+   real TCP for weak/lossy links, is the newest at the time of this edit;
+   the Mininet Node Appliance
    deployment profile this line previously credited to `D-0439` is
    `D-0446` — `D-0439` is the identity-bound replica-registration
    decision),
