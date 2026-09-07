@@ -5,11 +5,14 @@
 (`KelAssurance` classification, D-0328), Phase 3's second slice (real
 KEL-chain verification wired in front of `WitnessJournal::observe`,
 D-0329), a local duplicity-proof registry (`DuplicityRegistry`, D-0330),
-a `mini-forge` bridge (`author_assurance`, D-0332), and **witness policies
-bound to the identity's own signed KEL (D-0459)** shipped. Only wiring
-`author_assurance` into a real governance call site — a founder-facing
-policy call — and a bounded/incremental KEL re-verify remain open in
-Phase 3; Phase 4 onward not started.
+a `mini-forge` bridge (`author_assurance`, D-0332), **witness policies
+bound to the identity's own signed KEL (D-0459)**, and **a persistent
+witness journal (`mini-witness-service`, D-0465, Phase 6)** shipped. Only
+wiring `author_assurance` into a real governance call site — a
+founder-facing policy call — and a bounded/incremental KEL re-verify
+remain open in Phase 3; Phase 4's receipt collection protocol has shipped
+on a concurrently-open PR (D-0464) not yet merged to `main` as of this
+writing; Phase 5, 7, 8, 9, 10 not started.
 
 **Full research:** `docs/research/
 KEL_WITNESS_RECEIPTS_DUPLICITY_GOSSIP_RESEARCH_20260715.md`
@@ -135,12 +138,20 @@ exactly what this PR is.
    every call), persistence for the duplicity registry (Phase 6), and
    any real call site that actually *gates* an authority decision on a
    `KelAssurance` level or feeds real proofs into `DuplicityRegistry`.
-4. **Receipt collection protocol** — typed request/response messages
-   (`SubmitEventForWitnessing`, `FetchWitnessCertificate`, etc.).
+4. **Receipt collection protocol (shipped on a concurrently-open PR,
+   D-0464)** — `did_mini::witness_protocol`'s typed
+   `SubmitEventForWitnessingRequest`/`SubmitEventForWitnessingResponse`
+   and `FetchWitnessReceiptRequest`/`FetchWitnessReceiptResponse`. Not yet
+   merged to `main` as of D-0465's writing — see that PR for status.
 5. **Gossip summaries** — piggybacked on existing sync/relay/forge
    traffic, targeted fetch on disagreement only.
-6. **Persistent witness service** — durable state, crash recovery,
-   bounded retention, quotas.
+6. **Persistent witness service (shipped, D-0465)** — new crate
+   `mini-witness-service`'s `PersistentWitnessJournal` gives
+   `WitnessJournal` durable, crash-recoverable state by replaying
+   `Kel::declared_witness_policy` + `WitnessJournal::observe_verified`
+   over what was durably recorded, plus an identity-count quota. No
+   network transport, no gossip, no rotation-aware pruning — those remain
+   Phases 5 and 7.
 7. **Witness rotation and recovery** — policy generations, old-policy
    certification of witness-set changes, unavailable-witness recovery
    that can't be triggered casually.

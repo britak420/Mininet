@@ -998,9 +998,10 @@
     },
     {
       "issue": 92,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/validator-authenticated-handshake",
+      "pull_request": 319,
       "lease_expires": "2026-09-13",
       "paths": [
         "crates/mini-consensus/",
@@ -1011,7 +1012,26 @@
       "decision_ids": [
         "D-0463"
       ],
-      "notes": "D-0463: a validator-authenticated bearer handshake, closing R8's last remaining named gap. mini_consensus::validator_channel::ValidatorHandshakeAttestation lets a validator device sign mini_bearer::Channel::channel_binding with an already-delegated, VOTE-capable key -- the same construction mini-presence already uses for device co-presence, no new cryptography, no new capability bit. verify_validator_handshake rejects a mismatched channel binding (so an attestation captured on one channel can never be replayed on another), a mismatched claimed root/device, or a device that is not currently a VOTE-capable delegate; send_validator_handshake/recv_validator_handshake carry it over an already-established Channel and Bearer, proven end to end over a real TCP socket. Deliberately opt-in and not wired into net::TcpMesh, whose links stay anonymous by their own existing, documented design (consensus messages self-identify at the payload level already) -- this is a capability a caller reaches for when link-level identity specifically matters, available alongside that design rather than replacing it. Used D-0463 rather than D-0462 to avoid colliding with the concurrently open peer-discovery PR, which claimed D-0462 first and had not yet merged. Coordination evidence only, not approval or authority."
+      "notes": "D-0463: a validator-authenticated bearer handshake, closing R8's last remaining named gap. mini_consensus::validator_channel::ValidatorHandshakeAttestation lets a validator device sign mini_bearer::Channel::channel_binding with an already-delegated, VOTE-capable key -- the same construction mini-presence already uses for device co-presence, no new cryptography, no new capability bit. verify_validator_handshake rejects a mismatched channel binding (so an attestation captured on one channel can never be replayed on another), a mismatched claimed root/device, or a device that is not currently a VOTE-capable delegate; send_validator_handshake/recv_validator_handshake carry it over an already-established Channel and Bearer, proven end to end over a real TCP socket. Deliberately opt-in and not wired into net::TcpMesh, whose links stay anonymous by their own existing, documented design (consensus messages self-identify at the payload level already) -- this is a capability a caller reaches for when link-level identity specifically matters, available alongside that design rather than replacing it. Used D-0463 rather than D-0462 to avoid colliding with the concurrently open peer-discovery PR, which claimed D-0462 first and had not yet merged. Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #319 merged."
+    },
+    {
+      "issue": 92,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/witness-service",
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/mini-witness-service/",
+        "Cargo.toml",
+        "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0465"
+      ],
+      "notes": "D-0465: a persistent witness journal, shipping design doc Phase 6. New crate mini-witness-service's PersistentWitnessJournal anchors did_mini::WitnessJournal to durable storage the same way mini-consensus anchors mini-chain and mini-installer anchors mini-update -- did-mini's own Cargo.toml commits it to staying filesystem-free. Every accepted observation is written (domain-tagged, length-prefixed, write-then-rename atomic against a killed process) before being reported to its own caller; open/open_with_capacity rebuild exact in-memory state by replaying each persisted (kel, observed_epoch) through Kel::declared_witness_policy and WitnessJournal::observe_verified unchanged -- never a second, less-reviewed restore path, and never a caller-supplied policy (D-0459's rule, honored again here). Bounded by an identity-count quota (MAX_TRACKED_IDENTITIES). Used D-0465 rather than D-0464 to avoid colliding with the concurrently open receipt-collection-protocol PR, which claimed D-0464 first and had not yet merged; built directly on already-merged main APIs (Kel::declared_witness_policy, WitnessJournal::observe_verified) rather than depending on that PR's own new observe_declared method. Coordination evidence only, not approval or authority."
     }
   ]
 }

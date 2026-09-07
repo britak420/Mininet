@@ -17962,3 +17962,114 @@ stay connected).
 **Supersedes / superseded by:** extends D-0206/D-0207's real-transport
 adapters with a third; supersedes nothing. Narrows roadmap R8's three
 remaining named gaps to two.
+
+### D-0465 — A persistent witness journal: crash recovery by replaying already-reviewed functions, never a bespoke restore path — design doc Phase 6  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0459 (policy comes from the KEL, never a
+caller-supplied parameter — the rule this crate's replay path also honors),
+D-0329 (`WitnessJournal::observe_verified`, the exact function replayed
+here), D-0464 (Phase 4's receipt collection protocol — allocated on a
+concurrently-open PR, hence this entry using the next free number rather
+than colliding with it), `docs/design/kel-witness-receipts-and-duplicity-gossip.md`
+Phase 6, [#92](../../issues/92).
+
+**Decision:** new crate `mini-witness-service` gives `did_mini::WitnessJournal`
+a durable backing store. `PersistentWitnessJournal::open`/`open_with_capacity`
+replay every previously-accepted identity's KEL through the KEL's own
+declared witness policy (`Kel::declared_witness_policy`, D-0459) and
+`WitnessJournal::observe_verified` (D-0329) — the same two already-reviewed,
+already-merged functions live traffic uses, never a second, less-reviewed
+restore path. `observe_declared` durably records `(kel_bytes, observed_epoch)`
+— exactly the two inputs that replay needs — to a domain-tagged,
+length-prefixed record file, written to a `.tmp` path and `rename`d into
+place, *before* reporting an `Accepted` outcome to its own caller. Bounded
+by `MAX_TRACKED_IDENTITIES` (default 100,000), checked only for identities
+this journal has not already accepted.
+
+**Why a new crate, not a `did-mini` module:** `did-mini`'s own `Cargo.toml`
+states its scope deliberately — "this crate is security-critical and must
+stay easy to review and reproduce... It has NO network or chain
+dependency." Filesystem I/O is a capability that crate has never carried.
+This workspace already has a standing pattern for exactly this split — a
+pure, in-memory state machine anchored to a real process/store in a
+separate crate (`mini-chain` anchored by `mini-consensus`, `mini-update`
+anchored by `mini-installer`) — `mini-witness-service` is that anchor here.
+
+**Why replay, never a persisted derived value:** `WitnessIdentityState`'s
+fields are private outside `did-mini::witness_state`, so persisting the
+derived state directly would require a new, less-reviewed constructor into
+that module. Persisting only the two inputs `observe_verified` itself
+needs, and replaying through that unchanged function, makes byte-identical
+reconstruction a property of Ed25519's own determinism rather than of a
+second serialization format this crate would have to keep in lockstep with
+`did-mini`'s internals by hand — proven by this crate's own restart
+round-trip test asserting the replayed receipt equals the original byte for
+byte, not assumed.
+
+**Why persisting `observed_epoch`, not a fresh value on replay:** the
+original observation epoch is embedded inside the signed
+`WitnessReceiptStatement`; replaying with any other value would reconstruct
+a receipt with different bytes than the one already handed to a requester
+before the restart, defeating the entire guarantee this crate exists to
+provide.
+
+**Why the write happens before the `Accepted` outcome is returned:** closes
+the crash window where a receipt is handed to a real requester in memory
+but never durably recorded — the one guarantee Phase 6 exists to deliver.
+Every other outcome (`AlreadyAccepted`, `Stale`, `ControllerDuplicity`)
+never mutates journal state, so nothing is written for them.
+
+**What this does not do, stated plainly:**
+
+- **No `fsync` barrier.** `fs::write` then `fs::rename` is atomic against a
+  *killed process* — the previous complete file is never partially
+  overwritten in place — but this is not a claim of durability across an
+  OS-level crash or power failure, the same limit this workspace's other
+  atomic-replace patterns (`mini-consensus::store::ConsensusArchive`) already
+  state rather than leave implicit.
+- **No network transport.** Carrying `did_mini::witness_protocol`'s
+  messages (D-0464) over a real socket is separate, later work for
+  whichever crate first runs a witness service, the same split
+  `mini-consensus::discovery` already applies over `mini-net::pex`.
+- **No gossip (Phase 5), no witness-rotation-aware pruning (Phase 7).**
+  Retiring an old record, or reacting to a witness-set change, is a host
+  operation this crate does not perform on its own.
+- **Bounded by identity count only.** Disk space per identity is bounded
+  only by one KEL's own existing size cap; nothing here separately limits
+  total bytes on disk.
+
+**Constitutional impact:** none. No new cryptography — composes
+`Kel::declared_witness_policy` and `WitnessJournal::observe_verified`
+unchanged, itself already governed by D-0459's rule that a witness policy
+is never accepted as an external parameter (applied again here: the replay
+path derives policy from the KEL, exactly like the live path). No voice/
+value edge: `mini-witness-service` depends on `did-mini` and `mini-crypto`
+only, neither a value nor a governance-quorum crate.
+
+**Implementation status:** shipped — `crates/mini-witness-service/`
+(new crate: `PersistentWitnessJournal::open`/`open_with_capacity`/
+`observe_declared`/`state_for`/`tracked_identity_count`, domain-tagged
+record encode/decode, `WitnessServiceError`, 6 tests covering a byte-for-
+byte restart round-trip, resubmission-after-restart idempotence, a stray
+`.tmp` file being ignored on open, a corrupt state file being rejected
+rather than silently skipped, per-identity capacity enforcement, and an
+undeclared-policy identity being rejected with nothing persisted), workspace
+`Cargo.toml` (new member).
+
+**Failure point:** a witness process that crashes between `fs::rename`
+completing and its own in-memory acknowledgment reaching a caller could, in
+principle, re-answer the same request with `AlreadyAccepted` after restart
+rather than the original `Accepted` — this is the correct, safe outcome
+(the receipt already exists and is unchanged), not a defect, but is worth
+naming since it means a caller cannot distinguish "accepted just now" from
+"accepted before a restart" purely from this crate's return value alone.
+Power-loss-mid-write durability is explicitly not claimed, as stated above.
+
+**Required follow-up:** Phase 5 (gossip) and Phase 7 (rotation-aware
+pruning) remain open, as does wiring this crate's storage under a real
+network-facing witness process once `did_mini::witness_protocol` (D-0464)
+lands on `main`.
+
+**Supersedes / superseded by:** anchors `did_mini::WitnessJournal`
+(D-0326/D-0329/D-0459) to durable storage for the first time; supersedes
+nothing. Closes design doc Phase 6.

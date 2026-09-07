@@ -275,19 +275,38 @@ given time.
   `resolve_project`'s actual quorum gating, which remains purely
   `author_verified`'s boolean — which governance action (if any) should
   require which minimum assurance level is a founder-facing policy
-  call, not decided unilaterally here. **Not yet real:** no
-  bounded/incremental re-verify (`observe_verified` re-verifies the
-  whole chain from inception on every call, not just the new suffix),
-  no fork-proof construction for the harder "conflicting descendant"
-  case, no recovery-aware handling (every rotation is treated
-  identically), `WitnessPolicy` is still not carried by real
-  `Establishment` events (a certificate still cannot be checked against
-  a live `Kel` end-to-end — the caller supplies the policy directly), no
+  call, not decided unilaterally here. **Witness policy binding shipped
+  (D-0459):** `Establishment` now carries `witness_threshold` beside its
+  witness set, `Kel::declared_witness_policy` reads the policy back from
+  the most recent establishment event, and `assess_kel_assurance` takes
+  it from there — `WitnessEvidence::policy` is gone, closing the hole
+  where a caller-supplied policy let an attacker name their own witnesses
+  and earn a forged branch the strongest assurance level.
+  **Receipt collection protocol shipped (Phase 4, D-0464, on a
+  concurrently-open PR):** `did_mini::witness_protocol`'s typed
+  `SubmitEventForWitnessingRequest`/`Response` and
+  `FetchWitnessReceiptRequest`/`Response`. **Persistent witness journal
+  shipped (Phase 6, D-0465):** new crate `mini-witness-service`'s
+  `PersistentWitnessJournal` gives `WitnessJournal` durable,
+  crash-recoverable state — every accepted observation is recorded to
+  disk (write-then-`rename`, atomic against a killed process, not a
+  power-loss guarantee) before being reported to its own caller, and
+  `open`/`open_with_capacity` rebuild exact in-memory state by replaying
+  each persisted `(kel, observed_epoch)` through
+  `Kel::declared_witness_policy` and `WitnessJournal::observe_verified`
+  unchanged, never a second, less-reviewed restore path; bounded by an
+  identity-count quota; 6 tests. **Not yet real:** no bounded/incremental
+  re-verify (`observe_verified` re-verifies the whole chain from
+  inception on every call, not just the new suffix), no fork-proof
+  construction for the harder "conflicting descendant" case, no
+  recovery-aware handling (every rotation is treated identically), no
   persistence for `DuplicityRegistry` (in-memory only), no
-  `WitnessedRecentAndGossiped` (needs Phase 5 gossip), no real call site
-  yet gates an authority decision on a `KelAssurance` level or feeds
-  real proofs into `DuplicityRegistry`, no gossip. Each remaining phase
-  is its own later PR, gated behind external review (D-0047) before any
+  `WitnessedRecentAndGossiped` (needs Phase 5 gossip, not started), no
+  witness-rotation-aware pruning (Phase 7, not started), no network
+  transport carrying the Phase 4 protocol over a real socket, no real
+  call site yet gates an authority decision on a `KelAssurance` level or
+  feeds real proofs into `DuplicityRegistry`. Each remaining phase is its
+  own later PR, gated behind external review (D-0047) before any
   high-value authority decision may depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire

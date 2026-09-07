@@ -1,0 +1,18 @@
+[package]
+name = "mini-witness-service"
+version = "0.0.1"
+description = "A durable, crash-recoverable backing store for did-mini's KEL witness journal (design doc Phase 6): persists what a witness accepted so it never forgets across a restart, by replaying did-mini's own state machine over what was durably recorded rather than trusting a bespoke restore path."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+# did-mini deliberately stays filesystem-free and dependency-minimal (see its
+# own Cargo.toml); this crate is the anchor-to-a-real-process split this
+# workspace already applies elsewhere (mini-chain -> mini-consensus,
+# mini-update -> mini-installer), applied to the witness state machine.
+did-mini = { path = "../did-mini" }
+mini-crypto = { path = "../mini-crypto" }
