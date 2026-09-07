@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 74,
-    "files": 919,
+    "files": 920,
     "headings": 3186,
-    "rust_symbols": 9105
+    "rust_symbols": 9125
   },
   "crates": {
     "did-mini": {
@@ -1764,7 +1764,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 25081,
+      "bytes": 25115,
       "group": "root",
       "headings": [
         {
@@ -1804,7 +1804,7 @@
         },
         {
           "level": 2,
-          "line": 400,
+          "line": 401,
           "text": "License"
         }
       ],
@@ -1834,9 +1834,9 @@
         "path",
         "switch"
       ],
-      "lines": 404,
+      "lines": 405,
       "path": "README.md",
-      "sha256": "a9ea6f6df93911e2bc77b30bb7aa65bc0a1268b706f2f07ae4d84f637e4c1e20",
+      "sha256": "862beefae68a38456ec69385b765e816d01f6dc7b377ca59be25c8e22917516e",
       "symbols": [],
       "title": "Mininet"
     },
@@ -64717,6 +64717,138 @@
       "title": "mini-sync"
     },
     {
+      "bytes": 15478,
+      "group": "crate:mini-sync",
+      "headings": [],
+      "keywords": [
+        "summary",
+        "own",
+        "gossip_summary_carrier",
+        "kel",
+        "object",
+        "against",
+        "identity",
+        "gossip",
+        "carrier",
+        "kelheadsummary",
+        "same",
+        "ingest",
+        "what",
+        "real",
+        "already",
+        "new",
+        "payload",
+        "ordinary",
+        "did_mini",
+        "comparison",
+        "protocol",
+        "about",
+        "claim",
+        "never"
+      ],
+      "lines": 359,
+      "path": "crates/mini-sync/src/gossip.rs",
+      "sha256": "55dcbfccef3e481886d010601bcd572296310790464363129619e847f1613234",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 61,
+          "name": "GOSSIP_SUMMARY_CARRIER"
+        },
+        {
+          "kind": "const",
+          "line": 66,
+          "name": "MAX_GOSSIP_SUMMARY_CARRIER_BYTES"
+        },
+        {
+          "kind": "fn",
+          "line": 71,
+          "name": "gossip_summary_carrier"
+        },
+        {
+          "kind": "enum",
+          "line": 84,
+          "name": "GossipCarrierOutcome"
+        },
+        {
+          "kind": "fn",
+          "line": 106,
+          "name": "compare_gossip_carrier"
+        },
+        {
+          "kind": "mod",
+          "line": 136,
+          "name": "tests"
+        },
+        {
+          "kind": "fn",
+          "line": 140,
+          "name": "a_relayer"
+        },
+        {
+          "kind": "fn",
+          "line": 145,
+          "name": "a_summary_for"
+        },
+        {
+          "kind": "fn",
+          "line": 150,
+          "name": "a_carrier_round_trips_its_summary"
+        },
+        {
+          "kind": "fn",
+          "line": 166,
+          "name": "comparing_against_an_empty_cache_reports_no_local_knowledge"
+        },
+        {
+          "kind": "fn",
+          "line": 179,
+          "name": "a_summary_matching_the_cached_kel_agrees"
+        },
+        {
+          "kind": "fn",
+          "line": 193,
+          "name": "a_summary_disagreeing_at_the_same_sequence_is_reported"
+        },
+        {
+          "kind": "fn",
+          "line": 208,
+          "name": "stale_incoming_gossip_leaves_our_cache_ahead"
+        },
+        {
+          "kind": "fn",
+          "line": 235,
+          "name": "fresher_incoming_gossip_leaves_our_cache_behind"
+        },
+        {
+          "kind": "fn",
+          "line": 260,
+          "name": "a_non_carrier_object_is_reported_as_not_a_carrier"
+        },
+        {
+          "kind": "fn",
+          "line": 274,
+          "name": "a_truncated_payload_is_reported_as_malformed"
+        },
+        {
+          "kind": "fn",
+          "line": 288,
+          "name": "an_encrypted_payload_is_reported_as_malformed"
+        },
+        {
+          "kind": "fn",
+          "line": 304,
+          "name": "an_oversized_payload_is_reported_as_malformed"
+        },
+        {
+          "kind": "fn",
+          "line": 321,
+          "name": "a_gossip_summary_carrier_flows_through_ordinary_ingest_like_any_authored_object"
+        }
+      ],
+      "title": "use did_mini::{compare_head_summaries, Controller, Did, HeadAgreement, KelHeadSummary};"
+    },
+    {
       "bytes": 9663,
       "group": "crate:mini-sync",
       "headings": [],
@@ -64844,14 +64976,14 @@
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 5587,
+      "bytes": 5756,
       "group": "crate:mini-sync",
       "headings": [],
       "keywords": [
         "protocol",
         "syncerror",
-        "sync",
         "objects",
+        "sync",
         "server",
         "client",
         "ingest",
@@ -64859,7 +64991,6 @@
         "fmt",
         "bearer",
         "object",
-        "write",
         "message",
         "core",
         "ids",
@@ -64867,75 +64998,71 @@
         "peer",
         "you",
         "store",
+        "write",
+        "gossip",
         "private_protocol",
         "bearererror",
         "storeerror",
-        "objecterror",
-        "two"
+        "objecterror"
       ],
-      "lines": 136,
+      "lines": 141,
       "path": "crates/mini-sync/src/lib.rs",
-      "sha256": "af908a0ce4b50ed36428a002ce5f792b279576a46b359a4850ae9005652c28f8",
+      "sha256": "d146b8395587e34570f0ffa5d77bd68e3284e3d26abf235e6a612be81ca960fb",
       "symbols": [
         {
           "kind": "mod",
           "line": 61,
-          "name": "ingest"
+          "name": "gossip"
         },
         {
           "kind": "mod",
           "line": 62,
-          "name": "message"
+          "name": "ingest"
         },
         {
           "kind": "mod",
           "line": 63,
-          "name": "private_protocol"
+          "name": "message"
         },
         {
           "kind": "mod",
           "line": 64,
+          "name": "private_protocol"
+        },
+        {
+          "kind": "mod",
+          "line": 65,
           "name": "protocol"
         },
         {
           "kind": "type",
-          "line": 78,
+          "line": 83,
           "name": "Result"
         },
         {
           "kind": "enum",
-          "line": 84,
+          "line": 89,
           "name": "SyncError"
         },
         {
           "kind": "impl",
-          "line": 102,
+          "line": 107,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 103,
+          "line": 108,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 120,
+          "line": 125,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 121,
-          "name": "From<BearerError>"
-        },
-        {
-          "kind": "fn",
-          "line": 122,
-          "name": "from"
-        },
-        {
-          "kind": "impl",
           "line": 126,
-          "name": "From<StoreError>"
+          "name": "From<BearerError>"
         },
         {
           "kind": "fn",
@@ -64945,15 +65072,25 @@
         {
           "kind": "impl",
           "line": 131,
-          "name": "From<ObjectError>"
+          "name": "From<StoreError>"
         },
         {
           "kind": "fn",
           "line": 132,
           "name": "from"
+        },
+        {
+          "kind": "impl",
+          "line": 136,
+          "name": "From<ObjectError>"
+        },
+        {
+          "kind": "fn",
+          "line": 137,
+          "name": "from"
         }
       ],
-      "title": "mod ingest;"
+      "title": "mod gossip;"
     },
     {
       "bytes": 5671,
@@ -76292,7 +76429,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1102246,
+      "bytes": 1107929,
       "group": "docs",
       "headings": [
         {
@@ -76708,8 +76845,8 @@
         "beta",
         "review",
         "audit",
-        "closes",
         "phase",
+        "closes",
         "signed",
         "roadmap",
         "doctrine",
@@ -76718,13 +76855,13 @@
         "batch",
         "local",
         "release",
-        "first",
         "design",
+        "first",
         "witness"
       ],
-      "lines": 18272,
+      "lines": 18371,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "de85c249e709b4ef71f12ae68d79f1ea20364b41cfe5abfdb045bf12f5a7a3b1",
+      "sha256": "142e988873531fc51e92784c88a9aefd9e6a70fa21db7d94d45811c02b28a8e7",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -77739,7 +77876,7 @@
       "title": "Mininet roadmap: from two-phone proof to self-governed network"
     },
     {
-      "bytes": 21351,
+      "bytes": 21610,
       "group": "docs",
       "headings": [
         {
@@ -77819,72 +77956,72 @@
         },
         {
           "level": 3,
-          "line": 269,
+          "line": 272,
           "text": "R10 \u2014 BLE and local-radio transport \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 276,
+          "line": 279,
           "text": "R11 \u2014 A client application people can actually use \u00b7 `ready`"
         },
         {
           "level": 1,
-          "line": 285,
+          "line": 288,
           "text": "Phase 4 \u2014 The gates code cannot close"
         },
         {
           "level": 3,
-          "line": 292,
+          "line": 295,
           "text": "R12 \u2014 External cryptography audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 303,
+          "line": 306,
           "text": "R13 \u2014 FROST DKG audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 309,
+          "line": 312,
           "text": "R14 \u2014 Legal counsel review \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 313,
+          "line": 316,
           "text": "R15 \u2014 Sybil resistance and personhood \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 325,
+          "line": 328,
           "text": "R16 \u2014 Tokenomics validation \u00b7 `outside`"
         },
         {
           "level": 1,
-          "line": 333,
+          "line": 336,
           "text": "Phase 5 \u2014 Release engineering"
         },
         {
           "level": 3,
-          "line": 335,
+          "line": 338,
           "text": "R17 \u2014 Adversarial testing at real-world scale \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 342,
+          "line": 345,
           "text": "R18 \u2014 Genesis, validator set, and activation \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 349,
+          "line": 352,
           "text": "R19 \u2014 Release, install, and rollback on real targets \u00b7 `ready`"
         },
         {
           "level": 3,
-          "line": 357,
+          "line": 360,
           "text": "R20 \u2014 The honest launch statement \u00b7 `blocked`"
         },
         {
           "level": 2,
-          "line": 370,
+          "line": 373,
           "text": "What is deliberately *not* on this list"
         }
       ],
@@ -77914,9 +78051,9 @@
         "pull",
         "again"
       ],
-      "lines": 382,
+      "lines": 385,
       "path": "docs/ROADMAP_TO_RELEASE.md",
-      "sha256": "55cf46b28d0a32a095c77ed0a998c18feb338ae22598cb03d863968932723c9a",
+      "sha256": "56eb57ddee65de9fd24481e588d6d455284c3b14f6164dde7d4446cbe231031d",
       "symbols": [],
       "title": "The road to release"
     },
@@ -78055,7 +78192,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 166039,
+      "bytes": 166772,
       "group": "docs",
       "headings": [
         {
@@ -78090,77 +78227,77 @@
         },
         {
           "level": 2,
-          "line": 358,
+          "line": 369,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 748,
+          "line": 759,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 795,
+          "line": 806,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1017,
+          "line": 1028,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1211,
+          "line": 1222,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1272,
+          "line": 1283,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1302,
+          "line": 1313,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1629,
+          "line": 1640,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2107,
+          "line": 2118,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2198,
+          "line": 2209,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2278,
+          "line": 2289,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2344,
+          "line": 2355,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2361,
+          "line": 2372,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2397,
+          "line": 2408,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2462,
+          "line": 2473,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -78190,9 +78327,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2497,
+      "lines": 2508,
       "path": "docs/STATUS.md",
-      "sha256": "f958ef1a7dc8587c430445651497711f30356b9b873ce7ddfb5ac314648a1487",
+      "sha256": "dcfd147cc3fb06f2c8ae33e013d37cd78cc77513d081a0cd59608bf4ac815a6f",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -82949,7 +83086,7 @@
       "title": "Long-term inflation and whale-attack resistance \u2014 founder decision (D-0074)"
     },
     {
-      "bytes": 13618,
+      "bytes": 14078,
       "group": "docs",
       "headings": [
         {
@@ -82979,44 +83116,44 @@
         },
         {
           "level": 2,
-          "line": 187,
+          "line": 193,
           "text": "Hard rules carried forward from the report"
         },
         {
           "level": 2,
-          "line": 208,
+          "line": 214,
           "text": "What this document originally covered, and what D-0321/D-0326 added"
         }
       ],
       "keywords": [
         "witness",
         "phase",
-        "gossip",
         "receipts",
+        "gossip",
         "kel",
         "report",
         "what",
         "receipt",
         "identity",
         "state",
-        "event",
         "design",
         "duplicity",
         "audit",
         "repo",
         "full",
-        "first",
         "real",
         "verification",
         "own",
         "verifier",
+        "event",
         "invariant",
         "gap",
-        "design-only"
+        "design-only",
+        "phased"
       ],
-      "lines": 224,
+      "lines": 230,
       "path": "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
-      "sha256": "5b0c773e0b2b7d80321cfa7d981fad6ac7d7125d441b45f8828129fc0ab04bec",
+      "sha256": "aeb8693aeaa57b29246b9ef5a37e88feeac6c04cb8c5e014059cdbdd0ebce73c",
       "symbols": [],
       "title": "KEL witness receipts and duplicity gossip (audit #12 F4, invariant M3)"
     },
@@ -94422,7 +94559,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 68644,
+      "bytes": 70242,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -94451,9 +94588,9 @@
         "independently",
         "both"
       ],
-      "lines": 1076,
+      "lines": 1095,
       "path": "governance/work-claims.json",
-      "sha256": "d635fa3c7b7521635376adee4f5e8a7facce57bfbe2752e944f05c70a570f867",
+      "sha256": "3ccd668115d225da6c0045ec80fc9357b99ecaf58025068241b2d57ad61de668",
       "symbols": [],
       "title": "{"
     },

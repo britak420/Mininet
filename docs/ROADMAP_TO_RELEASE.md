@@ -259,12 +259,15 @@ crash-recoverable state by replaying accepted observations through
 head) and `compare_head_summaries` (a pure `Agrees`/`Disagreement`/
 `Ahead`/`Behind` classification) — resolving a disagreement reuses
 D-0464's existing receipt-collection protocol rather than adding a new
-fetch type.
-**Closed by:** the remaining phases — gossip's real transport wiring (the
-second half of 5), witness rotation (7) — plus a real call site that
-*gates* an authority decision on an assurance level. That last one is a
-founder-facing policy call: which governance action requires which
-minimum level is not an engineering choice.
+fetch type. **D-0467 closes Phase 5's second half and the phase itself:**
+`mini_sync::gossip_summary_carrier` wraps a `KelHeadSummary` as an
+ordinary object riding the existing MINI/SYNC1 sync protocol — zero new
+wire messages — and `compare_gossip_carrier` compares an ingested one
+against the receiver's own `KelCache`.
+**Closed by:** the remaining phases — witness rotation (7) — plus a real
+call site that *gates* an authority decision on an assurance level. That
+last one is a founder-facing policy call: which governance action
+requires which minimum level is not an engineering choice.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap

@@ -312,16 +312,27 @@ given time.
   11 tests. No new evidence-retrieval request type: resolving a
   `Disagreement` or `Ahead` reuses D-0464's existing
   `SubmitEventForWitnessingRequest`/`FetchWitnessReceiptRequest` rather
-  than duplicating them. **Not yet real:** no bounded/incremental
-  re-verify (`observe_verified`/`observe_declared` re-verify the whole
-  chain from inception on every call, not just the new suffix), no
-  fork-proof construction for the harder "conflicting descendant" case,
-  no recovery-aware handling (every rotation is treated identically), no
-  persistence for `DuplicityRegistry` (in-memory only), no
-  `WitnessedRecentAndGossiped` (a `KelHeadSummary` is not yet wired into
-  any real gossip transport — `mini-sync`/`mini-relay`/`mini-forge`
-  piggybacking remains open), no witness-rotation-aware pruning (Phase 7,
-  not started), no real call site yet gates an authority decision on a
+  than duplicating them. **Phase 5 closed (D-0467):** `mini_sync::
+  gossip_summary_carrier` wraps a `KelHeadSummary` as an ordinary
+  `mini-objects` object — `GOSSIP_SUMMARY_CARRIER` — so it rides the
+  existing MINI/SYNC1 reconciliation protocol with zero new wire
+  messages, exactly the design doc's own "piggybacked on existing
+  sync... traffic"; `compare_gossip_carrier` decodes an ingested carrier
+  and compares it against the receiver's own `KelCache`, the same
+  locally-cached "what do I believe" state `mini_sync::Ingest` already
+  maintains; not self-certifying like a KEL carrier, so it gets no
+  special ingest branch — it flows through the same ordinary
+  author-provenance path every object already uses; 11 tests. **Not yet
+  real:** no bounded/incremental re-verify (`observe_verified`/
+  `observe_declared` re-verify the whole chain from inception on every
+  call, not just the new suffix), no fork-proof construction for the
+  harder "conflicting descendant" case, no recovery-aware handling (every
+  rotation is treated identically), no persistence for `DuplicityRegistry`
+  (in-memory only), no automatic evidence-fetch policy (a
+  `Disagreement`/`Ahead` outcome is returned, never auto-resolved — a
+  host policy choice), no bounded retention/pruning for gossip-summary
+  objects, no witness-rotation-aware pruning (Phase 7, not started), no
+  real call site yet gates an authority decision on a
   `KelAssurance` level or feeds real proofs into `DuplicityRegistry`, no
   network transport for Phase 4's protocol messages. Each remaining phase
   is its own later PR, gated behind external review (D-0047) before any
