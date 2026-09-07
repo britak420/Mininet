@@ -244,10 +244,16 @@ built the receipt types, the witness state machine, duplicity proofs and
 `Pinned` decorative: the `WitnessPolicy` was caller-supplied, so an attacker
 could name witnesses they controlled and earn the strongest assurance level
 for a forged branch. It now comes from the identity's own signed KEL.
-**Progress:** receipt collection (Phase 4, D-0464) and a persistent witness
-journal (Phase 6, D-0465, new crate `mini-witness-service`) have shipped —
-D-0464 on a concurrently-open PR not yet merged to `main` as of D-0465's
-writing.
+**More progress:** **D-0464** ships Phase 4's typed receipt-collection
+protocol (`did-mini::witness_protocol`) — pure request/response messages
+and handlers, no network yet — and extends D-0459's fix to the signing
+side: `WitnessJournal::observe_declared` reads the policy from a
+submitted KEL's own history rather than accepting one as a parameter, so
+`SubmitEventForWitnessingRequest` has no field a forged policy could live
+in. **D-0465** ships Phase 6: new crate `mini-witness-service`'s
+`PersistentWitnessJournal` gives `WitnessJournal` durable,
+crash-recoverable state by replaying accepted observations through
+`WitnessJournal::observe_declared` on open, plus an identity-count quota.
 **Closed by:** the remaining phases — gossip (5), witness rotation (7) —
 plus a real call site that *gates* an authority decision on an assurance
 level. That last one is a founder-facing policy call: which governance

@@ -19,18 +19,19 @@
 //!
 //! [`PersistentWitnessJournal`] persists only what is needed to reconstruct
 //! *exactly* the same decision on replay: the accepted KEL and the
-//! observation epoch used at the time. On replay it derives the witness
-//! policy the same way every call does — from the KEL's own most recent
-//! establishment event via [`did_mini::Kel::declared_witness_policy`], per
-//! D-0459 — and hands both to [`did_mini::WitnessJournal::observe_verified`]
-//! unchanged. Crash recovery is "replay the same pure functions over what
-//! was durably recorded," never a bespoke restore path with its own trust
-//! logic — the same discipline this tree already applies to rebuilding
-//! execution state from a snapshot rather than trusting a persisted derived
-//! value. Because Ed25519 signing is deterministic, replaying an acceptance
-//! reproduces the exact same [`did_mini::WitnessReceipt`] bytes a requester
-//! who received it before a restart still holds — proven by this crate's
-//! own round-trip test, not assumed.
+//! observation epoch used at the time. On replay it hands both, unchanged,
+//! to [`did_mini::WitnessJournal::observe_declared`] (D-0464) — the same
+//! function live traffic uses, which itself derives the witness policy
+//! from the KEL's own most recent establishment event rather than
+//! accepting one as a parameter (D-0459). Crash recovery is "replay the
+//! same pure function over what was durably recorded," never a bespoke
+//! restore path with its own trust logic — the same discipline this tree
+//! already applies to rebuilding execution state from a snapshot rather
+//! than trusting a persisted derived value. Because Ed25519 signing is
+//! deterministic, replaying an acceptance reproduces the exact same
+//! [`did_mini::WitnessReceipt`] bytes a requester who received it before a
+//! restart still holds — proven by this crate's own round-trip test, not
+//! assumed.
 //!
 //! A durable record is written *before* [`PersistentWitnessJournal::observe_declared`]
 //! returns an `Accepted` outcome to its caller, not after — so a caller can
@@ -126,8 +127,8 @@ pub type Result<T> = core::result::Result<T, WitnessServiceError>;
 ///
 /// Every accepted observation is durably recorded before this type reports
 /// it to its own caller. On [`Self::open`], every previously-recorded
-/// identity is replayed through its own declared witness policy and
-/// [`did_mini::WitnessJournal::observe_verified`] to rebuild exactly the
+/// identity is replayed through
+/// [`did_mini::WitnessJournal::observe_declared`] to rebuild exactly the
 /// in-memory state (and receipts) a process that never stopped would still
 /// hold.
 #[derive(Debug)]
@@ -175,13 +176,7 @@ impl PersistentWitnessJournal {
             let (kel_bytes, observed_epoch) = decode_record(&bytes)?;
             let kel = Kel::from_bytes(&kel_bytes)?;
             let identity = kel.did();
-            observe_declared_on(
-                &mut journal,
-                &kel,
-                witness_id.clone(),
-                witness_key,
-                observed_epoch,
-            )?;
+            journal.observe_declared(&kel, witness_id.clone(), witness_key, observed_epoch)?;
             known.insert(identity);
         }
         Ok(PersistentWitnessJournal {
@@ -210,13 +205,9 @@ impl PersistentWitnessJournal {
         if !self.known.contains(&identity) && self.known.len() >= self.max_identities {
             return Err(WitnessServiceError::TooManyIdentities);
         }
-        let outcome = observe_declared_on(
-            &mut self.journal,
-            kel,
-            witness_id,
-            witness_key,
-            observed_epoch,
-        )?;
+        let outcome =
+            self.journal
+                .observe_declared(kel, witness_id, witness_key, observed_epoch)?;
         if matches!(outcome, WitnessObservation::Accepted(_)) {
             self.persist(&identity, kel, observed_epoch)?;
             self.known.insert(identity);
@@ -255,25 +246,6 @@ impl PersistentWitnessJournal {
         fs::rename(&tmp_path, &final_path)?;
         Ok(())
     }
-}
-
-/// Observe `kel`'s head event, deriving the witness policy from `kel`'s own
-/// most recent establishment event rather than accepting one as a
-/// parameter — the D-0459 rule (never let a caller hand a verifier the
-/// standard its own claim is judged against), applied here by composing
-/// [`Kel::declared_witness_policy`] with [`WitnessJournal::observe_verified`]
-/// rather than trusting an externally supplied [`did_mini::WitnessPolicy`].
-fn observe_declared_on(
-    journal: &mut WitnessJournal,
-    kel: &Kel,
-    witness_id: WitnessId,
-    witness_key: &SigningKey,
-    observed_epoch: u64,
-) -> Result<WitnessObservation> {
-    let policy = kel
-        .declared_witness_policy()
-        .ok_or(IdentityError::NoWitnessPolicyDeclared)?;
-    Ok(journal.observe_verified(kel, &policy, witness_id, witness_key, observed_epoch)?)
 }
 
 fn encode_record(kel_bytes: &[u8], observed_epoch: u64) -> Vec<u8> {

@@ -95,21 +95,21 @@ impl WitnessCertificateVersion {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WitnessId(pub Did);
 
-fn encode_did(w: &mut Writer, did: &Did) {
+pub(crate) fn encode_did(w: &mut Writer, did: &Did) {
     w.bytes(did.as_str().as_bytes());
 }
 
-fn decode_did(r: &mut Reader) -> Result<Did> {
+pub(crate) fn decode_did(r: &mut Reader) -> Result<Did> {
     let bytes = r.bytes_limited("did", MAX_DID_BYTES)?;
     let s = String::from_utf8(bytes).map_err(|_| IdentityError::DidFormat)?;
     Did::parse(&s)
 }
 
-fn encode_digest(w: &mut Writer, digest: &[u8]) {
+pub(crate) fn encode_digest(w: &mut Writer, digest: &[u8]) {
     w.bytes(digest);
 }
 
-fn decode_digest(r: &mut Reader) -> Result<Vec<u8>> {
+pub(crate) fn decode_digest(r: &mut Reader) -> Result<Vec<u8>> {
     r.bytes_limited("event_digest", MAX_MULTIHASH_BYTES)
 }
 
@@ -594,7 +594,7 @@ fn check_receipt_matches(
     Ok(())
 }
 
-fn checked_count(n: usize, max: usize, field: &'static str) -> Result<usize> {
+pub(crate) fn checked_count(n: usize, max: usize, field: &'static str) -> Result<usize> {
     if n > max {
         return Err(IdentityError::TooManyItems { field, max, got: n });
     }
