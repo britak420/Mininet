@@ -264,10 +264,19 @@ fetch type. **D-0467 closes Phase 5's second half and the phase itself:**
 ordinary object riding the existing MINI/SYNC1 sync protocol — zero new
 wire messages — and `compare_gossip_carrier` compares an ingested one
 against the receiver's own `KelCache`.
-**Closed by:** the remaining phases — witness rotation (7) — plus a real
-call site that *gates* an authority decision on an assurance level. That
-last one is a founder-facing policy call: which governance action
-requires which minimum level is not an engineering choice.
+**D-0468** ships Phase 7's first slice: `did-mini::witness_rotation`'s
+`WitnessJournal::certify_policy_transition` lets a witness certify, under
+its own *old* retained policy generation, that a witness-set-changing
+rotation is legitimate — closing the hole where a compromised controller
+could otherwise drop every honest witness in one unwitnessed, self-signed
+rotation. `verify_policy_transition` checks a threshold of such receipts
+against the old policy, reusing Phase 1's `WitnessedEventCertificate`
+unchanged.
+**Closed by:** the remaining Phase 7 pieces — new-witness readiness
+(§17.3) and unavailable-witness recovery (§17.4) — plus a real call site
+that *gates* an authority decision on an assurance level. That last one is
+a founder-facing policy call: which governance action requires which
+minimum level is not an engineering choice.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap
