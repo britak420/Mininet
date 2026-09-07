@@ -181,34 +181,55 @@ handshake is anonymous, so it proves nothing about *which* validator is on the
 other end.
 **Why it blocks:** each is a liveness or accountability hole that only appears
 under real adversarial load.
-**Progress:** the accountability gap is closed by **D-0460**. A validator that
-signs two conflicting votes at one `(phase, height, round)` now convicts
-itself: `EquivocationProof` carries both votes, anyone can check it, and
+**The accountability gap is closed by D-0460.** A validator that signs two
+conflicting votes at one `(phase, height, round)` now convicts itself:
+`EquivocationProof` carries both votes, anyone can check it, and
 `ValidatorSet::excluding` computes the set without the offender. The sanction
 is exclusion, never an economic penalty — Mininet has no stake, and a penalty
 denominated in value would make validator behaviour a function of wealth in
-exactly the direction P1 and Directive 16 forbid.
-**What that did not close:** nothing *detects* equivocation without vote
-gossip, nothing ejects automatically (adopting an exclusion is a governance
-action, or fabricating a removal becomes the attack), and only double-voting
-is covered — silence, censorship and invalid proposals are not self-proving
-in the same way.
-**More progress:** **D-0462** closes the peer-discovery gap.
+exactly the direction P1 and Directive 16 forbid. **What that did not
+close:** nothing *detects* equivocation without vote gossip, nothing ejects
+automatically (adopting an exclusion is a governance action, or fabricating a
+removal becomes the attack), and only double-voting is covered — silence,
+censorship and invalid proposals are not self-proving in the same way.
+**The peer-discovery gap is closed by D-0462.**
 `mini-consensus::discovery::pex_over_tcp`/`serve_pex_over_tcp` carry
 `mini-net`'s already-tested PEX logic over the same anonymous, encrypted
 `mini_bearer::Channel` handshake `catch_up_over_tcp`/`state_sync_over_tcp`
 already use, so a node can learn peers it was never handed, with no
-directory server. Not wired into `TcpMesh::establish` itself — that
-constructor's deadlock-free convention still needs one address list every
-node agrees on up front, so turning a discovered address book into a mesh
-topology stays a host decision.
-**Closed by:** the two remaining gaps — state sync (also substantially
-closed by D-0207's catch-up/state-sync primitives, though not wired into
-`TcpMesh::establish` either) and a validator-authenticated bearer
-handshake — with tests that fail without the fix, plus the honest limits
-restated for whatever remains. The shielded-spend validity rule named in
-D-0457 also lands here: today the chain finalizes a key image on a
-proposer's say-so.
+directory server.
+**The validator-authenticated-handshake gap is closed by D-0463.**
+`mini_consensus::validator_channel` lets a validator device sign
+`mini_bearer::Channel::channel_binding` with an already-delegated,
+`VOTE`-capable key — the same construction `mini-presence` already uses for
+device co-presence, no new cryptography — so a caller can learn *which*
+validator is on the other end of an already-established channel.
+**The state-sync gap was already substantially closed by D-0207's**
+catch-up/state-sync primitives: QC-bound exact execution snapshots, a local
+journaled archive, bounded recent history, and encrypted snapshot-plus-suffix
+transfer.
+**What none of the four automatically does:** none of D-0207/D-0460/D-0462/
+D-0463 is wired into `net::TcpMesh::establish` itself. That constructor's
+deadlock-free dial/accept convention still needs one consistent,
+fully-resolved address list every node agrees on up front, and its links
+stay anonymous by their own existing, documented design (consensus messages
+already self-identify at the payload level). All four are real, tested,
+callable primitives a caller reaches for — a validator-authenticated link,
+a discovered peer set, a caught-up node, an excluded equivocator — not
+capabilities the mesh performs on its own. Turning any of them into the
+mesh's default behavior (identity-gated admission, dynamic topology,
+automatic catch-up on startup, automatic exclusion adoption) is separate,
+later, host/deployment-level work — named here rather than hidden.
+**All four originally named gaps now have a shipped, tested answer** — the
+tests each of D-0207/D-0460/D-0462/D-0463 shipped with, each failing without
+its fix. **Closed by:** the one item still open in this row's territory,
+named by D-0457 rather than by the original four: a validity rule the chain
+itself can check on a shielded spend. Today the chain finalizes a key image
+on a proposer's say-so and cannot verify a valid claim produced it — that
+check is the cryptography `mini-chain` deliberately cannot see (see
+`mini_execution::nullifier`'s module docs). Closing it needs either a
+succinct proof the chain can cheaply verify, or a validator set that does
+verify claims and is measured for it.
 
 ### R9 — KEL freshness and witnesses (M3) · `active`
 The stale-KEL revocation gap, audit #12 finding F4. A device whose delegation
