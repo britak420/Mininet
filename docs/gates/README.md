@@ -13,6 +13,15 @@ review must respect (never weaken the Constitution to satisfy a reviewer's
 convenience). Engineering's job stops at preparing the package — checking
 a box on #99 requires the named outside action to have actually happened.
 
+## Unified completion pack
+
+Two files now sit above the individual scopes without replacing them:
+
+- [`EXTERNAL_AUDITOR_TEST_ITINERARY.md`](EXTERNAL_AUDITOR_TEST_ITINERARY.md) — ordered execution plan across cryptography, DKG/custody, personhood, consensus, KEL freshness, storage, hardware, economics, legal, reproducibility and governance decentralization, with PASS/FAIL evidence for each track.
+- [`REAL_VALUE_RELEASE_CHECKLIST.md`](REAL_VALUE_RELEASE_CHECKLIST.md) — binary NO-GO checklist for real value and real-people governance. A closed issue is never sufficient evidence by itself.
+
+The matching repository-history and evidence reconstruction lives in [`../audits/PROJECT_BUILD_HISTORY.md`](../audits/PROJECT_BUILD_HISTORY.md), [`../audits/PR_HISTORY_LEDGER.md`](../audits/PR_HISTORY_LEDGER.md), [`../audits/AUDIT_EVIDENCE_INDEX.md`](../audits/AUDIT_EVIDENCE_INDEX.md), and [`../audits/EXTERNAL_AUDIT_MASTER_REPORT.md`](../audits/EXTERNAL_AUDIT_MASTER_REPORT.md).
+
 | File | Gates | Founder action needed |
 |---|---|---|
 | [`crypto-audit-scope.md`](crypto-audit-scope.md) | [#72](../../issues/72) | Engage a cryptography auditor |
