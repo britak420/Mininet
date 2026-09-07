@@ -1,5 +1,15 @@
 # Audit evidence index — claim → mechanism → evidence → remaining gate
 
+**Audit scope**
+
+| Field | Value |
+|---|---|
+| Reviewed at | `main` @ `2721f95db0f8be105d9582d64939d1110ed823b8` |
+| Workspace size at that commit | 72 crates; resolved dependency count not independently measured in this GitHub-only review |
+| Method | GitHub-only evidence mapping across current code/document references, merged PRs, invariants, decisions, status/roadmap and gate packages. No local build/test/fuzz/static-analysis run was performed for this document |
+| Tool versions | GitHub repository connector only; no code-analysis toolchain executed |
+| Revalidation trigger | Any merge changing a mapped mechanism, invariant, gate status, or the current release roadmap; any external review that changes a FAIL/PARTIAL disposition |
+
 This file is the external reviewer’s map from a Mininet claim to the concrete place where it is implemented or tested. It deliberately separates **repository evidence** from **external legitimacy evidence**. The former can show what code does; it cannot self-certify that novel cryptography, personhood, economics, hardware, or legal posture is safe.
 
 | Domain / claim | Concrete mechanism | Repository evidence to inspect | Current verdict | External/remaining gate |
