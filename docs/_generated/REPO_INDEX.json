@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 74,
-    "files": 921,
-    "headings": 3186,
-    "rust_symbols": 9147
+    "files": 928,
+    "headings": 3270,
+    "rust_symbols": 9231
   },
   "crates": {
     "did-mini": {
@@ -1764,7 +1764,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 25105,
+      "bytes": 25150,
       "group": "root",
       "headings": [
         {
@@ -1804,7 +1804,7 @@
         },
         {
           "level": 2,
-          "line": 400,
+          "line": 402,
           "text": "License"
         }
       ],
@@ -1834,9 +1834,9 @@
         "path",
         "switch"
       ],
-      "lines": 404,
+      "lines": 406,
       "path": "README.md",
-      "sha256": "cbaa073d6473ccdc402c6a1aebdd0da9464a2d66a9531b1189b6fbb779eb437d",
+      "sha256": "2a57241fa6b130cc45f7ce10637129c1ea27cea55858682b8bdf5ce8acc478ab",
       "symbols": [],
       "title": "Mininet"
     },
@@ -17635,6 +17635,413 @@
       "title": "use mini_chain::{BlockHeader, QuorumCertificate, Vote, MAX_VOTES_PER_CERTIFICATE};"
     },
     {
+      "bytes": 40180,
+      "group": "crate:mini-consensus",
+      "headings": [],
+      "keywords": [
+        "chunk",
+        "to_wire_bytes",
+        "buf",
+        "from_wire_bytes",
+        "manifest",
+        "state",
+        "snapshot",
+        "one",
+        "const",
+        "consensussnapshot",
+        "transfer",
+        "own",
+        "its",
+        "merkle",
+        "what",
+        "same",
+        "chunks",
+        "peer",
+        "today",
+        "domain",
+        "leaf_prefix",
+        "node_prefix",
+        "min_chunk_bytes",
+        "snapshotmanifest"
+      ],
+      "lines": 1013,
+      "path": "crates/mini-consensus/src/chunked_snapshot.rs",
+      "sha256": "f9910f429b693da2545ce0a6ea01a059e72cb417c3046e2b7b05111e4cca2880",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 68,
+          "name": "DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 69,
+          "name": "LEAF_PREFIX"
+        },
+        {
+          "kind": "const",
+          "line": 70,
+          "name": "NODE_PREFIX"
+        },
+        {
+          "kind": "const",
+          "line": 75,
+          "name": "MIN_CHUNK_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 79,
+          "name": "MAX_CHUNK_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 83,
+          "name": "MAX_CHUNKS"
+        },
+        {
+          "kind": "fn",
+          "line": 85,
+          "name": "leaf_hash"
+        },
+        {
+          "kind": "fn",
+          "line": 92,
+          "name": "node_hash"
+        },
+        {
+          "kind": "fn",
+          "line": 104,
+          "name": "build_levels"
+        },
+        {
+          "kind": "fn",
+          "line": 125,
+          "name": "proof_depth"
+        },
+        {
+          "kind": "fn",
+          "line": 135,
+          "name": "prove"
+        },
+        {
+          "kind": "struct",
+          "line": 150,
+          "name": "ChunkProof"
+        },
+        {
+          "kind": "impl",
+          "line": 154,
+          "name": "ChunkProof"
+        },
+        {
+          "kind": "fn",
+          "line": 160,
+          "name": "verify"
+        },
+        {
+          "kind": "fn",
+          "line": 185,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 200,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "struct",
+          "line": 228,
+          "name": "SnapshotManifest"
+        },
+        {
+          "kind": "impl",
+          "line": 241,
+          "name": "SnapshotManifest"
+        },
+        {
+          "kind": "fn",
+          "line": 242,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 257,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 293,
+          "name": "check_shape"
+        },
+        {
+          "kind": "fn",
+          "line": 311,
+          "name": "chunk_len"
+        },
+        {
+          "kind": "struct",
+          "line": 323,
+          "name": "ChunkResponse"
+        },
+        {
+          "kind": "impl",
+          "line": 329,
+          "name": "ChunkResponse"
+        },
+        {
+          "kind": "fn",
+          "line": 330,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 342,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "struct",
+          "line": 364,
+          "name": "ChunkRequest"
+        },
+        {
+          "kind": "impl",
+          "line": 370,
+          "name": "ChunkRequest"
+        },
+        {
+          "kind": "fn",
+          "line": 371,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 380,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "struct",
+          "line": 406,
+          "name": "ManifestRequest"
+        },
+        {
+          "kind": "impl",
+          "line": 411,
+          "name": "ManifestRequest"
+        },
+        {
+          "kind": "fn",
+          "line": 412,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 420,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "const",
+          "line": 438,
+          "name": "MANIFEST_RESPONSE_TAG_WRONG_NETWORK"
+        },
+        {
+          "kind": "const",
+          "line": 439,
+          "name": "MANIFEST_RESPONSE_TAG_UNAVAILABLE"
+        },
+        {
+          "kind": "const",
+          "line": 440,
+          "name": "MANIFEST_RESPONSE_TAG_MANIFEST"
+        },
+        {
+          "kind": "enum",
+          "line": 444,
+          "name": "ManifestResponse"
+        },
+        {
+          "kind": "impl",
+          "line": 455,
+          "name": "ManifestResponse"
+        },
+        {
+          "kind": "fn",
+          "line": 456,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 473,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "struct",
+          "line": 503,
+          "name": "SnapshotChunker"
+        },
+        {
+          "kind": "impl",
+          "line": 509,
+          "name": "SnapshotChunker"
+        },
+        {
+          "kind": "fn",
+          "line": 510,
+          "name": "new"
+        },
+        {
+          "kind": "fn",
+          "line": 544,
+          "name": "manifest"
+        },
+        {
+          "kind": "fn",
+          "line": 550,
+          "name": "chunk"
+        },
+        {
+          "kind": "struct",
+          "line": 569,
+          "name": "SnapshotAssembler"
+        },
+        {
+          "kind": "impl",
+          "line": 575,
+          "name": "SnapshotAssembler"
+        },
+        {
+          "kind": "fn",
+          "line": 583,
+          "name": "new"
+        },
+        {
+          "kind": "fn",
+          "line": 604,
+          "name": "manifest"
+        },
+        {
+          "kind": "fn",
+          "line": 610,
+          "name": "missing_indices"
+        },
+        {
+          "kind": "fn",
+          "line": 618,
+          "name": "is_complete"
+        },
+        {
+          "kind": "fn",
+          "line": 630,
+          "name": "accept_chunk"
+        },
+        {
+          "kind": "fn",
+          "line": 672,
+          "name": "finish"
+        },
+        {
+          "kind": "mod",
+          "line": 687,
+          "name": "tests"
+        },
+        {
+          "kind": "struct",
+          "line": 699,
+          "name": "Directory"
+        },
+        {
+          "kind": "impl",
+          "line": 701,
+          "name": "ValidatorOracle"
+        },
+        {
+          "kind": "fn",
+          "line": 702,
+          "name": "kel"
+        },
+        {
+          "kind": "fn",
+          "line": 712,
+          "name": "snapshot_and_validators"
+        },
+        {
+          "kind": "fn",
+          "line": 778,
+          "name": "a_manifest_round_trips_over_the_wire"
+        },
+        {
+          "kind": "fn",
+          "line": 788,
+          "name": "full_chunk_by_chunk_transfer_reassembles_into_the_same_chain"
+        },
+        {
+          "kind": "fn",
+          "line": 818,
+          "name": "chunks_may_arrive_out_of_order_and_re_delivery_is_harmless"
+        },
+        {
+          "kind": "fn",
+          "line": 846,
+          "name": "missing_indices_reports_exactly_what_is_still_needed"
+        },
+        {
+          "kind": "fn",
+          "line": 861,
+          "name": "a_tampered_chunk_fails_its_own_proof"
+        },
+        {
+          "kind": "fn",
+          "line": 881,
+          "name": "a_proof_from_the_wrong_index_does_not_verify"
+        },
+        {
+          "kind": "fn",
+          "line": 903,
+          "name": "a_short_final_chunk_is_the_exact_remainder_not_padded_or_truncated"
+        },
+        {
+          "kind": "fn",
+          "line": 915,
+          "name": "finish_before_every_chunk_is_accepted_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 927,
+          "name": "a_manifest_with_a_non_quorate_qc_is_rejected_before_any_chunk_is_fetched"
+        },
+        {
+          "kind": "fn",
+          "line": 936,
+          "name": "a_chunk_index_out_of_range_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 955,
+          "name": "a_manifest_whose_declared_chunk_count_disagrees_with_its_own_math_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 967,
+          "name": "chunk_size_outside_the_allowed_range_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 974,
+          "name": "a_chunk_request_round_trips_and_rejects_trailing_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 988,
+          "name": "truncation_of_a_chunk_response_at_every_length_is_rejected_never_panics"
+        },
+        {
+          "kind": "fn",
+          "line": 998,
+          "name": "a_single_chunk_snapshot_still_produces_a_valid_zero_depth_proof"
+        }
+      ],
+      "title": "use mini_chain::{BlockHeader, QuorumCertificate, ValidatorOracle, ValidatorSet};"
+    },
+    {
       "bytes": 8438,
       "group": "crate:mini-consensus",
       "headings": [],
@@ -18133,7 +18540,7 @@
       "title": "use mini_chain::{verify_vote, ValidatorOracle, Vote, VoteKind};"
     },
     {
-      "bytes": 9218,
+      "bytes": 10291,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
@@ -18162,85 +18569,90 @@
         "same",
         "votes"
       ],
-      "lines": 161,
+      "lines": 178,
       "path": "crates/mini-consensus/src/lib.rs",
-      "sha256": "eb899640c07907174deef04d492026d7b745b2065714fded41ab1cc8502d76e7",
+      "sha256": "2b2016c230aaa0e77d2e9ed80bb101efbee2c2ef502f81c9e5be7998fad218e4",
       "symbols": [
         {
           "kind": "mod",
-          "line": 126,
+          "line": 138,
           "name": "catchup"
         },
         {
           "kind": "mod",
-          "line": 127,
-          "name": "consequence"
-        },
-        {
-          "kind": "mod",
-          "line": 128,
-          "name": "discovery"
-        },
-        {
-          "kind": "mod",
-          "line": 129,
-          "name": "error"
-        },
-        {
-          "kind": "mod",
-          "line": 130,
-          "name": "evidence"
-        },
-        {
-          "kind": "mod",
-          "line": 131,
-          "name": "node"
-        },
-        {
-          "kind": "mod",
-          "line": 132,
-          "name": "round"
-        },
-        {
-          "kind": "mod",
-          "line": 133,
-          "name": "snapshot"
-        },
-        {
-          "kind": "mod",
-          "line": 134,
-          "name": "state_sync"
-        },
-        {
-          "kind": "mod",
-          "line": 135,
-          "name": "store"
-        },
-        {
-          "kind": "mod",
-          "line": 136,
-          "name": "validator_channel"
-        },
-        {
-          "kind": "mod",
-          "line": 137,
-          "name": "wire"
+          "line": 139,
+          "name": "chunked_snapshot"
         },
         {
           "kind": "mod",
           "line": 140,
-          "name": "snapshot_sync_tests"
+          "name": "consequence"
+        },
+        {
+          "kind": "mod",
+          "line": 141,
+          "name": "discovery"
         },
         {
           "kind": "mod",
           "line": 142,
+          "name": "error"
+        },
+        {
+          "kind": "mod",
+          "line": 143,
+          "name": "evidence"
+        },
+        {
+          "kind": "mod",
+          "line": 144,
+          "name": "node"
+        },
+        {
+          "kind": "mod",
+          "line": 145,
+          "name": "round"
+        },
+        {
+          "kind": "mod",
+          "line": 146,
+          "name": "snapshot"
+        },
+        {
+          "kind": "mod",
+          "line": 147,
+          "name": "state_sync"
+        },
+        {
+          "kind": "mod",
+          "line": 148,
+          "name": "store"
+        },
+        {
+          "kind": "mod",
+          "line": 149,
+          "name": "validator_channel"
+        },
+        {
+          "kind": "mod",
+          "line": 150,
+          "name": "wire"
+        },
+        {
+          "kind": "mod",
+          "line": 153,
+          "name": "snapshot_sync_tests"
+        },
+        {
+          "kind": "mod",
+          "line": 155,
           "name": "net"
         }
       ],
       "title": "mod catchup;"
     },
     {
-      "bytes": 39345,
+      "bytes": 46111,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
@@ -18269,9 +18681,9 @@
         "encrypted",
         "connection"
       ],
-      "lines": 918,
+      "lines": 1058,
       "path": "crates/mini-consensus/src/net.rs",
-      "sha256": "3482b212b219e52a6ea8651e072c782ab34aad225c07595ec27d97b052a10988",
+      "sha256": "fb2e672dd6e09092eebc57a530458dd938f6a9ef0154bff0868d3fe9d07ee26b",
       "symbols": [
         {
           "kind": "const",
@@ -18335,184 +18747,209 @@
         },
         {
           "kind": "const",
-          "line": 248,
+          "line": 247,
+          "name": "CHUNK_SYNC_AAD"
+        },
+        {
+          "kind": "fn",
+          "line": 271,
+          "name": "chunk_sync_over_tcp"
+        },
+        {
+          "kind": "fn",
+          "line": 279,
+          "name": "chunk_sync_over_tcp_with_timeout"
+        },
+        {
+          "kind": "fn",
+          "line": 337,
+          "name": "serve_chunk_sync_over_tcp"
+        },
+        {
+          "kind": "fn",
+          "line": 341,
+          "name": "serve_chunk_sync_over_tcp_with_timeout"
+        },
+        {
+          "kind": "const",
+          "line": 388,
           "name": "CONSENSUS_AAD"
         },
         {
           "kind": "const",
-          "line": 254,
+          "line": 394,
           "name": "HANDSHAKE_TIMEOUT"
         },
         {
           "kind": "const",
-          "line": 264,
+          "line": 404,
           "name": "CIPHERTEXT_FRAME_OVERHEAD"
         },
         {
           "kind": "const",
-          "line": 270,
+          "line": 410,
           "name": "MAX_LINK_OUTBOUND_BYTES"
         },
         {
           "kind": "const",
-          "line": 275,
+          "line": 415,
           "name": "MAX_SEEN_MESSAGES"
         },
         {
           "kind": "fn",
-          "line": 280,
+          "line": 420,
           "name": "message_id"
         },
         {
           "kind": "struct",
-          "line": 289,
+          "line": 429,
           "name": "SeenCache"
         },
         {
           "kind": "impl",
-          "line": 295,
+          "line": 435,
           "name": "SeenCache"
         },
         {
           "kind": "fn",
-          "line": 296,
+          "line": 436,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 306,
+          "line": 446,
           "name": "insert"
         },
         {
           "kind": "const",
-          "line": 321,
+          "line": 461,
           "name": "READ_CHUNK_BYTES"
         },
         {
           "kind": "struct",
-          "line": 330,
+          "line": 470,
           "name": "Link"
         },
         {
           "kind": "impl",
-          "line": 340,
+          "line": 480,
           "name": "Link"
         },
         {
           "kind": "fn",
-          "line": 348,
+          "line": 488,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 382,
+          "line": 522,
           "name": "queue"
         },
         {
           "kind": "fn",
-          "line": 400,
+          "line": 540,
           "name": "flush"
         },
         {
           "kind": "fn",
-          "line": 426,
+          "line": 566,
           "name": "service"
         },
         {
           "kind": "struct",
-          "line": 469,
+          "line": 609,
           "name": "TcpMesh"
         },
         {
           "kind": "impl",
-          "line": 473,
+          "line": 613,
           "name": "TcpMesh"
         },
         {
           "kind": "fn",
-          "line": 487,
+          "line": 627,
           "name": "establish"
         },
         {
           "kind": "fn",
-          "line": 525,
+          "line": 665,
           "name": "establish_topology"
         },
         {
           "kind": "fn",
-          "line": 555,
+          "line": 695,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 566,
+          "line": 706,
           "name": "poll"
         },
         {
           "kind": "fn",
-          "line": 580,
+          "line": 720,
           "name": "handshake_send"
         },
         {
           "kind": "fn",
-          "line": 591,
+          "line": 731,
           "name": "handshake_recv"
         },
         {
           "kind": "fn",
-          "line": 608,
+          "line": 748,
           "name": "connect_with_retry"
         },
         {
           "kind": "const",
-          "line": 631,
+          "line": 771,
           "name": "TIMEOUT_BASE"
         },
         {
           "kind": "struct",
-          "line": 635,
+          "line": 775,
           "name": "Timer"
         },
         {
           "kind": "fn",
-          "line": 655,
+          "line": 795,
           "name": "run_to_height"
         },
         {
           "kind": "fn",
-          "line": 747,
+          "line": 887,
           "name": "handle_emits"
         },
         {
           "kind": "mod",
-          "line": 791,
+          "line": 931,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 795,
+          "line": 935,
           "name": "a_state_sync_client_is_not_held_forever_by_a_silent_peer"
         },
         {
           "kind": "fn",
-          "line": 809,
+          "line": 949,
           "name": "a_state_sync_server_is_not_held_forever_after_accept"
         },
         {
           "kind": "fn",
-          "line": 823,
+          "line": 963,
           "name": "a_peer_that_never_reads_cannot_block_us_or_grow_our_buffer_past_the_cap"
         },
         {
           "kind": "fn",
-          "line": 857,
+          "line": 997,
           "name": "queued_frames_cross_the_wire_as_ciphertext_never_plaintext"
         }
       ],
       "title": "use std::io::{Read, Write};"
     },
     {
-      "bytes": 38040,
+      "bytes": 38330,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
@@ -18527,6 +18964,7 @@
         "its",
         "every",
         "core",
+        "validators",
         "mini_execution",
         "device",
         "step",
@@ -18538,12 +18976,11 @@
         "proposal",
         "consensusmessage",
         "timer",
-        "validators",
         "finalized"
       ],
-      "lines": 962,
+      "lines": 969,
       "path": "crates/mini-consensus/src/node.rs",
-      "sha256": "1a0e03372f9cd611add0ffe6f293b55aee38ceb62892beb9bb38b670a7069665",
+      "sha256": "df912c2ba1f75b9b24f5cb3b3cdb0f2b2c991f98e370df2bd42914b82f59db7a",
       "symbols": [
         {
           "kind": "type",
@@ -18627,177 +19064,182 @@
         },
         {
           "kind": "fn",
-          "line": 210,
+          "line": 209,
+          "name": "validators"
+        },
+        {
+          "kind": "fn",
+          "line": 217,
           "name": "history_since"
         },
         {
           "kind": "fn",
-          "line": 220,
+          "line": 227,
           "name": "start"
         },
         {
           "kind": "fn",
-          "line": 241,
+          "line": 248,
           "name": "catch_up"
         },
         {
           "kind": "fn",
-          "line": 249,
+          "line": 256,
           "name": "apply_state_sync"
         },
         {
           "kind": "fn",
-          "line": 253,
+          "line": 260,
           "name": "apply_state_sync_internal"
         },
         {
           "kind": "fn",
-          "line": 299,
+          "line": 306,
           "name": "verify_state_sync"
         },
         {
           "kind": "fn",
-          "line": 384,
+          "line": 391,
           "name": "remember_history"
         },
         {
           "kind": "fn",
-          "line": 392,
+          "line": 399,
           "name": "on_message"
         },
         {
           "kind": "fn",
-          "line": 400,
+          "line": 407,
           "name": "on_timeout"
         },
         {
           "kind": "fn",
-          "line": 409,
+          "line": 416,
           "name": "ingest"
         },
         {
           "kind": "fn",
-          "line": 453,
+          "line": 460,
           "name": "proposal_is_authentic"
         },
         {
           "kind": "fn",
-          "line": 474,
+          "line": 481,
           "name": "validate_proposal"
         },
         {
           "kind": "fn",
-          "line": 502,
+          "line": 509,
           "name": "drive"
         },
         {
           "kind": "fn",
-          "line": 568,
+          "line": 575,
           "name": "build_proposal"
         },
         {
           "kind": "fn",
-          "line": 612,
+          "line": 619,
           "name": "commit"
         },
         {
           "kind": "mod",
-          "line": 658,
+          "line": 665,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 668,
+          "line": 675,
           "name": "validator"
         },
         {
           "kind": "struct",
-          "line": 682,
+          "line": 689,
           "name": "Directory"
         },
         {
           "kind": "impl",
-          "line": 683,
+          "line": 690,
           "name": "Directory"
         },
         {
           "kind": "fn",
-          "line": 684,
+          "line": 691,
           "name": "insert"
         },
         {
           "kind": "impl",
-          "line": 688,
+          "line": 695,
           "name": "ValidatorOracle"
         },
         {
           "kind": "fn",
-          "line": 689,
+          "line": 696,
           "name": "kel"
         },
         {
           "kind": "fn",
-          "line": 694,
+          "line": 701,
           "name": "body"
         },
         {
           "kind": "struct",
-          "line": 700,
+          "line": 707,
           "name": "Fx"
         },
         {
           "kind": "fn",
-          "line": 706,
+          "line": 713,
           "name": "fixture"
         },
         {
           "kind": "fn",
-          "line": 722,
+          "line": 729,
           "name": "a_node"
         },
         {
           "kind": "fn",
-          "line": 739,
+          "line": 746,
           "name": "proposer_index"
         },
         {
           "kind": "fn",
-          "line": 749,
+          "line": 756,
           "name": "proposal_from"
         },
         {
           "kind": "fn",
-          "line": 765,
+          "line": 772,
           "name": "prevoted"
         },
         {
           "kind": "fn",
-          "line": 773,
+          "line": 780,
           "name": "compatibility_history_is_strictly_capped"
         },
         {
           "kind": "fn",
-          "line": 805,
+          "line": 812,
           "name": "a_proposal_from_the_designated_proposer_is_prevoted"
         },
         {
           "kind": "fn",
-          "line": 819,
+          "line": 826,
           "name": "a_signed_proposal_from_the_wrong_proposer_is_dropped"
         },
         {
           "kind": "fn",
-          "line": 835,
+          "line": 842,
           "name": "a_proposal_with_a_forged_signature_is_dropped"
         },
         {
           "kind": "fn",
-          "line": 872,
+          "line": 879,
           "name": "a_proposal_whose_timestamp_is_not_deterministic_is_prevoted_nil"
         },
         {
           "kind": "fn",
-          "line": 920,
+          "line": 927,
           "name": "a_proposer_cannot_use_an_increasing_timestamp_to_evade_the_deterministic_check"
         }
       ],
@@ -19253,7 +19695,7 @@
       "title": "use mini_chain::{BlockHeader, QuorumCertificate, ValidatorOracle, ValidatorSet};"
     },
     {
-      "bytes": 9186,
+      "bytes": 11473,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
@@ -19275,91 +19717,101 @@
         "validators",
         "block",
         "insert",
-        "archive",
         "seed",
         "body",
+        "archive",
         "ledgerchain",
         "finalizedblock",
         "self"
       ],
-      "lines": 289,
+      "lines": 349,
       "path": "crates/mini-consensus/src/snapshot_sync_tests.rs",
-      "sha256": "51b847eb2a244969d9a974f73fd9ca3839b0f3f6e0d976ac77070f52a23cb227",
+      "sha256": "4f96a60b31143f86424b3c4fcbd42c5690f45af5f522b49f61bdbe40e3c04e5f",
       "symbols": [
         {
           "kind": "struct",
-          "line": 25,
+          "line": 28,
           "name": "Directory"
         },
         {
           "kind": "impl",
-          "line": 27,
+          "line": 30,
           "name": "Directory"
         },
         {
           "kind": "fn",
-          "line": 28,
+          "line": 31,
           "name": "insert"
         },
         {
           "kind": "impl",
-          "line": 33,
+          "line": 36,
           "name": "ValidatorOracle"
         },
         {
           "kind": "fn",
-          "line": 34,
+          "line": 37,
           "name": "kel"
         },
         {
           "kind": "struct",
-          "line": 39,
+          "line": 42,
           "name": "Fixture"
         },
         {
           "kind": "fn",
-          "line": 45,
+          "line": 48,
           "name": "fixture"
         },
         {
           "kind": "fn",
-          "line": 76,
+          "line": 79,
           "name": "node_config"
         },
         {
           "kind": "fn",
-          "line": 88,
+          "line": 91,
           "name": "finalized_block"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 129,
           "name": "temp_root"
         },
         {
           "kind": "fn",
-          "line": 139,
+          "line": 142,
           "name": "build_archive"
         },
         {
           "kind": "fn",
-          "line": 171,
+          "line": 174,
           "name": "a_long_offline_node_reaches_the_exact_tip_via_real_tcp_and_reopens"
         },
         {
           "kind": "fn",
-          "line": 208,
+          "line": 211,
           "name": "a_bad_second_block_leaves_the_destination_completely_unchanged"
         },
         {
           "kind": "fn",
-          "line": 226,
+          "line": 229,
           "name": "peer_block_state_sync_rejects_gap_duplicate_and_reordering_all_or_nothing"
         },
         {
           "kind": "fn",
-          "line": 256,
+          "line": 259,
           "name": "peer_snapshot_state_sync_rejects_a_gapped_suffix_all_or_nothing"
+        },
+        {
+          "kind": "fn",
+          "line": 294,
+          "name": "a_long_offline_node_reaches_the_exact_tip_via_chunked_transfer_over_real_tcp"
+        },
+        {
+          "kind": "fn",
+          "line": 324,
+          "name": "chunk_sync_over_tcp_reports_none_when_the_peer_has_no_snapshot_yet"
         }
       ],
       "title": "use std::collections::BTreeMap;"
@@ -19562,38 +20014,38 @@
       "title": "use crate::catchup::FinalizedBlock;"
     },
     {
-      "bytes": 52716,
+      "bytes": 53123,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
         "self",
         "root",
+        "archive",
         "network_id",
         "const",
-        "archive",
         "config",
         "consensusarchiveconfig",
+        "snapshot",
         "vec",
         "response",
-        "snapshot",
-        "blocks",
         "result",
         "str",
         "usize",
         "default",
         "consensusarchive",
         "consensus",
+        "blocks",
+        "peer",
         "path",
         "statesyncresponse",
-        "max_state_sync_blocks",
         "one",
         "derive",
         "debug",
         "struct"
       ],
-      "lines": 1392,
+      "lines": 1400,
       "path": "crates/mini-consensus/src/store.rs",
-      "sha256": "f2cfdc48e6436c977939a48ae9fecfc65bf84341835a9af3989eed3426a0d30f",
+      "sha256": "eb1010dd939286662f9a5f67fba5c1260a6c945fcaed361ea3da43209ef4e72e",
       "symbols": [
         {
           "kind": "const",
@@ -19717,262 +20169,267 @@
         },
         {
           "kind": "fn",
-          "line": 194,
+          "line": 133,
+          "name": "latest_snapshot"
+        },
+        {
+          "kind": "fn",
+          "line": 202,
           "name": "with_lock"
         },
         {
           "kind": "fn",
-          "line": 208,
+          "line": 216,
           "name": "recover_pending_install_locked"
         },
         {
           "kind": "fn",
-          "line": 227,
+          "line": 235,
           "name": "clear_pending_install_locked"
         },
         {
           "kind": "fn",
-          "line": 235,
+          "line": 243,
           "name": "validate_install_locked"
         },
         {
           "kind": "fn",
-          "line": 258,
+          "line": 266,
           "name": "apply_install_locked"
         },
         {
           "kind": "fn",
-          "line": 279,
+          "line": 287,
           "name": "response_locked"
         },
         {
           "kind": "fn",
-          "line": 376,
+          "line": 384,
           "name": "record_locked"
         },
         {
           "kind": "fn",
-          "line": 381,
+          "line": 389,
           "name": "prepare_record_locked"
         },
         {
           "kind": "fn",
-          "line": 501,
+          "line": 509,
           "name": "apply_record_plan_locked"
         },
         {
           "kind": "fn",
-          "line": 512,
+          "line": 520,
           "name": "install_snapshot_locked"
         },
         {
           "kind": "fn",
-          "line": 522,
+          "line": 530,
           "name": "prepare_snapshot_install_locked"
         },
         {
           "kind": "fn",
-          "line": 593,
+          "line": 601,
           "name": "apply_snapshot_install_plan_locked"
         },
         {
           "kind": "fn",
-          "line": 606,
+          "line": 614,
           "name": "read_snapshot_locked"
         },
         {
           "kind": "fn",
-          "line": 619,
+          "line": 627,
           "name": "write_snapshot_locked"
         },
         {
           "kind": "fn",
-          "line": 623,
+          "line": 631,
           "name": "read_blocks_locked"
         },
         {
           "kind": "fn",
-          "line": 699,
+          "line": 707,
           "name": "clear_blocks_locked"
         },
         {
           "kind": "fn",
-          "line": 709,
+          "line": 717,
           "name": "prune_blocks_through_locked"
         },
         {
           "kind": "fn",
-          "line": 721,
+          "line": 729,
           "name": "block_path"
         },
         {
           "kind": "fn",
-          "line": 726,
+          "line": 734,
           "name": "encode_pending_install"
         },
         {
           "kind": "fn",
-          "line": 748,
+          "line": 756,
           "name": "decode_pending_install"
         },
         {
           "kind": "fn",
-          "line": 768,
+          "line": 776,
           "name": "take_len_prefixed"
         },
         {
           "kind": "fn",
-          "line": 791,
+          "line": 799,
           "name": "verify_chain"
         },
         {
           "kind": "fn",
-          "line": 814,
+          "line": 822,
           "name": "parse_temp_block_name"
         },
         {
           "kind": "fn",
-          "line": 829,
+          "line": 837,
           "name": "parse_block_name"
         },
         {
           "kind": "fn",
-          "line": 845,
+          "line": 853,
           "name": "ensure_directory"
         },
         {
           "kind": "fn",
-          "line": 868,
+          "line": 876,
           "name": "reject_symlink_or_non_file_if_present"
         },
         {
           "kind": "fn",
-          "line": 882,
+          "line": 890,
           "name": "configure_no_follow"
         },
         {
           "kind": "const",
-          "line": 893,
+          "line": 901,
           "name": "FILE_FLAG_OPEN_REPARSE_POINT"
         },
         {
           "kind": "fn",
-          "line": 898,
+          "line": 906,
           "name": "open_archive_lock"
         },
         {
           "kind": "fn",
-          "line": 912,
+          "line": 920,
           "name": "open_regular_readonly"
         },
         {
           "kind": "fn",
-          "line": 930,
+          "line": 938,
           "name": "read_regular_limited"
         },
         {
           "kind": "fn",
-          "line": 950,
+          "line": 958,
           "name": "atomic_write"
         },
         {
           "kind": "fn",
-          "line": 970,
+          "line": 978,
           "name": "remove_regular_if_present"
         },
         {
           "kind": "fn",
-          "line": 987,
+          "line": 995,
           "name": "sync_parent_directory"
         },
         {
           "kind": "mod",
-          "line": 1003,
+          "line": 1011,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 1009,
+          "line": 1017,
           "name": "temp_root"
         },
         {
           "kind": "fn",
-          "line": 1022,
+          "line": 1030,
           "name": "block"
         },
         {
           "kind": "fn",
-          "line": 1048,
+          "line": 1056,
           "name": "pre_body_commitment_install_journal_version_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 1062,
+          "line": 1070,
           "name": "archive_snapshots_prunes_reopens_and_serves_suffix"
         },
         {
           "kind": "fn",
-          "line": 1097,
+          "line": 1105,
           "name": "response_selection_stays_within_one_frame_without_repeated_snapshot_growth"
         },
         {
           "kind": "fn",
-          "line": 1118,
+          "line": 1126,
           "name": "wrong_network_is_a_control_response_not_trust"
         },
         {
           "kind": "fn",
-          "line": 1132,
+          "line": 1140,
           "name": "corrupted_retained_block_fails_closed"
         },
         {
           "kind": "fn",
-          "line": 1149,
+          "line": 1157,
           "name": "interrupted_snapshot_install_is_replayed_exactly_on_reopen"
         },
         {
           "kind": "fn",
-          "line": 1193,
+          "line": 1201,
           "name": "oversized_install_journal_fails_closed_before_allocation"
         },
         {
           "kind": "fn",
-          "line": 1207,
+          "line": 1215,
           "name": "orphaned_block_temp_is_removed_during_recovery"
         },
         {
           "kind": "fn",
-          "line": 1232,
+          "line": 1240,
           "name": "a_missing_middle_block_prevents_any_later_append"
         },
         {
           "kind": "fn",
-          "line": 1259,
+          "line": 1267,
           "name": "a_new_block_with_the_wrong_parent_is_never_persisted"
         },
         {
           "kind": "fn",
-          "line": 1281,
+          "line": 1289,
           "name": "stale_snapshot_rejection_never_poisoned_the_archive_journal"
         },
         {
           "kind": "fn",
-          "line": 1312,
+          "line": 1320,
           "name": "mismatched_final_state_is_rejected_before_journal_or_block_write"
         },
         {
           "kind": "fn",
-          "line": 1337,
+          "line": 1345,
           "name": "oversized_snapshot_suffix_reports_its_actual_limit_error"
         },
         {
           "kind": "fn",
-          "line": 1363,
+          "line": 1371,
           "name": "symlinked_regular_archive_file_is_refused_by_the_open_itself"
         },
         {
           "kind": "fn",
-          "line": 1378,
+          "line": 1386,
           "name": "symlinked_blocks_directory_is_refused"
         }
       ],
@@ -76135,7 +76592,7 @@
       "title": "Universal addressing \u2014 connecting to Mininet from almost any device without DNS"
     },
     {
-      "bytes": 5053,
+      "bytes": 6382,
       "group": "docs",
       "headings": [
         {
@@ -76146,68 +76603,73 @@
         {
           "level": 2,
           "line": 8,
+          "text": "Full reconstruction pack"
+        },
+        {
+          "level": 2,
+          "line": 19,
           "text": "The claims, and where each is enforced"
         },
         {
           "level": 2,
-          "line": 26,
+          "line": 37,
           "text": "What could kill it \u2014 the threat model"
         },
         {
           "level": 2,
-          "line": 36,
+          "line": 47,
           "text": "The gates \u2014 what more code cannot close"
         },
         {
           "level": 2,
-          "line": 59,
+          "line": 70,
           "text": "Internal audit deliverables already written"
         },
         {
           "level": 2,
-          "line": 69,
+          "line": 80,
           "text": "Verify it yourself"
         },
         {
           "level": 2,
-          "line": 82,
+          "line": 93,
           "text": "The honesty policy itself"
         },
         {
           "level": 2,
-          "line": 90,
+          "line": 101,
           "text": "Where to go next"
         }
       ],
       "keywords": [
         "gates",
-        "what",
-        "you",
+        "audits",
         "review",
+        "what",
+        "close",
         "audit",
+        "you",
         "each",
         "threat",
-        "close",
-        "claims",
-        "enforced",
-        "project",
-        "audits",
         "start",
+        "claim",
+        "evidence",
+        "external",
+        "they",
         "here",
-        "more",
-        "code",
+        "full",
+        "reconstruction",
+        "enforced",
         "cannot",
         "internal",
-        "already",
-        "claim",
         "exactly",
-        "every",
-        "invariant",
-        "they"
+        "these",
+        "documents",
+        "identity"
       ],
-      "lines": 97,
+      "lines": 108,
       "path": "docs/AUDITOR_START.md",
-      "sha256": "c9efc7b64bc58eb4d49d1013f9b77bbe47f98ee4f8c24be2e9d58f18e11e9c40",
+      "sha256": "ce8ff355b1bc24789a76cd6e21770fb5512532fd8ef9bfad5c5151c96532a42e",
       "symbols": [],
       "title": "Start here \u2014 for an auditor or skeptic"
     },
@@ -76576,7 +77038,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1115443,
+      "bytes": 1123667,
       "group": "docs",
       "headings": [
         {
@@ -77006,9 +77468,9 @@
         "first",
         "witness"
       ],
-      "lines": 18495,
+      "lines": 18622,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "e5525bf8ec797fb8cc5235ffe54f024811e1046e53a074c25692b5638268c652",
+      "sha256": "30c0a1ef0feec4b7c856f9ed08834576e4569f950d6e27eaa3357742f116e67b",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -78339,7 +78801,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 168150,
+      "bytes": 169221,
       "group": "docs",
       "headings": [
         {
@@ -78364,87 +78826,87 @@
         },
         {
           "level": 2,
-          "line": 167,
+          "line": 182,
           "text": "2. Personhood"
         },
         {
           "level": 2,
-          "line": 223,
+          "line": 238,
           "text": "3. Identity & key custody"
         },
         {
           "level": 2,
-          "line": 390,
+          "line": 405,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 780,
+          "line": 795,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 827,
+          "line": 842,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1049,
+          "line": 1064,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1243,
+          "line": 1258,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1304,
+          "line": 1319,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1334,
+          "line": 1349,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1661,
+          "line": 1676,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2139,
+          "line": 2154,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2230,
+          "line": 2245,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2310,
+          "line": 2325,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2376,
+          "line": 2391,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2393,
+          "line": 2408,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2429,
+          "line": 2444,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2494,
+          "line": 2509,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -78474,9 +78936,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2529,
+      "lines": 2544,
       "path": "docs/STATUS.md",
-      "sha256": "de7c7dd0a95f3945394226cf950e7808d96a0b34692cbd9f537a9f28560a8a42",
+      "sha256": "e960b6fb13d30734b3dd66db73793b87a2d3b7b8f541a3d1df83847000609324",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -78879,7 +79341,405 @@
       "title": "Windows client security boundary"
     },
     {
-      "bytes": 4343,
+      "bytes": 9696,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Audit evidence index \u2014 claim \u2192 mechanism \u2192 evidence \u2192 remaining gate"
+        },
+        {
+          "level": 2,
+          "line": 48,
+          "text": "Evidence precedence"
+        },
+        {
+          "level": 2,
+          "line": 61,
+          "text": "Reviewer output requirement"
+        }
+      ],
+      "keywords": [
+        "evidence",
+        "partial",
+        "governance",
+        "audit",
+        "claim",
+        "review",
+        "external",
+        "gate",
+        "value",
+        "fail",
+        "independent",
+        "mechanism",
+        "remaining",
+        "current",
+        "prs",
+        "repository",
+        "personhood",
+        "consensus",
+        "reviewer",
+        "dependency",
+        "code",
+        "github",
+        "protocol",
+        "canonical"
+      ],
+      "lines": 75,
+      "path": "docs/audits/AUDIT_EVIDENCE_INDEX.md",
+      "sha256": "19fd6efbe9fbf4ce9ec0b780641073460a5728ccd66f6a751010a60fb67feecd",
+      "symbols": [],
+      "title": "Audit evidence index \u2014 claim \u2192 mechanism \u2192 evidence \u2192 remaining gate"
+    },
+    {
+      "bytes": 15079,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "External audit master report \u2014 readiness, values, and exact blockers"
+        },
+        {
+          "level": 2,
+          "line": 19,
+          "text": "Value verdicts"
+        },
+        {
+          "level": 3,
+          "line": 21,
+          "text": "1. Humanity before technology \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 28,
+          "text": "2. No indispensable central authority \u2014 FAIL"
+        },
+        {
+          "level": 3,
+          "line": 35,
+          "text": "3. Network outlives its creators \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 42,
+          "text": "4. Money never outranks legitimacy \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 49,
+          "text": "5. Canonical truth for money \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 56,
+          "text": "6. Design for failure \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 63,
+          "text": "7. Free forks, earned legitimacy \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 70,
+          "text": "8. Human as root of trust \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 77,
+          "text": "9. Structural privacy \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 84,
+          "text": "10. Every optimization names its cost \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 91,
+          "text": "11. Weakest device matters \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 98,
+          "text": "12. AI serves humanity, never rules \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 105,
+          "text": "13. Think in centuries \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 112,
+          "text": "14. Simplicity is security \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 119,
+          "text": "15. Honest majority, malicious minority \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 126,
+          "text": "16. Voice/value wall \u2014 PASS"
+        },
+        {
+          "level": 3,
+          "line": 133,
+          "text": "17. Future child test \u2014 PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 140,
+          "text": "18. Edge convenient, core independent \u2014 PARTIAL"
+        },
+        {
+          "level": 2,
+          "line": 147,
+          "text": "External legitimacy gates"
+        },
+        {
+          "level": 2,
+          "line": 161,
+          "text": "Overall judgment"
+        }
+      ],
+      "keywords": [
+        "partial",
+        "external",
+        "exact",
+        "independent",
+        "mechanism",
+        "governance",
+        "value",
+        "authority",
+        "failure",
+        "audit",
+        "legitimacy",
+        "point",
+        "proving",
+        "canonical",
+        "pass",
+        "review",
+        "repository",
+        "still",
+        "path",
+        "report",
+        "fail",
+        "money",
+        "never",
+        "human"
+      ],
+      "lines": 168,
+      "path": "docs/audits/EXTERNAL_AUDIT_MASTER_REPORT.md",
+      "sha256": "0e170fe6cdc6fb572a7d29424950cc5667899426ceb6ace804d9aca91f44da81",
+      "symbols": [],
+      "title": "External audit master report \u2014 readiness, values, and exact blockers"
+    },
+    {
+      "bytes": 14696,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Mininet build history \u2014 auditor reconstruction"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "1. Foundational phase \u2014 identity, equal-weight finality, storage receipts, networking"
+        },
+        {
+          "level": 2,
+          "line": 27,
+          "text": "2. Cryptography prototype phase \u2014 privacy, Bulletproofs, FROST, DKG"
+        },
+        {
+          "level": 2,
+          "line": 36,
+          "text": "3. Canonical settlement and self-hosted forge spine"
+        },
+        {
+          "level": 2,
+          "line": 45,
+          "text": "4. Networked consensus and recovery"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "5. Identity freshness and witness assurance"
+        },
+        {
+          "level": 2,
+          "line": 67,
+          "text": "6. Personhood \u2014 the project\u2019s primary unresolved security dependency"
+        },
+        {
+          "level": 2,
+          "line": 77,
+          "text": "7. Storage \u2014 possession became real; operator independence did not"
+        },
+        {
+          "level": 2,
+          "line": 91,
+          "text": "8. Privacy and value path"
+        },
+        {
+          "level": 2,
+          "line": 109,
+          "text": "9. Economics and anti-collusion"
+        },
+        {
+          "level": 2,
+          "line": 120,
+          "text": "10. Search, social, intake and client surfaces"
+        },
+        {
+          "level": 2,
+          "line": 131,
+          "text": "11. Governance and the centralization red flag"
+        },
+        {
+          "level": 2,
+          "line": 143,
+          "text": "12. Current release picture"
+        }
+      ],
+      "keywords": [
+        "pull",
+        "phase",
+        "storage",
+        "review",
+        "repository",
+        "build",
+        "history",
+        "identity",
+        "value",
+        "first",
+        "added",
+        "finality",
+        "cryptography",
+        "frost",
+        "self-hosted",
+        "current",
+        "release",
+        "status",
+        "gate",
+        "external",
+        "implementation",
+        "distinct",
+        "explicit",
+        "auditor"
+      ],
+      "lines": 154,
+      "path": "docs/audits/PROJECT_BUILD_HISTORY.md",
+      "sha256": "8c978d5549a487f41eb2a58a25120c84ee432d77b1e3bdc41428ac3ff6d7b5eb",
+      "symbols": [],
+      "title": "Mininet build history \u2014 auditor reconstruction"
+    },
+    {
+      "bytes": 16976,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Pull-request history ledger \u2014 how to reconstruct every change"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "Era 1 \u2014 core protocol bootstrap"
+        },
+        {
+          "level": 2,
+          "line": 29,
+          "text": "Era 2 \u2014 identity, bounty, settlement, custody and external-gate formalization"
+        },
+        {
+          "level": 2,
+          "line": 38,
+          "text": "Era 3 \u2014 self-hosted Forge, release and recovery spine"
+        },
+        {
+          "level": 2,
+          "line": 55,
+          "text": "Era 4 \u2014 networked consensus"
+        },
+        {
+          "level": 2,
+          "line": 72,
+          "text": "Era 5 \u2014 governance honesty and canonical values"
+        },
+        {
+          "level": 2,
+          "line": 85,
+          "text": "Era 6 \u2014 privacy/cost doctrine, object privacy and transport layers"
+        },
+        {
+          "level": 2,
+          "line": 104,
+          "text": "Era 7 \u2014 post-quantum and KEL witness evolution"
+        },
+        {
+          "level": 2,
+          "line": 118,
+          "text": "Era 8 \u2014 social, intake, search and client surfaces"
+        },
+        {
+          "level": 2,
+          "line": 136,
+          "text": "Era 9 \u2014 economics, storage and private-value adversarial hardening"
+        },
+        {
+          "level": 2,
+          "line": 148,
+          "text": "Complete-history audit procedure"
+        },
+        {
+          "level": 3,
+          "line": 159,
+          "text": "Per-PR worksheet"
+        }
+      ],
+      "keywords": [
+        "pull",
+        "era",
+        "history",
+        "later",
+        "forge",
+        "storage",
+        "audit",
+        "first",
+        "real",
+        "ledger",
+        "self-hosted",
+        "canonical",
+        "review",
+        "repository",
+        "current",
+        "personhood",
+        "pull-request",
+        "change",
+        "core",
+        "protocol",
+        "identity",
+        "bounty",
+        "settlement",
+        "release"
+      ],
+      "lines": 180,
+      "path": "docs/audits/PR_HISTORY_LEDGER.md",
+      "sha256": "7ebe132a4a50b472daf7a8ad4565f7b61ef7ce73a34b7483b27120994877b3e4",
+      "symbols": [],
+      "title": "Pull-request history ledger \u2014 how to reconstruct every change"
+    },
+    {
+      "bytes": 5087,
       "group": "docs",
       "headings": [
         {
@@ -78889,39 +79749,39 @@
         },
         {
           "level": 2,
-          "line": 23,
+          "line": 27,
           "text": "Required scope header (D-0441)"
         }
       ],
       "keywords": [
         "issues",
-        "what",
         "scope",
+        "what",
         "verdict",
         "open",
         "fixed",
         "audit",
         "audits",
-        "written",
-        "file",
         "closes",
         "pass",
+        "external",
+        "written",
+        "file",
         "built",
+        "current",
+        "gate",
+        "internal",
+        "evidence",
         "commit",
         "versions",
         "one",
         "required",
         "header",
-        "d-0441",
-        "review",
-        "each",
-        "github",
-        "issue",
-        "issue-8-constitutional-audit"
+        "d-0441"
       ],
-      "lines": 59,
+      "lines": 63,
       "path": "docs/audits/README.md",
-      "sha256": "200005464898d7c193e6f3bc34c5de8e9171e8d68f5ae125dc967d64ef71526b",
+      "sha256": "324cbc044ba69265c256d465e6575c608b70c55468212db63020a14fc6ee44e3",
       "symbols": [],
       "title": "Audits"
     },
@@ -84785,6 +85645,158 @@
       "title": "Treasury economic model \u2014 founder decision (D-0073)"
     },
     {
+      "bytes": 18142,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "External auditor test itinerary \u2014 from code-complete claims to real-value authorization"
+        },
+        {
+          "level": 2,
+          "line": 7,
+          "text": "0. Freeze the exact revision before testing"
+        },
+        {
+          "level": 2,
+          "line": 23,
+          "text": "Track A \u2014 applied cryptography and private value path \u2014 P0"
+        },
+        {
+          "level": 3,
+          "line": 27,
+          "text": "A1. Primitive correctness"
+        },
+        {
+          "level": 3,
+          "line": 38,
+          "text": "A2. Composition correctness"
+        },
+        {
+          "level": 3,
+          "line": 51,
+          "text": "A3. Chain-validity rule \u2014 mandatory before PASS"
+        },
+        {
+          "level": 3,
+          "line": 58,
+          "text": "A4. Transparent-path retirement"
+        },
+        {
+          "level": 3,
+          "line": 65,
+          "text": "Closure artifact"
+        },
+        {
+          "level": 2,
+          "line": 70,
+          "text": "Track B \u2014 treasury/FROST/DKG/custody \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 99,
+          "text": "Track C \u2014 unique-human/personhood legitimacy \u2014 P0 for real people/governance"
+        },
+        {
+          "level": 2,
+          "line": 126,
+          "text": "Track C2 \u2014 identity core: KEL, pre-rotation, delegation and recovery \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 151,
+          "text": "Track D \u2014 consensus, execution, state sync and validator networking \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 175,
+          "text": "Track E \u2014 identity/KEL witness freshness \u2014 P0 for authority-bearing identities"
+        },
+        {
+          "level": 2,
+          "line": 196,
+          "text": "Track F \u2014 storage integrity, capacity and operator independence \u2014 P0 for storage economics"
+        },
+        {
+          "level": 2,
+          "line": 216,
+          "text": "Track G \u2014 hardware/BLE/UWB/Wi-Fi acceptance \u2014 P0 for real-device personhood claims"
+        },
+        {
+          "level": 2,
+          "line": 233,
+          "text": "Track H \u2014 tokenomics, incentives and anti-collusion \u2014 P0"
+        },
+        {
+          "level": 2,
+          "line": 257,
+          "text": "Track I \u2014 legal launch posture \u2014 P0 for real value"
+        },
+        {
+          "level": 2,
+          "line": 269,
+          "text": "Track J \u2014 reproducible builds \u2014 P0 for release"
+        },
+        {
+          "level": 2,
+          "line": 287,
+          "text": "Track J2 \u2014 dependency and software-supply-chain provenance \u2014 P0 for release"
+        },
+        {
+          "level": 2,
+          "line": 311,
+          "text": "Track K \u2014 governance decentralization / founder-removal drill \u2014 P0 before claiming no owner"
+        },
+        {
+          "level": 3,
+          "line": 315,
+          "text": "K0. Interim Founder-account operational security \u2014 required while D-0083 remains active"
+        },
+        {
+          "level": 3,
+          "line": 329,
+          "text": "K1. Remove the control point"
+        },
+        {
+          "level": 1,
+          "line": 345,
+          "text": "Final release ceremony"
+        }
+      ],
+      "keywords": [
+        "track",
+        "pass",
+        "key",
+        "revision",
+        "private",
+        "exact",
+        "path",
+        "release",
+        "scope",
+        "fail",
+        "gates",
+        "value",
+        "correctness",
+        "real",
+        "identity",
+        "remains",
+        "one",
+        "current",
+        "image",
+        "production",
+        "itinerary",
+        "claims",
+        "real-value",
+        "rule"
+      ],
+      "lines": 358,
+      "path": "docs/gates/EXTERNAL_AUDITOR_TEST_ITINERARY.md",
+      "sha256": "9dd9a7dcb11451c41eec74e3bdcfd5c6337a8f10a6cd70544aa773fccba05df9",
+      "symbols": [],
+      "title": "External auditor test itinerary \u2014 from code-complete claims to real-value authorization"
+    },
+    {
       "bytes": 4731,
       "group": "docs",
       "headings": [
@@ -84887,46 +85899,133 @@
       "title": "External review response template"
     },
     {
-      "bytes": 2191,
+      "bytes": 3724,
       "group": "docs",
       "headings": [
         {
           "level": 1,
           "line": 1,
           "text": "External legitimacy gates"
+        },
+        {
+          "level": 2,
+          "line": 16,
+          "text": "Unified completion pack"
         }
       ],
       "keywords": [
         "issues",
+        "audits",
         "gates",
-        "engage",
+        "review",
+        "evidence",
         "external",
+        "cryptography",
+        "never",
+        "engage",
         "scope",
         "outside",
-        "cryptography",
         "auditor",
+        "real",
         "file",
         "package",
-        "review",
+        "may",
         "legitimacy",
+        "unified",
+        "completion",
+        "pack",
         "requires",
+        "legal",
         "counsel",
-        "tokenomics",
-        "specialist",
-        "real",
-        "founder",
-        "research",
-        "what",
-        "action",
-        "crypto-audit-scope",
-        "dkg-audit-scope",
-        "same"
+        "tokenomics"
       ],
-      "lines": 31,
+      "lines": 42,
       "path": "docs/gates/README.md",
-      "sha256": "28bfe60bf4fd37684f71be2aa9a8eff28b351bb26f341fb018e4234484e24163",
+      "sha256": "1c160a4235f55e1b78ba61f32323583500647b49016f478e1f5d719b54213d84",
       "symbols": [],
       "title": "External legitimacy gates"
+    },
+    {
+      "bytes": 6985,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Real-value / real-people release checklist \u2014 binary NO-GO gate"
+        },
+        {
+          "level": 2,
+          "line": 5,
+          "text": "Current verdict"
+        },
+        {
+          "level": 2,
+          "line": 11,
+          "text": "P0 \u2014 must all be complete before real value"
+        },
+        {
+          "level": 2,
+          "line": 24,
+          "text": "P0 \u2014 must all be complete before real-people governance / Human Share"
+        },
+        {
+          "level": 2,
+          "line": 32,
+          "text": "P0 \u2014 must all be complete before production storage/provider rewards"
+        },
+        {
+          "level": 2,
+          "line": 39,
+          "text": "P0 \u2014 consensus and network release conditions"
+        },
+        {
+          "level": 2,
+          "line": 47,
+          "text": "P1 \u2014 required before broad public production claims"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "Release evidence bundle"
+        },
+        {
+          "level": 2,
+          "line": 74,
+          "text": "Automatic NO-GO conditions"
+        }
+      ],
+      "keywords": [
+        "release",
+        "pass",
+        "complete",
+        "production",
+        "review",
+        "evidence",
+        "independent",
+        "real",
+        "governance",
+        "required",
+        "external",
+        "real-people",
+        "no-go",
+        "storage",
+        "conditions",
+        "state",
+        "path",
+        "checklist",
+        "current",
+        "value",
+        "human",
+        "provider",
+        "network",
+        "claims"
+      ],
+      "lines": 89,
+      "path": "docs/gates/REAL_VALUE_RELEASE_CHECKLIST.md",
+      "sha256": "f162e288c413f969d7d48c508d2e90082f36ad1e4a1eb766bc81de102794e1e5",
+      "symbols": [],
+      "title": "Real-value / real-people release checklist \u2014 binary NO-GO gate"
     },
     {
       "bytes": 4389,
@@ -94706,7 +95805,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 72313,
+      "bytes": 74658,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -94735,9 +95834,9 @@
         "independently",
         "both"
       ],
-      "lines": 1114,
+      "lines": 1133,
       "path": "governance/work-claims.json",
-      "sha256": "339f94e81eea2ba869873224b309afc3d4f47e0e1ad2e59730e1fd3a35e4cdb4",
+      "sha256": "b1a60e11b5bdf713fd56f75c423a8f8e375b9cd153e474ffe385d101c5e20161",
       "symbols": [],
       "title": "{"
     },

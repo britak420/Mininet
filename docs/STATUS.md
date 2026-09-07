@@ -148,8 +148,23 @@ given time.
   over the existing encrypted `Channel`. No peer or archive becomes a trust
   anchor. Honest limits: static validator set only; no historical set-transition
   or weak-subjectivity/long-range rule; exact transparent state capped at 8 MiB
-  and one response at one bearer frame; no chunked Merkle state proofs,
-  discovery/retry/multi-peer/eclipse policy, external audit, or physical
+  and one response at one bearer frame. **Chunked Merkle state transfer over
+  real TCP now exists (D-0469):** `mini_consensus::chunked_snapshot`'s
+  `SnapshotManifest`/`SnapshotChunker`/`SnapshotAssembler` split the same
+  execution state into requester-chosen 1 KiB–1 MiB chunks, each
+  independently verifiable against a Merkle root before the receiver trusts
+  it, so a weak or lossy-linked device can re-fetch a single bad chunk
+  instead of discarding a whole multi-megabyte transfer — the real, checked
+  authority is still, unchanged, `header.state_root == state.commitment()`
+  at full reassembly. `net::chunk_sync_over_tcp`/`serve_chunk_sync_over_tcp`
+  carry the whole exchange over the same real, encrypted, one-shot
+  connection every other state-sync helper uses, ending in the same
+  `ConsensusNode::apply_state_sync` call an ordinary snapshot response
+  already goes through. Honest limits: one peer, one pass, no retry; the
+  chunked path only ever fetches the archive's latest snapshot, never the
+  block suffix after it (a receiver may still need an ordinary
+  `state_sync_over_tcp` call to close that last gap); no multi-peer
+  sourcing, discovery/eclipse policy, external audit, or physical
   weakest-device measurements. State-sync sockets have local I/O deadlines, but
   peer choice and retry remain host policy. The equivocation evidence is no longer silently dropped by
   the network driver (D-0088: `mini_consensus::EquivocatorRegistry`
