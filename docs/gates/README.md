@@ -17,8 +17,10 @@ a box on #99 requires the named outside action to have actually happened.
 
 Two files now sit above the individual scopes without replacing them:
 
-- [`EXTERNAL_AUDITOR_TEST_ITINERARY.md`](EXTERNAL_AUDITOR_TEST_ITINERARY.md) — ordered execution plan across cryptography, DKG/custody, personhood, consensus, KEL freshness, storage, hardware, economics, legal, reproducibility and governance decentralization, with PASS/FAIL evidence for each track.
+- [`EXTERNAL_AUDITOR_TEST_ITINERARY.md`](EXTERNAL_AUDITOR_TEST_ITINERARY.md) — ordered execution plan across cryptography, DKG/custody, personhood, consensus, identity/KEL assurance, storage, hardware, economics, legal, reproducibility/supply chain and governance decentralization, with PASS/FAIL evidence for each track.
 - [`REAL_VALUE_RELEASE_CHECKLIST.md`](REAL_VALUE_RELEASE_CHECKLIST.md) — binary NO-GO checklist for real value and real-people governance. A closed issue is never sufficient evidence by itself.
+
+These two filenames are intentionally stable **living indexes**, not point-in-time review outcomes. They may be tightened as the project evolves, but they may never be edited to rewrite a completed reviewer result. Every executed review, gate closure, failed test campaign, release-candidate decision or superseding external opinion must be filed as a **new dated artifact** (normally under `docs/audits/`) and linked back from the stable index. In other words: the itinerary/checklist may evolve; historical evidence never does.
 
 The matching repository-history and evidence reconstruction lives in [`../audits/PROJECT_BUILD_HISTORY.md`](../audits/PROJECT_BUILD_HISTORY.md), [`../audits/PR_HISTORY_LEDGER.md`](../audits/PR_HISTORY_LEDGER.md), [`../audits/AUDIT_EVIDENCE_INDEX.md`](../audits/AUDIT_EVIDENCE_INDEX.md), and [`../audits/EXTERNAL_AUDIT_MASTER_REPORT.md`](../audits/EXTERNAL_AUDIT_MASTER_REPORT.md).
 
