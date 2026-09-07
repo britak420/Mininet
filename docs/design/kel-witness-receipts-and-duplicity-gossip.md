@@ -7,13 +7,13 @@ KEL-chain verification wired in front of `WitnessJournal::observe`,
 D-0329), a local duplicity-proof registry (`DuplicityRegistry`, D-0330),
 a `mini-forge` bridge (`author_assurance`, D-0332), **witness policies
 bound to the identity's own signed KEL (D-0459)**, **a receipt collection
-protocol (D-0464, Phase 4)**, and **KEL head gossip summaries (D-0466,
-Phase 5's first slice)** shipped. Only wiring `author_assurance` into a
-real governance call site — a founder-facing policy call — and a
-bounded/incremental KEL re-verify remain open in Phase 3; a persistent
-witness journal (D-0465, Phase 6) has shipped on a concurrently-open PR
-not yet merged to `main` as of this writing; Phase 5's second half (real
-gossip transport wiring) and Phases 7-10 not started.
+protocol (D-0464, Phase 4)**, **a persistent witness journal
+(`mini-witness-service`, D-0465, Phase 6)**, and **KEL head gossip
+summaries (D-0466, Phase 5's first slice)** shipped. Only wiring
+`author_assurance` into a real governance call site — a founder-facing
+policy call — and a bounded/incremental KEL re-verify remain open in
+Phase 3; Phase 5's second half (real gossip transport wiring) and Phases
+7-10 not started.
 
 **Full research:** `docs/research/
 KEL_WITNESS_RECEIPTS_DUPLICITY_GOSSIP_RESEARCH_20260715.md`
@@ -167,11 +167,13 @@ exactly what this PR is.
    transport — that wiring belongs to whichever of those crates first
    carries this message, the same real-transport-adapter split every
    prior phase has used.
-6. **Persistent witness service (shipped, D-0465, on a concurrently-open
-   PR).** New crate `mini-witness-service`'s `PersistentWitnessJournal`:
-   durable state, crash recovery via replay through
-   `WitnessJournal::observe_declared`, an identity-count quota. Not yet
-   merged to `main` as of this writing — see that PR for status.
+6. **Persistent witness service (shipped, D-0465)** — new crate
+   `mini-witness-service`'s `PersistentWitnessJournal` gives
+   `WitnessJournal` durable, crash-recoverable state by replaying
+   `WitnessJournal::observe_declared` (D-0464) over what was durably
+   recorded, plus an identity-count quota. No network transport, no
+   rotation-aware pruning — those remain Phase 5's second half and
+   Phase 7.
 7. **Witness rotation and recovery** — policy generations, old-policy
    certification of witness-set changes, unavailable-witness recovery
    that can't be triggered casually.

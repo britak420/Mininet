@@ -3107,6 +3107,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mini-witness-service"
+version = "0.0.1"
+dependencies = [
+ "did-mini",
+ "mini-crypto",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
