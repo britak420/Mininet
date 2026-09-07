@@ -1,5 +1,15 @@
 # Mininet build history — auditor reconstruction
 
+**Audit scope**
+
+| Field | Value |
+|---|---|
+| Reviewed at | `main` @ `2721f95db0f8be105d9582d64939d1110ed823b8` |
+| Workspace size at that commit | 72 crates; resolved dependency count not independently measured in this GitHub-only review |
+| Method | GitHub-only documentary reconstruction: current repository files, merged/closed PR history, decision/failure/status/roadmap/gate documents. No local build, test suite, fuzzing, static analysis, or binary inspection was performed for this document |
+| Tool versions | GitHub repository connector only; no code-analysis toolchain executed |
+| Revalidation trigger | Any merge changing architecture, trust boundaries, decision/failure/status/roadmap records, external-gate status, or any PR cited as a current blocker/correction |
+
 **Purpose:** give an external reviewer a single chronological account of how the repository reached its current state, why major choices were made, what evidence landed with each phase, what was later superseded, and what remains unproved.
 
 **Evidence rule:** this document is reconstructed from the GitHub repository, merged pull requests, `docs/DECISION_LOG.md`, `docs/FAILURE_BOOK.md`, `docs/STATUS.md`, `docs/ROADMAP_TO_RELEASE.md`, and the gate packages under `docs/gates/`. It is an index, not a substitute for the linked source. A test passing, a Founder review, or an AI review never counts as independent external sign-off.
