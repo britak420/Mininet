@@ -7,11 +7,13 @@ KEL-chain verification wired in front of `WitnessJournal::observe`,
 D-0329), a local duplicity-proof registry (`DuplicityRegistry`, D-0330),
 a `mini-forge` bridge (`author_assurance`, D-0332), **witness policies
 bound to the identity's own signed KEL (D-0459)**, **a receipt collection
-protocol (D-0464, Phase 4)**, and **a persistent witness journal
-(`mini-witness-service`, D-0465, Phase 6)** shipped. Only wiring
+protocol (D-0464, Phase 4)**, **a persistent witness journal
+(`mini-witness-service`, D-0465, Phase 6)**, and **KEL head gossip
+summaries (D-0466, Phase 5's first slice)** shipped. Only wiring
 `author_assurance` into a real governance call site — a founder-facing
 policy call — and a bounded/incremental KEL re-verify remain open in
-Phase 3; Phase 5, 7, 8, 9, 10 not started.
+Phase 3; Phase 5's second half (real gossip transport wiring) and Phases
+7-10 not started.
 
 **Full research:** `docs/research/
 KEL_WITNESS_RECEIPTS_DUPLICITY_GOSSIP_RESEARCH_20260715.md`
@@ -152,14 +154,26 @@ exactly what this PR is.
    only — no network transport, matching Phase 1-3's own staging; a real
    socket adapter is separate, later work for whichever crate first runs a
    witness service.
-5. **Gossip summaries** — piggybacked on existing sync/relay/forge
-   traffic, targeted fetch on disagreement only.
+5. **Gossip summaries.** **First slice shipped (D-0466):**
+   `did_mini::gossip`'s `KelHeadSummary` (a compact, unsigned identity/
+   sequence/digest/policy-generation claim) and `compare_head_summaries`
+   (a pure function classifying two summaries as `Agrees`/
+   `Disagreement`/`Ahead`/`Behind`). No new evidence-retrieval request
+   type: a `Disagreement` or `Ahead` outcome is resolved with Phase 4's
+   already-shipped `SubmitEventForWitnessingRequest`/
+   `FetchWitnessReceiptRequest`, the same "no duplicate op" reasoning
+   Phase 4 itself already applied. Still missing: piggybacking a
+   `KelHeadSummary` onto existing sync/relay/forge traffic over a real
+   transport — that wiring belongs to whichever of those crates first
+   carries this message, the same real-transport-adapter split every
+   prior phase has used.
 6. **Persistent witness service (shipped, D-0465)** — new crate
    `mini-witness-service`'s `PersistentWitnessJournal` gives
    `WitnessJournal` durable, crash-recoverable state by replaying
    `WitnessJournal::observe_declared` (D-0464) over what was durably
    recorded, plus an identity-count quota. No network transport, no
-   gossip, no rotation-aware pruning — those remain Phases 5 and 7.
+   rotation-aware pruning — those remain Phase 5's second half and
+   Phase 7.
 7. **Witness rotation and recovery** — policy generations, old-policy
    certification of witness-set changes, unavailable-witness recovery
    that can't be triggered casually.

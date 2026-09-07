@@ -56,6 +56,7 @@ mod duplicity;
 mod error;
 mod event;
 mod freshness;
+mod gossip;
 mod identity_mode;
 mod kel;
 mod limits;
@@ -75,6 +76,7 @@ pub use event::{
     canonicalize_signatures, signatures_are_canonical, Establishment, Event, EventKind, IndexedSig,
 };
 pub use freshness::FreshnessPins;
+pub use gossip::{compare_head_summaries, HeadAgreement, KelHeadSummary};
 pub use identity_mode::IdentityMode;
 pub use kel::{verify_delegation, Kel, KeyState};
 pub use limits::{MAX_DID_BYTES, MAX_KEYS, MAX_SIGNATURES, MAX_SIGNATURE_BYTES};

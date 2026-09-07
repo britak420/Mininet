@@ -1035,9 +1035,10 @@
     },
     {
       "issue": 92,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/witness-service",
+      "pull_request": 322,
       "lease_expires": "2026-09-14",
       "paths": [
         "crates/mini-witness-service/",
@@ -1050,7 +1051,25 @@
       "decision_ids": [
         "D-0465"
       ],
-      "notes": "D-0465: a persistent witness journal, shipping design doc Phase 6. New crate mini-witness-service's PersistentWitnessJournal anchors did_mini::WitnessJournal to durable storage the same way mini-consensus anchors mini-chain and mini-installer anchors mini-update -- did-mini's own Cargo.toml commits it to staying filesystem-free. Every accepted observation is written (domain-tagged, length-prefixed, write-then-rename atomic against a killed process) before being reported to its own caller; open/open_with_capacity rebuild exact in-memory state by replaying each persisted (kel, observed_epoch) through WitnessJournal::observe_declared (D-0464) unchanged -- never a second, less-reviewed restore path, and never a caller-supplied policy (D-0459's rule, honored again here). Bounded by an identity-count quota (MAX_TRACKED_IDENTITIES). Started before D-0464/PR #320 merged, so this originally composed Kel::declared_witness_policy + WitnessJournal::observe_verified directly to honor the same no-caller-supplied-policy rule without depending on an unmerged sibling PR; simplified to call the real observe_declared once #320 merged mid-session. Coordination evidence only, not approval or authority."
+      "notes": "D-0465: a persistent witness journal, shipping design doc Phase 6. New crate mini-witness-service's PersistentWitnessJournal anchors did_mini::WitnessJournal to durable storage the same way mini-consensus anchors mini-chain and mini-installer anchors mini-update -- did-mini's own Cargo.toml commits it to staying filesystem-free. Every accepted observation is written (domain-tagged, length-prefixed, write-then-rename atomic against a killed process) before being reported to its own caller; open/open_with_capacity rebuild exact in-memory state by replaying each persisted (kel, observed_epoch) through WitnessJournal::observe_declared (D-0464) unchanged -- never a second, less-reviewed restore path, and never a caller-supplied policy (D-0459's rule, honored again here). Bounded by an identity-count quota (MAX_TRACKED_IDENTITIES). Started before D-0464/PR #320 merged, so this originally composed Kel::declared_witness_policy + WitnessJournal::observe_verified directly to honor the same no-caller-supplied-policy rule without depending on an unmerged sibling PR; simplified to call the real observe_declared once #320 merged mid-session. Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #322 merged."
+    },
+    {
+      "issue": 92,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/kel-gossip-summaries",
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/did-mini/",
+        "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0466"
+      ],
+      "notes": "D-0466: KEL head gossip summaries, design doc Phase 5's first slice. New module did_mini::gossip ships KelHeadSummary -- a compact, unsigned (identity, sequence, event_digest, witness_policy_generation) claim, buildable from a live Kel (summarize) or a witness's own accepted state (from_witness_state) -- and compare_head_summaries, a pure function classifying a pair as Agrees/Disagreement{at_sequence}/Ahead{by}/Behind{by}, rejecting cross-identity comparisons outright (MismatchedGossipIdentity). No new evidence-retrieval request type: resolving a Disagreement or Ahead reuses D-0464's already-shipped SubmitEventForWitnessingRequest/FetchWitnessReceiptRequest rather than duplicating them -- the same 'no duplicate op' reasoning D-0464's own module doc already applied to FetchWitnessCertificate. No network transport, no piggybacking wiring onto mini-sync/mini-relay/mini-forge's existing traffic (separate, later work for whichever crate first carries this message). Started on a fresh branch off origin/main (through PR #320's merge) rather than stacking on the concurrently-open mini-witness-service PR (#322, D-0465, Phase 6), per this session's standing discipline of never basing a new big PR on an unmerged sibling. Coordination evidence only, not approval or authority."
     }
   ]
 }

@@ -254,10 +254,17 @@ in. **D-0465** ships Phase 6: new crate `mini-witness-service`'s
 `PersistentWitnessJournal` gives `WitnessJournal` durable,
 crash-recoverable state by replaying accepted observations through
 `WitnessJournal::observe_declared` on open, plus an identity-count quota.
-**Closed by:** the remaining phases — gossip (5), witness rotation (7) —
-plus a real call site that *gates* an authority decision on an assurance
-level. That last one is a founder-facing policy call: which governance
-action requires which minimum level is not an engineering choice.
+**D-0466** ships Phase 5's first slice: `did-mini::gossip`'s
+`KelHeadSummary` (a compact, unsigned claim about an identity's current
+head) and `compare_head_summaries` (a pure `Agrees`/`Disagreement`/
+`Ahead`/`Behind` classification) — resolving a disagreement reuses
+D-0464's existing receipt-collection protocol rather than adding a new
+fetch type.
+**Closed by:** the remaining phases — gossip's real transport wiring (the
+second half of 5), witness rotation (7) — plus a real call site that
+*gates* an authority decision on an assurance level. That last one is a
+founder-facing policy call: which governance action requires which
+minimum level is not an engineering choice.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap

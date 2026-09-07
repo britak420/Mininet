@@ -289,32 +289,43 @@ given time.
   witness_protocol` — `SubmitEventForWitnessingRequest`/`Response` and
   `FetchWitnessReceiptRequest`/`Response`, canonical wire-encoded, plus
   pure handlers over a `WitnessJournal`; no network yet. Extends
-  D-0459's fix to the signing side: the new `WitnessJournal::
-  observe_declared` reads the policy from a submitted KEL's own history,
-  so the request type carries no policy field a forgery could use — 12
-  tests, including one pinning that the request struct has exactly one
-  field. **Persistent witness journal shipped (Phase 6, D-0465):** new
-  crate `mini-witness-service`'s `PersistentWitnessJournal` gives
-  `WitnessJournal` durable, crash-recoverable state — every accepted
-  observation is recorded to disk (write-then-`rename`, atomic against a
-  killed process, not a power-loss guarantee) before being reported to
-  its own caller, and `open`/`open_with_capacity` rebuild exact
-  in-memory state by replaying each persisted `(kel, observed_epoch)`
-  through `WitnessJournal::observe_declared` unchanged, never a second,
-  less-reviewed restore path; bounded by an identity-count quota; 6
-  tests. **Not yet real:** no bounded/incremental re-verify
-  (`observe_verified`/`observe_declared` re-verify the whole chain from
-  inception on every call, not just the new suffix), no fork-proof
-  construction for the harder "conflicting descendant" case, no
-  recovery-aware handling (every rotation is treated identically), no
+  D-0459's fix to the signing side: the new
+  `WitnessJournal::observe_declared` reads the policy from a submitted
+  KEL's own history, so the request type carries no policy field a
+  forgery could use — 12 tests, including one pinning that the request
+  struct has exactly one field. **Persistent witness journal shipped
+  (Phase 6, D-0465):** new crate `mini-witness-service`'s
+  `PersistentWitnessJournal` gives `WitnessJournal` durable,
+  crash-recoverable state — every accepted observation is recorded to
+  disk (write-then-`rename`, atomic against a killed process, not a
+  power-loss guarantee) before being reported to its own caller, and
+  `open`/`open_with_capacity` rebuild exact in-memory state by replaying
+  each persisted `(kel, observed_epoch)` through `WitnessJournal::
+  observe_declared` unchanged, never a second, less-reviewed restore
+  path; bounded by an identity-count quota; 6 tests. **KEL head gossip
+  summaries shipped (Phase 5's first slice, D-0466):** `did_mini::
+  gossip`'s `KelHeadSummary` — a compact, unsigned `(identity, sequence,
+  event_digest, witness_policy_generation)` claim, buildable from a live
+  `Kel` or from a witness's own accepted state — and
+  `compare_head_summaries`, a pure function classifying a pair as
+  `Agrees`/`Disagreement { at_sequence }`/`Ahead { by }`/`Behind { by }`;
+  11 tests. No new evidence-retrieval request type: resolving a
+  `Disagreement` or `Ahead` reuses D-0464's existing
+  `SubmitEventForWitnessingRequest`/`FetchWitnessReceiptRequest` rather
+  than duplicating them. **Not yet real:** no bounded/incremental
+  re-verify (`observe_verified`/`observe_declared` re-verify the whole
+  chain from inception on every call, not just the new suffix), no
+  fork-proof construction for the harder "conflicting descendant" case,
+  no recovery-aware handling (every rotation is treated identically), no
   persistence for `DuplicityRegistry` (in-memory only), no
-  `WitnessedRecentAndGossiped` (needs Phase 5 gossip, not started), no
-  witness-rotation-aware pruning (Phase 7, not started), no network
-  transport carrying Phase 4's protocol messages over a real socket, no
-  real call site yet gates an authority decision on a `KelAssurance`
-  level or feeds real proofs into `DuplicityRegistry`. Each remaining
-  phase is its own later PR, gated behind external review (D-0047)
-  before any high-value authority decision may depend on this layer.
+  `WitnessedRecentAndGossiped` (a `KelHeadSummary` is not yet wired into
+  any real gossip transport — `mini-sync`/`mini-relay`/`mini-forge`
+  piggybacking remains open), no witness-rotation-aware pruning (Phase 7,
+  not started), no real call site yet gates an authority decision on a
+  `KelAssurance` level or feeds real proofs into `DuplicityRegistry`, no
+  network transport for Phase 4's protocol messages. Each remaining phase
+  is its own later PR, gated behind external review (D-0047) before any
+  high-value authority decision may depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire
   tag `0x02`) is real — `VerifyingKey`/`Signature` parse and verify

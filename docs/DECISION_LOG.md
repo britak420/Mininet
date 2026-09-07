@@ -18166,3 +18166,106 @@ first runs a witness service.
 **Supersedes / superseded by:** extends D-0321/D-0326/D-0459; supersedes
 nothing. Advances Phase 4 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
 committed plan.
+
+### D-0466 — KEL head gossip summaries: a compact claim and a pure comparison, no new fetch protocol — design doc Phase 5's first slice  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0464 (the receipt collection protocol
+this reuses for evidence retrieval rather than duplicating), D-0459 (a
+summary's `witness_policy_generation` is read the same way, never
+caller-supplied), `docs/design/kel-witness-receipts-and-duplicity-gossip.md`
+Phase 5, roadmap R9, [#92](../../issues/92).
+
+**Decision:** new module `did_mini::gossip` ships the first slice of Phase
+5 — "peers gossip compact `KelHeadSummary`s during ordinary relevant
+interactions... disagreements trigger targeted evidence retrieval, not
+full-log flooding." `KelHeadSummary { identity, sequence, event_digest,
+witness_policy_generation: Option<u64> }` is a compact, unsigned claim
+about an identity's current KEL head — far smaller than the KEL itself —
+constructible either from a live `Kel` (`KelHeadSummary::summarize`) or
+from a witness's own accepted state (`KelHeadSummary::from_witness_state`).
+`compare_head_summaries` is a pure function over two summaries for the same
+identity, returning `Agrees`, `Disagreement { at_sequence }` (same
+sequence, different digest — real fork evidence), `Ahead { by }`, or
+`Behind { by }` (different sequence — summaries alone cannot say whether
+the shorter one is a genuine prefix). Comparing summaries for two different
+identities is rejected outright (`IdentityError::MismatchedGossipIdentity`)
+rather than silently producing a meaningless answer.
+
+**Why there is no new "fetch evidence" request type:** the design doc's
+own sentence has two halves — gossip the summary, then retrieve evidence on
+disagreement. The second half needs nothing new: D-0464's
+`SubmitEventForWitnessingRequest` already carries a whole `Kel` and
+re-verifies it from scratch via `WitnessJournal::observe_declared`, and its
+`FetchWitnessReceiptRequest` already returns a single witness's own
+already-issued receipt. A `Disagreement` or an `Ahead` peer is resolved the
+same way any first-contact KEL is — fetch the actual chain over whatever
+transport a caller already has, then run it through `Kel::verify`/
+`observe_declared`/`assess_kel_assurance`. Inventing a parallel fetch type
+here would duplicate machinery this crate already has — the identical
+reasoning D-0464's own module doc gives for not adding a
+`FetchWitnessCertificate` op.
+
+**Why a summary carries no signature:** it is a hint two peers compare,
+not evidence on its own — the same status `mini-net::PeerId` and a
+`PexMessage::Response` already carry for peer-exchange hints (D-0462). Its
+entire value is in triggering a *targeted* real KEL fetch, which is where
+the actual cryptographic verification happens; signing the summary itself
+would suggest a false authority it does not have.
+
+**Why `witness_policy_generation` is `Option<u64>`, not a bare `u64`:**
+`Kel::declared_witness_policy` derives a policy's generation from the
+sequence number of the establishment event that declared it, so an
+identity that appoints witnesses at inception has a real, valid generation
+`0` — treating "no policy at all" as generation zero would make that
+identity indistinguishable from the common case of an identity that has
+never appointed a witness. `None` says plainly what is true: there is
+nothing to compare on that axis for this identity.
+
+**What this does not do, stated plainly:**
+
+- **No network transport, no piggybacking wiring.** Carrying a
+  `KelHeadSummary` inside `mini-sync`/`mini-relay`/`mini-forge`'s existing
+  traffic is separate, later work for whichever of those crates first
+  carries this message — the same real-transport-adapter split this crate
+  has applied at every prior phase (Phase 1's types before Phase 2's state
+  machine, that state machine before Phase 3's KEL wiring, Phase 4's pure
+  protocol before its own future socket adapter).
+- **No witness-rotation handling (Phase 7).** `witness_policy_generation`
+  is carried and compared as an opaque value; this module never decides
+  whether a generation change reflects a legitimate rotation.
+- **`Ahead`/`Behind` are not proof of anything.** A peer claiming a later
+  sequence may simply know more, or may be looking at a branch that was
+  never accepted — the summary alone cannot distinguish these; only
+  fetching and verifying the actual chain can.
+
+**Constitutional impact:** none. No new cryptography — a summary is
+unsigned data, and the actual verification path (`Kel::verify`/
+`observe_declared`) is unchanged. No voice/value edge: `did-mini` remains
+free of any value-crate dependency.
+
+**Implementation status:** shipped — `crates/did-mini/src/gossip.rs` (new:
+`KelHeadSummary`, `HeadAgreement`, `compare_head_summaries`, 11 tests
+covering round-trip encoding, both constructors, all four comparison
+outcomes including symmetry, cross-identity rejection, and truncated/
+trailing/malformed-tag decode rejection), `crates/did-mini/src/error.rs`
+(`IdentityError::MismatchedGossipIdentity`), `crates/did-mini/src/lib.rs`
+(module wiring and re-exports).
+
+**Failure point:** a summary is only as honest as whoever gossiped it — a
+lying peer can claim any sequence/digest it likes, and nothing in this
+module catches that; the entire safety property comes from the fact that
+comparison output only ever recommends a real, independently-verified
+fetch, never substitutes for one. A caller that acted on a `HeadAgreement`
+value alone (without ever fetching and verifying evidence for a
+`Disagreement` or `Ahead` outcome) would have reintroduced exactly the
+bare-claim trust this whole design doc exists to remove — no call site
+does that today because no call site consumes this module's output yet.
+
+**Required follow-up:** Phase 5's second half — actually wiring
+`KelHeadSummary` gossip and evidence retrieval into a real transport
+(`mini-sync`, `mini-relay`, or `mini-forge`, whichever first needs it) —
+plus Phase 7 (witness rotation) and Phase 8-10 remain open.
+
+**Supersedes / superseded by:** extends D-0459/D-0464; supersedes nothing.
+Advances Phase 5 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+committed plan.
