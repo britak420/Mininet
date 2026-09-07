@@ -46,7 +46,7 @@ code, and frozen. A full, code-mapped register is in
 
 ## What exists today — honestly
 
-This repository is the **self-contained Rust core**: 62 crates indexed by
+This repository is the **self-contained Rust core**: 74 crates indexed by
 `tools/mininet_nav.py`, with no external
 dependency on any single company's infrastructure to keep running. Nothing
 here is ready for real people, real money, or real custody yet — and it says
@@ -364,11 +364,11 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0451`
-   (`D-0451`, auditability as a self-disclosure rather than a transparent
-   payment format, is the newest at the time of this edit; the Mininet Node
-   Appliance deployment profile this line previously credited to `D-0439` is
-   `D-0446` — `D-0439` is the identity-bound replica-registration decision),
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0465`
+   (`D-0465`, a persistent witness journal closing design doc Phase 6, is the
+   newest at the time of this edit; the Mininet Node Appliance deployment
+   profile this line previously credited to `D-0439` is `D-0446` — `D-0439`
+   is the identity-bound replica-registration decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
    privacy/cost-doctrine track's `D-0300`–, and the edge/provider-layer
    track's `D-0400`– — see the log's "Decision-number allocation across

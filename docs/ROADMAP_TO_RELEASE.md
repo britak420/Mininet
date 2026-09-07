@@ -250,12 +250,14 @@ and handlers, no network yet — and extends D-0459's fix to the signing
 side: `WitnessJournal::observe_declared` reads the policy from a
 submitted KEL's own history rather than accepting one as a parameter, so
 `SubmitEventForWitnessingRequest` has no field a forged policy could live
-in.
-**Closed by:** the remaining phases — gossip (5), persistence (6),
-witness rotation (7) — plus a real call site that *gates* an authority
-decision on an assurance level. That last one is a founder-facing policy
-call: which governance action requires which minimum level is not an
-engineering choice.
+in. **D-0465** ships Phase 6: new crate `mini-witness-service`'s
+`PersistentWitnessJournal` gives `WitnessJournal` durable,
+crash-recoverable state by replaying accepted observations through
+`WitnessJournal::observe_declared` on open, plus an identity-count quota.
+**Closed by:** the remaining phases — gossip (5), witness rotation (7) —
+plus a real call site that *gates* an authority decision on an assurance
+level. That last one is a founder-facing policy call: which governance
+action requires which minimum level is not an engineering choice.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap
