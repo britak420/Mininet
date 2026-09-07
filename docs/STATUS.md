@@ -148,7 +148,15 @@ given time.
   over the existing encrypted `Channel`. No peer or archive becomes a trust
   anchor. Honest limits: static validator set only; no historical set-transition
   or weak-subjectivity/long-range rule; exact transparent state capped at 8 MiB
-  and one response at one bearer frame; no chunked Merkle state proofs,
+  and one response at one bearer frame. **Chunked Merkle state transfer now
+  exists (D-0469):** `mini_consensus::chunked_snapshot`'s `SnapshotManifest`/
+  `SnapshotChunker`/`SnapshotAssembler` split the same execution state into
+  caller-chosen 1 KiB–1 MiB chunks, each independently verifiable against a
+  Merkle root before the receiver trusts it, so a weak or lossy-linked device
+  can re-fetch a single bad chunk instead of discarding a whole multi-megabyte
+  transfer — the real, checked authority is still, unchanged,
+  `header.state_root == state.commitment()` at full reassembly. Not wired to
+  any transport (`ChunkRequest`/`ChunkResponse` cross no socket yet) and no
   discovery/retry/multi-peer/eclipse policy, external audit, or physical
   weakest-device measurements. State-sync sockets have local I/O deadlines, but
   peer choice and retry remain host policy. The equivocation evidence is no longer silently dropped by

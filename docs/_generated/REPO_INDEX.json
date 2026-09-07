@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 74,
-    "files": 920,
+    "files": 921,
     "headings": 3186,
-    "rust_symbols": 9125
+    "rust_symbols": 9189
   },
   "crates": {
     "did-mini": {
@@ -1764,7 +1764,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 25115,
+      "bytes": 25136,
       "group": "root",
       "headings": [
         {
@@ -1804,7 +1804,7 @@
         },
         {
           "level": 2,
-          "line": 401,
+          "line": 402,
           "text": "License"
         }
       ],
@@ -1834,9 +1834,9 @@
         "path",
         "switch"
       ],
-      "lines": 405,
+      "lines": 406,
       "path": "README.md",
-      "sha256": "862beefae68a38456ec69385b765e816d01f6dc7b377ca59be25c8e22917516e",
+      "sha256": "a04c1d5ac152b08b7016890e040fb451226ed3435f8bf7f01d21b0d0e395d272",
       "symbols": [],
       "title": "Mininet"
     },
@@ -17488,6 +17488,358 @@
       "title": "use mini_chain::{BlockHeader, QuorumCertificate, Vote, MAX_VOTES_PER_CERTIFICATE};"
     },
     {
+      "bytes": 36010,
+      "group": "crate:mini-consensus",
+      "headings": [],
+      "keywords": [
+        "chunk",
+        "buf",
+        "to_wire_bytes",
+        "manifest",
+        "state",
+        "snapshot",
+        "one",
+        "const",
+        "from_wire_bytes",
+        "consensussnapshot",
+        "transfer",
+        "own",
+        "its",
+        "merkle",
+        "what",
+        "same",
+        "chunks",
+        "peer",
+        "today",
+        "domain",
+        "leaf_prefix",
+        "node_prefix",
+        "min_chunk_bytes",
+        "snapshotmanifest"
+      ],
+      "lines": 913,
+      "path": "crates/mini-consensus/src/chunked_snapshot.rs",
+      "sha256": "7f55c58a7a005a7c8fcaff259e56474337794339243ff445d0222c088e0a0156",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 68,
+          "name": "DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 69,
+          "name": "LEAF_PREFIX"
+        },
+        {
+          "kind": "const",
+          "line": 70,
+          "name": "NODE_PREFIX"
+        },
+        {
+          "kind": "const",
+          "line": 75,
+          "name": "MIN_CHUNK_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 79,
+          "name": "MAX_CHUNK_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 83,
+          "name": "MAX_CHUNKS"
+        },
+        {
+          "kind": "fn",
+          "line": 85,
+          "name": "leaf_hash"
+        },
+        {
+          "kind": "fn",
+          "line": 92,
+          "name": "node_hash"
+        },
+        {
+          "kind": "fn",
+          "line": 104,
+          "name": "build_levels"
+        },
+        {
+          "kind": "fn",
+          "line": 125,
+          "name": "proof_depth"
+        },
+        {
+          "kind": "fn",
+          "line": 135,
+          "name": "prove"
+        },
+        {
+          "kind": "struct",
+          "line": 150,
+          "name": "ChunkProof"
+        },
+        {
+          "kind": "impl",
+          "line": 154,
+          "name": "ChunkProof"
+        },
+        {
+          "kind": "fn",
+          "line": 160,
+          "name": "verify"
+        },
+        {
+          "kind": "fn",
+          "line": 185,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 200,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "struct",
+          "line": 228,
+          "name": "SnapshotManifest"
+        },
+        {
+          "kind": "impl",
+          "line": 241,
+          "name": "SnapshotManifest"
+        },
+        {
+          "kind": "fn",
+          "line": 242,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 257,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 293,
+          "name": "check_shape"
+        },
+        {
+          "kind": "fn",
+          "line": 311,
+          "name": "chunk_len"
+        },
+        {
+          "kind": "struct",
+          "line": 323,
+          "name": "ChunkResponse"
+        },
+        {
+          "kind": "impl",
+          "line": 329,
+          "name": "ChunkResponse"
+        },
+        {
+          "kind": "fn",
+          "line": 330,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 342,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "struct",
+          "line": 363,
+          "name": "ChunkRequest"
+        },
+        {
+          "kind": "impl",
+          "line": 369,
+          "name": "ChunkRequest"
+        },
+        {
+          "kind": "fn",
+          "line": 370,
+          "name": "to_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 379,
+          "name": "from_wire_bytes"
+        },
+        {
+          "kind": "struct",
+          "line": 403,
+          "name": "SnapshotChunker"
+        },
+        {
+          "kind": "impl",
+          "line": 409,
+          "name": "SnapshotChunker"
+        },
+        {
+          "kind": "fn",
+          "line": 410,
+          "name": "new"
+        },
+        {
+          "kind": "fn",
+          "line": 444,
+          "name": "manifest"
+        },
+        {
+          "kind": "fn",
+          "line": 450,
+          "name": "chunk"
+        },
+        {
+          "kind": "struct",
+          "line": 469,
+          "name": "SnapshotAssembler"
+        },
+        {
+          "kind": "impl",
+          "line": 475,
+          "name": "SnapshotAssembler"
+        },
+        {
+          "kind": "fn",
+          "line": 483,
+          "name": "new"
+        },
+        {
+          "kind": "fn",
+          "line": 504,
+          "name": "manifest"
+        },
+        {
+          "kind": "fn",
+          "line": 510,
+          "name": "missing_indices"
+        },
+        {
+          "kind": "fn",
+          "line": 518,
+          "name": "is_complete"
+        },
+        {
+          "kind": "fn",
+          "line": 530,
+          "name": "accept_chunk"
+        },
+        {
+          "kind": "fn",
+          "line": 559,
+          "name": "finish"
+        },
+        {
+          "kind": "mod",
+          "line": 580,
+          "name": "tests"
+        },
+        {
+          "kind": "struct",
+          "line": 592,
+          "name": "Directory"
+        },
+        {
+          "kind": "impl",
+          "line": 594,
+          "name": "ValidatorOracle"
+        },
+        {
+          "kind": "fn",
+          "line": 595,
+          "name": "kel"
+        },
+        {
+          "kind": "fn",
+          "line": 605,
+          "name": "snapshot_and_validators"
+        },
+        {
+          "kind": "fn",
+          "line": 671,
+          "name": "a_manifest_round_trips_over_the_wire"
+        },
+        {
+          "kind": "fn",
+          "line": 681,
+          "name": "full_chunk_by_chunk_transfer_reassembles_into_the_same_chain"
+        },
+        {
+          "kind": "fn",
+          "line": 709,
+          "name": "chunks_may_arrive_out_of_order_and_re_delivery_is_harmless"
+        },
+        {
+          "kind": "fn",
+          "line": 739,
+          "name": "missing_indices_reports_exactly_what_is_still_needed"
+        },
+        {
+          "kind": "fn",
+          "line": 754,
+          "name": "a_tampered_chunk_fails_its_own_proof"
+        },
+        {
+          "kind": "fn",
+          "line": 774,
+          "name": "a_proof_from_the_wrong_index_does_not_verify"
+        },
+        {
+          "kind": "fn",
+          "line": 796,
+          "name": "a_short_final_chunk_is_the_exact_remainder_not_padded_or_truncated"
+        },
+        {
+          "kind": "fn",
+          "line": 808,
+          "name": "finish_before_every_chunk_is_accepted_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 825,
+          "name": "a_manifest_with_a_non_quorate_qc_is_rejected_before_any_chunk_is_fetched"
+        },
+        {
+          "kind": "fn",
+          "line": 834,
+          "name": "a_chunk_index_out_of_range_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 853,
+          "name": "a_manifest_whose_declared_chunk_count_disagrees_with_its_own_math_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 865,
+          "name": "chunk_size_outside_the_allowed_range_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 872,
+          "name": "a_chunk_request_round_trips_and_rejects_trailing_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 886,
+          "name": "truncation_of_a_chunk_response_at_every_length_is_rejected_never_panics"
+        },
+        {
+          "kind": "fn",
+          "line": 896,
+          "name": "a_single_chunk_snapshot_still_produces_a_valid_zero_depth_proof"
+        }
+      ],
+      "title": "use mini_chain::{BlockHeader, QuorumCertificate, ValidatorOracle, ValidatorSet};"
+    },
+    {
       "bytes": 8438,
       "group": "crate:mini-consensus",
       "headings": [],
@@ -17986,7 +18338,7 @@
       "title": "use mini_chain::{verify_vote, ValidatorOracle, Vote, VoteKind};"
     },
     {
-      "bytes": 9218,
+      "bytes": 9886,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
@@ -18015,78 +18367,83 @@
         "same",
         "votes"
       ],
-      "lines": 161,
+      "lines": 173,
       "path": "crates/mini-consensus/src/lib.rs",
-      "sha256": "eb899640c07907174deef04d492026d7b745b2065714fded41ab1cc8502d76e7",
+      "sha256": "53fa0ff21066bf7f06cc59bdf3868e8dbe68bd91d8104e9388ebe7e8481e5b2c",
       "symbols": [
         {
           "kind": "mod",
-          "line": 126,
+          "line": 133,
           "name": "catchup"
         },
         {
           "kind": "mod",
-          "line": 127,
-          "name": "consequence"
-        },
-        {
-          "kind": "mod",
-          "line": 128,
-          "name": "discovery"
-        },
-        {
-          "kind": "mod",
-          "line": 129,
-          "name": "error"
-        },
-        {
-          "kind": "mod",
-          "line": 130,
-          "name": "evidence"
-        },
-        {
-          "kind": "mod",
-          "line": 131,
-          "name": "node"
-        },
-        {
-          "kind": "mod",
-          "line": 132,
-          "name": "round"
-        },
-        {
-          "kind": "mod",
-          "line": 133,
-          "name": "snapshot"
-        },
-        {
-          "kind": "mod",
           "line": 134,
-          "name": "state_sync"
+          "name": "chunked_snapshot"
         },
         {
           "kind": "mod",
           "line": 135,
-          "name": "store"
+          "name": "consequence"
         },
         {
           "kind": "mod",
           "line": 136,
-          "name": "validator_channel"
+          "name": "discovery"
         },
         {
           "kind": "mod",
           "line": 137,
-          "name": "wire"
+          "name": "error"
+        },
+        {
+          "kind": "mod",
+          "line": 138,
+          "name": "evidence"
+        },
+        {
+          "kind": "mod",
+          "line": 139,
+          "name": "node"
         },
         {
           "kind": "mod",
           "line": 140,
-          "name": "snapshot_sync_tests"
+          "name": "round"
+        },
+        {
+          "kind": "mod",
+          "line": 141,
+          "name": "snapshot"
         },
         {
           "kind": "mod",
           "line": 142,
+          "name": "state_sync"
+        },
+        {
+          "kind": "mod",
+          "line": 143,
+          "name": "store"
+        },
+        {
+          "kind": "mod",
+          "line": 144,
+          "name": "validator_channel"
+        },
+        {
+          "kind": "mod",
+          "line": 145,
+          "name": "wire"
+        },
+        {
+          "kind": "mod",
+          "line": 148,
+          "name": "snapshot_sync_tests"
+        },
+        {
+          "kind": "mod",
+          "line": 150,
           "name": "net"
         }
       ],
@@ -76429,7 +76786,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1107929,
+      "bytes": 1112965,
       "group": "docs",
       "headings": [
         {
@@ -76859,9 +77216,9 @@
         "first",
         "witness"
       ],
-      "lines": 18371,
+      "lines": 18453,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "142e988873531fc51e92784c88a9aefd9e6a70fa21db7d94d45811c02b28a8e7",
+      "sha256": "2b7171a307d3013d4c9ac6b5afe53166eae357978a9d74a12d7b240ca7ceaf91",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -78192,7 +78549,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 166772,
+      "bytes": 167382,
       "group": "docs",
       "headings": [
         {
@@ -78217,87 +78574,87 @@
         },
         {
           "level": 2,
-          "line": 167,
+          "line": 175,
           "text": "2. Personhood"
         },
         {
           "level": 2,
-          "line": 223,
+          "line": 231,
           "text": "3. Identity & key custody"
         },
         {
           "level": 2,
-          "line": 369,
+          "line": 377,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 759,
+          "line": 767,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 806,
+          "line": 814,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1028,
+          "line": 1036,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1222,
+          "line": 1230,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1283,
+          "line": 1291,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1313,
+          "line": 1321,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1640,
+          "line": 1648,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2118,
+          "line": 2126,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2209,
+          "line": 2217,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2289,
+          "line": 2297,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2355,
+          "line": 2363,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2372,
+          "line": 2380,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2408,
+          "line": 2416,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2473,
+          "line": 2481,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -78327,9 +78684,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2508,
+      "lines": 2516,
       "path": "docs/STATUS.md",
-      "sha256": "dcfd147cc3fb06f2c8ae33e013d37cd78cc77513d081a0cd59608bf4ac815a6f",
+      "sha256": "5d49532dd5a054211e146ab5514f5a6211b64c8e09c138ccf33ce9b7c0de4e9c",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -94559,7 +94916,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 70242,
+      "bytes": 71921,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -94588,9 +94945,9 @@
         "independently",
         "both"
       ],
-      "lines": 1095,
+      "lines": 1113,
       "path": "governance/work-claims.json",
-      "sha256": "3ccd668115d225da6c0045ec80fc9357b99ecaf58025068241b2d57ad61de668",
+      "sha256": "fa638d76c467e57e706bf393a115ffd6e27f7aef553d3356af64c5232a011216",
       "symbols": [],
       "title": "{"
     },

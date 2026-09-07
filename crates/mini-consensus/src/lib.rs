@@ -82,11 +82,18 @@
 //!   D-0207 adds QC-bound exact execution snapshots, a local journaled archive,
 //!   bounded recent history, pruning, restart recovery, and encrypted
 //!   snapshot-plus-suffix transfer. The receiver verifies every QC and state
-//!   commitment locally; the peer/archive has no authority. One response is
-//!   limited to one bearer frame and one exact state is capped at 8 MiB.
-//!   Historical validator-set transitions, long-range/weak-subjectivity rules,
-//!   chunked Merkle state transfer, peer selection/retry, and physical weakest-
-//!   device benchmarks remain separate work.
+//!   commitment locally; the peer/archive has no authority. One
+//!   [`snapshot::ConsensusSnapshot`] response is still limited to one bearer
+//!   frame and one exact state is capped at 8 MiB, but [`chunked_snapshot`]
+//!   now gives a receiver a second, chunked path for exactly that case:
+//!   a [`chunked_snapshot::SnapshotManifest`] plus Merkle-authenticated
+//!   [`chunked_snapshot::ChunkResponse`]s let a weak/lossy-linked device
+//!   verify and reassemble a state one small piece at a time, re-fetching
+//!   only a single bad chunk rather than the whole transfer — not yet wired
+//!   to any real transport or to multi-peer sourcing. Historical
+//!   validator-set transitions, long-range/weak-subjectivity rules, peer
+//!   selection/retry, and physical weakest-device benchmarks remain
+//!   separate work.
 //! - **[`net::TcpMesh`] is transport, not discovery.** It still assumes
 //!   every peer's address is known and the mesh is fully connected (or
 //!   connected via [`net::TcpMesh::establish_topology`]'s partial-mesh
@@ -124,6 +131,7 @@
 #![warn(missing_debug_implementations)]
 
 mod catchup;
+mod chunked_snapshot;
 mod consequence;
 mod discovery;
 mod error;
@@ -142,6 +150,10 @@ mod snapshot_sync_tests;
 pub mod net;
 
 pub use catchup::{CatchupRequest, CatchupResponse, FinalizedBlock, MAX_CATCHUP_BLOCKS};
+pub use chunked_snapshot::{
+    ChunkProof, ChunkRequest, ChunkResponse, SnapshotAssembler, SnapshotChunker, SnapshotManifest,
+    MAX_CHUNKS, MAX_CHUNK_BYTES, MIN_CHUNK_BYTES,
+};
 pub use consequence::{EquivocatorRegistry, RecordOutcome};
 pub use discovery::{pex_over_tcp, serve_pex_over_tcp};
 pub use error::{ConsensusError, Result};

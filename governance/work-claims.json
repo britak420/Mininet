@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-05",
+  "updated_at": "2026-09-07",
   "claims": [
     {
       "issue": 122,
@@ -1074,7 +1074,7 @@
     },
     {
       "issue": 92,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/kel-gossip-sync-carrier",
       "lease_expires": "2026-09-14",
@@ -1088,7 +1088,25 @@
       "decision_ids": [
         "D-0467"
       ],
-      "notes": "D-0467: KEL head gossip summaries ride ordinary sync traffic, closing design doc Phase 5 (both halves). New module mini_sync::gossip ships gossip_summary_carrier (wraps a KelHeadSummary as an ordinary mini-objects Object, GOSSIP_SUMMARY_CARRIER, mirroring kel_carrier's own KEL-wrapping pattern) and compare_gossip_carrier (decodes an ingested carrier and compares it against the receiver's own KelCache -- the same locally-cached state mini_sync::Ingest already maintains). Rides the existing MINI/SYNC1 reconciliation protocol with zero new wire messages; not self-certifying like a KEL carrier, so it gets no special Ingest::check branch -- it flows through the same ordinary author-provenance path every object already uses. No new evidence-retrieval request type (reuses D-0464's protocol / mini_sync::request_retrieval); turning a Disagreement/Ahead outcome into an automatic fetch is left as a host policy choice, matching mini_consensus::discovery::pex_over_tcp's own never-auto-wired precedent. 11 tests. Coordination evidence only, not approval or authority."
+      "notes": "D-0467: KEL head gossip summaries ride ordinary sync traffic, closing design doc Phase 5 (both halves). New module mini_sync::gossip ships gossip_summary_carrier (wraps a KelHeadSummary as an ordinary mini-objects Object, GOSSIP_SUMMARY_CARRIER, mirroring kel_carrier's own KEL-wrapping pattern) and compare_gossip_carrier (decodes an ingested carrier and compares it against the receiver's own KelCache -- the same locally-cached state mini_sync::Ingest already maintains). Rides the existing MINI/SYNC1 reconciliation protocol with zero new wire messages; not self-certifying like a KEL carrier, so it gets no special Ingest::check branch -- it flows through the same ordinary author-provenance path every object already uses. No new evidence-retrieval request type (reuses D-0464's protocol / mini_sync::request_retrieval); turning a Disagreement/Ahead outcome into an automatic fetch is left as a host policy choice, matching mini_consensus::discovery::pex_over_tcp's own never-auto-wired precedent. 11 tests. Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #324 merged.",
+      "pull_request": 324
+    },
+    {
+      "issue": 45,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/chunked-snapshot-transfer",
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/mini-consensus/",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md",
+        "README.md"
+      ],
+      "decision_ids": [
+        "D-0469"
+      ],
+      "notes": "D-0469: chunked, Merkle-authenticated execution-state transfer, closing D-0207's own named \"chunked Merkle state transfer\" gap (roadmap #45). New module mini_consensus::chunked_snapshot ships SnapshotManifest (same BlockHeader/QuorumCertificate finality binding as ConsensusSnapshot, plus a Merkle root over the encoded state split into caller-chosen fixed-size chunks), SnapshotChunker (builds the manifest, serves a chunk plus its proof), and SnapshotAssembler (verifies the manifest's QC before fetching any chunk, verifies each chunk against chunks_root as it arrives, and on finish reassembles/decodes/checks header.state_root == state.commitment() unchanged -- the manifest's chunks_root is deliberately not a new trust anchor, only an operational aid for early bad-chunk detection and future multi-peer sourcing). Reimplements the RFC 6962-style leaf/node Merkle construction mini_spacetime::merkle already uses, locally, rather than adding a cross-domain mini-consensus -> mini-spacetime dependency for one generic utility whose proof type has no wire codec yet anyway. Not wired to any transport: ChunkRequest/ChunkResponse cross no socket in this PR. 15 tests. Coordination evidence only, not approval or authority."
     }
   ]
 }
