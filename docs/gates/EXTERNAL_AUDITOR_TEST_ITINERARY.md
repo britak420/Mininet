@@ -123,6 +123,31 @@ Run real cohort/field exercises with a documented attacker budget. Measure the c
 
 ---
 
+## Track C2 — identity core: KEL, pre-rotation, delegation and recovery — P0
+
+This is deliberately separate from Track E. Track E asks whether **freshness and witness assurance** work; this track asks whether the underlying `did-mini` identity core is implemented correctly even when freshness is perfect.
+
+Review and attack:
+- inception and SCID derivation;
+- key-event canonical encoding and signature binding;
+- pre-rotation commitment correctness;
+- threshold rotation semantics, including M-of-N transitions;
+- delegated-device capability scoping and revocation;
+- rejection of delegated identities acting as roots/delegators;
+- recovery from KEL + escrowed next-key material;
+- stale/replayed recovery material;
+- device loss, compromise and replacement;
+- pairwise/scoped pseudonym separation;
+- key zeroization/redaction and secret-material lifetime;
+- cross-suite/PQ migration boundaries where implemented;
+- malformed KEL parsing, sequence gaps, branch conflicts and canonicalization.
+
+**PASS:** an independent identity/security reviewer finds no path for a non-controller, stale device, delegated device, recovery helper, or malformed KEL to acquire root authority; recovery does not erase or bypass duplicity evidence; pre-rotation/threshold logic cannot brick or silently weaken future control.
+
+**FAIL:** any single helper/device/witness can rotate, recover, delegate or impersonate the root outside the explicit threshold/controller rules.
+
+---
+
 ## Track D — consensus, execution, state sync and validator networking — P0
 
 Independently model and test:
@@ -241,14 +266,13 @@ Must cover securities, money transmission, AML/KYC constraints, sanctions, tax, 
 
 ---
 
-## Track J — reproducible builds and software supply chain — P0 for release
+## Track J — reproducible builds — P0 for release
 
 Independently reproduce the actual release artifact on K independently administered builders/hosts.
 
 Verify:
 - pinned source revision and lockfile;
 - isolated builder policy;
-- dependency provenance/advisories/licenses;
 - byte-identical or formally explained reproducibility output;
 - release transparency/no rollback/equivocation checks;
 - owner-approved install and automatic rollback;
@@ -260,9 +284,49 @@ Verify:
 
 ---
 
+## Track J2 — dependency and software-supply-chain provenance — P0 for release
+
+Treat dependency compromise as a separate attack surface rather than a footnote to reproducibility. A perfectly reproducible malicious dependency is still malicious.
+
+Independently verify:
+- complete dependency/SBOM inventory from the exact release lockfile;
+- registry/git source provenance and immutable revision pinning where applicable;
+- dependency names against typosquatting/lookalike risk;
+- maintainer/repository ownership changes on security-critical dependencies where evidence is available;
+- active and historical advisories/CVEs, including transitive dependencies;
+- licenses against policy;
+- build scripts/proc-macros/native code/unsafe code with elevated review attention;
+- GitHub Actions and CI dependencies pinned to immutable commits;
+- no hidden package-manager/network fetch outside the locked dependency graph;
+- an emergency procedure for a compromised dependency that does not require one permanent trusted vendor or maintainer.
+
+Run the repository’s existing advisory/deny tooling, but do not treat “zero current advisories” as proof of provenance safety. Spot-check high-impact dependencies manually and record the evidence source/date.
+
+**PASS:** the exact release dependency graph is enumerated, reproducible, policy-compliant and independently reviewed for known compromise/provenance risks; no unpinned executable CI/build dependency can silently change the release.
+
+**FAIL:** a security-critical dependency can change without changing the governed source/lock evidence, or a known vulnerable/compromised dependency remains in the production artifact without an explicit reviewed disposition.
+
+---
+
 ## Track K — governance decentralization / founder-removal drill — P0 before claiming no owner
 
 The current Founder-guarded GitHub bootstrap is a known central control point. Test its removal, not its intentions.
+
+### K0. Interim Founder-account operational security — required while D-0083 remains active
+
+This does **not** make founder-only authority acceptable; it reduces the damage window until that authority is removed.
+
+An independent operational-security reviewer should verify, without publishing secrets:
+- phishing-resistant multi-factor authentication/hardware-key protection on the controlling GitHub account;
+- recovery/break-glass paths that do not depend on one device or one undocumented secret;
+- minimal long-lived tokens/app credentials and rapid revocation capability;
+- repository security settings/rulesets match the documented bootstrap policy;
+- no bypass actor or forgotten automation can silently write `main` or release artifacts;
+- a compromise-response procedure exists and has been rehearsed.
+
+**PASS for K0 only:** the temporary control point is hardened and recoverable. **K0 can never substitute for K1 below.**
+
+### K1. Remove the control point
 
 Required evidence:
 1. D-0083 is sunset and the operating-state record is no longer active.
