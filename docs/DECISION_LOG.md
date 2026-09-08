@@ -18919,3 +18919,167 @@ policy call named since Phase 3.
 **Supersedes / superseded by:** extends D-0468; supersedes nothing.
 Closes §17.2+§17.3 of Phase 7 of `docs/design/
 kel-witness-receipts-and-duplicity-gossip.md`'s committed plan.
+
+### D-0474 — Validator-verification model for shielded-spend chain validity  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** D-0457 (`mini_execution::NullifierRecord`,
+the gap this closes), D-0455 (`mini_private_payment::verify`, the
+verification this composes), roadmap R8, roadmap R12/#72 (external
+cryptography audit — still gates any of this carrying real value), the
+PR #321 audit reconstruction pack (`docs/audits/EXTERNAL_AUDIT_MASTER_
+REPORT.md`/`AUDIT_EVIDENCE_INDEX.md`, this row's most-cited open gap),
+Directive 16, P1 (the voice/value wall), [#92](../../issues/92).
+
+**Decision:** D-0457 shipped real chain-backed ordering for shielded
+spends but named the remaining hole explicitly: "the chain finalizes a
+key image on a proposer's say-so... Closing it needs either a succinct
+proof the chain can cheaply verify, or a validator set that does verify
+claims and is measured for it." This decision builds the second
+direction. `mini_execution::ClaimVerifier` is a new trait, defined where
+`NullifierRecord` already lives, operating only on that type and raw
+`&[u8]` — no new dependency, no new trust surface `mini-execution`
+itself introduces. A caller (a validator's own process) implements it
+and injects it; `mini-execution`'s and `mini-consensus`'s own crates
+never learn what a claim even is.
+
+**Where it plugs in and why not everywhere:** `apply_block_with_verifier`/
+`LedgerChain::apply_finalized_block_with_verifier` are new sibling
+functions — `apply_block`/`apply_finalized_block` are now thin
+`None`-forwarding wrappers, so every existing call site across
+`mini-execution`'s own tests, `mini-consensus`, and `mini-contribution`'s
+`alice_bob_carol.rs` integration test needed zero changes.
+`mini_consensus::ConsensusNode` gained an optional `claim_verifier` field
+(via a new `with_claim_verifier` builder, not a `NodeConfig` field — this
+avoids touching the ~11 existing `NodeConfig { .. }` struct literals
+across the crate's own tests) threaded into exactly three call sites:
+`validate_proposal` (the prevote decision), `build_proposal` (this node's
+own proposal, so a verifying proposer never proposes a claim it cannot
+itself verify either), and `commit` (this node's own live-height
+finalization). It is deliberately **not** threaded into
+`verify_state_sync`'s two catch-up paths, which apply already-QC'd
+historical blocks: those already trust `verify_finality`'s formed quorum
+certificate as sufficient proof a height is canonical, and re-deriving
+local claim-verification agreement for history predating this node's own
+participation would make a node unable to ever catch up past a claim it
+lacks evidence for — a liveness regression this decision does not accept.
+The gate applies to a node's own live round, not to replaying settled
+history.
+
+**Why this doesn't touch `mini-chain` at all:** `mini-chain` is pure
+vote-arithmetic and identity/signature verification — `BlockHeader`
+carries only hashes, `QuorumCertificate`/`verify_finality` never see a
+block body. There is no defensible place for claim-content validation
+there without contradicting its own stated non-goal (state-machine
+execution is explicitly out of scope). The extension point belongs in
+`mini-execution`, which already owns `NullifierRecord` and already states
+"the chain orders the results" as its intended design.
+
+**Why the concrete verifier is a new crate (`mini-shielded-verify`), not
+part of an existing one:** the wall this whole decision exists to respect
+(`mini-private-payment` reaches `mini-value`; `mini-execution` reaches
+`mini-chain`; no dependency edge may connect the two directions) means
+whatever composes `ClaimVerifier` with `mini_private_payment::verify`
+must depend on both halves — a new crate is the only place that can do so
+without either existing crate ever depending on it back.
+`mini-shielded-verify`'s two exports: `ClaimEvidencePool` (a local,
+non-canonical `claim_digest -> claim wire bytes` store — never part of
+the canonical block body, matching D-0457's own reasoning for why claim
+content cannot cross into consensus's wire protocol) and
+`ShieldedClaimVerifier` (looks a claim up by digest, decodes it,
+verifies it, and confirms the result's own key images and transcript
+digest exactly match what it is being asked to vouch for — never on the
+claim's mere presence in the pool).
+
+**Why the evidence pool computes its own digest rather than trusting a
+caller-supplied one:** `ClaimEvidencePool::insert` decodes the claim
+bytes and stores them under `PrivatePaymentClaim::transcript_digest()`'s
+own result, not whatever key a caller asks to store under. A later
+lookup by digest can therefore never retrieve bytes that don't actually
+belong to that digest — closing the exact class of confusion a
+caller-chosen key would invite.
+
+**What this does not do, stated plainly:**
+
+- **No claim-evidence gossip protocol.** How full claim bytes actually
+  reach a validator (a dedicated topic, a request/response protocol, an
+  existing mempool) is not this crate's job — only the shape a validator's
+  own evidence-gathering component must fill (`ClaimEvidencePool::insert`).
+- **No pruning/eviction policy** for the evidence pool. A pool that only
+  ever grows is a real operational concern for a long-running validator,
+  named rather than pretended away.
+- **No accountability/measurement layer.** R8's own phrase is "verifies
+  claims and *is measured for it*" — this decision ships the
+  verification, not a trail recording which validators actually ran it.
+  An evidence structure analogous to `mini-consensus::evidence`'s
+  equivocation proofs (D-0460) — itself the precedent for "verifiable
+  evidence, sanction by exclusion, never an economic penalty" — is the
+  natural shape for that follow-up, not built here.
+- **No succinct-proof alternative.** R8 named two directions; this is
+  one of them. A chain that could cheaply verify a compact proof instead
+  of trusting a validator-run verifier remains a separate, unbuilt path.
+- **No wiring into `net::TcpMesh::establish`'s own default behavior** —
+  same honest limit already stated for D-0207/D-0460/D-0462/D-0463: a
+  real, tested, callable primitive a caller reaches for, not a capability
+  the mesh performs automatically.
+- **No new cryptography.** `mini_private_payment::verify` is unchanged,
+  called exactly as any other caller would. Still gated behind
+  D-0047/#72 before any of this carries real value.
+
+**Constitutional impact:** none new. The voice/value wall (P1, Directive
+16) holds exactly as before — `mini-execution`, `mini-consensus`, and
+`mini-chain`'s own `Cargo.toml`s gained no new dependency; only the new
+leaf crate `mini-shielded-verify` links both halves, and nothing
+upstream of it ever links it back. No typed-domain violation: `verify_
+claim(&self, digest: &[u8; 32], group: &[NullifierRecord]) -> bool` is a
+specific, named request type over exactly the material a caller already
+has, not a generic authority-shaped signature.
+
+**Implementation status:** shipped —
+`crates/mini-execution/src/nullifier.rs` (`ClaimVerifier` trait),
+`crates/mini-execution/src/state.rs` (`apply_block_with_verifier`,
+`apply_nullifiers` gated), `crates/mini-execution/src/chain.rs`
+(`LedgerChain::apply_finalized_block_with_verifier`),
+`crates/mini-execution/src/lib.rs` (re-exports),
+`crates/mini-consensus/src/node.rs` (`claim_verifier` field,
+`with_claim_verifier` builder, three call sites updated), new crate
+`crates/mini-shielded-verify/` (`ClaimEvidencePool`,
+`ShieldedClaimVerifier`). 6 new tests in
+`crates/mini-execution/tests/shielded_ordering.rs` (state-level gating:
+unverified drop, verified finalization, no-verifier-configured parity
+with the pre-existing function, one verified group finalizing alongside
+an unverified sibling, verification never bypassing the pre-existing
+takeability check), 2 new tests in
+`crates/mini-execution/tests/end_to_end.rs` (chain-level: a configured
+verifier's own recomputation produces `StateRootMismatch` against an
+unverifying proposer's header, and finalizes normally when it can
+verify), 2 new tests in `crates/mini-consensus/src/node.rs`
+(consensus-level: an unverifiable shielded spend is prevoted `nil`, a
+verifiable one is prevoted normally — the same `nil` treatment the
+existing deterministic-timestamp tests already prove for a different
+invalidity), 4 unit tests plus 3 real-cryptography integration tests in
+`mini-shielded-verify` (a genuine claim — real stealth derivation, a
+real MLSAG spend proof, a real Bulletproof range proof — verified end to
+end; a tampered claim rejected under its own resulting digest; wrong
+network id rejected; malformed bytes rejected before storage; no
+evidence never trusted).
+
+**Failure point:** a validator that configures a `ClaimVerifier` but
+whose evidence pool never actually receives a given claim's bytes
+behaves identically to one that received a forged claim — both refuse
+to finalize, both prevote `nil`. This is the correct fail-closed
+direction (never finalizing an unverifiable claim), but it means
+evidence *availability*, not just correctness, now gates a verifying
+validator's liveness — exactly the gap named above as the required
+claim-evidence gossip protocol. Until that exists, a validator running
+this feature is trading unconditional liveness for unconditional
+correctness on shielded spends; running with `None` (the default)
+keeps today's behavior.
+
+**Required follow-up:** claim-evidence gossip/retrieval, an
+accountability trail for which validators verified, and the
+succinct-proof alternative all remain open, as does R8's own
+still-unaddressed "measured for it" half. None of the three is this
+decision's scope — each is independently named above and in the
+roadmap.
+
+**Supersedes / superseded by:** extends D-0457; supersedes nothing.

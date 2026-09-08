@@ -405,17 +405,30 @@ ever seen, arriving through state sync.
 
 ### The hole this leaves, stated plainly
 
-The chain finalizes a key image **on a proposer's say-so**. It does not check
-that a valid claim produced it, because it cannot — that is the cryptography
-it deliberately cannot see. A Byzantine proposer can burn an output that is
-not theirs by naming its key image, and honest nodes will finalize it.
+The chain finalizes a key image **on a proposer's say-so** by default — it
+does not check that a valid claim produced it, because it cannot, that is
+the cryptography it deliberately cannot see. A Byzantine proposer can burn
+an output that is not theirs by naming its key image, and an honest node
+running no verifier will finalize it.
 
 The *ordering* is now real, which is what M3 requires and what nothing
-implemented before. The ledger's *contents* are not yet trustworthy. Closing
-that needs a validity rule the chain can check — a succinct proof, or a
-validator set that verifies claims and is accountable for it — and that is
-R8's territory. Both module docs say so from their own side rather than
-leaving it to this document.
+implemented before. Closing the *contents* half needed a validity rule the
+chain can check — a succinct proof, or a validator set that verifies claims
+and is accountable for it. **D-0474 built the second one.**
+`mini_execution::ClaimVerifier` is a caller-injected trait — still opaque to
+this crate, still only naming `(Vec<u8>, [u8;32])`-shaped surface — that
+lets a validator's own process refuse to prevote, build, or commit a block
+whose shielded spends it cannot independently verify. The wall in the
+diagram above is unchanged: `mini-execution`/`mini-consensus`/`mini-chain`
+gained no new dependency; the concrete verifier composing
+`mini_private_payment::verify` lives in its own new crate,
+`mini-shielded-verify`, which links both halves precisely because nothing
+upstream of it ever links `mini-shielded-verify` back. This is opt-in —
+`Option<&dyn ClaimVerifier>`, `None` reproducing the pre-D-0474 trust-the-
+proposer behavior exactly — so the succinct-proof direction remains
+un-foreclosed, and so does the "measured for it" half of R8's own phrase: no
+accountability trail yet records which validators actually ran
+verification.
 
 ### What keeps the two halves honest
 
@@ -484,7 +497,7 @@ would invite reading the first as innocent.
 - Binding a disclosure to a `did:mini` root, left to callers in D-0451 to keep an identity dependency out of a value crate.
 - Fitting `AGE_WEIGHTS` to real spend-age data once any exists, and revisiting `MIN_RING_SIZE` on the same evidence.
 - Wiring `mini-contribution` and `mini-engagement` to offer the private path. Both things that blocked it now exist — the fee and change model (§12) and chain-backed finality (§13) — so what remains is a migration decision rather than a missing capability: whether the transparent path is deleted or deprecated first, and what becomes of claims already settled under it. A founder call with a D-number (roadmap R3).
-- **A validity rule for shielded spends the chain can check** (§13, roadmap R8). Today a proposer can finalize a key image no valid claim produced. This is the largest gap the money layer has left that is not an external gate.
+- ~~A validity rule for shielded spends the chain can check~~ **closed by D-0474** (§13, roadmap R8): `mini_execution::ClaimVerifier` plus `mini-shielded-verify`. What that did not close: no claim-evidence gossip protocol, no accountability trail for which validators actually verified ("measured for it"), and the succinct-proof alternative direction remains unbuilt — this is the validator-set half of R8's two named options, not both.
 - **A proposer that collects key images from live traffic.** Nothing builds a block body's nullifier list today, because nothing has live traffic.
 - A **fee policy**: §12 makes fees possible and checkable, and says nothing about what a fee should be or who collects it. That is an economics decision, not a cryptographic one.
 - **Output selection and consolidation** — which of a wallet's outputs to spend, and when to consolidate. §12 makes multi-input claims possible; choosing badly is its own fingerprint, and no policy exists yet.

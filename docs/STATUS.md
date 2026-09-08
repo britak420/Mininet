@@ -595,15 +595,62 @@ given time.
   format v2, state commitment v4, body hash v3; a v1 snapshot deliberately
   does not decode, since a state restored without its nullifiers would
   replay every private payment the chain had ever seen.
-  **What it does not do:** the chain finalizes a key image **on a proposer's
-  say-so**. It cannot check that a valid claim produced one — that is the
-  cryptography it deliberately cannot see — so a Byzantine proposer can burn
-  an output that is not theirs. The *ordering* is real; the ledger's
-  *contents* are not yet trustworthy, and that validity rule is roadmap R8's.
-  Nothing builds a block body's nullifier list from live traffic either,
-  because nothing has live traffic. 21 tests across both sides, including a
-  pair that assert the same finalized map from opposite sides of the wall —
-  no compiler can check that agreement, so two tests do.
+  **What it does not do by default:** the chain finalizes a key image **on a
+  proposer's say-so** unless a validator configures otherwise (see D-0474
+  immediately below) — the *ordering* was real from this decision on; the
+  *contents* half needed a validity rule the chain can check, which was
+  roadmap R8's last open item. Nothing builds a block body's nullifier list
+  from live traffic either, because nothing has live traffic. 21 tests
+  across both sides, including a pair that assert the same finalized map
+  from opposite sides of the wall — no compiler can check that agreement,
+  so two tests do.
+- **shipped (D-0474)** — **the shielded-spend validity rule**, closing
+  roadmap R8's last remaining item and the audit pack's (PR #321) most-cited
+  gap. `mini_execution::ClaimVerifier` is a new, caller-injected trait —
+  still opaque to this crate, operating only on `NullifierRecord` and raw
+  bytes it already exposes — that lets a validator's own process refuse to
+  prevote, build, or commit a block whose shielded spends it cannot
+  independently verify. New sibling functions
+  `apply_block_with_verifier`/`apply_finalized_block_with_verifier` take an
+  `Option<&dyn ClaimVerifier>` (`None` reproducing the pre-D-0474 behavior
+  exactly, so `apply_block`/`apply_finalized_block` and every existing
+  caller are unaffected); `mini_consensus::ConsensusNode` gained an optional
+  `claim_verifier` field via a new `with_claim_verifier` builder, threaded
+  into `validate_proposal`/`build_proposal`/`commit` — deliberately **not**
+  into state-sync/catch-up, which already trusts an already-formed quorum
+  certificate for historical blocks rather than re-deriving local agreement
+  on claims predating this node's own participation.
+  New crate `mini-shielded-verify` composes `ClaimVerifier` with
+  `mini_private_payment::verify`: `ClaimEvidencePool` (a local,
+  non-canonical claim-bytes store keyed by each claim's own transcript
+  digest — never part of the canonical block body or wire protocol) plus
+  `ShieldedClaimVerifier` (decodes, verifies, and confirms the result's key
+  images/digest exactly match what it's being asked to vouch for). Kept in
+  its own crate specifically so `mini-execution`/`mini-consensus`/
+  `mini-chain` never gain a dependency on `mini-private-payment`/
+  `mini-value` — the wall holds exactly as before.
+  Proven at every layer: state-level gating, a chain-level test where an
+  unverifiable claim produces a `StateRootMismatch` a validator with a
+  configured verifier correctly refuses, a consensus-level test where the
+  same scenario produces a real `nil` prevote (never silently dropped, the
+  same treatment an invalid timestamp already gets), and — in
+  `mini-shielded-verify`'s own tests — a genuine claim built with real
+  stealth derivation, a real MLSAG spend proof, and a real Bulletproof
+  range proof, verified end to end, plus a tampered claim correctly
+  rejected under its own resulting digest.
+  **What this does not close, stated plainly:** no claim-evidence gossip
+  protocol — how full claim bytes actually reach a validator (a dedicated
+  topic, a request/response protocol, an existing mempool) is not this
+  crate's job, only the shape a validator's own evidence-gathering
+  component must fill. No pruning/eviction policy for the evidence pool. No
+  accountability/measurement layer — roadmap R8 asks for a validator set
+  that "verifies claims and is measured for it"; this ships the
+  verification, not a trail recording *which* validators ran it (an
+  evidence structure analogous to `mini-consensus::evidence`'s
+  equivocation proofs remains unbuilt). The succinct-proof alternative
+  direction R8 also named remains entirely unbuilt — this commits to one of
+  R8's two named options, not both. Still gated behind D-0047/#72 before
+  any of this carries real value.
 - **shipped (D-0458)** — **amount disclosure**, closing roadmap R6. D-0451
   made an account's income enumerable and left it un-addable: a view key
   recognizes a stealth output, it does not open a Pedersen commitment, so an

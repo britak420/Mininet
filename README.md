@@ -46,7 +46,7 @@ code, and frozen. A full, code-mapped register is in
 
 ## What exists today — honestly
 
-This repository is the **self-contained Rust core**: 74 crates indexed by
+This repository is the **self-contained Rust core**: 75 crates indexed by
 `tools/mininet_nav.py`, with no external
 dependency on any single company's infrastructure to keep running. Nothing
 here is ready for real people, real money, or real custody yet — and it says
@@ -224,6 +224,14 @@ so, everywhere, on purpose.
   The key image is linkable by design, an audit reveals income but never
   amounts or spending, and network-level privacy is `mini-relay`'s job; see
   `docs/design/private-payment-path.md`
+- shielded-spend chain validity (`mini_execution::ClaimVerifier` +
+  `mini-shielded-verify`, D-0474, closes roadmap R8's last item): a
+  caller-injected, opt-in extension point lets a validator's own process
+  refuse to prevote, build, or commit a block whose shielded spends it
+  cannot independently verify, without `mini-execution`/`mini-consensus`/
+  `mini-chain` ever gaining a dependency on `mini-value` — the voice/value
+  wall holds unchanged. Still no claim-evidence gossip protocol and no
+  accountability trail for which validators actually verified.
 - deterministic D-0074 issuance envelopes and equal-allocation genesis
   manifests (`mini-economy`, D-0413), plus a cohort-based 200-year
   calibration harness (`mini-econ-sim`) — proposal code only; no mint,
@@ -364,11 +372,12 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0472`
-   (`D-0472`, PEX-discovered peers driving real gossip fanout, is the
-   newest at the time of this edit; the Mininet Node Appliance deployment
-   profile this line previously credited to `D-0439` is `D-0446` —
-   `D-0439` is the identity-bound replica-registration decision),
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0474`
+   (`D-0474`, the validator-verification model for shielded-spend chain
+   validity, is the newest at the time of this edit; the Mininet Node
+   Appliance deployment profile this line previously credited to
+   `D-0439` is `D-0446` — `D-0439` is the identity-bound
+   replica-registration decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
    privacy/cost-doctrine track's `D-0300`–, and the edge/provider-layer
    track's `D-0400`– — see the log's "Decision-number allocation across
