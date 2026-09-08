@@ -28,6 +28,23 @@
 //! future, with the same or a different peer. Adding a nonce field on top
 //! would only add something nothing checks.
 //!
+//! ## Identity is not admission (F-14)
+//!
+//! A device holding a real, validly-delegated `VOTE` capability from its
+//! root is not by itself proof that root was ever admitted to *this*
+//! deployment's validator set — or that it still is, after a removal.
+//! Confusing "this identity checks out" with "this identity is
+//! authorized" is exactly the mistake the anonymous channel underneath
+//! invites if a caller stops one property short: [`Channel`]'s own
+//! handshake proves two ends share a fresh, private session and nothing
+//! about who; this module's attestation additionally proves *which*
+//! validator identity is on the other end; neither proves that identity
+//! currently belongs to the validator set a caller actually cares about.
+//! [`verify_validator_handshake`]/[`recv_validator_handshake`] now take a
+//! [`mini_chain::ValidatorSet`] and check membership as a distinct,
+//! required step — not derived from, or substitutable for, the
+//! delegation/`VOTE`-capability check above it.
+//!
 //! ## What this still does not close
 //!
 //! - **Opt-in, not required.** [`crate::net::TcpMesh`]'s links stay
@@ -46,10 +63,17 @@
 //!   freshness limits [`mini_chain::verify_vote`]/`assess_kel_assurance`
 //!   already carry apply here: a verifier holding a stale-but-not-yet-known-
 //!   revoked device KEL still accepts that device's attestation.
+//! - **Membership freshness is the caller's own responsibility.** A
+//!   [`mini_chain::ValidatorSet`] is a snapshot; this module has no way to
+//!   know whether the one it was handed reflects the current epoch. A
+//!   caller checking against a stale set can still admit a since-removed
+//!   root, or reject a since-added one — the same freshness obligation
+//!   `verify_finality`'s own callers already carry for the sets they pass
+//!   it.
 
 use did_mini::{verify_delegation, Capabilities, Controller, Did, IndexedSig, Kel};
 use mini_bearer::{Bearer, Channel};
-use mini_chain::ValidatorOracle;
+use mini_chain::{ValidatorOracle, ValidatorSet};
 use mini_crypto::{Signature, SignatureSuite};
 
 use crate::error::{ConsensusError, Result};
@@ -198,11 +222,16 @@ pub fn sign_validator_handshake(
 /// captured on one channel can never be replayed on another), the supplied
 /// KELs must actually be the attestation's claimed root/device, the device
 /// must currently be a delegated, unrevoked, `VOTE`-capable device of that
-/// root, and the signature must verify over the exact transcript. Returns
-/// the verified validator root on success.
+/// root, the root must be a member of `validators` (F-14 — a real,
+/// validly-delegated `VOTE`-capable root is not by itself proof it was ever
+/// admitted to *this* deployment's validator set, or that it still is after
+/// removal; this is a separate, caller-supplied fact this function does not
+/// otherwise have any way to know), and the signature must verify over the
+/// exact transcript. Returns the verified validator root on success.
 pub fn verify_validator_handshake(
     attestation: &ValidatorHandshakeAttestation,
     expected_channel_binding: [u8; 32],
+    validators: &ValidatorSet,
     root_kel: &Kel,
     device_kel: &Kel,
 ) -> Result<Did> {
@@ -218,6 +247,9 @@ pub fn verify_validator_handshake(
     let caps = verify_delegation(root_kel, device_kel)?;
     if !caps.contains(Capabilities::VOTE) {
         return Err(ConsensusError::ValidatorHandshakeMissingVoteCapability);
+    }
+    if !validators.contains(&attestation.validator_root) {
+        return Err(ConsensusError::ValidatorHandshakeNotAMember);
     }
     let transcript = ValidatorHandshakeAttestation::transcript(&attestation.channel_binding);
     device_kel.verify_message(&transcript, attestation.signature())?;
@@ -242,10 +274,14 @@ pub fn send_validator_handshake(
 
 /// Receive and verify a validator-handshake attestation over an already-
 /// established [`Channel`], resolving the claimed root/device against
-/// `oracle`. Returns the verified validator root.
+/// `oracle` and admission against `validators` (F-14 — see
+/// [`verify_validator_handshake`]'s own doc comment for why this is a
+/// separate fact from KEL/delegation resolution). Returns the verified
+/// validator root.
 pub fn recv_validator_handshake(
     bearer: &mut dyn Bearer,
     channel: &mut Channel,
+    validators: &ValidatorSet,
     oracle: &dyn ValidatorOracle,
 ) -> Result<Did> {
     let sealed = bearer.recv()?;
@@ -260,6 +296,7 @@ pub fn recv_validator_handshake(
     verify_validator_handshake(
         &attestation,
         channel.channel_binding(),
+        validators,
         root_kel,
         device_kel,
     )
@@ -333,6 +370,11 @@ mod tests {
         (root, device)
     }
 
+    /// A `ValidatorSet` containing exactly `root`.
+    fn member_set(root: &Did) -> ValidatorSet {
+        ValidatorSet::new(vec![root.clone()]).unwrap()
+    }
+
     #[test]
     fn a_signed_attestation_survives_a_wire_round_trip_byte_for_byte() {
         let (root, device) = validator();
@@ -341,7 +383,14 @@ mod tests {
         let back = ValidatorHandshakeAttestation::from_wire_bytes(&bytes).unwrap();
         assert_eq!(attestation, back);
         assert_eq!(
-            verify_validator_handshake(&back, [7u8; 32], &root.kel(), &device.kel()).unwrap(),
+            verify_validator_handshake(
+                &back,
+                [7u8; 32],
+                &member_set(&root.did()),
+                &root.kel(),
+                &device.kel()
+            )
+            .unwrap(),
             root.did()
         );
     }
@@ -377,9 +426,14 @@ mod tests {
             Controller::incept_device_single_from_seeds(&root.did(), &[99u8; 32], &[98u8; 32])
                 .unwrap();
         let forged = sign_validator_handshake([1u8; 32], &root.did(), &stranger);
-        assert!(
-            verify_validator_handshake(&forged, [1u8; 32], &root.kel(), &stranger.kel()).is_err()
-        );
+        assert!(verify_validator_handshake(
+            &forged,
+            [1u8; 32],
+            &member_set(&root.did()),
+            &root.kel(),
+            &stranger.kel()
+        )
+        .is_err());
 
         // A real device but a mismatched claimed root.
         let other_root = Controller::incept_single_from_seeds(&[41u8; 32], &[42u8; 32]).unwrap();
@@ -387,6 +441,7 @@ mod tests {
         assert!(verify_validator_handshake(
             &mismatched,
             [1u8; 32],
+            &member_set(&other_root.did()),
             &other_root.kel(),
             &device.kel()
         )
@@ -400,6 +455,7 @@ mod tests {
         assert!(verify_validator_handshake(
             &attestation,
             [6u8; 32], // a different channel's binding
+            &member_set(&root.did()),
             &root.kel(),
             &device.kel()
         )
@@ -417,8 +473,78 @@ mod tests {
             .unwrap();
         let attestation = sign_validator_handshake([9u8; 32], &root.did(), &device);
         assert_eq!(
-            verify_validator_handshake(&attestation, [9u8; 32], &root.kel(), &device.kel()),
+            verify_validator_handshake(
+                &attestation,
+                [9u8; 32],
+                &member_set(&root.did()),
+                &root.kel(),
+                &device.kel()
+            ),
             Err(ConsensusError::ValidatorHandshakeMissingVoteCapability)
+        );
+    }
+
+    // F-14: a valid, correctly-delegated VOTE-capable root is not by itself
+    // proof of admission to a particular validator set -- these tests
+    // reproduce the finding's own concrete example directly.
+
+    #[test]
+    fn a_genuinely_vote_capable_root_that_was_never_admitted_is_refused() {
+        let (root, device) = validator();
+        let attestation = sign_validator_handshake([10u8; 32], &root.did(), &device);
+        // Every other check passes -- real delegation, real VOTE
+        // capability, correct channel binding, valid signature -- but
+        // `root` is not in the validator set the caller actually checks
+        // against (e.g. some other identity root entirely).
+        let someone_else = Controller::incept_single().unwrap();
+        let unrelated_members = member_set(&someone_else.did());
+        assert_eq!(
+            verify_validator_handshake(
+                &attestation,
+                [10u8; 32],
+                &unrelated_members,
+                &root.kel(),
+                &device.kel()
+            ),
+            Err(ConsensusError::ValidatorHandshakeNotAMember)
+        );
+
+        // The identical attestation against a set that actually contains
+        // `root` still verifies normally -- refusing the nonmember case
+        // did not also break the legitimate one.
+        assert_eq!(
+            verify_validator_handshake(
+                &attestation,
+                [10u8; 32],
+                &member_set(&root.did()),
+                &root.kel(),
+                &device.kel()
+            )
+            .unwrap(),
+            root.did()
+        );
+    }
+
+    #[test]
+    fn a_validator_removed_from_the_set_is_refused_even_with_a_fresh_attestation() {
+        // "Obsolete membership epoch," restated as the caller's own
+        // responsibility (this module's doc comment says so explicitly):
+        // a `ValidatorSet` that no longer contains a once-admitted root
+        // refuses it, exactly as if it had never been admitted. This
+        // module cannot itself know an epoch changed -- it only ever
+        // checks the set it is handed.
+        let (root, device) = validator();
+        let attestation = sign_validator_handshake([11u8; 32], &root.did(), &device);
+        let current_epoch_members = member_set(&Controller::incept_single().unwrap().did());
+        assert_eq!(
+            verify_validator_handshake(
+                &attestation,
+                [11u8; 32],
+                &current_epoch_members,
+                &root.kel(),
+                &device.kel()
+            ),
+            Err(ConsensusError::ValidatorHandshakeNotAMember)
         );
     }
 
@@ -472,10 +598,15 @@ mod tests {
             validator_device: device.did(),
             signature: legacy_signature,
         };
-        assert!(verify_validator_handshake(&forged, binding, &root.kel(), &device.kel()).is_err());
+        let members = member_set(&root.did());
+        assert!(
+            verify_validator_handshake(&forged, binding, &members, &root.kel(), &device.kel())
+                .is_err()
+        );
 
         let genuine = sign_validator_handshake(binding, &root.did(), &device);
-        verify_validator_handshake(&genuine, binding, &root.kel(), &device.kel()).unwrap();
+        verify_validator_handshake(&genuine, binding, &members, &root.kel(), &device.kel())
+            .unwrap();
     }
 
     // The real-transport wrapper: two real processes' worth of sockets, an
@@ -510,6 +641,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let expected_root = root.did();
+        let members = member_set(&root.did());
 
         let server = thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
@@ -517,7 +649,7 @@ mod tests {
             let hello = bearer.recv().unwrap();
             let (mut channel, hello_response) = Responder::respond(&hello).unwrap();
             bearer.send(&hello_response).unwrap();
-            recv_validator_handshake(&mut bearer, &mut channel, &directory).unwrap()
+            recv_validator_handshake(&mut bearer, &mut channel, &members, &directory).unwrap()
         });
 
         let stream = TcpStream::connect(addr).unwrap();

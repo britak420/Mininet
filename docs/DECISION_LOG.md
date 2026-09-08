@@ -20559,3 +20559,109 @@ deferred Wave 1 gap) is pre-existing, separately tracked work this
 decision does not accelerate.
 
 **Supersedes / superseded by:** none.
+
+### D-0489 — Validator-handshake verification now requires a caller-supplied `ValidatorSet` membership check (F-14)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-14
+(`crates/mini-consensus/src/validator_channel.rs:199`,
+`crates/mini-consensus/src/discovery.rs:94`); D-0473/roadmap R8
+(introduced `validator_channel`).
+
+**Decision:** F-14 names two distinct instances of the same category of
+mistake — treating a narrower cryptographic property as if it were a
+broader trust property it does not establish. `discovery.rs`'s PEX
+adapter was already fully honest about its own narrower property: its
+own module doc explicitly states a `PexMessage::Response` is "an
+unauthenticated hint, never a proof of liveness or honesty," so no code
+change was needed there — confirmed by re-reading it in full; the
+finding's own "Boundary" section agrees ("no signature forgery is
+alleged"). `validator_channel.rs`'s `verify_validator_handshake`/
+`recv_validator_handshake` had the real gap: both verified that a device
+was a genuinely delegated, unrevoked, `VOTE`-capable device of its
+claimed root, but never checked that the root was actually a member of
+any particular validator set. A real, validly-signed attestation from a
+root that was never admitted to a given deployment (or was later
+removed from it) would pass every check these functions performed —
+"authenticated identity" was doing duty for "authorized admission,"
+exactly the confusion the finding names. Both functions now take a
+required `validators: &mini_chain::ValidatorSet` parameter and check
+`validators.contains(&attestation.validator_root)` as a distinct step,
+returning a new `ConsensusError::ValidatorHandshakeNotAMember` on
+failure — never derived from, or substitutable for, the delegation/
+`VOTE`-capability check already present.
+
+Confirmed via `grep` across the workspace: neither function has a real
+caller anywhere outside this crate's own test module (same situation as
+F-13's `CapabilityGrant::validate` — `validator_channel` is itself
+documented as "a capability a caller reaches for... not wired into
+`TcpMesh` itself"), so changing both signatures had no coordinated-
+review cost.
+
+**Reason:** `mini_chain::ValidatorSet` already exists as the canonical
+validator-set type `verify_finality`'s own callers use, with an existing
+`contains(&Did) -> bool` method — reusing it here rather than inventing
+a second set/membership concept in `mini-consensus` matches Directive 14
+(prefer the smaller, well-trodden construction). The membership
+parameter is required, not optional, for the same reason F-13's
+`resource_owner` was made required rather than advisory: an omittable
+check is a check a future integration can forget to supply; a required
+one cannot be skipped by accident, only deliberately declined by a
+caller that has reasons `validator_channel`'s own module docs already
+name (e.g. genuinely wanting identity-without-admission for a narrower
+purpose).
+
+**Constitutional impact:** none. No dependency-graph change
+(`mini-consensus` already depended on `mini-chain` and already imported
+`ValidatorOracle` from it); no cryptography invented or changed. One new
+`ConsensusError` variant (`#[non_exhaustive]` enum, additive).
+
+**Implementation status:** shipped.
+- `crates/mini-consensus/src/validator_channel.rs`: both functions gain
+  `validators: &ValidatorSet`; module doc comment gains a new "Identity
+  is not admission (F-14)" section plus an added honest limit
+  ("Membership freshness is the caller's own responsibility" — a stale
+  set can still admit a since-removed root or reject a since-added one,
+  the same freshness obligation `verify_finality`'s own callers already
+  carry).
+- `crates/mini-consensus/src/error.rs`: new
+  `ConsensusError::ValidatorHandshakeNotAMember` variant.
+- All 8 existing call sites in this file's own test module updated
+  (a new `member_set(&Did) -> ValidatorSet` test helper). 2 new tests:
+  `a_genuinely_vote_capable_root_that_was_never_admitted_is_refused`
+  reproduces the finding's own concrete example directly (every other
+  check passes; only membership fails; the identical attestation against
+  a set that does contain the root still verifies normally, proving the
+  fix does not also break the legitimate path);
+  `a_validator_removed_from_the_set_is_refused_even_with_a_fresh_attestation`
+  covers the "obsolete membership epoch" acceptance criterion, restated
+  as "a stale/wrong set correctly refuses a root not in it," which is as
+  much of that property as a stateless verification function can
+  demonstrate on its own. 13/13 `validator_channel` tests pass (up from
+  11), 116/116 `mini-consensus` tests pass overall; full workspace
+  `cargo test --workspace --all-features` (266 test-result blocks) and
+  `cargo clippy --all-targets --all-features --workspace -- -D
+  warnings` both clean.
+
+**Failure point:** membership freshness is explicitly the caller's own
+responsibility (documented above) — this decision provides the
+membership *check*, not a live, self-updating validator-set source; a
+caller that hands this function a stale `ValidatorSet` gets a stale
+answer, the same class of limitation `verify_finality` already lives
+with. "Active two-session interception" (a MITM relaying two separate
+anonymous `Channel` sessions) is not separately re-demonstrated here:
+`channel_binding` is already unique per handshake by `Channel`'s own
+design (fresh ephemeral X25519 keys), so an attestation signed over one
+session's binding structurally cannot verify against a different
+session's binding regardless of what an on-path relay does with the raw
+bytes — this was already true before this decision and is unchanged by
+it; F-14's own "Boundary" section does not allege a forgery here either.
+`discovery.rs` required no change and none was made.
+
+**Required follow-up:** none identified beyond what `validator_channel`'s
+own pre-existing "What this still does not close" list already named
+(opt-in/not wired into `TcpMesh`, proves delegation not honesty, no
+revocation check beyond the KEL a caller already has) — none of those
+are within this finding's scope.
+
+**Supersedes / superseded by:** none.

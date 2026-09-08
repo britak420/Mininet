@@ -529,6 +529,17 @@ given time.
   already has. 10 tests, including a real-socket end-to-end pass and a
   raw-ciphertext regression proving an attestation never crosses the wire
   unencrypted.
+  **Membership check added (D-0489):** `verify_validator_handshake`/
+  `recv_validator_handshake` checked delegation and `VOTE` capability but
+  never that the root was actually a member of any particular validator
+  set (F-14) — a real, validly-signed attestation from a never-admitted
+  or since-removed root passed every prior check. Both functions now
+  require a caller-supplied `mini_chain::ValidatorSet` and check
+  membership as a distinct step (new `ConsensusError::
+  ValidatorHandshakeNotAMember`). `discovery.rs`'s separate PEX adapter
+  needed no change — its own docs already correctly disclaim being
+  anything more than an unauthenticated hint. See
+  `docs/DECISION_LOG.md` D-0489.
 - **shipped (D-0462)** — `mini-consensus` gains **peer discovery over a real
   socket**, closing a second of roadmap R8's named gaps. `mini-net::pex`
   already had the request/response peer-exchange logic (`PexMessage`,
