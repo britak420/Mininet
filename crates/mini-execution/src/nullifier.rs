@@ -40,12 +40,15 @@
 //! therefore burn an output that is not theirs by including a record naming
 //! its key image, and honest nodes would finalize it.
 //!
-//! That is a real hole and it is not closed here. Closing it needs a
-//! validity rule the chain *can* check — a succinct proof, or a validator
-//! set that does verify claims and is measured for it — and that is
-//! [roadmap R8](../../../docs/ROADMAP_TO_RELEASE.md)'s territory, not this
-//! module's. What this module does is make the *ordering* real, which is
-//! what M3 requires and what nothing implemented before it.
+//! That was a real hole and [`ClaimVerifier`] is the validator-set half of
+//! closing it (D-0474, [roadmap R8](../../../docs/ROADMAP_TO_RELEASE.md)):
+//! an opaque, caller-injected extension point a validator's own process can
+//! use to refuse a block whose shielded spends it cannot itself verify,
+//! without this crate ever importing the cryptography that proves them.
+//! See [`ClaimVerifier`]'s own docs for the shape and
+//! [`crate::apply_block_with_verifier`]/
+//! [`crate::LedgerChain::apply_finalized_block_with_verifier`] for where it
+//! plugs in. The succinct-proof alternative remains unbuilt.
 
 use mini_crypto::HashAlgorithm;
 
@@ -108,6 +111,38 @@ impl NullifierRecord {
         w.extend_from_slice(&self.canonical_bytes());
         HashAlgorithm::Blake3.digest(&w)
     }
+}
+
+/// The validator-set half of R8's still-open validity rule (D-0474):
+/// independently confirms a real, valid claim produced a group of
+/// same-digest [`NullifierRecord`]s, without this crate ever depending on
+/// the cryptography that proves it.
+///
+/// A claim spending several outputs contributes several [`NullifierRecord`]s
+/// that all carry its digest ([`NullifierRecord::claim_digest`]) — `group`
+/// is exactly that set, and `digest` is the value they all share. An
+/// implementor typically looks the digest up in its own locally-held claim
+/// evidence (never part of the canonical block body or wire protocol —
+/// nothing here can require that without this crate learning what a claim
+/// even is), decodes and verifies it with whatever cryptography it links,
+/// and confirms the result's own key images and transcript digest exactly
+/// match `group`/`digest` rather than merely existing.
+///
+/// A caller-injected extension point, never required: every existing
+/// [`crate::apply_block`]/[`crate::LedgerChain::apply_finalized_block`]
+/// caller is unaffected, because those still pass no verifier at all
+/// (`None` behaves exactly as before this trait existed — see
+/// [`crate::apply_block_with_verifier`]'s own docs for why that must stay
+/// true). `mini-shielded-verify` is the concrete implementation composing
+/// this trait with `mini_private_payment::verify`, kept in its own crate
+/// specifically so this one never links it (P1, Directive 16 — the same
+/// reasoning this module's own docs already give for why the chain cannot
+/// understand private payments at all).
+pub trait ClaimVerifier: Send + Sync {
+    /// Returns `true` only if a real claim verifies and its key
+    /// images/transcript digest exactly match `group`/`digest` — never on
+    /// trust, never on the claim's mere presence.
+    fn verify_claim(&self, digest: &[u8; 32], group: &[NullifierRecord]) -> bool;
 }
 
 #[cfg(test)]

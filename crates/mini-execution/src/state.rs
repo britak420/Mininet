@@ -262,6 +262,20 @@ impl CanonicalLedgerView for LedgerState {
 /// hypothetical: whatever this produces *is* what a [`LedgerState`]-backed
 /// `CanonicalLedgerView` reports afterward.
 pub fn apply_block(prev: &LedgerState, body: &SettlementBlockBody) -> Result<LedgerState> {
+    apply_block_with_verifier(prev, body, None)
+}
+
+/// [`apply_block`], with an optional [`crate::ClaimVerifier`] gating every
+/// shielded-spend group's finalization (D-0474, roadmap R8) — passing
+/// `None` reproduces [`apply_block`] exactly, so every existing caller
+/// (every test in this tree included) is unaffected by this function's
+/// existence. See [`crate::ClaimVerifier`]'s own docs for what an
+/// implementor must actually check.
+pub fn apply_block_with_verifier(
+    prev: &LedgerState,
+    body: &SettlementBlockBody,
+    claim_verifier: Option<&dyn crate::ClaimVerifier>,
+) -> Result<LedgerState> {
     if body.claims.len() > crate::body::MAX_CLAIMS_PER_BLOCK {
         return Err(ExecutionError::TooManyClaims);
     }
@@ -275,7 +289,7 @@ pub fn apply_block(prev: &LedgerState, body: &SettlementBlockBody) -> Result<Led
     for claim in &body.claims {
         apply_one_claim(&mut next, claim)?;
     }
-    apply_nullifiers(&mut next, &body.nullifiers);
+    apply_nullifiers(&mut next, &body.nullifiers, claim_verifier);
     if let Some(epoch) = body.monetary_epochs.first() {
         epoch
             .to_wire_bytes()
@@ -319,11 +333,19 @@ pub fn apply_block(prev: &LedgerState, body: &SettlementBlockBody) -> Result<Led
 /// under the same digest is idempotent, because networks re-deliver and a
 /// duplicate is not a double-spend.
 ///
-/// Nothing here validates the *cryptography* — see [`crate::nullifier`] for
-/// why it cannot, and what that leaves open.
-fn apply_nullifiers(state: &mut LedgerState, records: &[crate::nullifier::NullifierRecord]) {
+/// Nothing here validates the *cryptography* on its own — see
+/// [`crate::nullifier`] for why it cannot — unless `claim_verifier` is
+/// configured (D-0474, roadmap R8), in which case a group's own records
+/// (not just their key images being free) must also pass
+/// [`crate::ClaimVerifier::verify_claim`] before it can finalize. `None`
+/// reproduces the original, unconditional-trust behavior exactly.
+fn apply_nullifiers(
+    state: &mut LedgerState,
+    records: &[crate::nullifier::NullifierRecord],
+    claim_verifier: Option<&dyn crate::ClaimVerifier>,
+) {
     let mut order: Vec<[u8; 32]> = Vec::new();
-    let mut groups: BTreeMap<[u8; 32], Vec<&[u8]>> = BTreeMap::new();
+    let mut groups: BTreeMap<[u8; 32], Vec<&crate::nullifier::NullifierRecord>> = BTreeMap::new();
     for record in records {
         if !record.is_well_formed() {
             // A malformed record poisons its whole group: the claim it
@@ -337,15 +359,15 @@ fn apply_nullifiers(state: &mut LedgerState, records: &[crate::nullifier::Nullif
             order.push(record.claim_digest);
             Vec::new()
         });
-        entry.push(&record.key_image);
+        entry.push(record);
     }
 
     for digest in order {
-        let Some(key_images) = groups.get(&digest) else {
+        let Some(group) = groups.get(&digest) else {
             continue;
         };
-        let takeable = key_images.iter().all(|key_image| {
-            match state.nullifiers.get(*key_image) {
+        let takeable = group.iter().all(|record| {
+            match state.nullifiers.get(&record.key_image) {
                 // Free, or already ours: a re-broadcast of the same claim.
                 None => true,
                 Some(held) => *held == digest,
@@ -354,8 +376,15 @@ fn apply_nullifiers(state: &mut LedgerState, records: &[crate::nullifier::Nullif
         if !takeable {
             continue;
         }
-        for key_image in key_images {
-            state.nullifiers.insert(key_image.to_vec(), digest);
+        if let Some(verifier) = claim_verifier {
+            let owned: Vec<crate::nullifier::NullifierRecord> =
+                group.iter().map(|record| (*record).clone()).collect();
+            if !verifier.verify_claim(&digest, &owned) {
+                continue;
+            }
+        }
+        for record in group {
+            state.nullifiers.insert(record.key_image.clone(), digest);
         }
     }
 }

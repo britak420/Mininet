@@ -2968,6 +2968,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mini-shielded-verify"
+version = "0.0.1"
+dependencies = [
+ "mini-crypto",
+ "mini-execution",
+ "mini-private-payment",
+ "mini-value",
+]
+
+[[package]]
 name = "mini-social"
 version = "0.0.1"
 dependencies = [

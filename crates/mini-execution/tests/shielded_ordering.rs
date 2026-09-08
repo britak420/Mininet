@@ -20,8 +20,8 @@
 //! what it means by "finalized", one of the two fails.
 
 use mini_execution::{
-    apply_block, LedgerState, NullifierRecord, SettlementBlockBody, MAX_KEY_IMAGE_BYTES,
-    MAX_NULLIFIERS_PER_BLOCK,
+    apply_block, apply_block_with_verifier, ClaimVerifier, LedgerState, NullifierRecord,
+    SettlementBlockBody, MAX_KEY_IMAGE_BYTES, MAX_NULLIFIERS_PER_BLOCK,
 };
 
 const CLAIM_A: [u8; 32] = [0xa1; 32];
@@ -289,4 +289,131 @@ fn the_finalized_map_is_the_one_the_shielded_side_expects() {
     assert_eq!(state.finalized_nullifier(&[0x22; 32]), Some(CLAIM_A));
     assert_eq!(state.finalized_nullifier(&[0x33; 32]), None);
     assert_eq!(state.nullifier_count(), 2);
+}
+
+// --- ClaimVerifier gating (D-0474, roadmap R8) ---
+//
+// This crate cannot link `mini-private-payment` (P1) even in tests, so
+// these use a hand-rolled `ClaimVerifier` that decides purely from
+// `NullifierRecord`'s own opaque fields -- exactly the same surface a
+// real implementation (`mini-shielded-verify`) sees, just without any
+// real cryptography behind the decision. What's under test is the gating
+// mechanism in `apply_nullifiers`, not any particular verifier's logic.
+
+/// Approves every group whose digest is in an explicit allow-list,
+/// rejects everything else -- including a digest it was never asked
+/// about, which is the honest "no evidence, no trust" default a real
+/// verifier must also have.
+struct AllowListVerifier {
+    allowed: Vec<[u8; 32]>,
+}
+
+impl ClaimVerifier for AllowListVerifier {
+    fn verify_claim(&self, digest: &[u8; 32], _group: &[NullifierRecord]) -> bool {
+        self.allowed.contains(digest)
+    }
+}
+
+#[test]
+fn an_unverified_group_is_dropped_when_a_verifier_is_configured() {
+    let verifier = AllowListVerifier { allowed: vec![] };
+    let state = apply_block_with_verifier(
+        &LedgerState::new(),
+        &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
+        Some(&verifier),
+    )
+    .unwrap();
+
+    // Unlike the no-verifier case (`a_shielded_spend_is_finalized_and_
+    // readable_by_its_key_image`), nothing finalizes: the verifier never
+    // approved CLAIM_A.
+    assert_eq!(state.finalized_nullifier(&image(1)), None);
+    assert_eq!(state.nullifier_count(), 0);
+}
+
+#[test]
+fn a_verified_group_finalizes_exactly_as_without_a_verifier() {
+    let verifier = AllowListVerifier {
+        allowed: vec![CLAIM_A],
+    };
+    let state = apply_block_with_verifier(
+        &LedgerState::new(),
+        &body(vec![
+            NullifierRecord::new(image(1), CLAIM_A),
+            NullifierRecord::new(image(2), CLAIM_A),
+        ]),
+        Some(&verifier),
+    )
+    .unwrap();
+
+    assert_eq!(state.finalized_nullifier(&image(1)), Some(CLAIM_A));
+    assert_eq!(state.finalized_nullifier(&image(2)), Some(CLAIM_A));
+    assert_eq!(state.nullifier_count(), 2);
+}
+
+#[test]
+fn no_verifier_configured_reproduces_apply_block_exactly() {
+    let unverified = apply_block(
+        &LedgerState::new(),
+        &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
+    )
+    .unwrap();
+    let explicit_none = apply_block_with_verifier(
+        &LedgerState::new(),
+        &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(unverified, explicit_none);
+    assert_eq!(unverified.finalized_nullifier(&image(1)), Some(CLAIM_A));
+}
+
+#[test]
+fn one_verified_group_finalizes_while_an_unverified_sibling_in_the_same_block_does_not() {
+    let verifier = AllowListVerifier {
+        allowed: vec![CLAIM_A],
+    };
+    let state = apply_block_with_verifier(
+        &LedgerState::new(),
+        &body(vec![
+            NullifierRecord::new(image(1), CLAIM_A),
+            NullifierRecord::new(image(2), CLAIM_B),
+        ]),
+        Some(&verifier),
+    )
+    .unwrap();
+
+    assert_eq!(state.finalized_nullifier(&image(1)), Some(CLAIM_A));
+    assert_eq!(state.finalized_nullifier(&image(2)), None);
+    assert_eq!(state.nullifier_count(), 1);
+}
+
+#[test]
+fn a_group_that_fails_takeability_never_even_reaches_the_verifier() {
+    // The key-image-freedom check still runs first: a claim group must be
+    // takeable (M1) before verification is asked to weigh in at all, so a
+    // verifier can never be used to "steal" an already-held key image just
+    // because it approves the claim.
+    struct ApprovesEverything;
+    impl ClaimVerifier for ApprovesEverything {
+        fn verify_claim(&self, _digest: &[u8; 32], _group: &[NullifierRecord]) -> bool {
+            true
+        }
+    }
+    let after_a = apply_block(
+        &LedgerState::new(),
+        &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
+    )
+    .unwrap();
+
+    let after_b = apply_block_with_verifier(
+        &after_a,
+        &body(vec![NullifierRecord::new(image(1), CLAIM_B)]),
+        Some(&ApprovesEverything),
+    )
+    .unwrap();
+
+    // Still A's, unchanged -- CLAIM_B never got a chance to be verified.
+    assert_eq!(after_b.finalized_nullifier(&image(1)), Some(CLAIM_A));
 }

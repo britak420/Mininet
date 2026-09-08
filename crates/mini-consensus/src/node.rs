@@ -17,12 +17,13 @@
 //! that drives it over real sockets and a real clock.
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 use did_mini::{Controller, Did};
 use mini_chain::{
     sign_vote, BlockHeader, QuorumCertificate, ValidatorOracle, ValidatorSet, VoteKind,
 };
-use mini_execution::{apply_block, LedgerChain, SettlementBlockBody};
+use mini_execution::{apply_block_with_verifier, LedgerChain, SettlementBlockBody};
 
 use crate::catchup::{FinalizedBlock, MAX_CATCHUP_BLOCKS};
 use crate::error::{ConsensusError, Result};
@@ -115,6 +116,14 @@ pub struct ConsensusNode<O> {
     history: VecDeque<FinalizedBlock>,
     /// Optional local, non-authoritative persistent recovery archive.
     archive: Option<ConsensusArchive>,
+    /// Optional shielded-spend claim verifier (D-0474, roadmap R8) gating
+    /// this node's own live proposal validation, proposal building, and
+    /// commit — never the state-sync/catch-up paths, which trust an
+    /// already-formed quorum certificate instead (see
+    /// [`mini_execution::LedgerChain::apply_finalized_block_with_verifier`]'s
+    /// own docs for why). `None` reproduces this node's pre-D-0474
+    /// behavior exactly — set via [`ConsensusNode::with_claim_verifier`].
+    claim_verifier: Option<Arc<dyn mini_execution::ClaimVerifier>>,
 }
 
 impl<O> core::fmt::Debug for ConsensusNode<O> {
@@ -149,7 +158,23 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
             pending: Vec::new(),
             history: VecDeque::new(),
             archive: None,
+            claim_verifier: None,
         }
+    }
+
+    /// Configure a shielded-spend claim verifier for this node's own live
+    /// proposal validation, proposal building, and commit (D-0474, roadmap
+    /// R8). Without this, a `NullifierRecord` group finalizes on the
+    /// proposer's say-so alone, exactly as before this existed — see
+    /// [`mini_execution::ClaimVerifier`]'s own docs for what an
+    /// implementor must check, and `mini-shielded-verify` for a concrete
+    /// one composing `mini_private_payment::verify`.
+    pub fn with_claim_verifier(
+        mut self,
+        verifier: Arc<dyn mini_execution::ClaimVerifier>,
+    ) -> Self {
+        self.claim_verifier = Some(verifier);
+        self
     }
 
     /// Stand up a node and independently recover the best locally retained
@@ -498,7 +523,11 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
         if header.body_root != p.body.hash() {
             return (hash, false);
         }
-        match apply_block(self.chain.state(), &p.body) {
+        match apply_block_with_verifier(
+            self.chain.state(),
+            &p.body,
+            self.claim_verifier.as_deref(),
+        ) {
             Ok(next) if next.commitment() == header.state_root => (hash, true),
             _ => (hash, false),
         }
@@ -590,7 +619,11 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
         } else {
             let height = self.current_height();
             let body = (self.body_source)(height);
-            let next = apply_block(self.chain.state(), &body)?;
+            let next = apply_block_with_verifier(
+                self.chain.state(),
+                &body,
+                self.claim_verifier.as_deref(),
+            )?;
             let header = BlockHeader {
                 height,
                 prev_hash: self.chain.tip_hash(),
@@ -623,12 +656,13 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
             .ok_or(ConsensusError::Stalled)?
             .clone();
         let mut candidate = self.chain.clone();
-        let commitment = candidate.apply_finalized_block(
+        let commitment = candidate.apply_finalized_block_with_verifier(
             &value.header,
             &value.body,
             &qc,
             &self.validators,
             &self.oracle,
+            self.claim_verifier.as_deref(),
         )?;
         let finalized = FinalizedBlock {
             header: value.header.clone(),
@@ -667,6 +701,7 @@ mod tests {
 
     use did_mini::{Capabilities, Kel};
     use mini_crypto::SigningKey;
+    use mini_execution::{apply_block, ClaimVerifier, NullifierRecord};
     use mini_settlement::sign_claim;
 
     use super::*;
@@ -963,6 +998,147 @@ mod tests {
             prevote_target,
             Some(crate::round::NIL),
             "an increasing but non-deterministic timestamp must still be prevoted nil"
+        );
+    }
+
+    // --- ClaimVerifier gating a live prevote (D-0474, roadmap R8) ---
+
+    const SHIELDED_CLAIM: [u8; 32] = [0x5c; 32];
+
+    struct AllowListVerifier {
+        allowed: Vec<[u8; 32]>,
+    }
+    impl ClaimVerifier for AllowListVerifier {
+        fn verify_claim(&self, digest: &[u8; 32], _group: &[NullifierRecord]) -> bool {
+            self.allowed.contains(digest)
+        }
+    }
+
+    fn body_with_shielded_spend() -> SettlementBlockBody {
+        SettlementBlockBody::new(vec![])
+            .with_nullifiers(vec![NullifierRecord::new(vec![0x5c; 32], SHIELDED_CLAIM)])
+    }
+
+    /// A proposal containing a shielded spend the proposer never verified
+    /// (a plain [`apply_block`] header, unconditionally trusting it) is
+    /// authentic and structurally fine, but a receiving validator running
+    /// [`ConsensusNode::with_claim_verifier`] cannot reproduce its
+    /// `state_root` — its own recomputation drops the unverified group.
+    /// It must still be prevoted `nil`, exactly like the deterministic-
+    /// timestamp cases above, never silently dropped.
+    #[test]
+    fn a_proposal_with_an_unverifiable_shielded_spend_is_prevoted_nil() {
+        let fx = fixture();
+        let p_idx = proposer_index(&fx, 1, 0);
+        let seed = 10 + (((p_idx + 1) % 4) as u8) * 10;
+        let receiver_idx = (p_idx + 1) % 4;
+        let device = Controller::incept_device_single_from_seeds(
+            &fx.signers[receiver_idx].0.did(),
+            &[seed + 2; 32],
+            &[seed + 3; 32],
+        )
+        .unwrap();
+        let mut node = ConsensusNode::new(NodeConfig {
+            root: fx.signers[receiver_idx].0.did(),
+            device,
+            validators: fx.validators.clone(),
+            oracle: fx.oracle.clone(),
+            body_source: Box::new(|_| body_with_shielded_spend()),
+        })
+        .with_claim_verifier(Arc::new(AllowListVerifier { allowed: vec![] }));
+        let _ = node.start().unwrap();
+
+        // The proposer signs a header trusting the claim unconditionally
+        // (plain apply_block) -- exactly what an unverifying proposer does.
+        let genesis = LedgerChain::genesis();
+        let b = body_with_shielded_spend();
+        let next = apply_block(genesis.state(), &b).unwrap();
+        let header = BlockHeader {
+            height: 1,
+            prev_hash: genesis.tip_hash(),
+            state_root: next.commitment(),
+            body_root: b.hash(),
+            timestamp_ms: 1,
+            proposer: fx.signers[p_idx].0.did(),
+        };
+        let (root, device) = &fx.signers[p_idx];
+        let proposal = sign_proposal(0, -1, header, b, &root.did(), device);
+
+        let emits = node
+            .on_message(ConsensusMessage::Proposal(proposal))
+            .unwrap();
+        let prevote_target = emits.iter().find_map(|e| match e {
+            Emit::Broadcast(ConsensusMessage::Vote(v))
+                if v.height == 1 && v.kind == VoteKind::Prevote =>
+            {
+                Some(v.block_hash)
+            }
+            _ => None,
+        });
+        assert_eq!(
+            prevote_target,
+            Some(crate::round::NIL),
+            "a validator that cannot verify a proposal's shielded spend must prevote nil"
+        );
+    }
+
+    /// The mirror case: the same proposal, but the receiving validator's
+    /// verifier approves the claim — it reproduces the proposer's
+    /// `state_root` exactly and prevotes the real proposal hash, not nil.
+    #[test]
+    fn a_proposal_with_a_verifiable_shielded_spend_is_prevoted_normally() {
+        let fx = fixture();
+        let p_idx = proposer_index(&fx, 1, 0);
+        let receiver_idx = (p_idx + 1) % 4;
+        let seed = 10 + (receiver_idx as u8) * 10;
+        let device = Controller::incept_device_single_from_seeds(
+            &fx.signers[receiver_idx].0.did(),
+            &[seed + 2; 32],
+            &[seed + 3; 32],
+        )
+        .unwrap();
+        let mut node = ConsensusNode::new(NodeConfig {
+            root: fx.signers[receiver_idx].0.did(),
+            device,
+            validators: fx.validators.clone(),
+            oracle: fx.oracle.clone(),
+            body_source: Box::new(|_| body_with_shielded_spend()),
+        })
+        .with_claim_verifier(Arc::new(AllowListVerifier {
+            allowed: vec![SHIELDED_CLAIM],
+        }));
+        let _ = node.start().unwrap();
+
+        let genesis = LedgerChain::genesis();
+        let b = body_with_shielded_spend();
+        let next = apply_block(genesis.state(), &b).unwrap();
+        let header = BlockHeader {
+            height: 1,
+            prev_hash: genesis.tip_hash(),
+            state_root: next.commitment(),
+            body_root: b.hash(),
+            timestamp_ms: 1,
+            proposer: fx.signers[p_idx].0.did(),
+        };
+        let proposal_hash = header.hash();
+        let (root, device) = &fx.signers[p_idx];
+        let proposal = sign_proposal(0, -1, header, b, &root.did(), device);
+
+        let emits = node
+            .on_message(ConsensusMessage::Proposal(proposal))
+            .unwrap();
+        let prevote_target = emits.iter().find_map(|e| match e {
+            Emit::Broadcast(ConsensusMessage::Vote(v))
+                if v.height == 1 && v.kind == VoteKind::Prevote =>
+            {
+                Some(v.block_hash)
+            }
+            _ => None,
+        });
+        assert_eq!(
+            prevote_target,
+            Some(proposal_hash),
+            "a validator that can verify the shielded spend must prevote the real proposal"
         );
     }
 }

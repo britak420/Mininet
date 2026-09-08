@@ -1,0 +1,29 @@
+[package]
+name = "mini-shielded-verify"
+version = "0.0.1"
+description = "Composes mini-execution::ClaimVerifier with mini_private_payment::verify: the concrete 'whoever cares' validator-side shielded-spend verifier (D-0474, roadmap R8), kept in its own crate specifically so mini-execution/mini-consensus/mini-chain never link mini-value (P1, Directive 16)."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+# The two halves R8's own design note says must never meet inside
+# mini-execution/mini-consensus/mini-chain: the execution-side trait this
+# implements, and the value-side verification it calls. This crate is the
+# anchor-to-a-real-process split this workspace already applies elsewhere
+# (mini-chain -> mini-consensus, mini-update -> mini-installer) applied to
+# the shielded-spend validity rule.
+mini-execution = { path = "../mini-execution" }
+mini-private-payment = { path = "../mini-private-payment" }
+
+[dev-dependencies]
+# Test-only: proving this crate's bridge logic against a genuine claim
+# (real stealth derivation, a real MLSAG spend proof, real Bulletproofs)
+# rather than only decode-failure/no-evidence cases. Never a production
+# dependency of this crate — see Cargo.toml's own dependency list above,
+# unchanged by this.
+mini-crypto = { path = "../mini-crypto" }
+mini-value = { path = "../mini-value" }

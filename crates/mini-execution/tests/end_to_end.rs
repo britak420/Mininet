@@ -17,7 +17,7 @@ use mini_economy::{
     plan_scalable_epoch, Allocation, Amount, HumanSnapshot, IssuancePolicy, ScalableEpochRequest,
     YEAR_MS,
 };
-use mini_execution::{ExecutionError, LedgerChain, SettlementBlockBody};
+use mini_execution::{ClaimVerifier, ExecutionError, LedgerChain, NullifierRecord, SettlementBlockBody};
 use mini_settlement::{reconcile, sign_claim, SettlementState};
 
 fn validator(seed: u8) -> (Controller, Controller) {
@@ -630,5 +630,131 @@ fn a_timestamp_that_does_not_equal_the_block_height_is_rejected() {
         chain.height(),
         1,
         "the chain must not advance on a non-deterministic timestamp"
+    );
+}
+
+// --- ClaimVerifier at the chain layer (D-0474, roadmap R8) ---
+
+const NULLIFIER_CLAIM: [u8; 32] = [0x9c; 32];
+
+struct AllowListVerifier {
+    allowed: Vec<[u8; 32]>,
+}
+
+impl ClaimVerifier for AllowListVerifier {
+    fn verify_claim(&self, digest: &[u8; 32], _group: &[NullifierRecord]) -> bool {
+        self.allowed.contains(digest)
+    }
+}
+
+/// A validator whose local `ClaimVerifier` cannot verify a proposed
+/// shielded spend refuses the proposal at the chain layer: recomputing
+/// the state independently produces a different commitment than the one
+/// an honest-but-unverifying proposer's header claims, so
+/// `apply_finalized_block_with_verifier` reports the mismatch rather than
+/// silently trusting the header. This is exactly the mechanism
+/// `mini_consensus::node::validate_proposal` relies on to prevote `nil`
+/// on a block it cannot verify (see that function's own docs) — proven
+/// here at the layer that actually computes the two commitments.
+#[test]
+fn a_validator_with_a_configured_verifier_rejects_a_block_whose_claim_it_cannot_verify() {
+    let fx = fixture();
+    let mut chain = LedgerChain::genesis();
+    let body = SettlementBlockBody::new(vec![])
+        .with_nullifiers(vec![NullifierRecord::new(vec![0x77; 32], NULLIFIER_CLAIM)]);
+
+    // The proposer never verified the claim -- this is the state_root an
+    // unconditionally-trusting node (no verifier configured) would sign.
+    let unverified_next = mini_execution::apply_block(chain.state(), &body).unwrap();
+    let header = BlockHeader {
+        height: 1,
+        prev_hash: chain.tip_hash(),
+        state_root: unverified_next.commitment(),
+        body_root: body.hash(),
+        timestamp_ms: 1,
+        proposer: fx.signers[0].0.did(),
+    };
+    let hash = header.hash();
+    let votes = fx.signers[..3]
+        .iter()
+        .map(|(root, device)| sign_vote(VoteKind::Precommit, 1, 0, hash, &root.did(), device))
+        .collect();
+    let qc = QuorumCertificate {
+        height: 1,
+        round: 0,
+        block_hash: hash,
+        votes,
+    };
+
+    // This validator's own verifier never approved NULLIFIER_CLAIM, so its
+    // own recomputation drops the group -- a different commitment than
+    // the header the (unverifying) proposer signed.
+    let verifier = AllowListVerifier { allowed: vec![] };
+    let err = chain
+        .apply_finalized_block_with_verifier(
+            &header,
+            &body,
+            &qc,
+            &fx.validators,
+            &fx.oracle,
+            Some(&verifier),
+        )
+        .unwrap_err();
+    assert_eq!(err, ExecutionError::StateRootMismatch);
+    assert_eq!(
+        chain.height(),
+        0,
+        "a validator that cannot verify the claim must not advance"
+    );
+}
+
+/// The mirror case: a validator whose verifier *does* approve the claim
+/// finalizes it exactly as the unconditionally-trusting path would.
+#[test]
+fn a_validator_with_a_configured_verifier_finalizes_a_claim_it_can_verify() {
+    let fx = fixture();
+    let mut chain = LedgerChain::genesis();
+    let body = SettlementBlockBody::new(vec![])
+        .with_nullifiers(vec![NullifierRecord::new(vec![0x77; 32], NULLIFIER_CLAIM)]);
+    let verifier = AllowListVerifier {
+        allowed: vec![NULLIFIER_CLAIM],
+    };
+
+    let next = mini_execution::apply_block_with_verifier(chain.state(), &body, Some(&verifier))
+        .unwrap();
+    let header = BlockHeader {
+        height: 1,
+        prev_hash: chain.tip_hash(),
+        state_root: next.commitment(),
+        body_root: body.hash(),
+        timestamp_ms: 1,
+        proposer: fx.signers[0].0.did(),
+    };
+    let hash = header.hash();
+    let votes = fx.signers[..3]
+        .iter()
+        .map(|(root, device)| sign_vote(VoteKind::Precommit, 1, 0, hash, &root.did(), device))
+        .collect();
+    let qc = QuorumCertificate {
+        height: 1,
+        round: 0,
+        block_hash: hash,
+        votes,
+    };
+
+    chain
+        .apply_finalized_block_with_verifier(
+            &header,
+            &body,
+            &qc,
+            &fx.validators,
+            &fx.oracle,
+            Some(&verifier),
+        )
+        .unwrap();
+    assert_eq!(chain.height(), 1);
+    assert_eq!(
+        chain.state().finalized_nullifier(&[0x77; 32]),
+        Some(NULLIFIER_CLAIM)
     );
 }

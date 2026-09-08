@@ -12,7 +12,7 @@ use mini_economy::Amount;
 
 use crate::body::SettlementBlockBody;
 use crate::error::{ExecutionError, Result};
-use crate::state::{apply_block, LedgerState};
+use crate::state::{apply_block_with_verifier, LedgerState};
 
 /// A chain of finalized settlement state, advanced one verified block at a
 /// time. Two independent [`LedgerChain`]s fed the identical sequence of
@@ -141,6 +141,34 @@ impl LedgerChain {
         validators: &ValidatorSet,
         oracle: &dyn ValidatorOracle,
     ) -> Result<[u8; 32]> {
+        self.apply_finalized_block_with_verifier(header, body, qc, validators, oracle, None)
+    }
+
+    /// [`Self::apply_finalized_block`], with an optional
+    /// [`crate::ClaimVerifier`] gating shielded-spend finalization exactly
+    /// as [`crate::apply_block_with_verifier`] does (D-0474, roadmap R8).
+    /// `None` reproduces [`Self::apply_finalized_block`] exactly.
+    ///
+    /// Deliberately **not** wired into state-sync/catch-up's own
+    /// already-QC'd historical batches (`mini_consensus::node`'s
+    /// `verify_state_sync`) — those already trust `verify_finality`'s
+    /// already-formed quorum certificate as sufficient proof a height is
+    /// canonical; re-deriving local claim-verification agreement for
+    /// history predating this node's own participation would make a node
+    /// unable to ever catch up past a claim it lacks evidence for, which
+    /// is a liveness regression this slice does not accept. This gate
+    /// applies to a node's *own* live round: the height it is actively
+    /// proposing, voting on, or committing.
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_finalized_block_with_verifier(
+        &mut self,
+        header: &BlockHeader,
+        body: &SettlementBlockBody,
+        qc: &QuorumCertificate,
+        validators: &ValidatorSet,
+        oracle: &dyn ValidatorOracle,
+        claim_verifier: Option<&dyn crate::ClaimVerifier>,
+    ) -> Result<[u8; 32]> {
         // Reject attacker-controlled oversized or substituted bodies before
         // spending work on quorum-signature verification.
         if body.claims.len() > crate::MAX_CLAIMS_PER_BLOCK {
@@ -185,7 +213,7 @@ impl LedgerChain {
             ));
         }
 
-        let next_state = apply_block(&self.state, body)?;
+        let next_state = apply_block_with_verifier(&self.state, body, claim_verifier)?;
         let commitment = next_state.commitment();
         if header.state_root != commitment {
             return Err(ExecutionError::StateRootMismatch);
