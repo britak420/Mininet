@@ -2612,8 +2612,8 @@ in `docs/INVARIANTS.md` also does not exist yet.
 `AirdropSnapshot` (one entry per identity root, bounded size, a
 BLAKE3-256 content digest a claim binds to) and `verify_and_resolve_claim`
 (campaign match → real `did-mini` KEL verification and scid match → KEL-
-threshold signature check → snapshot membership → `ClaimedRegistry`
-double-claim check → mark claimed). Returns a `ClaimOutcome` (amount +
+threshold signature check → snapshot membership → atomic
+`ClaimedRegistry::try_reserve`). Returns a `ClaimOutcome` (amount +
 recipient) only — never a `mini_settlement::PaymentClaim`, never holds
 treasury signing authority. Composes only already-reviewed primitives
 (`did-mini` KEL verification, `mini-crypto` BLAKE3); no new cryptography.
@@ -2627,13 +2627,34 @@ in this crate's own verification logic — one identity root claiming
 successfully proves control of that root's KEL keys, nothing about how
 many humans control it (roadmap #18, still open).
 
-**shipped, prototype (D-0355)** — `FileClaimedRegistry`: a real
-append-only, fsynced-on-write on-disk `ClaimedRegistry`. Tolerates a
-truncated trailing record (e.g. crash mid-write) by stopping there on
-replay rather than rejecting the whole file. `ClaimedRegistry::
-mark_claimed` is now fallible (`Result<()>`), so a genuine write failure
-propagates out of `verify_and_resolve_claim` instead of silently
-reporting a claim that was never durably recorded.
+**shipped, prototype (D-0355)** — `FileClaimedRegistry`: a real, fsynced
+on-disk `ClaimedRegistry`. Originally a single append-only log with a
+separate `already_claimed`-then-`mark_claimed` write path; superseded
+in shape (not in the crate it lives in) by D-0495 below.
+
+**hardened (D-0495, PR #327 finding F-20)** — `ClaimedRegistry`'s write
+side is now one atomic `try_reserve(identity_root, outcome_digest,
+at_ms)` call instead of a separate check-then-write pair, closing a real
+double-award race: two callers (two threads sharing a registry, or two
+processes each holding their own `FileClaimedRegistry` over the same
+path) could previously both observe "not yet claimed" before either
+persisted. `FileClaimedRegistry` now stores one exclusively-created
+(`O_EXCL`-equivalent) marker file per identity root — named by a content
+hash of the scid, never the raw scid text — inside a directory rather
+than a single shared log, so every read goes straight to disk instead of
+a per-instance in-memory cache; two independent instances over the same
+directory agree immediately, not only after a reopen. A retry that
+resolves to the *exact same* outcome (same identity root, amount,
+recipient) as an already-reserved claim now returns
+`ReservationOutcome::IdempotentRetry` and the same `ClaimOutcome`
+instead of erroring — the finding's other concrete example, "a valid
+claimant is marked claimed, then signing/submission fails; on retry the
+system refuses the claim although no funds arrived," no longer strands
+the claimant. A *different* outcome for an already-reserved root still
+fails closed as `AirdropError::AlreadyClaimed`, and an existing marker
+file this crate cannot decode (a truncated mid-write crash artifact)
+fails closed as a new `AirdropError::CorruptReservationRecord` rather
+than being silently trusted either way.
 
 **shipped, prototype (D-0356)** — `mini-airdrop-treasury`: bridges a
 `ClaimOutcome` to a `TreasuryApprovedPayout` by composing
@@ -2644,6 +2665,19 @@ Explicitly does **not** touch `mini_treasury::frost_sign` — that
 module's own docs name it the "permanent honeypot" component requiring
 external audit (D-0035) — and does **not** produce a signed
 `mini_settlement::PaymentClaim`.
+
+**hardened (D-0495)** — `TreasuryApprovedPayout`'s two fields are now
+private with read-only accessors (`outcome()`/`approving_signers()`);
+the type has no public constructor anywhere, so the only way to obtain
+one is `verify_payout_approvals` actually checking real KEL signatures
+against a real threshold. Previously every field was `pub`, so any
+caller could hand-construct one without ever calling verification — the
+finding's own words, "a public approval-shaped struct must not be
+accepted as proof merely because it can be constructed." Nothing
+downstream consumed the free-constructibility yet (no code anywhere
+builds a settlement claim from a `TreasuryApprovedPayout` today), so
+this closes the landmine before anything could step on it, not an
+active exploit.
 
 **Not built** — the actual settlement-claim construction/signing step
 that would turn a `TreasuryApprovedPayout` into moved value. This is

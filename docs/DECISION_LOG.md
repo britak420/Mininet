@@ -21253,3 +21253,163 @@ allocation may ever bind to `UniqueHumanCredentialV1` or any successor
 before that program, and its stated falsification gates, actually run.
 
 **Supersedes / superseded by:** none.
+
+### D-0495 — `ClaimedRegistry::try_reserve` makes claim reservation atomic and idempotent-retry-safe; `TreasuryApprovedPayout` sealed (F-20)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-20
+(`crates/mini-airdrop/src/registry.rs`, `crates/mini-airdrop/src/
+file_registry.rs`, `crates/mini-airdrop-treasury/src/approval.rs`);
+D-0354/D-0355/D-0356/D-0358/D-0359 (this stack's prior decisions);
+D-0490 (the same unforgeable-typed-domain discipline applied here to
+`TreasuryApprovedPayout`).
+
+**Decision:** three real fixes, all inside the "claim bookkeeping" layer
+the finding names and none touching the honest, deliberate boundary this
+stack stops at (never producing a `mini_settlement::PaymentClaim`):
+
+1. **`ClaimedRegistry`'s write side was check-then-write, not atomic.**
+   `already_claimed` (read) and `mark_claimed` (write) were two separate
+   calls with no atomicity between them -- the finding's own concrete
+   example, "two writers both pass the initial unclaimed check before
+   either persists." Replaced with one trait method,
+   `try_reserve(identity_root, outcome_digest, at_ms) ->
+   Result<ReservationOutcome>`, that a backend must implement as a single
+   atomic check-and-record.
+2. **A verified claim could be permanently stranded.** Once
+   `mark_claimed` succeeded, a downstream failure (signing, submission --
+   steps this crate correctly does not perform) left the identity root
+   marked claimed forever with no funds moved, and a retry hit
+   `AlreadyClaimed` -- the finding's other concrete example verbatim.
+   `try_reserve` binds each reservation to an `outcome_digest` (new
+   `mini_airdrop::outcome_digest`, a BLAKE3-256 digest over the resolved
+   `ClaimOutcome`'s every field). A retry that resolves to the *identical*
+   outcome now returns `ReservationOutcome::IdempotentRetry` and the same
+   `ClaimOutcome` -- safe to retry whatever failed downstream. A
+   *different* outcome for an already-reserved root (a genuine conflicting
+   claim, e.g. a different recipient) still fails as `AlreadyClaimed`,
+   unchanged.
+3. **`TreasuryApprovedPayout` was a public-field struct any caller could
+   construct directly**, matching the finding's own words exactly: "a
+   public approval-shaped struct must not be accepted as proof merely
+   because it can be constructed." Both fields are now private with
+   `outcome()`/`approving_signers()` read accessors; the only constructor
+   anywhere in the dependency graph is `verify_payout_approvals` itself,
+   after real KEL-signature verification against a real
+   `TreasurySignerSet` threshold. Nothing downstream consumed the
+   free-constructibility yet, so this closes a landmine before anything
+   could step on it, not an active exploit.
+
+`FileClaimedRegistry` (`mini-airdrop/src/file_registry.rs`) was rewritten
+from a single shared append-only log to one file per identity root inside
+a directory, so `try_reserve` can be genuinely atomic at the OS level
+rather than an in-process cache guess: the marker filename is a content
+hash of the scid (never the raw scid text, so no identity string has to
+be a safe filename on every target filesystem), and publishing is
+write-a-private-staging-file-then-`fs::hard_link` onto the final name --
+`hard_link` fails atomically with `AlreadyExists` if a reservation is
+already there, and because the staged file is fully written and fsynced
+*before* it is ever linked, the final path never exists with anything but
+complete content.
+
+That last clause is not a hypothetical design goal -- it is what this
+entry's own first attempt got wrong and its own test caught. The first
+version published reservations with a direct `OpenOptions::create_new`
+on the final path: exclusive-create makes the *name* appear atomically,
+but the content is written in a second, separate step, so a second
+writer racing the first could observe the name existing with zero or
+partial bytes and misread that as `CorruptReservationRecord` instead of
+a legitimate prior claim. A genuine two-thread concurrency test
+(`two_writers_racing_the_same_identity_root_never_both_win_fresh`,
+written specifically to reproduce the finding's "two writers" example
+with real OS threads and a `Barrier`, not a sequential stand-in) caught
+this immediately under `cargo test --workspace` -- it did not always
+reproduce under a narrower, less-parallel test invocation, which is
+exactly why the acceptance test was written to force genuine concurrent
+execution rather than trust a sequential simulation of a race. Fixed by
+moving the full write to a private staging file first and publishing via
+`hard_link`, then stress-run 50 sequential and 20 full-crate-parallel
+repetitions with zero failures before this entry was written.
+
+**Reason:** all three problems are exactly what the finding's Mechanism
+and Concrete example describe, are fully containable within this crate's
+already-declared scope (a `ClaimedRegistry` is claim bookkeeping, never
+a payment authority), and needed no new concept the finding didn't
+already name. The finding's fuller "Pending/Authorized/Submitted/
+Finalized" state machine bound to a "canonical payment digest" was not
+attempted: no code anywhere in this workspace produces a canonical
+payment digest for an airdrop claim today (`mini_settlement::
+PaymentClaim` construction from a `TreasuryApprovedPayout` remains
+explicitly not built, per D-0356's own still-open gap), so inventing
+Authorized/Submitted/Finalized states with nothing real for them to
+represent would be exactly the kind of unreviewed structure this
+codebase declines to build ahead of the mechanism it would describe. The
+finding's own Boundary agrees: "The current approval bridge explicitly
+stops before moving value. Preserve that honest separation while
+completing it" -- this entry completes the reservation/retry half of
+that sentence and leaves the value-moving half exactly where it was.
+
+**Constitutional impact:** none. No cryptography invented (BLAKE3 and
+`hard_link`/`create_new` are already-used primitives and standard
+POSIX filesystem operations); no dependency-graph change; no Tier-F
+invariant touched. `mini-airdrop`/`mini-airdrop-treasury` remain gated
+behind D-0047 like every other prototype crate here.
+
+**Implementation status:** shipped.
+- `crates/mini-airdrop/src/registry.rs`: new `ReservationOutcome` enum;
+  `ClaimedRegistry::mark_claimed` replaced by `try_reserve`;
+  `InMemoryClaimedRegistry` updated to match (atomic by construction, a
+  single `HashMap` entry API).
+- `crates/mini-airdrop/src/file_registry.rs`: rewritten as described
+  above -- directory of hash-named marker files, staging-file-then-
+  `hard_link` publish, `already_claimed`/`try_reserve` read straight from
+  disk (no preloaded cache), `len()`/`is_empty()` compute from a fresh
+  directory listing. 8 tests: fresh/reopen/multi-claim persistence,
+  conflicting-outcome refusal, idempotent-retry, the two-real-thread race
+  test, and a truncated-record-refused test (writes a valid reservation
+  then externally truncates it, confirming `CorruptReservationRecord`
+  rather than silent trust either way).
+- `crates/mini-airdrop/src/claim.rs`: new `pub fn outcome_digest`;
+  `verify_and_resolve_claim` resolves the `ClaimOutcome` before reserving
+  and returns it on both `Fresh` and `IdempotentRetry`.
+- `crates/mini-airdrop/src/error.rs`: new
+  `AirdropError::CorruptReservationRecord` variant.
+  `AirdropError::AlreadyClaimed` unchanged in meaning (a genuine
+  conflicting claim), now also covers a different-outcome
+  already-reserved root.
+- `crates/mini-airdrop-treasury/src/approval.rs`: `TreasuryApprovedPayout`
+  fields made private with accessor methods, doc comment updated.
+- `crates/mini-airdrop-treasury/tests/end_to_end.rs`,
+  `crates/mini-airdrop/src/file_registry.rs`'s own tests, and
+  `crates/mini-airdrop-treasury/src/approval.rs`'s own tests updated for
+  the new registry-directory shape and accessor methods -- the only real
+  callers in this workspace, both test-only, zero production
+  coordination cost.
+- `docs/STATUS.md` section 13 updated: the stale `mark_claimed`
+  reference removed, two new bullets describe the atomicity/idempotency
+  fix and the sealed-struct fix.
+
+**Failure point:** `staging_path`'s uniqueness (thread id + process id +
+wall-clock nanoseconds) is a collision-avoidance heuristic, not a
+cryptographic guarantee -- an adversary who can already write arbitrary
+files into this registry's own directory could in principle collide two
+staging names, but that adversary already has local write access to the
+registry's storage, a strictly stronger position than anything this fix
+defends against. `already_claimed`'s plain existence check does not
+distinguish a corrupt record from a valid one (only `try_reserve`'s
+read-back does); a caller that only ever calls `already_claimed` for a
+status display, never `try_reserve`, could display "claimed" for a
+record that would actually fail closed on an actual reservation attempt
+-- an intentional trade-off (existence-only checks should stay cheap),
+documented here rather than silently relied upon. Cross-filesystem or
+networked-filesystem deployments where `hard_link` semantics are weaker
+than POSIX-local (e.g. some NFS configurations) are out of scope, same
+as this workspace's other same-filesystem-atomic-rename uses (D-0491).
+
+**Required follow-up:** none identified beyond the finding's own
+already-tracked, already-declined-for-now gap: real settlement-claim
+construction from a `TreasuryApprovedPayout` remains blocked on the
+`mini_treasury::frost_sign` / `mini_crypto::SignatureSuite` signature-
+suite mismatch D-0356 already named, unresolved and not attempted here.
+
+**Supersedes / superseded by:** none.

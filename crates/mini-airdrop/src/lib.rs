@@ -59,11 +59,12 @@ mod registry;
 mod snapshot;
 
 pub use claim::{
-    message_to_sign, verify_and_resolve_claim, ClaimOutcome, ClaimRequest, MAX_RECIPIENT_BYTES,
+    message_to_sign, outcome_digest, verify_and_resolve_claim, ClaimOutcome, ClaimRequest,
+    MAX_RECIPIENT_BYTES,
 };
 pub use error::{AirdropError, Result};
 pub use file_registry::FileClaimedRegistry;
-pub use registry::{ClaimedRegistry, InMemoryClaimedRegistry};
+pub use registry::{ClaimedRegistry, InMemoryClaimedRegistry, ReservationOutcome};
 pub use snapshot::{
     AirdropSnapshot, AllocationEntry, SnapshotBuilder, MAX_CAMPAIGN_ID_BYTES, MAX_ENTRIES,
     MAX_REASON_BYTES,

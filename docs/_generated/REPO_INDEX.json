@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 936,
     "headings": 3344,
-    "rust_symbols": 9454
+    "rust_symbols": 9463
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28283,
+      "bytes": 28289,
       "group": "root",
       "headings": [
         {
@@ -1840,7 +1840,7 @@
       ],
       "lines": 451,
       "path": "README.md",
-      "sha256": "284cf82d15cb9d49d505e217cda9838dbf088bb27e7a197c22166a6b2f57abb1",
+      "sha256": "2e2556dc55739bb07ee788ae5143485825ef9a098d4e95b222cad0ffe60d37f5",
       "symbols": [],
       "title": "Mininet"
     },
@@ -5938,38 +5938,38 @@
       "title": "[package]"
     },
     {
-      "bytes": 11412,
+      "bytes": 12340,
       "group": "crate:mini-airdrop-treasury",
       "headings": [],
       "keywords": [
-        "did",
         "outcome",
         "msg",
-        "claimoutcome",
         "kel",
-        "extend_from_slice",
-        "treasuryapprovedpayout",
-        "signer",
-        "campaign_id",
-        "vec",
-        "len",
-        "verified",
         "approval",
+        "treasuryapprovedpayout",
+        "extend_from_slice",
+        "claimoutcome",
         "real",
-        "approving_signers",
+        "campaign_id",
+        "signer",
+        "len",
+        "same",
+        "did",
+        "vec",
         "payout_message",
+        "approving_signers",
         "enough",
         "treasury",
-        "same",
+        "already",
+        "evidence",
         "authorized",
         "signers",
         "root_bytes",
-        "to_be_bytes",
-        "candidate_approvals"
+        "to_be_bytes"
       ],
-      "lines": 291,
+      "lines": 313,
       "path": "crates/mini-airdrop-treasury/src/approval.rs",
-      "sha256": "6d1d8c4d94fb10cb64d8964afff01b20c85757add124e292285c9c3c4758288d",
+      "sha256": "ce15d69dd5a6206b040c37ec9cc81ef56dde9511f472e0659ccfa1dd56f7a300",
       "symbols": [
         {
           "kind": "fn",
@@ -5978,72 +5978,87 @@
         },
         {
           "kind": "struct",
-          "line": 49,
+          "line": 60,
           "name": "TreasuryApprovedPayout"
         },
         {
-          "kind": "type",
-          "line": 62,
-          "name": "CandidateApproval"
+          "kind": "impl",
+          "line": 65,
+          "name": "TreasuryApprovedPayout"
         },
         {
           "kind": "fn",
           "line": 67,
+          "name": "outcome"
+        },
+        {
+          "kind": "fn",
+          "line": 73,
+          "name": "approving_signers"
+        },
+        {
+          "kind": "type",
+          "line": 84,
+          "name": "CandidateApproval"
+        },
+        {
+          "kind": "fn",
+          "line": 89,
           "name": "verify_payout_approvals"
         },
         {
           "kind": "mod",
-          "line": 116,
+          "line": 138,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 120,
+          "line": 142,
           "name": "signer"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 148,
           "name": "sample_outcome"
         },
         {
           "kind": "fn",
-          "line": 135,
+          "line": 157,
           "name": "no_candidate_approvals_is_rejected_before_anything_else"
         },
         {
           "kind": "fn",
-          "line": 148,
+          "line": 170,
           "name": "a_single_authorized_signers_approval_meets_a_threshold_of_one"
         },
         {
           "kind": "fn",
-          "line": 164,
+          "line": 186,
           "name": "a_single_approval_does_not_meet_a_threshold_of_two"
         },
         {
           "kind": "fn",
-          "line": 183,
+          "line": 205,
           "name": "two_distinct_authorized_approvals_meet_a_threshold_of_two"
         },
         {
           "kind": "fn",
-          "line": 204,
+          "line": 226,
           "name": "a_non_member_signers_valid_signature_never_counts"
         },
         {
           "kind": "fn",
-          "line": 231,
+          "line": 253,
           "name": "a_member_kel_presented_with_someone_elses_signature_never_counts"
         },
         {
           "kind": "fn",
-          "line": 254,
+          "line": 276,
           "name": "duplicate_approvals_from_the_same_signer_only_count_once"
         },
         {
           "kind": "fn",
-          "line": 274,
+          "line": 296,
           "name": "an_approval_signed_for_a_different_campaign_does_not_count"
         }
       ],
@@ -6276,7 +6291,7 @@
       "title": "use mini_airdrop::AirdropSnapshot;"
     },
     {
-      "bytes": 5441,
+      "bytes": 5458,
       "group": "crate:mini-airdrop-treasury",
       "headings": [],
       "keywords": [
@@ -6307,7 +6322,7 @@
       ],
       "lines": 149,
       "path": "crates/mini-airdrop-treasury/tests/end_to_end.rs",
-      "sha256": "55f1dbc17efea7504de36f6813cacf9e152a219899d28cc8d5ea0db9d33cd30f",
+      "sha256": "bc8f97814ad4c8d3030568fc0ca689080aa712159643763b598848040ccb1ccf",
       "symbols": [
         {
           "kind": "fn",
@@ -6395,139 +6410,144 @@
       "title": "Identity vocabulary + real KEL signature verification (claimants prove"
     },
     {
-      "bytes": 14532,
+      "bytes": 15998,
       "group": "crate:mini-airdrop",
       "headings": [],
       "keywords": [
         "recipient",
-        "request",
         "msg",
-        "campaign_id",
         "extend_from_slice",
-        "snapshot",
+        "request",
+        "campaign_id",
         "len",
         "claimrequest",
         "vec",
-        "identity_root",
-        "kel",
-        "sequence",
         "claim",
+        "same",
+        "snapshot",
+        "identity_root",
+        "sequence",
         "claimoutcome",
         "claimant",
-        "same",
-        "registry",
+        "identity",
         "never",
         "did",
+        "field",
         "root_bytes",
         "to_be_bytes",
         "max_recipient_bytes",
         "claim_request_message",
-        "identity"
+        "root"
       ],
-      "lines": 392,
+      "lines": 415,
       "path": "crates/mini-airdrop/src/claim.rs",
-      "sha256": "015ad666933e0b626430738aeeb3bd1e1e8c008795f3cf617b9bfe81d6f1d647",
+      "sha256": "a287bba082874ba4af48764247c72d8a964c35e918e26f354ce62343415a0a7d",
       "symbols": [
         {
           "kind": "const",
-          "line": 20,
+          "line": 21,
           "name": "MAX_RECIPIENT_BYTES"
         },
         {
           "kind": "struct",
-          "line": 24,
+          "line": 25,
           "name": "ClaimRequest"
         },
         {
           "kind": "impl",
-          "line": 49,
+          "line": 50,
           "name": "ClaimRequest"
         },
         {
           "kind": "fn",
-          "line": 50,
+          "line": 51,
           "name": "check_wellformed"
         },
         {
           "kind": "fn",
-          "line": 62,
+          "line": 63,
           "name": "claim_request_message"
         },
         {
           "kind": "fn",
-          "line": 86,
+          "line": 87,
           "name": "message_to_sign"
         },
         {
           "kind": "struct",
-          "line": 100,
+          "line": 101,
           "name": "ClaimOutcome"
         },
         {
           "kind": "fn",
-          "line": 122,
+          "line": 112,
+          "name": "outcome_digest"
+        },
+        {
+          "kind": "fn",
+          "line": 147,
           "name": "verify_and_resolve_claim"
         },
         {
           "kind": "mod",
-          "line": 166,
+          "line": 189,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 173,
+          "line": 196,
           "name": "snapshot_with"
         },
         {
           "kind": "fn",
-          "line": 185,
+          "line": 208,
           "name": "request_for"
         },
         {
           "kind": "fn",
-          "line": 195,
+          "line": 218,
           "name": "a_valid_claim_resolves_and_marks_the_registry"
         },
         {
           "kind": "fn",
-          "line": 220,
+          "line": 243,
           "name": "a_second_claim_by_the_same_identity_root_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 254,
+          "line": 277,
           "name": "a_claim_against_the_wrong_campaign_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 277,
+          "line": 300,
           "name": "an_identity_root_with_no_snapshot_entry_is_not_eligible"
         },
         {
           "kind": "fn",
-          "line": 302,
+          "line": 325,
           "name": "presenting_a_different_identity_roots_kel_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 327,
+          "line": 350,
           "name": "a_signature_from_an_unrelated_key_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 354,
+          "line": 377,
           "name": "tampering_with_the_recipient_after_signing_invalidates_the_signature"
         },
         {
           "kind": "fn",
-          "line": 379,
+          "line": 402,
           "name": "an_oversized_recipient_is_rejected_before_any_crypto_runs"
         }
       ],
       "title": "use did_mini::{Did, IndexedSig, Kel};"
     },
     {
-      "bytes": 4531,
+      "bytes": 5317,
       "group": "crate:mini-airdrop",
       "headings": [],
       "keywords": [
@@ -6536,8 +6556,8 @@
         "snapshot",
         "claim",
         "identity",
-        "error",
         "root",
+        "error",
         "result",
         "fmt",
         "campaign",
@@ -6556,9 +6576,9 @@
         "match",
         "presented"
       ],
-      "lines": 104,
+      "lines": 118,
       "path": "crates/mini-airdrop/src/error.rs",
-      "sha256": "9f738e20dd2f275ed2e8bb839fafd784ca2c74f13accdcd272605b3880e5b4ee",
+      "sha256": "fe3f8a47dd2ec4ba54c796e129df422bc29101554375200030f0df38ed5026b9",
       "symbols": [
         {
           "kind": "type",
@@ -6572,166 +6592,186 @@
         },
         {
           "kind": "impl",
-          "line": 56,
+          "line": 64,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 65,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 103,
+          "line": 117,
           "name": "std::error::Error"
         }
       ],
       "title": "pub type Result<T> = core::result::Result<T, AirdropError>;"
     },
     {
-      "bytes": 8138,
+      "bytes": 16942,
       "group": "crate:mini-airdrop",
       "headings": [],
       "keywords": [
-        "did",
         "self",
-        "pos",
-        "at_ms",
-        "path",
-        "len",
-        "buf",
-        "file",
-        "claimed",
-        "record_domain",
-        "fileclaimedregistry",
+        "dir",
         "std",
-        "record",
-        "u64",
-        "scid_bytes",
-        "out",
-        "open",
-        "append",
-        "claimedregistry",
-        "identity_root",
-        "every",
+        "fileclaimedregistry",
+        "file",
+        "hasher",
+        "path",
+        "hash",
+        "final",
+        "name",
+        "directory",
         "pathbuf",
-        "result",
-        "scid"
+        "identity_root",
+        "len",
+        "claimedregistry",
+        "root",
+        "reservation",
+        "hard_link",
+        "did",
+        "record",
+        "claim",
+        "ever",
+        "never",
+        "two"
       ],
-      "lines": 238,
+      "lines": 411,
       "path": "crates/mini-airdrop/src/file_registry.rs",
-      "sha256": "c66d2604bf82aa10386592a737527a121196a7c07ee9f67d56971774ba3d7ba9",
+      "sha256": "32b956870678169223aaebb1683e2b2554150e03d7924c06d01bfe87ec737cc2",
       "symbols": [
         {
           "kind": "const",
-          "line": 18,
+          "line": 41,
           "name": "RECORD_DOMAIN"
         },
         {
           "kind": "const",
-          "line": 23,
-          "name": "MAX_SCID_BYTES"
+          "line": 45,
+          "name": "RECORD_BYTES"
         },
         {
           "kind": "struct",
-          "line": 27,
+          "line": 52,
           "name": "FileClaimedRegistry"
         },
         {
           "kind": "impl",
-          "line": 32,
+          "line": 56,
           "name": "FileClaimedRegistry"
         },
         {
           "kind": "fn",
-          "line": 41,
+          "line": 62,
           "name": "open"
         },
         {
           "kind": "fn",
-          "line": 64,
+          "line": 70,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 68,
+          "line": 76,
           "name": "is_empty"
         },
         {
           "kind": "fn",
-          "line": 72,
-          "name": "decode_record"
+          "line": 86,
+          "name": "reservation_path"
         },
         {
           "kind": "fn",
-          "line": 95,
+          "line": 98,
+          "name": "staging_path"
+        },
+        {
+          "kind": "fn",
+          "line": 114,
           "name": "encode_record"
         },
         {
           "kind": "fn",
-          "line": 107,
-          "name": "append"
+          "line": 127,
+          "name": "read_record"
         },
         {
           "kind": "impl",
-          "line": 117,
+          "line": 147,
           "name": "ClaimedRegistry"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 148,
           "name": "already_claimed"
         },
         {
           "kind": "fn",
-          "line": 122,
-          "name": "mark_claimed"
+          "line": 152,
+          "name": "try_reserve"
         },
         {
           "kind": "mod",
-          "line": 131,
+          "line": 210,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 135,
+          "line": 216,
           "name": "root"
         },
         {
           "kind": "fn",
-          "line": 139,
-          "name": "temp_path"
+          "line": 220,
+          "name": "temp_dir"
         },
         {
           "kind": "fn",
-          "line": 154,
-          "name": "a_fresh_file_registry_has_no_claims"
+          "line": 234,
+          "name": "digest_for"
         },
         {
           "kind": "fn",
-          "line": 163,
-          "name": "a_marked_claim_persists_across_reopening_the_same_file"
+          "line": 243,
+          "name": "a_fresh_registry_has_no_claims"
         },
         {
           "kind": "fn",
-          "line": 179,
+          "line": 252,
+          "name": "a_reservation_persists_across_reopening_the_same_directory"
+        },
+        {
+          "kind": "fn",
+          "line": 272,
           "name": "multiple_claims_all_survive_a_reopen"
         },
         {
           "kind": "fn",
-          "line": 198,
-          "name": "a_truncated_trailing_record_is_tolerated_and_earlier_records_still_load"
+          "line": 295,
+          "name": "a_second_reservation_for_a_different_outcome_is_refused"
         },
         {
           "kind": "fn",
-          "line": 223,
-          "name": "two_registry_instances_over_the_same_file_agree_after_reopening"
+          "line": 313,
+          "name": "a_retry_of_the_exact_same_outcome_is_idempotent_not_an_error"
+        },
+        {
+          "kind": "fn",
+          "line": 344,
+          "name": "two_writers_racing_the_same_identity_root_never_both_win_fresh"
+        },
+        {
+          "kind": "fn",
+          "line": 390,
+          "name": "a_truncated_reservation_record_is_refused_not_silently_trusted"
         }
       ],
-      "title": "use std::collections::HashMap;"
+      "title": "use std::collections::hash_map::DefaultHasher;"
     },
     {
-      "bytes": 3409,
+      "bytes": 3449,
       "group": "crate:mini-airdrop",
       "headings": [],
       "keywords": [
@@ -6760,9 +6800,9 @@
         "one",
         "airdropsnapshot"
       ],
-      "lines": 71,
+      "lines": 72,
       "path": "crates/mini-airdrop/src/lib.rs",
-      "sha256": "bcb5aca9b500aa57fe8891515ff5ea6d60b1bcbd5ba8370fdc861c4bbc8d78cb",
+      "sha256": "99257f22b1557ba14cacab9a6750c8033304b1a995501f23a407873ef2216bec",
       "symbols": [
         {
           "kind": "mod",
@@ -6793,88 +6833,93 @@
       "title": "mod claim;"
     },
     {
-      "bytes": 2680,
+      "bytes": 6384,
       "group": "crate:mini-airdrop",
       "headings": [],
       "keywords": [
-        "identity_root",
-        "self",
-        "claimed",
-        "did",
-        "inmemoryclaimedregistry",
-        "claimedregistry",
-        "mark_claimed",
-        "already",
         "claim",
-        "already_claimed",
-        "real",
-        "at_ms",
-        "u64",
+        "same",
+        "try_reserve",
+        "reservation",
+        "outcome_digest",
+        "reservationoutcome",
+        "claimedregistry",
         "identity",
-        "campaign",
-        "verification",
-        "persisted",
-        "error",
-        "result",
+        "already",
         "record",
-        "verify_and_resolve_claim",
-        "actually",
+        "root",
+        "one",
+        "identity_root",
+        "already_claimed",
+        "two",
+        "claimed",
+        "call",
+        "retry",
+        "error",
+        "never",
+        "did",
+        "return",
         "registry",
-        "new"
+        "inmemoryclaimedregistry"
       ],
-      "lines": 65,
+      "lines": 143,
       "path": "crates/mini-airdrop/src/registry.rs",
-      "sha256": "bf57e282255e1b1b1934604b3cb3e4db20e37794078132db8bc8e7096f6164b1",
+      "sha256": "5f0981bccec42abdb2202af1321ea59afa16bf82204afd1320d80bd92c481c1b",
       "symbols": [
         {
+          "kind": "enum",
+          "line": 48,
+          "name": "ReservationOutcome"
+        },
+        {
           "kind": "trait",
-          "line": 21,
+          "line": 64,
           "name": "ClaimedRegistry"
         },
         {
           "kind": "fn",
-          "line": 23,
+          "line": 66,
           "name": "already_claimed"
         },
         {
           "kind": "fn",
-          "line": 32,
-          "name": "mark_claimed"
+          "line": 88,
+          "name": "try_reserve"
         },
         {
           "kind": "struct",
-          "line": 40,
+          "line": 101,
           "name": "InMemoryClaimedRegistry"
         },
         {
           "kind": "impl",
-          "line": 44,
+          "line": 105,
           "name": "InMemoryClaimedRegistry"
         },
         {
           "kind": "fn",
-          "line": 45,
+          "line": 106,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 50,
+          "line": 111,
           "name": "claimed_at"
         },
         {
           "kind": "impl",
-          "line": 55,
+          "line": 116,
           "name": "ClaimedRegistry"
         },
         {
           "kind": "fn",
-          "line": 56,
+          "line": 117,
           "name": "already_claimed"
         },
         {
           "kind": "fn",
-          "line": 60,
-          "name": "mark_claimed"
+          "line": 121,
+          "name": "try_reserve"
         }
       ],
       "title": "use did_mini::Did;"
@@ -78664,7 +78709,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1281386,
+      "bytes": 1291169,
       "group": "docs",
       "headings": [
         {
@@ -79094,9 +79139,9 @@
         "first",
         "kel"
       ],
-      "lines": 21256,
+      "lines": 21416,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "8e46ae426defcaa402e822677f88fcf182ebc17078ed55663c6ac637e91a2388",
+      "sha256": "26b0c2ba48a9450863290ab51b64943fcbbcd6e2ff2c70a8c8080796be248627",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80432,7 +80477,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 189565,
+      "bytes": 191708,
       "group": "docs",
       "headings": [
         {
@@ -80522,22 +80567,22 @@
         },
         {
           "level": 2,
-          "line": 2675,
+          "line": 2709,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2692,
+          "line": 2726,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2728,
+          "line": 2762,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2809,
+          "line": 2843,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80567,9 +80612,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2844,
+      "lines": 2878,
       "path": "docs/STATUS.md",
-      "sha256": "1070e64fe4adc36986b61074c75917e998ccbb4bad5bc400a353ccd7c16942d7",
+      "sha256": "8c6b61a832bcc5f73ce28e00eaa8660e35eefb9a6a06d36832fb2a9614bf1ca3",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97436,7 +97481,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 98279,
+      "bytes": 99732,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97465,9 +97510,9 @@
         "independently",
         "both"
       ],
-      "lines": 1293,
+      "lines": 1301,
       "path": "governance/work-claims.json",
-      "sha256": "bc1273a8f84473c5cbad5b9e18f15b9b8f4534ab3eeed2babd9a827466b93645",
+      "sha256": "61f99c4da142cdb8b3ae6498af7632c1c00a498e75b6683f9e77d5edecdfec7d",
       "symbols": [],
       "title": "{"
     },

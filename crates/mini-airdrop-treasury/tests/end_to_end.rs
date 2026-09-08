@@ -90,14 +90,14 @@ fn a_full_snapshot_to_treasury_approval_flow_succeeds() {
 
     let approved =
         verify_payout_approvals(b"e2e-campaign", &outcome, &signer_set, &candidates).unwrap();
-    assert_eq!(approved.outcome, outcome);
-    assert_eq!(approved.approving_signers.len(), 2);
-    assert!(approved.approving_signers.contains(&s1.did()));
-    assert!(approved.approving_signers.contains(&s2.did()));
+    assert_eq!(approved.outcome(), &outcome);
+    assert_eq!(approved.approving_signers().len(), 2);
+    assert!(approved.approving_signers().contains(&s1.did()));
+    assert!(approved.approving_signers().contains(&s2.did()));
     // The third signer never approved and never counts.
-    assert!(!approved.approving_signers.contains(&s3.did()));
+    assert!(!approved.approving_signers().contains(&s3.did()));
 
-    let _ = std::fs::remove_file(&registry_path);
+    let _ = std::fs::remove_dir_all(&registry_path);
 }
 
 #[test]
@@ -144,5 +144,5 @@ fn an_ineligible_identity_never_reaches_treasury_approval() {
     // blocked by this failed attempt.
     assert!(!registry.already_claimed(&outsider.did()));
 
-    let _ = std::fs::remove_file(&registry_path);
+    let _ = std::fs::remove_dir_all(&registry_path);
 }
