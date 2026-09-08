@@ -23,8 +23,8 @@ use mini_objects::{Object, ObjectBuilder, ObjectId, ObjectType, Payload, MAX_LIN
 use mini_store::{Backend, Store};
 
 use crate::{
-    assemble, missing_chunks, publish_media, read_manifest, MediaError, Result, CHUNK_SIZE,
-    MAX_CHUNKS, MAX_CONTENT_TYPE_BYTES, MAX_TOTAL_LEN,
+    assemble, assemble_to_writer, missing_chunks, publish_media, read_manifest, MediaError, Result,
+    CHUNK_SIZE, MAX_CHUNKS, MAX_CONTENT_TYPE_BYTES, MAX_TOTAL_LEN,
 };
 
 /// The custom object type carrying a [`Superblock`].
@@ -242,4 +242,71 @@ pub fn assemble_superblock<B: Backend>(
         return Err(MediaError::DigestMismatch);
     }
     Ok(out)
+}
+
+/// A `Write` adapter that forwards every byte to `inner` while incrementally
+/// hashing everything that passes through, so a caller composing several
+/// smaller streamed writes (one per part, here) can still check one running
+/// digest across all of them without re-reading what was already written.
+struct HashingWriter<'a, W> {
+    inner: &'a mut W,
+    hasher: mini_crypto::IncrementalHash,
+    written: u64,
+}
+
+impl<'a, W: std::io::Write> HashingWriter<'a, W> {
+    fn new(inner: &'a mut W) -> Self {
+        Self {
+            inner,
+            hasher: HashAlgorithm::Blake3.incremental(),
+            written: 0,
+        }
+    }
+
+    fn finish(self) -> (u64, [u8; 32]) {
+        (self.written, self.hasher.finalize())
+    }
+}
+
+impl<W: std::io::Write> std::io::Write for HashingWriter<'_, W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.hasher.update(&buf[..n]);
+        self.written += n as u64;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// Like [`assemble_superblock`], but streams the payload directly to
+/// `writer` instead of building the whole (up to 64 GiB) concatenation as
+/// one `Vec<u8>` first. Each part still only ever holds one chunk (at most
+/// [`crate::CHUNK_SIZE`] bytes) in memory at a time, via
+/// [`crate::assemble_to_writer`] — this function's own added memory cost is
+/// the fixed size of one running hash.
+pub fn assemble_superblock_to_writer<B: Backend, W: std::io::Write>(
+    store: &Store<B>,
+    superblock: &Superblock,
+    writer: &mut W,
+) -> Result<()> {
+    let cap = superblock.total_len.min(MAX_SUPERBLOCK_TOTAL_LEN);
+    let mut hashing = HashingWriter::new(writer);
+    for part_id in &superblock.parts {
+        if !store.contains(part_id)? {
+            return Err(MediaError::Incomplete);
+        }
+        let manifest = read_manifest(&store.get(part_id)?)?;
+        if hashing.written + manifest.total_len > cap {
+            return Err(MediaError::DigestMismatch);
+        }
+        assemble_to_writer(store, &manifest, &mut hashing)?;
+    }
+    let (written, digest) = hashing.finish();
+    if written != superblock.total_len || digest != superblock.digest {
+        return Err(MediaError::DigestMismatch);
+    }
+    Ok(())
 }

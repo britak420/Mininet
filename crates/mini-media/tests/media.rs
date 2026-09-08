@@ -2,7 +2,10 @@
 //! and a manifest that lies about its content being caught by the digest.
 
 use did_mini::{Capabilities, Controller};
-use mini_media::{assemble, missing_chunks, publish_media, read_manifest, MediaError, CHUNK_SIZE};
+use mini_media::{
+    assemble, assemble_to_writer, missing_chunks, publish_media, read_manifest, MediaError,
+    CHUNK_SIZE,
+};
 use mini_objects::{ObjectBuilder, ObjectType, Payload};
 use mini_store::{MemoryBackend, Store};
 
@@ -114,4 +117,87 @@ fn a_manifest_that_lies_is_caught_by_the_digest() {
     let forged = read_manifest(&forged_obj).unwrap();
 
     assert_eq!(assemble(&store, &forged), Err(MediaError::DigestMismatch));
+}
+
+#[test]
+fn assemble_to_writer_matches_assemble_byte_for_byte() {
+    let (root, device) = human(11);
+    let mut store = Store::new(MemoryBackend::new());
+    let bytes = payload(2 * CHUNK_SIZE + 321);
+    let manifest = publish_media(
+        &mut store,
+        &root.did(),
+        &device,
+        "application/octet-stream",
+        &bytes,
+        100,
+        1,
+    )
+    .unwrap();
+
+    let mut streamed = Vec::new();
+    assemble_to_writer(&store, &manifest, &mut streamed).unwrap();
+    assert_eq!(streamed, bytes);
+    assert_eq!(streamed, assemble(&store, &manifest).unwrap());
+}
+
+#[test]
+fn assemble_to_writer_refuses_to_write_anything_while_incomplete() {
+    let (root, device) = human(12);
+    let mut origin = Store::new(MemoryBackend::new());
+    let bytes = payload(2 * CHUNK_SIZE);
+    let manifest = publish_media(
+        &mut origin,
+        &root.did(),
+        &device,
+        "application/octet-stream",
+        &bytes,
+        100,
+        1,
+    )
+    .unwrap();
+
+    let replica = Store::new(MemoryBackend::new());
+    let mut sink = Vec::new();
+    assert_eq!(
+        assemble_to_writer(&replica, &manifest, &mut sink),
+        Err(MediaError::Incomplete)
+    );
+}
+
+#[test]
+fn assemble_to_writer_catches_a_forged_manifest_the_same_way_assemble_does() {
+    let (root, device) = human(13);
+    let mut store = Store::new(MemoryBackend::new());
+    let bytes = payload(2 * CHUNK_SIZE);
+    let honest = publish_media(
+        &mut store,
+        &root.did(),
+        &device,
+        "video/mp4",
+        &bytes,
+        100,
+        1,
+    )
+    .unwrap();
+
+    let mut forged_payload = Vec::new();
+    forged_payload.extend_from_slice(&(b"video/mp4".len() as u32).to_be_bytes());
+    forged_payload.extend_from_slice(b"video/mp4");
+    forged_payload.extend_from_slice(&honest.total_len.to_be_bytes());
+    forged_payload.extend_from_slice(&honest.digest);
+    let forged_obj = ObjectBuilder::new(ObjectType::MEDIA_MANIFEST)
+        .payload(Payload::Public(forged_payload))
+        .link("chunk", honest.chunks[1].clone())
+        .link("chunk", honest.chunks[0].clone())
+        .sign(&root.did(), &device)
+        .unwrap();
+    store.insert(&forged_obj).unwrap();
+    let forged = read_manifest(&forged_obj).unwrap();
+
+    let mut sink = Vec::new();
+    assert_eq!(
+        assemble_to_writer(&store, &forged, &mut sink),
+        Err(MediaError::DigestMismatch)
+    );
 }
