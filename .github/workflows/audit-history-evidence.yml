@@ -1,81 +1,53 @@
 name: audit-history-evidence
 
-# Temporary, read-only research capture. Removed after the evidence handoff.
-# Never uses pull_request_target, pushes, approves, or publishes a release.
+# Temporary read-only research capture. Removed from the final review patch.
+# Public Git objects only: no repository writes, approvals, releases or secrets.
 on:
   pull_request:
     paths:
       - tools/audit_history_export.py
       - .github/workflows/audit-history-evidence.yml
-
 permissions:
   contents: read
   pull-requests: read
   issues: read
-
 jobs:
-  # The initial full capture is immutable evidence. Do not spend the API
-  # quota recapturing all historical discussions on every documentation push.
   capture:
-    if: github.event.action == 'opened' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Fetch pinned canonical state and public historical heads
+        run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/mininet-labs/Mininet.git \
+            '+refs/heads/main:refs/remotes/audit/main' \
+            '+refs/pull/*/head:refs/remotes/audit-prs/*'
+          git cat-file -e 684baa103c075299a375d1ed9a3327185c0ba02b^{commit}
       - name: Capture every PR through the declared cutoff
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 tools/audit_history_export.py --repo mininet-labs/Mininet \
             --through 326 --expected-count 174 \
-            --canonical-sha 0ed3a4e523be195d39296eeca16a187fca6a599b \
+            --canonical-sha 684baa103c075299a375d1ed9a3327185c0ba02b \
             --out /tmp/mininet-history-evidence
-      - name: Preserve public evidence (not an audit verdict)
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Export Git objects without local configuration
+        run: |
+          set -euo pipefail
+          git bundle create /tmp/mininet-history-evidence/history.bundle --all
+          git bundle verify /tmp/mininet-history-evidence/history.bundle
+          git show-ref > /tmp/mininet-history-evidence/refs.txt
+          sha256sum /tmp/mininet-history-evidence/history.bundle \
+            > /tmp/mininet-history-evidence/history-bundle.sha256
+      - name: Preserve research input, not audit approval
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: mininet-pr-history-through-326
+          name: mininet-pr-history-through-326-revalidated
           path: /tmp/mininet-history-evidence/
-          if-no-files-found: error
-          retention-days: 14
-
-  source-history:
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Fetch public historical PR heads without credentials
-        run: |
-          set -euo pipefail
-          git fetch --no-tags https://github.com/mininet-labs/Mininet.git \
-            '+refs/pull/*/head:refs/remotes/audit-prs/*'
-      - name: Export Git objects, never local configuration or credentials
-        run: |
-          set -euo pipefail
-          mkdir /tmp/mininet-git-evidence
-          git bundle create /tmp/mininet-git-evidence/history.bundle --all
-          git bundle verify /tmp/mininet-git-evidence/history.bundle
-          git rev-parse 0ed3a4e523be195d39296eeca16a187fca6a599b^{tree} \
-            > /tmp/mininet-git-evidence/canonical-tree.txt
-          git show-ref > /tmp/mininet-git-evidence/refs.txt
-          sha256sum /tmp/mininet-git-evidence/history.bundle \
-            > /tmp/mininet-git-evidence/SHA256SUMS.txt
-          printf '%s\n' \
-            'Public Git objects and refs only; no .git/config, credentials, caches, or secret files.' \
-            'PR review scope remains #1 through #326; later refs are not reviewed merely because fetched.' \
-            > /tmp/mininet-git-evidence/README.txt
-      - name: Preserve public source history
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: mininet-git-history-for-audit
-          path: /tmp/mininet-git-evidence/
           if-no-files-found: error
           retention-days: 14
