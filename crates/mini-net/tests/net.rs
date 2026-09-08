@@ -1,4 +1,9 @@
-use mini_net::{fanout_peers, GossipRouter, PeerId, RoutingTable, BUCKET_SIZE};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+use mini_net::{
+    dialable_fanout, fanout_peers, AddressBook, GossipRouter, PeerId, PeerRecord, RoutingTable,
+    BUCKET_SIZE,
+};
 
 fn peer(seed: u8) -> PeerId {
     // Deterministic, non-random fixture ids for reproducible tests — the
@@ -134,4 +139,86 @@ fn fanout_peers_caps_at_requested_size() {
 
     let all = fanout_peers(&candidates, 10);
     assert_eq!(all.len(), 4);
+}
+
+fn addr(port: u16) -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port)
+}
+
+#[test]
+fn dialable_fanout_skips_routing_known_peers_with_no_address() {
+    let local = peer(0);
+    let mut routing = RoutingTable::new(local);
+    let dialable = peer(10);
+    let addressless = peer(20);
+    routing.insert(dialable);
+    routing.insert(addressless);
+
+    let mut book = AddressBook::new();
+    book.insert(dialable, addr(9001));
+    // addressless deliberately has no recorded address -- routing-known
+    // only, e.g. from a PEX response nobody has yet answered a follow-up
+    // request for.
+
+    let selected = dialable_fanout(&routing, &book, &local, 10, None);
+    assert_eq!(
+        selected,
+        vec![PeerRecord {
+            id: dialable,
+            addr: addr(9001)
+        }]
+    );
+}
+
+#[test]
+fn dialable_fanout_excludes_the_named_peer_even_if_dialable() {
+    let local = peer(0);
+    let mut routing = RoutingTable::new(local);
+    let sender = peer(10);
+    let other = peer(20);
+    routing.insert(sender);
+    routing.insert(other);
+
+    let mut book = AddressBook::new();
+    book.insert(sender, addr(9001));
+    book.insert(other, addr(9002));
+
+    // Without exclusion both would be dialable; excluding the sender must
+    // drop it even though it has a perfectly good address on file.
+    let selected = dialable_fanout(&routing, &book, &local, 10, Some(&sender));
+    assert_eq!(
+        selected,
+        vec![PeerRecord {
+            id: other,
+            addr: addr(9002)
+        }]
+    );
+}
+
+#[test]
+fn dialable_fanout_caps_at_the_requested_size_nearest_first() {
+    let local = peer(0);
+    let mut routing = RoutingTable::new(local);
+    let mut book = AddressBook::new();
+    for seed in [50u8, 3, 200, 10] {
+        routing.insert(peer(seed));
+        book.insert(peer(seed), addr(seed as u16));
+    }
+
+    let selected = dialable_fanout(&routing, &book, &local, 2, None);
+    assert_eq!(selected.len(), 2);
+    // closest_peers orders nearest-first by XOR distance to `local` (peer
+    // 0); the two smallest seeds happen to be nearest for this fixture.
+    assert_eq!(selected[0].id, peer(3));
+    assert_eq!(selected[1].id, peer(10));
+}
+
+#[test]
+fn dialable_fanout_is_empty_when_nothing_is_dialable() {
+    let local = peer(0);
+    let mut routing = RoutingTable::new(local);
+    routing.insert(peer(1));
+    let book = AddressBook::new();
+
+    assert!(dialable_fanout(&routing, &book, &local, 10, None).is_empty());
 }

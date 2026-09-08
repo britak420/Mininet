@@ -1331,15 +1331,31 @@ given time.
   is first-seen-wins so a later, hostile PEX response can never silently
   redirect who a caller dials for an id it already resolved; a response
   is capped at `MAX_PEX_RECORDS` so it can never become an unbounded
-  memory/bandwidth sink. `mini-net`'s gossip logic is still proven live
-  over real sockets separately from this; the two aren't wired together
-  yet (that integration — routing PEX-discovered peers into gossip
-  fanout — is follow-up, not done here).
-- **partial** — `mini-net`'s gossip logic is proven live over real
-  sockets; peer *discovery* (`RoutingTable`) is unexercised over a real
-  transport as part of an actual mesh (PEX above proves the discovery
-  *mechanism* over real TCP, but nothing yet drives gossip fanout or
-  routing-table refresh from it end to end).
+  memory/bandwidth sink.
+- **shipped (D-0472)** — PEX-discovered peers now drive real gossip
+  fanout, closing the "aren't wired together yet" gap the line above used
+  to name. `mini_net::dialable_fanout` composes
+  `RoutingTable::closest_peers`, `AddressBook::get` and `fanout_peers`
+  into the one query a gossiping node actually needs: the nearest peers
+  to a target it can both route to *and* dial, skipping anything
+  routing-known but still address-less and skipping a caller-named
+  `exclude` (the peer a message just arrived from, so gossip never
+  bounces straight back to its own sender). Proven over a real socket
+  (`a_node_gossips_to_a_peer_it_only_ever_learned_about_through_pex_over_real_tcp`):
+  a node that knows only one peer runs a PEX round, discovers a second
+  peer purely from that exchange, selects it as a fanout target through
+  `dialable_fanout` (never a hardcoded address), dials a connection it
+  never had before the test, and gossips a message the receiver accepts
+  exactly once.
+  **What it does not do:** `dialable_fanout` is a pure selection
+  function — pairing it with real sockets end to end at mesh scale (many
+  nodes, many hops, a message actually crossing more than one relay
+  purely through discovered addresses) remains for a caller to wire, the
+  same way `mini_consensus::discovery::pex_over_tcp` wires this crate's
+  PEX logic for the consensus mesh specifically. Bucket refresh by
+  liveness ping and randomized (rather than deterministic closest-first)
+  fanout remain the two honest limits already named in `routing.rs`/
+  `gossip.rs`'s own module docs, unchanged by this.
 - **not started** — BLE radio adapter (needs real phone hardware,
   [#22](../../issues/22)); NAT traversal; local mesh routing.
 

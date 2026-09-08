@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 74,
-    "files": 929,
+    "files": 930,
     "headings": 3270,
-    "rust_symbols": 9290
+    "rust_symbols": 9300
   },
   "crates": {
     "did-mini": {
@@ -1764,7 +1764,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 25115,
+      "bytes": 25103,
       "group": "root",
       "headings": [
         {
@@ -1804,7 +1804,7 @@
         },
         {
           "level": 2,
-          "line": 401,
+          "line": 400,
           "text": "License"
         }
       ],
@@ -1834,9 +1834,9 @@
         "path",
         "switch"
       ],
-      "lines": 405,
+      "lines": 404,
       "path": "README.md",
-      "sha256": "0b13bd2d871be4f4e51a291efe085ecf438d0df60d358fb68eb378a490bc4b73",
+      "sha256": "f8bdc05e9c87dd8e69e2ed48428e71755a3c219e6db5fa611cb7c80ae94eb9e0",
       "symbols": [],
       "title": "Mininet"
     },
@@ -39306,79 +39306,84 @@
       "title": "use core::fmt;"
     },
     {
-      "bytes": 2741,
+      "bytes": 4316,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
         "self",
         "message",
+        "fanout",
         "capacity",
         "seen",
-        "fanout",
+        "peerid",
+        "routing",
+        "ids",
         "gossiprouter",
         "new",
-        "ids",
-        "order",
         "len",
+        "peer",
+        "routingtable",
+        "order",
         "usize",
         "gossip",
-        "is_empty",
-        "same",
         "forward",
         "honest",
-        "randomized",
-        "peer",
-        "hashset",
-        "vecdeque",
-        "peerid",
-        "oldest",
-        "msg_id",
-        "record_seen"
+        "real",
+        "peerrecord",
+        "caller",
+        "target",
+        "is_empty",
+        "fanout_peers"
       ],
-      "lines": 74,
+      "lines": 109,
       "path": "crates/mini-net/src/gossip.rs",
-      "sha256": "0aa999d454dd9251f7efb5aef09577b946881f00fa100fedaf1b268c4ca80981",
+      "sha256": "8ec2c650f32a47c40815133b403b1b678f191157f5b974bd8f7cf84da6ef2f84",
       "symbols": [
         {
           "kind": "struct",
-          "line": 23,
+          "line": 25,
           "name": "GossipRouter"
         },
         {
           "kind": "impl",
-          "line": 29,
+          "line": 31,
           "name": "GossipRouter"
         },
         {
           "kind": "fn",
-          "line": 32,
+          "line": 34,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 43,
+          "line": 45,
           "name": "record_seen"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 59,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 62,
+          "line": 64,
           "name": "is_empty"
         },
         {
           "kind": "fn",
-          "line": 71,
+          "line": 73,
           "name": "fanout_peers"
+        },
+        {
+          "kind": "fn",
+          "line": 94,
+          "name": "dialable_fanout"
         }
       ],
       "title": "use std::collections::{HashSet, VecDeque};"
     },
     {
-      "bytes": 2538,
+      "bytes": 2555,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
@@ -39409,7 +39414,7 @@
       ],
       "lines": 55,
       "path": "crates/mini-net/src/lib.rs",
-      "sha256": "be7f684f12e9469cb0e2e4fc72621fe32c8781ccda919c58d6cb01fe28ca6dbf",
+      "sha256": "57728a5096d5fcb96e6d526b360793aa6e1bd5eb788a65080ae4748787613424",
       "symbols": [
         {
           "kind": "mod",
@@ -39811,7 +39816,7 @@
       "title": "use crate::peer::PeerId;"
     },
     {
-      "bytes": 4092,
+      "bytes": 6681,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
@@ -39819,17 +39824,18 @@
         "assert_eq",
         "local",
         "table",
+        "new",
         "router",
         "peerid",
         "assert",
-        "new",
+        "insert",
         "len",
         "record_seen",
-        "bytes",
         "routingtable",
+        "bytes",
+        "addr",
         "near",
         "far",
-        "insert",
         "bucket_size",
         "seed",
         "bit",
@@ -39837,75 +39843,156 @@
         "low_bits",
         "closest",
         "msg_id",
-        "fanout_peers",
-        "gossiprouter"
+        "selected"
       ],
-      "lines": 138,
+      "lines": 225,
       "path": "crates/mini-net/tests/net.rs",
-      "sha256": "0302ce57707d6477deca18986f1779b19e927c60a8ea112a8adfaaaac91bf035",
+      "sha256": "9272d0bd9c98afc1379f4d15eadf56647f45b2f129da72b4027d99a880f679e2",
       "symbols": [
         {
           "kind": "fn",
-          "line": 3,
+          "line": 8,
           "name": "peer"
         },
         {
           "kind": "fn",
-          "line": 14,
+          "line": 19,
           "name": "generated_peer_ids_are_unpredictable_and_distinct"
         },
         {
           "kind": "fn",
-          "line": 22,
+          "line": 27,
           "name": "xor_distance_is_zero_iff_equal"
         },
         {
           "kind": "fn",
-          "line": 30,
+          "line": 35,
           "name": "bucket_index_is_none_for_self"
         },
         {
           "kind": "fn",
-          "line": 36,
+          "line": 41,
           "name": "bucket_index_reflects_shared_prefix_length"
         },
         {
           "kind": "fn",
-          "line": 52,
+          "line": 57,
           "name": "routing_table_rejects_local_id"
         },
         {
           "kind": "fn",
-          "line": 60,
+          "line": 65,
           "name": "routing_table_rejects_duplicate_insert"
         },
         {
           "kind": "fn",
-          "line": 70,
+          "line": 75,
           "name": "routing_table_bucket_has_bounded_capacity"
         },
         {
           "kind": "fn",
-          "line": 92,
+          "line": 97,
           "name": "closest_peers_are_sorted_nearest_first"
         },
         {
           "kind": "fn",
-          "line": 106,
+          "line": 111,
           "name": "gossip_router_forwards_once_then_drops_duplicates"
         },
         {
           "kind": "fn",
-          "line": 116,
+          "line": 121,
           "name": "gossip_router_evicts_oldest_past_capacity"
         },
         {
           "kind": "fn",
-          "line": 130,
+          "line": 135,
           "name": "fanout_peers_caps_at_requested_size"
+        },
+        {
+          "kind": "fn",
+          "line": 144,
+          "name": "addr"
+        },
+        {
+          "kind": "fn",
+          "line": 149,
+          "name": "dialable_fanout_skips_routing_known_peers_with_no_address"
+        },
+        {
+          "kind": "fn",
+          "line": 174,
+          "name": "dialable_fanout_excludes_the_named_peer_even_if_dialable"
+        },
+        {
+          "kind": "fn",
+          "line": 199,
+          "name": "dialable_fanout_caps_at_the_requested_size_nearest_first"
+        },
+        {
+          "kind": "fn",
+          "line": 217,
+          "name": "dialable_fanout_is_empty_when_nothing_is_dialable"
         }
       ],
-      "title": "use mini_net::{fanout_peers, GossipRouter, PeerId, RoutingTable, BUCKET_SIZE};"
+      "title": "use std::net::{IpAddr, Ipv4Addr, SocketAddr};"
+    },
+    {
+      "bytes": 6433,
+      "group": "crate:mini-net",
+      "headings": [],
+      "keywords": [
+        "unwrap",
+        "bearer",
+        "frame",
+        "pexmessage",
+        "text",
+        "stream",
+        "new",
+        "pex",
+        "message",
+        "peer",
+        "never",
+        "c_id",
+        "gossiprouter",
+        "knows",
+        "mini_net",
+        "tcpbearer",
+        "peerid",
+        "b_routing",
+        "b_book",
+        "response",
+        "a_id",
+        "a_routing",
+        "targets",
+        "decode_message"
+      ],
+      "lines": 151,
+      "path": "crates/mini-net/tests/pex_driven_gossip_mesh.rs",
+      "sha256": "01757880f7ab4676f349fdb5dd81efe128c088e06d8a77c3fce6b5f2e0f61f07",
+      "symbols": [
+        {
+          "kind": "fn",
+          "line": 25,
+          "name": "encode_message"
+        },
+        {
+          "kind": "fn",
+          "line": 33,
+          "name": "decode_message"
+        },
+        {
+          "kind": "fn",
+          "line": 41,
+          "name": "a_node_gossips_to_a_peer_it_only_ever_learned_about_through_pex_over_real_tcp"
+        },
+        {
+          "kind": "fn",
+          "line": 129,
+          "name": "a_message_already_seen_is_never_forwarded_back_to_its_own_sender"
+        }
+      ],
+      "title": "use std::net::{TcpListener, TcpStream};"
     },
     {
       "bytes": 5920,
@@ -77370,7 +77457,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1134687,
+      "bytes": 1141701,
       "group": "docs",
       "headings": [
         {
@@ -77778,8 +77865,8 @@
         "accepted",
         "proposed",
         "track",
-        "issue",
         "real",
+        "issue",
         "founder",
         "android",
         "slice",
@@ -77800,9 +77887,9 @@
         "first",
         "witness"
       ],
-      "lines": 18805,
+      "lines": 18922,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "9cc58bc8ba6f97809d445b53a2e49a2088b86bae0969c0593c41e1bd3db1ccf6",
+      "sha256": "fe6447d19c3f316a347237132452761daf0bd1fd4d3f44a687815f2f2973f279",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -79133,7 +79220,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 171158,
+      "bytes": 172207,
       "group": "docs",
       "headings": [
         {
@@ -79193,52 +79280,52 @@
         },
         {
           "level": 2,
-          "line": 1346,
+          "line": 1362,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1376,
+          "line": 1392,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1703,
+          "line": 1719,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2181,
+          "line": 2197,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2272,
+          "line": 2288,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2352,
+          "line": 2368,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2418,
+          "line": 2434,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2435,
+          "line": 2451,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2471,
+          "line": 2487,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2536,
+          "line": 2552,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -79268,9 +79355,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2571,
+      "lines": 2587,
       "path": "docs/STATUS.md",
-      "sha256": "2218c995ae0d90ca4ae75c37e96ae3557beae420a384bac3a0417eabf369de68",
+      "sha256": "04811ed53c6b8965629dd3a51f6177c7a75f6e3b36b555c647b12ddfe38b7e83",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -96137,7 +96224,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 78281,
+      "bytes": 79634,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -96166,9 +96253,9 @@
         "independently",
         "both"
       ],
-      "lines": 1169,
+      "lines": 1186,
       "path": "governance/work-claims.json",
-      "sha256": "5b9c1793cb5ce89c5751f4332fb7d0026add00db9ca7f4607ad48103783f37fb",
+      "sha256": "78076fea172f0e178ef1d8c685b2869cbfb67b841b2bc4c2ac1a94fd4ed0b8c9",
       "symbols": [],
       "title": "{"
     },
