@@ -42,7 +42,7 @@ pub mod suite;
 pub use aead::{AeadKey, AeadNonce, AeadSuite};
 pub use agreement::{AgreementPublicKey, AgreementSecretKey, KeyAgreementSuite, SharedSecret};
 pub use error::{CryptoError, Result};
-pub use hash::{HashAlgorithm, DEFAULT_HASH};
+pub use hash::{HashAlgorithm, IncrementalHash, DEFAULT_HASH};
 pub use kdf::KdfSuite;
 pub use keys::{Signature, SigningKey, VerifyingKey};
 pub use multihash::Multihash;

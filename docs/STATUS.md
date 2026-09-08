@@ -1149,10 +1149,26 @@ given time.
   validly-signed but unrelated parts is still caught;
   `missing_superblock_chunks` distinguishes "part manifest not yet held"
   from "chunks still missing within an already-held part." One level of
-  nesting, addressing up to 64 GiB. Not wired into any `mini-sync`
-  replication path or production caller yet, and this is the addressing/
-  composition piece only — distributing shards/chunks at real network
-  scale remains `mini-net`/`mini-store`'s separately-scoped job.
+  nesting, addressing up to 64 GiB. **Wired into real `mini-sync`
+  replication, and bounded-memory, now (D-0470):** `mini_media::sync`'s
+  `pull_manifest`/`pull_superblock`/`serve_missing` compose these want-lists
+  with `mini_sync::request_retrieval`/`serve_retrieval`'s already-tested
+  exact-object-retrieval exchange over an already-established
+  `Bearer`/`Channel` — the same composition `mini-search-federation-net`
+  (D-0432) already proved for an unrelated object type — driving as many
+  retrieval rounds as newly-arrived part manifests reveal. Separately,
+  `assemble_to_writer`/`assemble_superblock_to_writer` stream an
+  already-complete payload straight to a `Write` sink one chunk at a time
+  (via a new `mini_crypto::HashAlgorithm::incremental` hasher), instead of
+  `assemble`/`assemble_superblock`'s single up-front allocation — up to
+  256 MiB or 64 GiB respectively, exactly what Directive 11's weakest
+  device cannot spare. Still not wired to any production caller (a real
+  `mini-forge` release artifact, a media player), no multi-peer sourcing/
+  retry, and no progressive-playback support — every chunk must still be
+  present before `assemble_to_writer` writes anything, so this closes
+  "cannot hold the whole file in RAM," not "can start playing before the
+  last chunk arrives." Distributing shards/chunks at real network scale
+  otherwise remains `mini-net`/`mini-store`'s separately-scoped job.
 - **shipped (D-0434, roadmap #34)** — cold/owner-only storage tiers.
   `mini_store::owner_seal` gives `mini_objects::Payload::Encrypted` (a wire
   variant every reader had rejected since the object model's inception) a

@@ -5,8 +5,8 @@
 
 use did_mini::{Capabilities, Controller};
 use mini_media::{
-    assemble_superblock, missing_superblock_chunks, publish_large_media, publish_media,
-    read_superblock, MediaError, CHUNK_SIZE,
+    assemble_superblock, assemble_superblock_to_writer, missing_superblock_chunks,
+    publish_large_media, publish_media, read_superblock, MediaError, CHUNK_SIZE,
 };
 use mini_objects::{ObjectBuilder, ObjectType, Payload};
 use mini_store::{MemoryBackend, Store};
@@ -212,4 +212,53 @@ fn a_superblock_with_no_parts_is_rejected_at_parse_time() {
         .sign(&root.did(), &device)
         .unwrap();
     assert_eq!(read_superblock(&obj), Err(MediaError::BadManifest));
+}
+
+#[test]
+fn assemble_superblock_to_writer_matches_assemble_superblock_byte_for_byte() {
+    let (root, device) = human(16);
+    let mut store = Store::new(MemoryBackend::new());
+    let bytes = payload(5 * CHUNK_SIZE + 77);
+    let superblock = publish_large_media(
+        &mut store,
+        &root.did(),
+        &device,
+        "application/octet-stream",
+        &bytes,
+        2,
+        100,
+        1,
+    )
+    .unwrap();
+    assert!(superblock.parts.len() > 1, "fixture must span >1 part");
+
+    let mut streamed = Vec::new();
+    assemble_superblock_to_writer(&store, &superblock, &mut streamed).unwrap();
+    assert_eq!(streamed, bytes);
+    assert_eq!(streamed, assemble_superblock(&store, &superblock).unwrap());
+}
+
+#[test]
+fn assemble_superblock_to_writer_refuses_to_write_anything_while_incomplete() {
+    let (root, device) = human(17);
+    let mut origin = Store::new(MemoryBackend::new());
+    let bytes = payload(3 * CHUNK_SIZE);
+    let superblock = publish_large_media(
+        &mut origin,
+        &root.did(),
+        &device,
+        "application/octet-stream",
+        &bytes,
+        1,
+        100,
+        1,
+    )
+    .unwrap();
+
+    let replica = Store::new(MemoryBackend::new());
+    let mut sink = Vec::new();
+    assert_eq!(
+        assemble_superblock_to_writer(&replica, &superblock, &mut sink),
+        Err(MediaError::Incomplete)
+    );
 }
