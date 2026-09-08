@@ -3069,6 +3069,7 @@ name = "mini-uniqueness"
 version = "0.0.1"
 dependencies = [
  "did-mini",
+ "mini-crypto",
  "mini-presence",
 ]
 

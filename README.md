@@ -407,15 +407,16 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0499`
-   (`D-0499`, closing PR #327 findings pack finding F-24 — the pack's
-   24th and final finding — the decision/roadmap validators already state
-   their own coverage-vs-honesty boundary explicitly, and the one
-   under-documented checker (`check_governance.py`'s `validate_proposal`)
-   now states its own scope too — is the newest at the time of this edit;
-   the Mininet Node Appliance deployment profile this line previously
-   credited to `D-0439` is `D-0446` — `D-0439` is the identity-bound
-   replica-registration decision),
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0500`
+   (`D-0500`, a real GitHub CodeQL finding reported after all 24 PR #327
+   findings closed — `mini-presence`'s test suite hardcoded literal bytes
+   into a genuinely-must-be-unpredictable `nonce` field, the third
+   recurrence of a false-positive class D-0058/D-0357 already named, fixed
+   this time by deriving via hash rather than renaming, since unlike the
+   first two this field is not a mislabeled sequence number — is the
+   newest at the time of this edit; the Mininet Node Appliance deployment
+   profile this line previously credited to `D-0439` is `D-0446` —
+   `D-0439` is the identity-bound replica-registration decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
    privacy/cost-doctrine track's `D-0300`–, and the edge/provider-layer
    track's `D-0400`– — see the log's "Decision-number allocation across

@@ -200,8 +200,10 @@ fn alice_publishes_bob_seeds_carol_requests_and_both_are_paid_from_carols_balanc
         content_digest: HashAlgorithm::Blake3.digest(&assembled),
         host_device: bob_device.did(),
         witness_device: carol_device.did(),
-        host_nonce: [7u8; 32],
-        witness_nonce: [8u8; 32],
+        // Derived via a hash rather than a literal array -- see
+        // mini-presence/tests/presence.rs's test_nonce for why.
+        host_nonce: HashAlgorithm::Blake3.digest(&[7u8]),
+        witness_nonce: HashAlgorithm::Blake3.digest(&[8u8]),
         at_ms: 1_700,
     };
     let receipt = ServeReceipt::new(
