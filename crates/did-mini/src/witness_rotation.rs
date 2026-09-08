@@ -30,6 +30,17 @@
 //! 1's existing `assemble`), checked against the *old* [`WitnessPolicy`],
 //! is the "old witness threshold" half of §17.2/§17.3.
 //!
+//! [`verify_witness_rotation`] adds §17.3's other half — the "new witness
+//! readiness threshold" — as a thin AND-composition, not a second module.
+//! A new witness's *ordinary* first `observe`/`observe_declared` receipt for
+//! the rotation event already signs under `witness_policy_generation =
+//! event.sn` (the *new* generation, since D-0459 derives the policy a
+//! witness signs under from the event's own declared policy) — Phase 1's
+//! existing machinery already produces exactly the statement §17.3 asks
+//! for, with no new signing code. What was missing was checking *both*
+//! thresholds hold for the *same* event before trusting a rotation at
+//! §17.3's higher assurance level; `verify_witness_rotation` is that check.
+//!
 //! ## Why no new receipt or certificate type
 //!
 //! A certification is not a new kind of statement — it is an ordinary
@@ -40,21 +51,21 @@
 //! needs, unchanged — [`verify_policy_transition`] only adds the one check
 //! that function cannot: confirming the certificate is actually about a
 //! *real* policy transition, not a certificate over an ordinary rotation
-//! that happens to carry the same generation number.
+//! that happens to carry the same generation number. The new-policy half
+//! needs even less: [`WitnessedEventCertificate::verify`] against the *new*
+//! policy already does everything §17.3 asks, unchanged — no wrapper type
+//! for it exists because none is needed.
 //!
-//! ## Scope: old-policy authorization only
+//! ## Scope: §17.2 and §17.3 only
 //!
-//! This slice implements §17.2 only. **Not yet built:** §17.3's "new
-//! witness readiness threshold" (receipts from the *new* witnesses proving
-//! they accepted responsibility — structurally identical to this module
-//! once built, just signed under the new generation instead of the old
-//! one); §17.4's unavailable-witness recovery path (deliberately harder:
-//! it must work *without* the old witnesses' cooperation, the opposite
-//! assumption this module makes); and no wiring into `did_mini::
-//! assess_kel_assurance` — whether or when a real verifier should
-//! *require* this certification before trusting a witness-policy rotation
-//! remains the same kind of founder-facing policy call earlier phases
-//! already left open for their own consuming decisions.
+//! **Not yet built:** §17.4's unavailable-witness recovery path
+//! (deliberately harder: it must work *without* the old witnesses'
+//! cooperation, the opposite assumption this module makes); and no wiring
+//! into `did_mini::assess_kel_assurance` — whether or when a real verifier
+//! should *require* either assurance level before trusting a
+//! witness-policy rotation remains the same kind of founder-facing policy
+//! call earlier phases already left open for their own consuming
+//! decisions.
 
 use mini_crypto::{SigningKey, VerifyingKey};
 
@@ -171,6 +182,57 @@ pub fn verify_policy_transition(
     certificate.verify(old_policy, resolve_witness_key)
 }
 
+/// Verify a witness-set rotation at research report §17.3's higher
+/// assurance level: **both** the retiring policy's threshold (via
+/// [`verify_policy_transition`], proving old witnesses authorized their own
+/// replacement) **and** the incoming policy's own threshold (via
+/// [`WitnessedEventCertificate::verify`] against the *new* [`WitnessPolicy`]
+/// `new_kel` declares, proving enough incoming witnesses accepted
+/// responsibility) must independently hold for the *same* event.
+///
+/// `new_policy_certificate` is `None` only when `new_kel`'s head retires the
+/// witness policy entirely — there is no new witness set to prove readiness
+/// for, so the readiness half is vacuously satisfied. Passing `None` while a
+/// real new policy exists is treated as zero readiness receipts, not a
+/// missing argument: [`IdentityError::WitnessThresholdNotMet`] names the
+/// real threshold against a `got` of zero, the same shape a caller would see
+/// from an empty certificate.
+///
+/// This performs the old-policy check via [`verify_policy_transition`]
+/// unchanged, so every one of its own error cases (a stale/unrelated KEL, a
+/// non-transition, the old threshold unmet) applies here identically before
+/// the new-policy half is ever reached.
+pub fn verify_witness_rotation(
+    old_policy: &WitnessPolicy,
+    new_kel: &Kel,
+    old_policy_certificate: &WitnessedEventCertificate,
+    new_policy_certificate: Option<&WitnessedEventCertificate>,
+    resolve_witness_key: impl Fn(&WitnessId) -> Option<VerifyingKey>,
+) -> Result<()> {
+    verify_policy_transition(
+        old_policy,
+        new_kel,
+        old_policy_certificate,
+        &resolve_witness_key,
+    )?;
+    let new_policy = match new_kel.declared_witness_policy() {
+        None => return Ok(()),
+        Some(policy) => policy,
+    };
+    let certificate = new_policy_certificate.ok_or(IdentityError::WitnessThresholdNotMet {
+        needed: new_policy.threshold,
+        got: 0,
+    })?;
+    let event = new_kel.events().last().ok_or(IdentityError::EmptyKel)?;
+    if certificate.identity != new_kel.did()
+        || certificate.sequence != event.sn
+        || certificate.event_digest != event.digest()
+    {
+        return Err(IdentityError::WitnessReceiptMismatch);
+    }
+    certificate.verify(&new_policy, resolve_witness_key)
+}
+
 /// Whether `new` (the policy `new_kel`'s head event itself declares, if
 /// any) is a real change from `old` — different threshold, or a different
 /// witness *set* (membership, not list order: re-declaring the same
@@ -199,6 +261,7 @@ fn same_witness_set(a: &[WitnessId], b: &[WitnessId]) -> bool {
 mod tests {
     use super::*;
     use crate::Controller;
+    use crate::WitnessObservation;
 
     fn a_witness() -> (WitnessId, SigningKey) {
         let root = Controller::incept_single().unwrap();
@@ -508,5 +571,279 @@ mod tests {
             }
         };
         assert!(verify_policy_transition(&old_policy, &owner.kel(), &cert, resolve).is_err());
+    }
+
+    /// One genuine witness-set swap (old witness `w1` retired, new witness
+    /// `new_witness` appointed, threshold 1 on both sides) plus everything a
+    /// `verify_witness_rotation` call needs: the old policy, the rotated
+    /// KEL, an old-policy certificate signed by `w1`, and the new witness's
+    /// own ordinary first receipt for the same event (§17.3's "new witness
+    /// readiness" statement, produced by existing Phase 1 machinery -- not
+    /// by anything in this module).
+    struct Rotation {
+        old_policy: WitnessPolicy,
+        owner: Controller,
+        w1: WitnessId,
+        w1_key: SigningKey,
+        old_policy_certificate: WitnessedEventCertificate,
+        new_witness: WitnessId,
+        new_witness_key: SigningKey,
+        new_receipt: WitnessReceipt,
+    }
+
+    impl Rotation {
+        /// Resolves both the retiring witness's and the incoming witness's
+        /// keys -- everything `verify_witness_rotation` ever asks this
+        /// fixture for.
+        fn resolve(&self, id: &WitnessId) -> Option<VerifyingKey> {
+            if *id == self.w1 {
+                Some(self.w1_key.verifying_key())
+            } else if *id == self.new_witness {
+                Some(self.new_witness_key.verifying_key())
+            } else {
+                None
+            }
+        }
+
+        fn new_policy_certificate(&self) -> WitnessedEventCertificate {
+            let new_policy = self.owner.kel().declared_witness_policy().unwrap();
+            WitnessedEventCertificate::assemble(
+                self.owner.did(),
+                self.new_receipt.statement.sequence,
+                self.new_receipt.statement.event_digest.clone(),
+                new_policy.generation,
+                vec![self.new_receipt.clone()],
+            )
+            .unwrap()
+        }
+    }
+
+    fn genuine_rotation() -> Rotation {
+        let (w1, w1_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let mut owner = appointed_and_observed(&mut journal, w1.clone(), &w1_key);
+        let old_policy = journal
+            .state_for(&owner.did())
+            .unwrap()
+            .accepted_policy()
+            .clone();
+
+        let (new_witness, new_witness_key) = a_witness();
+        owner
+            .appoint_witnesses(vec![new_witness.0.clone()], 1)
+            .unwrap();
+
+        let old_receipt = journal
+            .certify_policy_transition(&owner.kel(), w1.clone(), &w1_key, 200)
+            .unwrap();
+        let old_policy_certificate = WitnessedEventCertificate::assemble(
+            owner.did(),
+            old_receipt.statement.sequence,
+            old_receipt.statement.event_digest.clone(),
+            old_policy.generation,
+            vec![old_receipt],
+        )
+        .unwrap();
+
+        // The new witness's own ordinary first observation of this
+        // identity -- no special API, exactly what Phase 1-4 already give
+        // any witness seeing an identity for the first time.
+        let mut new_witness_journal = WitnessJournal::new();
+        let new_receipt = match new_witness_journal
+            .observe_declared(&owner.kel(), new_witness.clone(), &new_witness_key, 300)
+            .unwrap()
+        {
+            WitnessObservation::Accepted(receipt) => receipt,
+            other => panic!("expected Accepted, got {other:?}"),
+        };
+
+        Rotation {
+            old_policy,
+            owner,
+            w1,
+            w1_key,
+            old_policy_certificate,
+            new_witness,
+            new_witness_key,
+            new_receipt,
+        }
+    }
+
+    #[test]
+    fn verify_witness_rotation_succeeds_when_both_thresholds_are_met() {
+        let rotation = genuine_rotation();
+        let new_certificate = rotation.new_policy_certificate();
+
+        verify_witness_rotation(
+            &rotation.old_policy,
+            &rotation.owner.kel(),
+            &rotation.old_policy_certificate,
+            Some(&new_certificate),
+            |id| rotation.resolve(id),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn verify_witness_rotation_fails_when_new_policy_readiness_is_missing() {
+        let rotation = genuine_rotation();
+
+        assert_eq!(
+            verify_witness_rotation(
+                &rotation.old_policy,
+                &rotation.owner.kel(),
+                &rotation.old_policy_certificate,
+                None,
+                |id| rotation.resolve(id),
+            ),
+            Err(IdentityError::WitnessThresholdNotMet { needed: 1, got: 0 })
+        );
+    }
+
+    #[test]
+    fn verify_witness_rotation_surfaces_an_old_policy_failure_unchanged() {
+        let rotation = genuine_rotation();
+        let new_certificate = rotation.new_policy_certificate();
+
+        // A KEL that never actually rotated past the old policy: the same
+        // failure `verify_policy_transition` already covers on its own,
+        // reached through the composed function instead.
+        let stale_owner = Controller::incept_single().unwrap();
+        assert!(verify_witness_rotation(
+            &rotation.old_policy,
+            &stale_owner.kel(),
+            &rotation.old_policy_certificate,
+            Some(&new_certificate),
+            |id| rotation.resolve(id),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn verify_witness_rotation_enforces_the_new_policys_own_threshold() {
+        let (w1, w1_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let mut owner = appointed_and_observed(&mut journal, w1.clone(), &w1_key);
+        let old_policy = journal
+            .state_for(&owner.did())
+            .unwrap()
+            .accepted_policy()
+            .clone();
+
+        // A new policy requiring *two* witnesses.
+        let (new_w1, new_w1_key) = a_witness();
+        let (new_w2, new_w2_key) = a_witness();
+        owner
+            .appoint_witnesses(vec![new_w1.0.clone(), new_w2.0.clone()], 2)
+            .unwrap();
+
+        let old_receipt = journal
+            .certify_policy_transition(&owner.kel(), w1, &w1_key, 200)
+            .unwrap();
+        let old_policy_certificate = WitnessedEventCertificate::assemble(
+            owner.did(),
+            old_receipt.statement.sequence,
+            old_receipt.statement.event_digest.clone(),
+            old_policy.generation,
+            vec![old_receipt],
+        )
+        .unwrap();
+
+        // Only one of the two required new witnesses acknowledges.
+        let mut new_w1_journal = WitnessJournal::new();
+        let new_receipt = match new_w1_journal
+            .observe_declared(&owner.kel(), new_w1.clone(), &new_w1_key, 300)
+            .unwrap()
+        {
+            WitnessObservation::Accepted(receipt) => receipt,
+            other => panic!("expected Accepted, got {other:?}"),
+        };
+        let new_policy = owner.kel().declared_witness_policy().unwrap();
+        let new_certificate = WitnessedEventCertificate::assemble(
+            owner.did(),
+            new_receipt.statement.sequence,
+            new_receipt.statement.event_digest.clone(),
+            new_policy.generation,
+            vec![new_receipt],
+        )
+        .unwrap();
+
+        let resolve = |id: &WitnessId| {
+            if *id == new_w1 {
+                Some(new_w1_key.verifying_key())
+            } else if *id == new_w2 {
+                Some(new_w2_key.verifying_key())
+            } else {
+                None
+            }
+        };
+        assert!(verify_witness_rotation(
+            &old_policy,
+            &owner.kel(),
+            &old_policy_certificate,
+            Some(&new_certificate),
+            resolve,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn verify_witness_rotation_succeeds_on_retirement_with_no_new_certificate_needed() {
+        let (w1, w1_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let mut owner = appointed_and_observed(&mut journal, w1.clone(), &w1_key);
+        let old_policy = journal
+            .state_for(&owner.did())
+            .unwrap()
+            .accepted_policy()
+            .clone();
+        owner.retire_witnesses().unwrap();
+
+        let old_receipt = journal
+            .certify_policy_transition(&owner.kel(), w1.clone(), &w1_key, 200)
+            .unwrap();
+        let old_policy_certificate = WitnessedEventCertificate::assemble(
+            owner.did(),
+            old_receipt.statement.sequence,
+            old_receipt.statement.event_digest.clone(),
+            old_policy.generation,
+            vec![old_receipt],
+        )
+        .unwrap();
+
+        let resolve = |id: &WitnessId| {
+            if *id == w1 {
+                Some(w1_key.verifying_key())
+            } else {
+                None
+            }
+        };
+        verify_witness_rotation(
+            &old_policy,
+            &owner.kel(),
+            &old_policy_certificate,
+            None,
+            resolve,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn verify_witness_rotation_rejects_a_new_policy_certificate_over_the_wrong_event() {
+        let rotation = genuine_rotation();
+
+        // A certificate that claims to cover this rotation but actually
+        // names a different (fabricated) event digest.
+        let mut new_certificate = rotation.new_policy_certificate();
+        new_certificate.event_digest = vec![0xAA; 32];
+
+        assert!(verify_witness_rotation(
+            &rotation.old_policy,
+            &rotation.owner.kel(),
+            &rotation.old_policy_certificate,
+            Some(&new_certificate),
+            |id| rotation.resolve(id),
+        )
+        .is_err());
     }
 }

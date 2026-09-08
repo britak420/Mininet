@@ -272,11 +272,17 @@ could otherwise drop every honest witness in one unwitnessed, self-signed
 rotation. `verify_policy_transition` checks a threshold of such receipts
 against the old policy, reusing Phase 1's `WitnessedEventCertificate`
 unchanged.
-**Closed by:** the remaining Phase 7 pieces — new-witness readiness
-(§17.3) and unavailable-witness recovery (§17.4) — plus a real call site
-that *gates* an authority decision on an assurance level. That last one is
-a founder-facing policy call: which governance action requires which
-minimum level is not an engineering choice.
+**D-0471 closes Phase 7's second slice (§17.3):** `verify_witness_rotation`
+AND-composes that same old-policy check with a new-policy readiness
+threshold — enough new witnesses' own ordinary first receipts for the
+same rotation event, checked the same unchanged way. No new receipt type:
+a new witness's first observation already signs under the new generation,
+so existing Phase 1-4 machinery already produces what §17.3 needs.
+**Closed by:** the one remaining Phase 7 piece — unavailable-witness
+recovery (§17.4) — plus a real call site that *gates* an authority
+decision on an assurance level. That last one is a founder-facing policy
+call: which governance action requires which minimum level is not an
+engineering choice.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap

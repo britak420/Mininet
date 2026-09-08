@@ -3,7 +3,7 @@
     "crates": 74,
     "files": 930,
     "headings": 3270,
-    "rust_symbols": 9288
+    "rust_symbols": 9300
   },
   "crates": {
     "did-mini": {
@@ -3605,7 +3605,7 @@
       "title": "use mini_crypto::VerifyingKey;"
     },
     {
-      "bytes": 5743,
+      "bytes": 5770,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -3615,9 +3615,9 @@
         "event",
         "spec-01",
         "controller",
-        "method",
         "self",
         "delegation",
+        "method",
         "str",
         "identifier",
         "one",
@@ -3636,7 +3636,7 @@
       ],
       "lines": 158,
       "path": "crates/did-mini/src/lib.rs",
-      "sha256": "a524134de1e228a1739e22e272b25c6815c0ae7c79ae5fdd5664721d6b688883",
+      "sha256": "1f02a1a66940dee5cef428313f7612aea1734f4c72a41cb946783796e9785202",
       "symbols": [
         {
           "kind": "mod",
@@ -4433,138 +4433,198 @@
       "title": "use mini_crypto::SigningKey;"
     },
     {
-      "bytes": 21163,
+      "bytes": 33750,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
         "witness",
         "policy",
-        "old",
-        "kel",
         "event",
-        "new",
-        "identity",
-        "own",
-        "witnesses",
-        "verify",
-        "already",
-        "witnessjournal",
-        "phase",
         "rotation",
-        "accepted",
-        "state",
-        "certify",
-        "generation",
+        "old",
+        "already",
+        "new",
+        "kel",
+        "phase",
+        "identity",
         "same",
+        "witnessjournal",
+        "witnesses",
+        "ordinary",
+        "own",
         "witnessedeventcertificate",
         "verify_policy_transition",
+        "verify_witness_rotation",
         "establishment",
-        "certification",
-        "controller"
+        "controller",
+        "could",
+        "module",
+        "verify",
+        "accepted"
       ],
-      "lines": 513,
+      "lines": 850,
       "path": "crates/did-mini/src/witness_rotation.rs",
-      "sha256": "1a445facd05b29e71d04b90687d93c8e25fac9444279b7e5431ceb4644abd593",
+      "sha256": "63cb8329091062dd5116c483722fe4d5813a2b6def719a7ba2f829243124d50f",
       "symbols": [
         {
           "kind": "impl",
-          "line": 69,
+          "line": 80,
           "name": "WitnessJournal"
         },
         {
           "kind": "fn",
-          "line": 97,
+          "line": 108,
           "name": "certify_policy_transition"
         },
         {
           "kind": "fn",
-          "line": 153,
+          "line": 164,
           "name": "verify_policy_transition"
         },
         {
           "kind": "fn",
-          "line": 178,
+          "line": 205,
+          "name": "verify_witness_rotation"
+        },
+        {
+          "kind": "fn",
+          "line": 240,
           "name": "is_policy_change"
         },
         {
           "kind": "fn",
-          "line": 187,
+          "line": 249,
           "name": "same_witness_set"
         },
         {
           "kind": "mod",
-          "line": 199,
+          "line": 261,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 203,
+          "line": 266,
           "name": "a_witness"
         },
         {
           "kind": "fn",
-          "line": 210,
+          "line": 273,
           "name": "appointed_and_observed"
         },
         {
           "kind": "fn",
-          "line": 226,
+          "line": 289,
           "name": "certifying_a_genuine_witness_set_change_produces_a_valid_old_policy_receipt"
         },
         {
           "kind": "fn",
-          "line": 267,
+          "line": 330,
           "name": "certifying_a_transition_never_mutates_the_journals_own_state"
         },
         {
           "kind": "fn",
-          "line": 284,
+          "line": 347,
           "name": "certification_is_deterministic_across_calls"
         },
         {
           "kind": "fn",
-          "line": 301,
+          "line": 364,
           "name": "an_identity_never_observed_before_cannot_be_certified"
         },
         {
           "kind": "fn",
-          "line": 315,
+          "line": 378,
           "name": "a_gapped_successor_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 336,
+          "line": 399,
           "name": "a_witness_outside_the_old_policy_cannot_certify"
         },
         {
           "kind": "fn",
-          "line": 352,
+          "line": 415,
           "name": "an_ordinary_non_policy_rotation_cannot_be_certified"
         },
         {
           "kind": "fn",
-          "line": 370,
+          "line": 433,
           "name": "reordering_the_same_witness_set_is_not_a_policy_change"
         },
         {
           "kind": "fn",
-          "line": 394,
+          "line": 457,
           "name": "a_threshold_only_change_is_a_policy_change"
         },
         {
           "kind": "fn",
-          "line": 417,
+          "line": 480,
           "name": "retiring_the_witness_policy_entirely_is_a_policy_change"
         },
         {
           "kind": "fn",
-          "line": 429,
+          "line": 492,
           "name": "verify_policy_transition_rejects_a_certificate_over_a_non_transition"
         },
         {
           "kind": "fn",
-          "line": 469,
+          "line": 532,
           "name": "verify_policy_transition_enforces_the_old_policys_threshold"
+        },
+        {
+          "kind": "struct",
+          "line": 583,
+          "name": "Rotation"
+        },
+        {
+          "kind": "impl",
+          "line": 594,
+          "name": "Rotation"
+        },
+        {
+          "kind": "fn",
+          "line": 598,
+          "name": "resolve"
+        },
+        {
+          "kind": "fn",
+          "line": 608,
+          "name": "new_policy_certificate"
+        },
+        {
+          "kind": "fn",
+          "line": 621,
+          "name": "genuine_rotation"
+        },
+        {
+          "kind": "fn",
+          "line": 673,
+          "name": "verify_witness_rotation_succeeds_when_both_thresholds_are_met"
+        },
+        {
+          "kind": "fn",
+          "line": 688,
+          "name": "verify_witness_rotation_fails_when_new_policy_readiness_is_missing"
+        },
+        {
+          "kind": "fn",
+          "line": 704,
+          "name": "verify_witness_rotation_surfaces_an_old_policy_failure_unchanged"
+        },
+        {
+          "kind": "fn",
+          "line": 723,
+          "name": "verify_witness_rotation_enforces_the_new_policys_own_threshold"
+        },
+        {
+          "kind": "fn",
+          "line": 791,
+          "name": "verify_witness_rotation_succeeds_on_retirement_with_no_new_certificate_needed"
+        },
+        {
+          "kind": "fn",
+          "line": 832,
+          "name": "verify_witness_rotation_rejects_a_new_policy_certificate_over_the_wrong_event"
         }
       ],
       "title": "use mini_crypto::{SigningKey, VerifyingKey};"
@@ -77397,7 +77457,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1137631,
+      "bytes": 1141701,
       "group": "docs",
       "headings": [
         {
@@ -77827,9 +77887,9 @@
         "first",
         "witness"
       ],
-      "lines": 18852,
+      "lines": 18922,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "abdfdeebf79f8cfe4a2c31ecda436cbd09fdb154a0e3a93de17b8f28fe729401",
+      "sha256": "fe6447d19c3f316a347237132452761daf0bd1fd4d3f44a687815f2f2973f279",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -78844,7 +78904,7 @@
       "title": "Mininet roadmap: from two-phone proof to self-governed network"
     },
     {
-      "bytes": 22188,
+      "bytes": 22589,
       "group": "docs",
       "headings": [
         {
@@ -78924,72 +78984,72 @@
         },
         {
           "level": 3,
-          "line": 281,
+          "line": 287,
           "text": "R10 \u2014 BLE and local-radio transport \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 288,
+          "line": 294,
           "text": "R11 \u2014 A client application people can actually use \u00b7 `ready`"
         },
         {
           "level": 1,
-          "line": 297,
+          "line": 303,
           "text": "Phase 4 \u2014 The gates code cannot close"
         },
         {
           "level": 3,
-          "line": 304,
+          "line": 310,
           "text": "R12 \u2014 External cryptography audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 315,
+          "line": 321,
           "text": "R13 \u2014 FROST DKG audit \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 321,
+          "line": 327,
           "text": "R14 \u2014 Legal counsel review \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 325,
+          "line": 331,
           "text": "R15 \u2014 Sybil resistance and personhood \u00b7 `outside`"
         },
         {
           "level": 3,
-          "line": 337,
+          "line": 343,
           "text": "R16 \u2014 Tokenomics validation \u00b7 `outside`"
         },
         {
           "level": 1,
-          "line": 345,
+          "line": 351,
           "text": "Phase 5 \u2014 Release engineering"
         },
         {
           "level": 3,
-          "line": 347,
+          "line": 353,
           "text": "R17 \u2014 Adversarial testing at real-world scale \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 354,
+          "line": 360,
           "text": "R18 \u2014 Genesis, validator set, and activation \u00b7 `blocked`"
         },
         {
           "level": 3,
-          "line": 361,
+          "line": 367,
           "text": "R19 \u2014 Release, install, and rollback on real targets \u00b7 `ready`"
         },
         {
           "level": 3,
-          "line": 369,
+          "line": 375,
           "text": "R20 \u2014 The honest launch statement \u00b7 `blocked`"
         },
         {
           "level": 2,
-          "line": 382,
+          "line": 388,
           "text": "What is deliberately *not* on this list"
         }
       ],
@@ -79019,9 +79079,9 @@
         "pull",
         "again"
       ],
-      "lines": 394,
+      "lines": 400,
       "path": "docs/ROADMAP_TO_RELEASE.md",
-      "sha256": "c66c7a292f37f7bf8bac5c49f832f0f23c057a94f18d60dd466702c9710fa5ab",
+      "sha256": "c5da9d7f4083a4ad8c146cb5040bad465b594c82fca0f5b1cf4e2c99195ce819",
       "symbols": [],
       "title": "The road to release"
     },
@@ -79160,7 +79220,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 171427,
+      "bytes": 172207,
       "group": "docs",
       "headings": [
         {
@@ -79195,77 +79255,77 @@
         },
         {
           "level": 2,
-          "line": 405,
+          "line": 416,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 795,
+          "line": 806,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 842,
+          "line": 853,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1064,
+          "line": 1075,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1274,
+          "line": 1285,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1351,
+          "line": 1362,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1381,
+          "line": 1392,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1708,
+          "line": 1719,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2186,
+          "line": 2197,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2277,
+          "line": 2288,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2357,
+          "line": 2368,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2423,
+          "line": 2434,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2440,
+          "line": 2451,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2476,
+          "line": 2487,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2541,
+          "line": 2552,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -79295,9 +79355,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2576,
+      "lines": 2587,
       "path": "docs/STATUS.md",
-      "sha256": "9f863639aa338ecac0bff552919c05665ae9ab17bff310f9b5cee6013d78902a",
+      "sha256": "04811ed53c6b8965629dd3a51f6177c7a75f6e3b36b555c647b12ddfe38b7e83",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -84452,7 +84512,7 @@
       "title": "Long-term inflation and whale-attack resistance \u2014 founder decision (D-0074)"
     },
     {
-      "bytes": 15532,
+      "bytes": 16284,
       "group": "docs",
       "headings": [
         {
@@ -84462,32 +84522,32 @@
         },
         {
           "level": 2,
-          "line": 28,
+          "line": 30,
           "text": "The gap this closes"
         },
         {
           "level": 2,
-          "line": 39,
+          "line": 41,
           "text": "Decision"
         },
         {
           "level": 2,
-          "line": 65,
+          "line": 67,
           "text": "Why design-only, this PR"
         },
         {
           "level": 2,
-          "line": 78,
+          "line": 80,
           "text": "Phased plan this repo commits to (see report \u00a729 for full detail)"
         },
         {
           "level": 2,
-          "line": 213,
+          "line": 225,
           "text": "Hard rules carried forward from the report"
         },
         {
           "level": 2,
-          "line": 234,
+          "line": 246,
           "text": "What this document originally covered, and what D-0321/D-0326 added"
         }
       ],
@@ -84508,18 +84568,18 @@
         "repo",
         "full",
         "first",
-        "real",
         "verification",
         "own",
         "verifier",
         "invariant",
         "gap",
         "design-only",
-        "phased"
+        "phased",
+        "plan"
       ],
-      "lines": 250,
+      "lines": 262,
       "path": "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
-      "sha256": "94a13c277eae48256a1c37d7e93449ad345b178109a49bb87861e925f2b53d75",
+      "sha256": "56f639cab319e8007df0f31bfc4551545a3c7bc9d94e8b0d821dfbbd364a5c96",
       "symbols": [],
       "title": "KEL witness receipts and duplicity gossip (audit #12 F4, invariant M3)"
     },
@@ -96164,7 +96224,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 77981,
+      "bytes": 79634,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -96193,9 +96253,9 @@
         "independently",
         "both"
       ],
-      "lines": 1167,
+      "lines": 1186,
       "path": "governance/work-claims.json",
-      "sha256": "462cc614f67e1f9490d9746564b93982a665f3d68051e883416b799dc5799f8b",
+      "sha256": "78076fea172f0e178ef1d8c685b2869cbfb67b841b2bc4c2ac1a94fd4ed0b8c9",
       "symbols": [],
       "title": "{"
     },
