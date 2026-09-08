@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 936,
     "headings": 3344,
-    "rust_symbols": 9463
+    "rust_symbols": 9471
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28289,
+      "bytes": 28291,
       "group": "root",
       "headings": [
         {
@@ -1840,7 +1840,7 @@
       ],
       "lines": 451,
       "path": "README.md",
-      "sha256": "2e2556dc55739bb07ee788ae5143485825ef9a098d4e95b222cad0ffe60d37f5",
+      "sha256": "b023d0ff773af95f29e09e94d7763da8eb08e64764cf42144d208e2410312803",
       "symbols": [],
       "title": "Mininet"
     },
@@ -56323,7 +56323,7 @@
       "title": "use mini_bearer::{Bearer, Channel};"
     },
     {
-      "bytes": 10176,
+      "bytes": 16083,
       "group": "crate:mini-search-federation-net",
       "headings": [],
       "keywords": [
@@ -56331,30 +56331,30 @@
         "bps",
         "explanation",
         "wireresult",
-        "federatedresult",
-        "result",
-        "provider",
         "mini_search_federation",
+        "federatedresult",
+        "provider",
         "peer",
         "caller",
         "typed",
         "merge",
         "weightbps",
         "url",
-        "remote",
         "own",
-        "local",
+        "federate_query",
         "query",
-        "providerpseudonym",
-        "neterror",
+        "result",
         "relevance_score_bps",
         "federated_result_from_wire",
         "one",
-        "same"
+        "remote",
+        "local",
+        "same",
+        "merge_federated_results"
       ],
-      "lines": 242,
+      "lines": 376,
       "path": "crates/mini-search-federation-net/src/remote_merge.rs",
-      "sha256": "e1e9bb3bbac3989bbfa9e8b4c7091c20862c1795a957ff6e162f945fcf437a10",
+      "sha256": "9d7e51109e00b2bbaf5a9648d1d2576c117913feddaad4b682e3a46413967104",
       "symbols": [
         {
           "kind": "fn",
@@ -56363,73 +56363,93 @@
         },
         {
           "kind": "fn",
-          "line": 94,
+          "line": 99,
           "name": "merge_remote_results"
         },
         {
           "kind": "fn",
-          "line": 112,
+          "line": 117,
           "name": "merge_authenticated_remote_results"
         },
         {
           "kind": "mod",
-          "line": 122,
+          "line": 127,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 130,
+          "line": 136,
           "name": "digest"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 140,
           "name": "url"
         },
         {
           "kind": "fn",
-          "line": 145,
+          "line": 151,
           "name": "wire_result"
         },
         {
           "kind": "fn",
-          "line": 159,
+          "line": 165,
           "name": "provider"
         },
         {
           "kind": "fn",
-          "line": 164,
+          "line": 170,
           "name": "a_valid_wire_result_converts_and_round_trips_its_fields"
         },
         {
           "kind": "fn",
-          "line": 177,
+          "line": 183,
           "name": "a_locally_constructed_filtered_result_cannot_bypass_f6_validation"
         },
         {
           "kind": "fn",
-          "line": 188,
+          "line": 194,
           "name": "an_out_of_range_relevance_score_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 197,
+          "line": 203,
           "name": "an_out_of_range_explanation_component_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 207,
+          "line": 213,
           "name": "merging_deduplicates_a_url_present_in_both_local_and_remote_by_score"
         },
         {
           "kind": "fn",
-          "line": 221,
+          "line": 227,
           "name": "merging_respects_max_results_across_the_combined_set"
         },
         {
           "kind": "fn",
-          "line": 232,
+          "line": 238,
           "name": "an_invalid_remote_result_fails_the_whole_merge_rather_than_dropping_silently"
+        },
+        {
+          "kind": "fn",
+          "line": 255,
+          "name": "genuine_local_result"
+        },
+        {
+          "kind": "fn",
+          "line": 313,
+          "name": "a_genuinely_local_result_is_tagged_locally_computed_by_construction"
+        },
+        {
+          "kind": "fn",
+          "line": 326,
+          "name": "a_hostile_remote_max_score_assertion_cannot_outrank_a_genuine_local_result"
+        },
+        {
+          "kind": "fn",
+          "line": 359,
+          "name": "a_genuine_local_result_still_loses_to_a_better_genuine_local_result"
         }
       ],
       "title": "use mini_query::ResultProvenance;"
@@ -57462,62 +57482,82 @@
       "title": "use mini_objects::ObjectError;"
     },
     {
-      "bytes": 6553,
+      "bytes": 10681,
       "group": "crate:mini-search-federation",
       "headings": [],
       "keywords": [
         "provider",
-        "source",
-        "search",
-        "results",
-        "result",
         "own",
-        "merge",
+        "score",
+        "search",
+        "resultorigin",
         "mini_query",
-        "corpus",
-        "federatedresult",
-        "candidates",
-        "providerpseudonym",
-        "max_results",
-        "federationsource",
-        "federate_query",
+        "provenance",
+        "result",
         "module",
-        "one",
-        "deterministic",
-        "policy",
+        "corpus",
         "every",
+        "process",
+        "peer",
+        "remote",
+        "federationsource",
+        "one",
+        "does",
+        "holds",
+        "url",
         "same",
-        "its",
-        "already",
-        "local"
+        "federatedresult",
+        "merge",
+        "providers",
+        "indexsegment"
       ],
-      "lines": 163,
+      "lines": 243,
       "path": "crates/mini-search-federation/src/federate.rs",
-      "sha256": "96e34bb7d13aece05796bb7fb3c51c348cf1357da2a3f8478bde8de3b6de3ffc",
+      "sha256": "2ba6fa23fdddf0f7e026269f99ff2a1bfc38e7b9643dbba24a92b0474e046b25",
       "symbols": [
         {
           "kind": "struct",
-          "line": 55,
+          "line": 78,
           "name": "FederationSource"
         },
         {
+          "kind": "enum",
+          "line": 90,
+          "name": "ResultOrigin"
+        },
+        {
           "kind": "struct",
-          "line": 67,
+          "line": 116,
+          "name": "FederatedResult"
+        },
+        {
+          "kind": "impl",
+          "line": 122,
           "name": "FederatedResult"
         },
         {
           "kind": "fn",
-          "line": 76,
+          "line": 129,
+          "name": "remote_asserted"
+        },
+        {
+          "kind": "fn",
+          "line": 139,
+          "name": "origin"
+        },
+        {
+          "kind": "fn",
+          "line": 148,
           "name": "federate_query"
         },
         {
           "kind": "fn",
-          "line": 114,
+          "line": 187,
           "name": "merge_federated_results"
         },
         {
           "kind": "fn",
-          "line": 155,
+          "line": 232,
           "name": "better"
         }
       ],
@@ -57711,7 +57751,7 @@
       "title": "use std::collections::{HashMap, HashSet};"
     },
     {
-      "bytes": 3475,
+      "bytes": 3496,
       "group": "crate:mini-search-federation",
       "headings": [],
       "keywords": [
@@ -57740,9 +57780,9 @@
         "read_index_segment",
         "wrap"
       ],
-      "lines": 71,
+      "lines": 73,
       "path": "crates/mini-search-federation/src/lib.rs",
-      "sha256": "ab518c9340e19374523c435fed9b9bbe49f5983eba5582b245593d3fe5e19995",
+      "sha256": "2a525fc601200a590b3db1a09a7d61131671dc2e211e5a2d39d94b76a1c7e9b4",
       "symbols": [
         {
           "kind": "mod",
@@ -78709,7 +78749,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1291169,
+      "bytes": 1298773,
       "group": "docs",
       "headings": [
         {
@@ -79139,9 +79179,9 @@
         "first",
         "kel"
       ],
-      "lines": 21416,
+      "lines": 21541,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "26b0c2ba48a9450863290ab51b64943fcbbcd6e2ff2c70a8c8080796be248627",
+      "sha256": "b24ccf1de596b3f16251046e3a22731a942a87592d02cfdc0a8a83f3d9e5f580",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80477,7 +80517,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 191708,
+      "bytes": 193175,
       "group": "docs",
       "headings": [
         {
@@ -80552,37 +80592,37 @@
         },
         {
           "level": 2,
-          "line": 2438,
+          "line": 2459,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2529,
+          "line": 2550,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2609,
+          "line": 2630,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2709,
+          "line": 2730,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2726,
+          "line": 2747,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2762,
+          "line": 2783,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2843,
+          "line": 2864,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80612,9 +80652,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2878,
+      "lines": 2899,
       "path": "docs/STATUS.md",
-      "sha256": "8c6b61a832bcc5f73ce28e00eaa8660e35eefb9a6a06d36832fb2a9614bf1ca3",
+      "sha256": "92a81a483a3dddd758da135a8fc6ac15cdb0c39a683a40747b0ca423b6a634ae",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97481,7 +97521,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 99732,
+      "bytes": 100807,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97510,9 +97550,9 @@
         "independently",
         "both"
       ],
-      "lines": 1301,
+      "lines": 1305,
       "path": "governance/work-claims.json",
-      "sha256": "61f99c4da142cdb8b3ae6498af7632c1c00a498e75b6683f9e77d5edecdfec7d",
+      "sha256": "31c1ba6d568b2e8df4ff681c891f78a9aa7f246ef9a5a7ad16780218d741983e",
       "symbols": [],
       "title": "{"
     },

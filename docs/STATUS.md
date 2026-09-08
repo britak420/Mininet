@@ -2206,10 +2206,12 @@ the top development priority.
   `docs/design/f6-private-query-transport.md`.
 - **shipped** — Track F6 Phase 2: wire remote query results into F3's
   federated merge (D-0436, roadmap #175). `mini-search-federation`'s
-  `federate_query` merge step (dedup by URL, higher score wins, ties break
-  on provider pseudonym bytes) is now a standalone public function,
-  `merge_federated_results`, with `federate_query` itself unchanged in
-  behavior. `mini-search-federation-net`'s new `remote_merge` module
+  `federate_query` merge step (dedup by URL; a locally-computed result
+  always beats a remote-asserted one for the same URL as of D-0496 below;
+  otherwise higher score wins, ties break on provider pseudonym bytes) is
+  now a standalone public function, `merge_federated_results`, with
+  `federate_query` itself unchanged in behavior beyond that origin
+  tiebreak. `mini-search-federation-net`'s new `remote_merge` module
   bridges a `remote_query` response into that same policy:
   `federated_result_from_wire` converts one `WireResult` into a typed
   `mini_query::ResultProvenance` and invokes the same canonical-field,
@@ -2224,6 +2226,25 @@ the top development priority.
   sealed merge that accepts no caller-selected replacement label. Endpoint
   rotation intentionally rotates the label; provider honesty and cross-rotation
   continuity remain unsolved. See `docs/design/f6-private-query-transport.md`.
+- **hardened (D-0496, PR #327 finding F-21)** — the federated merge no
+  longer lets a remote peer's self-reported `relevance_score_bps` silently
+  outrank this process's own independently-computed result for the same
+  URL merely by claiming a bigger number. `FederatedResult` now carries a
+  `ResultOrigin` (`LocallyComputed`/`RemoteAsserted`), private and only
+  settable via `federate_query` itself (`LocallyComputed`, real
+  `mini_query::search` output) or the new `FederatedResult::
+  remote_asserted` constructor (`RemoteAsserted`, always, regardless of
+  what a caller might otherwise want to claim) — no caller anywhere can
+  forge the origin label the merge tiebreak now depends on. A hostile
+  max-score remote assertion for a URL this process already scored for
+  real can no longer win; two competing remote, unverified assertions
+  still resolve by score as before (no local evidence exists to prefer
+  between them — no ranking truth oracle is claimed). `mini-ranker`'s
+  `rescore`/`local_rerank`'s documented, order-dependent diversity-signal
+  reuse was reviewed against this same finding and found already honestly
+  labeled (their own doc comments already say "callers wanting re-ranked
+  diversity need a fresh `rank` call" rather than silently claiming
+  freshness); no code change was needed there.
 - **shipped** — `mini-intake-types` (D-0313, Track B1): pure Mininet
   Intake vocabulary — `IntakeEnvelope`, `SourceRecord`,
   `DerivedRepresentation`, `AuthorityClass`, `ReviewState`, `IntakeLink`,

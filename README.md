@@ -407,11 +407,11 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0495`
-   (`D-0495`, PR #327 findings pack finding F-20 — `mini-airdrop`'s
-   `ClaimedRegistry` write side is now one atomic, idempotent-retry-safe
-   `try_reserve` instead of a racy check-then-write, and `mini-airdrop-
-   treasury`'s `TreasuryApprovedPayout` can no longer be hand-constructed
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0496`
+   (`D-0496`, PR #327 findings pack finding F-21 — the federated search
+   merge no longer lets a remote peer's self-asserted score silently
+   outrank this process's own locally-verified result, via an unforgeable
+   `ResultOrigin` only `federate_query` itself can mark `LocallyComputed`
    — is the newest at the time of this edit; the Mininet Node Appliance
    deployment profile this line previously credited to `D-0439` is
    `D-0446` — `D-0439` is the identity-bound replica-registration

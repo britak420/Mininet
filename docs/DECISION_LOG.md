@@ -21413,3 +21413,128 @@ construction from a `TreasuryApprovedPayout` remains blocked on the
 suite mismatch D-0356 already named, unresolved and not attempted here.
 
 **Supersedes / superseded by:** none.
+
+### D-0496 — Federated merge stops trusting a remote peer's self-asserted score over locally-verified evidence; `ResultOrigin` is unforgeable (F-21)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-21
+(`crates/mini-search-federation-net/src/remote_merge.rs`,
+`crates/mini-ranker/src/lib.rs`); D-0436 (Track F6 Phase 2, the merge
+this entry modifies); D-0490/D-0495 (the same unforgeable-typed-domain
+discipline applied here).
+
+**Decision:** the finding's mechanism, verified directly against the
+code: `mini_search_federation::federate.rs`'s `better()` picked the
+dedup winner for a shared URL purely by `relevance_score_bps`, with no
+distinction between a score this process computed itself (via
+`federate_query`, over an index/corpus it actually holds) and a score a
+remote peer merely *claimed* over the wire
+(`mini-search-federation-net::remote_merge::federated_result_from_wire`,
+whose own module doc already says "That tag is caller-asserted, not
+cryptographically verified" -- honest about the provider label, but the
+finding is about the *score*, not just the label). A hostile or
+compromised remote peer reporting the maximum possible score for any URL
+would win every dedup comparison against this process's own real,
+locally-verified result -- exactly the finding's concrete example.
+
+Fixed by adding `mini_search_federation::ResultOrigin`
+(`LocallyComputed`/`RemoteAsserted`) to `FederatedResult`, and changing
+`better()` to prefer `LocallyComputed` over `RemoteAsserted`
+unconditionally, regardless of either side's claimed score; only when
+both sides share the same origin does score-then-provider-pseudonym
+tiebreak (unchanged) apply. Critically, `origin` is not a `pub` field a
+caller can set to whatever it wants -- that would just move the lie one
+level up, letting a hostile caller claim `LocallyComputed` for content it
+never verified and defeat the whole point. `FederatedResult::
+remote_asserted` is the *only* constructor available outside
+`mini-search-federation`'s own `federate` module, and it can only ever
+produce `RemoteAsserted`; `federate_query`, the only code anywhere that
+actually calls `mini_query::search` itself, is the only code that can
+produce `LocallyComputed`, and it does so directly within its own
+module -- there is no public path to that variant from outside.
+
+Separately reviewed `mini-ranker`'s `rescore`/`mini-search-federation`'s
+`local_rerank` against the finding's "local reranking may reuse a
+diversity score computed under a prior ordering" mechanism point: both
+already document this precisely, in their own doc comments, predating
+this finding ("The `diversity_bps` signal is reused as originally
+computed... recomputing it under a new order is a distinct, larger
+operation this function does not attempt -- callers wanting re-ranked
+diversity need a fresh `rank` call"). The finding's own Long-term fix
+offers two options -- "Recompute order-dependent diversity after
+reranking **or** label the approximation" -- and this codebase already
+chose and shipped the second, honestly, before this finding existed. No
+code change was needed or made there.
+
+**Reason:** this is exactly the finding's own concrete example
+("a higher-score-wins merge lets a malicious source dominate unless the
+consumer distinguishes asserted from recomputed evidence"), closed with
+exactly the mechanism its Long-term fix names first ("carry score
+provenance... recompute from locally verified inputs where practical").
+It deliberately does **not** attempt the fuller mechanism the same
+Long-term fix and the Boundary note describe: resolving disagreement
+between two competing *remote*, unverified assertions for the same URL
+has no local evidence to arbitrate with, and the finding's own Boundary
+states plainly that "no perfect ranking truth oracle is proposed" -- an
+attempt to rank two untrusted claims against each other by anything
+beyond score-then-provider-tiebreak would be exactly that. Binding
+provider identity to an authenticated channel (rather than a caller-
+asserted label) is the separate, already-shipped PR #296 named path
+(D-0436's own entry), unaffected by and orthogonal to this fix.
+Private-index/audited-PIR query transport (the finding's other Long-term
+fix item, and the query-correlation concern in its Mechanism) is
+Track F6's own separately gated, explicitly unstarted future work
+(`docs/design/f6-private-query-transport.md`), not attempted here.
+
+**Constitutional impact:** none. No cryptography invented; no new
+dependency edge; `mini-ranker`'s existing "no pay-to-rank" structural
+guarantee (no payment/bid parameter anywhere in its API) is unchanged and
+was re-confirmed while reviewing this finding, directly satisfying its
+own Boundary note ("Confirm payment/bids never become organic ranking
+authority").
+
+**Implementation status:** shipped.
+- `crates/mini-search-federation/src/federate.rs`: new `ResultOrigin`
+  enum; `FederatedResult.origin` made private with a `pub fn origin(&self)`
+  accessor and a `pub fn remote_asserted(...)` constructor (always
+  `RemoteAsserted`); `federate_query` tags its own output
+  `LocallyComputed` directly (same module, no accessor needed); `better()`
+  checks origin before score. `crates/mini-search-federation/src/lib.rs`:
+  `ResultOrigin` exported.
+- `crates/mini-search-federation-net/src/remote_merge.rs`:
+  `federated_result_from_wire` now calls `FederatedResult::
+  remote_asserted` instead of a direct struct literal (which would no
+  longer compile against the now-private field, by design). Three new
+  tests: a sanity check that `federate_query`'s real output really is
+  tagged `LocallyComputed` and the wire path really is
+  `RemoteAsserted` (so the tests below fail for the right reason if that
+  ever stops being true); the finding's own named acceptance test, a
+  hostile remote claiming the maximum possible score for a URL a real
+  local `FederationSource` already scored, confirmed to lose; and a
+  same-origin sanity check that two genuinely local results still
+  resolve by score, not "local always wins regardless of anything else."
+  All exercise the real `federate_query`/`mini_query::search` pipeline
+  over an in-process `FederationSource`, not a hand-built stand-in.
+- `docs/STATUS.md`'s Track F6 Phase 2 (D-0436) entry corrected (the
+  "higher score wins" description was no longer fully accurate) plus a
+  new bullet describing this fix and the `mini-ranker` review outcome.
+
+**Failure point:** unchanged from the finding's own Boundary: two
+competing remote, unverified assertions for the same URL still resolve
+by score alone -- there is no ranking truth oracle here, and this entry
+does not claim to add one. Query-correlation (a query's exact terms
+disclosed to the queried peer in Track F6 Phase 1) remains exactly as
+`docs/design/f6-private-query-transport.md` and D-0435's own entry
+already disclose: not private information retrieval, gated behind
+issue #72's external crypto review. `ResultOrigin` only distinguishes
+*this process's* locally-computed evidence from everything else; it says
+nothing about whether one remote provider is more trustworthy than
+another, matching the finding's own acknowledgment that provenance
+identifies a claim's publisher, not its truth.
+
+**Required follow-up:** none newly created. Issue #72 (external crypto
+review, gating real PIR/audited-private-query work) and the F6 Phase 3+
+provider-honesty/cross-rotation-continuity gaps D-0436 already named
+remain exactly as open as before this entry.
+
+**Supersedes / superseded by:** none.
