@@ -1130,9 +1130,10 @@
     },
     {
       "issue": 35,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/media-huge-file-transfer",
+      "pull_request": 328,
       "lease_expires": "2026-09-14",
       "paths": [
         "crates/mini-crypto/",
@@ -1143,7 +1144,25 @@
       "decision_ids": [
         "D-0470"
       ],
-      "notes": "D-0470: bounded-memory media assembly and real want-list-driven transfer, closing both gaps D-0419's own text left open for roadmap #35 (huge-file handling). mini_crypto::HashAlgorithm gains incremental() / IncrementalHash (BLAKE3/SHA-256's own already-streaming constructions, exposed rather than reimplemented -- 4 tests proving incremental hashing matches digest() under every split). mini_media gains assemble_to_writer / assemble_superblock_to_writer, streaming an already-complete payload to a Write sink one chunk at a time instead of assemble/assemble_superblock's single up-front allocation (up to 256 MiB / 64 GiB) -- the exact bound Directive 11's weakest device cannot spare; integrity unchanged, the whole stream is hashed incrementally and checked against the recorded digest before returning Ok. New mini_media::sync module -- pull_manifest/pull_superblock/serve_missing -- composes the crate's existing missing_chunks/missing_superblock_chunks want-lists with mini_sync::request_retrieval/serve_retrieval's already-tested transport-agnostic exact-object-retrieval exchange over an already-established Bearer/Channel, the same composition mini-search-federation-net (D-0432) already proved for an unrelated object type; pull_superblock drives as many rounds as newly-arrived part manifests reveal (two, in practice). 4 tests over real mini_bearer::InProcessBearer pairs plus 8 streaming-assembly tests across the existing media.rs/superblock.rs integration suites. Coordination evidence only, not approval or authority."
+      "notes": "D-0470: bounded-memory media assembly and real want-list-driven transfer, closing both gaps D-0419's own text left open for roadmap #35 (huge-file handling). mini_crypto::HashAlgorithm gains incremental() / IncrementalHash (BLAKE3/SHA-256's own already-streaming constructions, exposed rather than reimplemented -- 4 tests proving incremental hashing matches digest() under every split). mini_media gains assemble_to_writer / assemble_superblock_to_writer, streaming an already-complete payload to a Write sink one chunk at a time instead of assemble/assemble_superblock's single up-front allocation (up to 256 MiB / 64 GiB) -- the exact bound Directive 11's weakest device cannot spare; integrity unchanged, the whole stream is hashed incrementally and checked against the recorded digest before returning Ok. New mini_media::sync module -- pull_manifest/pull_superblock/serve_missing -- composes the crate's existing missing_chunks/missing_superblock_chunks want-lists with mini_sync::request_retrieval/serve_retrieval's already-tested transport-agnostic exact-object-retrieval exchange over an already-established Bearer/Channel, the same composition mini-search-federation-net (D-0432) already proved for an unrelated object type; pull_superblock drives as many rounds as newly-arrived part manifests reveal (two, in practice). 4 tests over real mini_bearer::InProcessBearer pairs plus 8 streaming-assembly tests across the existing media.rs/superblock.rs integration suites. Coordination evidence only, not approval or authority. Closed 2026-09-08: PR #328 merged."
+    },
+    {
+      "issue": 92,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/witness-rotation-new-policy-readiness",
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/did-mini/",
+        "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md"
+      ],
+      "decision_ids": [
+        "D-0471"
+      ],
+      "notes": "D-0471: new-witness readiness threshold for witness-set rotation (research report SS17.3), closing Phase 7's second slice after D-0468's old-policy authorization (SS17.2). New did_mini::verify_witness_rotation AND-composes D-0468's existing verify_policy_transition (old-policy threshold, unchanged) with a new-policy threshold check -- enough new witnesses' own ordinary first observe/observe_declared receipts for the same rotation event, checked via Phase 1's existing WitnessedEventCertificate::verify against the policy the rotation event itself declares. No new receipt or certificate type: a new witness's first observation already signs under the new generation (D-0459's policy-from-KEL discipline), so existing Phase 1-4 machinery already produces exactly the statement SS17.3 asks for -- the only new code is the composition, plus treating a full witness-policy retirement (no new witness set to prove readiness for) as vacuously satisfying the new-policy half via new_policy_certificate: Option<&WitnessedEventCertificate> = None. 6 new tests. Coordination evidence only, not approval or authority."
     }
   ]
 }

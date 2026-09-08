@@ -338,7 +338,7 @@ given time.
   maintains; not self-certifying like a KEL carrier, so it gets no
   special ingest branch — it flows through the same ordinary
   author-provenance path every object already uses; 11 tests.
-  **Witness rotation, Phase 7's first slice shipped (D-0468):**
+  **Witness rotation, Phase 7's §17.2+§17.3 shipped (D-0468, D-0471):**
   `did_mini::witness_rotation`'s `WitnessJournal::certify_policy_transition`
   lets a witness that already holds accepted state for an identity
   certify, under its own *old* retained policy generation, that a
@@ -356,6 +356,18 @@ given time.
   gained an `accepted_policy` field (the *whole* old `WitnessPolicy`, not
   just its generation number) so a witness can know which policy, and
   which witnesses, it is certifying a transition away from; 12 tests.
+  **§17.3's new-witness readiness threshold now also shipped (D-0471):**
+  `verify_witness_rotation` AND-composes that same old-policy check with
+  a new-policy one — enough *new* witnesses' own ordinary first receipts
+  for the same event, checked via the unchanged
+  `WitnessedEventCertificate::verify` against the policy the rotation
+  event itself declares. Still no new receipt type: a new witness's first
+  `observe`/`observe_declared` call already signs under the new
+  generation (D-0459's policy-from-KEL discipline), so Phase 1-4's
+  existing machinery already produces exactly the statement §17.3 asks
+  for — the only new code is the AND-composition, plus treating a full
+  witness-policy retirement (no new witness set to prove readiness for)
+  as vacuously satisfying the new-policy half; 6 tests.
   **Not yet real:** no bounded/incremental re-verify
   (`observe_verified`/`observe_declared` re-verify the whole chain from
   inception on every call, not just the new suffix), no fork-proof
@@ -364,9 +376,8 @@ given time.
   persistence for `DuplicityRegistry` (in-memory only), no automatic
   evidence-fetch policy (a `Disagreement`/`Ahead` outcome is returned,
   never auto-resolved — a host policy choice), no bounded
-  retention/pruning for gossip-summary objects, no "new witness
-  readiness" acknowledgement (§17.3) or unavailable-witness recovery
-  (§17.4, the rest of Phase 7), no real call site yet gates an authority
+  retention/pruning for gossip-summary objects, no unavailable-witness
+  recovery (§17.4, the last piece of Phase 7), no real call site yet gates an authority
   decision on a `KelAssurance` level, requires old-policy certification
   before trusting a rotation, or feeds real proofs into
   `DuplicityRegistry`, no network transport for Phase 4's protocol

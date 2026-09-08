@@ -18731,3 +18731,74 @@ in Phase 7's own remaining scope.
 **Supersedes / superseded by:** extends D-0321/D-0326; supersedes nothing.
 Advances Phase 7 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
 committed plan.
+
+### D-0471 — New-witness readiness threshold for witness-set rotation (research report §17.3)  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0468, D-0321/D-0326, roadmap R9,
+`docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s committed
+phased plan.
+
+**Decision:** add `did_mini::verify_witness_rotation` to
+`witness_rotation.rs`: given a rotation event, verify **both** the
+retiring policy's threshold (via D-0468's existing
+`verify_policy_transition`, unchanged) **and** the incoming policy's own
+threshold — enough new witnesses' *ordinary* first receipts for the same
+event, checked via Phase 1's existing `WitnessedEventCertificate::verify`
+against the new `WitnessPolicy` `new_kel` declares. No new receipt type,
+no new certificate type, no new signing code: a new witness's first
+`observe`/`observe_declared` call already signs under
+`witness_policy_generation = event.sn` (the new generation, per D-0459's
+existing policy-from-KEL discipline), so Phase 1-4's existing machinery
+already produces exactly the statement §17.3 asks for. This module only
+adds the composition — checking both thresholds hold for the *same*
+event — plus the one new honest case D-0468 did not need: a rotation that
+retires the witness policy entirely has no new witness set to prove
+readiness for, so `new_policy_certificate: Option<&WitnessedEventCertificate>`
+being `None` there is not an error.
+
+**Reason:** D-0468's own "Required follow-up" named §17.3 explicitly as
+"structurally identical once built, just signed under the new generation
+instead of the old one" — this PR confirms and closes exactly that
+prediction. The research report's own text (§17.3): "For high-assurance
+transitions, also require receipts from enough new witnesses to prove
+they accepted responsibility... yields: old witness threshold AND new
+witness readiness threshold." Verifying it as an AND-composition of two
+already-correct, already-tested primitives (`verify_policy_transition`
+and `WitnessedEventCertificate::verify`) is the smallest change that
+satisfies that sentence, rather than inventing new machinery for a
+condition Phase 1 already expresses.
+
+**Constitutional impact:** none. No new cryptography — composes
+`sign_witness_receipt`/`WitnessedEventCertificate::verify` unchanged,
+identical to D-0468. No voice/value edge: `witness_rotation` still lives
+entirely inside `did-mini`.
+
+**Implementation status:** shipped — `crates/did-mini/src/
+witness_rotation.rs` (new: `verify_witness_rotation`; module doc updated
+to describe §17.2+§17.3 scope instead of §17.2-only; 6 new tests: both
+thresholds met succeeds, a missing new-policy certificate against a real
+new policy fails with the exact threshold/zero-count error, an old-policy
+failure surfaces unchanged through the composed function, the new
+policy's own threshold is enforced (one of two required new witnesses is
+not enough), full retirement succeeds with no new certificate required,
+and a new-policy certificate whose recorded event digest does not match
+the real rotation event is rejected), `crates/did-mini/src/lib.rs`
+(re-export).
+
+**Failure point:** still no wiring into `assess_kel_assurance` — whether a
+real verifier should *require* §17.3's higher assurance level (versus
+§17.2 alone, versus neither) for any given governance action remains a
+founder-facing policy call, the same open item every earlier phase in
+this design doc already left for its own consuming decision. §17.4
+(unavailable-witness recovery) remains unbuilt and is deliberately the
+opposite assumption from both this and D-0468: it must work *without* old
+witnesses' cooperation.
+
+**Required follow-up:** §17.4 (unavailable-witness recovery) is now the
+only unbuilt piece of Phase 7's committed scope; a real call site gating
+an authority decision on an assurance level remains the founder-facing
+policy call named since Phase 3.
+
+**Supersedes / superseded by:** extends D-0468; supersedes nothing.
+Closes §17.2+§17.3 of Phase 7 of `docs/design/
+kel-witness-receipts-and-duplicity-gossip.md`'s committed plan.
