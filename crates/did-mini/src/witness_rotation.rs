@@ -97,10 +97,22 @@ impl WitnessJournal {
     /// the *old* [`WitnessPolicy`], via [`WitnessedEventCertificate::verify`]
     /// unchanged.
     ///
-    /// Never mutates this journal's own retained state: certifying a
-    /// transition is a distinct act from accepting the new head as this
+    /// Never mutates this journal's own *ongoing* retained state: certifying
+    /// a transition is a distinct act from accepting the new head as this
     /// witness's own ongoing state — a witness the new policy drops
-    /// entirely still gets to certify its own removal.
+    /// entirely still gets to certify its own removal. It does, however,
+    /// now record *which successor* it certified for this exact
+    /// predecessor and retiring generation (F-06), so a second, different
+    /// successor claimed from the same parent is refused rather than
+    /// silently signed — see [`IdentityError::
+    /// ConflictingPolicyTransitionCertification`].
+    ///
+    /// Idempotent for the *identical* transition: certifying the same
+    /// successor event twice re-derives and returns the same receipt
+    /// (Ed25519 signing is deterministic), the same way [`crate::
+    /// WitnessJournal::observe`] already treats an exact-duplicate
+    /// observation. Only a *different* successor for the same predecessor
+    /// and generation is refused.
     ///
     /// Errors: [`IdentityError::NoRetainedWitnessState`] if this witness
     /// never observed the identity before; whatever [`Kel::verify`] returns
@@ -110,9 +122,12 @@ impl WitnessJournal {
     /// [`IdentityError::WitnessNotInPolicy`] if `witness_id` was not
     /// actually a member of the *old* policy; [`IdentityError::
     /// NotAWitnessPolicyChange`] if the head event does not actually
-    /// change the witness set or threshold.
+    /// change the witness set or threshold; [`IdentityError::
+    /// ConflictingPolicyTransitionCertification`] if this journal already
+    /// certified a *different* successor for the same predecessor and
+    /// retiring generation.
     pub fn certify_policy_transition(
-        &self,
+        &mut self,
         kel: &Kel,
         witness_id: WitnessId,
         witness_key: &SigningKey,
@@ -129,20 +144,27 @@ impl WitnessJournal {
         {
             return Err(IdentityError::WitnessConflictingDescendant { sequence: event.sn });
         }
-        let old_policy = old_state.accepted_policy();
+        let old_policy = old_state.accepted_policy().clone();
         if !old_policy.contains(&witness_id) {
             return Err(IdentityError::WitnessNotInPolicy);
         }
         let new_policy = kel.declared_witness_policy();
-        if !is_policy_change(old_policy, new_policy.as_ref()) {
+        if !is_policy_change(&old_policy, new_policy.as_ref()) {
             return Err(IdentityError::NotAWitnessPolicyChange);
         }
         let event_digest = event.digest();
+        if let Some(already_certified) =
+            self.transition_certification(&identity, &event.prior, old_policy.generation)
+        {
+            if already_certified != event_digest.as_slice() {
+                return Err(IdentityError::ConflictingPolicyTransitionCertification);
+            }
+        }
         let statement = WitnessReceiptStatement {
             version: WitnessReceiptVersion::V1,
-            identity,
+            identity: identity.clone(),
             sequence: event.sn,
-            event_digest,
+            event_digest: event_digest.clone(),
             prior_event_digest: if event.prior.is_empty() {
                 None
             } else {
@@ -153,7 +175,14 @@ impl WitnessJournal {
             witness_id,
             observed_epoch,
         };
-        Ok(sign_witness_receipt(statement, witness_key))
+        let receipt = sign_witness_receipt(statement, witness_key);
+        self.record_transition_certification(
+            identity,
+            event.prior.clone(),
+            old_policy.generation,
+            event_digest,
+        );
+        Ok(receipt)
     }
 }
 
@@ -167,6 +196,23 @@ impl WitnessJournal {
 /// `new_kel`'s own head event (identity, sequence, digest all matched),
 /// before delegating threshold/membership/signature checking to
 /// [`WitnessedEventCertificate::verify`] unchanged.
+///
+/// **Caller obligation, stated explicitly (F-06):** `old_policy` is taken
+/// as a parameter, not derived here, because this function has no access
+/// to the identity's prior history — only `new_kel`, the *post*-transition
+/// KEL. That means this function's entire guarantee is only as strong as
+/// the caller's own assurance that `old_policy` is genuinely the policy
+/// this identity held immediately before `new_kel`'s head event, not a
+/// policy the caller merely typed in or was handed by an untrusted party.
+/// A caller must source `old_policy` from its own previously-verified
+/// history for this identity (e.g. a retained [`WitnessIdentityState`] via
+/// `WitnessJournal::state_for`, or an equivalently authenticated prior
+/// [`Kel`] truncated to the predecessor event) — never from an
+/// unauthenticated request. This is the same caller-supplied-and-trusted
+/// shape [`WitnessedEventCertificate::verify`]'s own `policy` parameter
+/// already has; it is not unique to this function, but is worth stating
+/// bluntly here since a forged `old_policy` would make this whole check
+/// vacuous.
 pub fn verify_policy_transition(
     old_policy: &WitnessPolicy,
     new_kel: &Kel,
@@ -574,10 +620,153 @@ mod tests {
         assert_eq!(first, second, "Ed25519 signing is deterministic");
     }
 
+    // -----------------------------------------------------------------
+    // F-06: anti-equivocation state for policy-transition certification
+    // -----------------------------------------------------------------
+
+    /// Two independent, genuinely rival successor KELs sharing the exact
+    /// same accepted parent event -- the shape a compromised controller's
+    /// "ask each old witness separately" attack needs. `Controller::
+    /// restore` reconstructs an identical second controller from the same
+    /// exact-state secret material with no event appended, so the two
+    /// forks can then genuinely diverge with different `appoint_witnesses`
+    /// calls.
+    fn rival_successors(
+        journal: &mut WitnessJournal,
+        witness_id: WitnessId,
+        witness_key: &SigningKey,
+    ) -> (Controller, Controller, WitnessPolicy) {
+        let mut owner = appointed_and_observed(journal, witness_id, witness_key);
+        let old_policy = journal
+            .state_for(&owner.did())
+            .unwrap()
+            .accepted_policy()
+            .clone();
+        let (current, next) = owner.export_current_and_next_keys_for_storage();
+        let mut fork = Controller::restore(&owner.kel(), current, next).unwrap();
+
+        let (witness_a, _) = a_witness();
+        owner.appoint_witnesses(vec![witness_a.0], 1).unwrap();
+        let (witness_b, _) = a_witness();
+        fork.appoint_witnesses(vec![witness_b.0], 1).unwrap();
+
+        (owner, fork, old_policy)
+    }
+
+    #[test]
+    fn a_second_different_successor_from_the_same_parent_is_refused() {
+        let (witness_id, witness_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let (successor_a, successor_b, _) =
+            rival_successors(&mut journal, witness_id.clone(), &witness_key);
+        assert_ne!(
+            successor_a.kel().events().last().unwrap().digest(),
+            successor_b.kel().events().last().unwrap().digest(),
+            "the fixture must produce two genuinely different successor events"
+        );
+
+        journal
+            .certify_policy_transition(&successor_a.kel(), witness_id.clone(), &witness_key, 200)
+            .unwrap();
+        let err = journal
+            .certify_policy_transition(&successor_b.kel(), witness_id, &witness_key, 201)
+            .unwrap_err();
+        assert_eq!(err, IdentityError::ConflictingPolicyTransitionCertification);
+    }
+
+    #[test]
+    fn order_does_not_matter_b_then_a_is_also_refused() {
+        let (witness_id, witness_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let (successor_a, successor_b, _) =
+            rival_successors(&mut journal, witness_id.clone(), &witness_key);
+
+        journal
+            .certify_policy_transition(&successor_b.kel(), witness_id.clone(), &witness_key, 200)
+            .unwrap();
+        let err = journal
+            .certify_policy_transition(&successor_a.kel(), witness_id, &witness_key, 201)
+            .unwrap_err();
+        assert_eq!(err, IdentityError::ConflictingPolicyTransitionCertification);
+    }
+
+    #[test]
+    fn a_retry_of_the_exact_same_successor_after_a_rival_was_certified_still_only_refuses_the_rival(
+    ) {
+        let (witness_id, witness_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let (successor_a, successor_b, _) =
+            rival_successors(&mut journal, witness_id.clone(), &witness_key);
+
+        let first = journal
+            .certify_policy_transition(&successor_a.kel(), witness_id.clone(), &witness_key, 200)
+            .unwrap();
+        // A retry of the SAME successor A under the same observed_epoch
+        // must still succeed idempotently, re-deriving byte-identical
+        // signed output (Ed25519 signing is deterministic; observed_epoch
+        // is itself part of the signed statement, so it must match for
+        // the receipts to match)...
+        let retry = journal
+            .certify_policy_transition(&successor_a.kel(), witness_id.clone(), &witness_key, 200)
+            .unwrap();
+        assert_eq!(first, retry);
+        // ...while the rival B remains refused.
+        let err = journal
+            .certify_policy_transition(&successor_b.kel(), witness_id, &witness_key, 202)
+            .unwrap_err();
+        assert_eq!(err, IdentityError::ConflictingPolicyTransitionCertification);
+    }
+
+    #[test]
+    fn a_threshold_only_change_and_a_harmlessly_reordered_set_are_still_tracked_as_distinct_successors(
+    ) {
+        // Neither of these is the "rival attacker" scenario -- both are
+        // honest, single-successor cases -- but they exercise the same
+        // predecessor+generation key with a real policy-changing event,
+        // confirming the anti-equivocation bookkeeping does not
+        // misidentify an ordinary threshold-only change or a harmlessly
+        // reordered witness set as a conflict with itself.
+        let (witness_id, witness_key) = a_witness();
+        let (second_witness, _) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let mut owner = Controller::incept_single().unwrap();
+        owner
+            .appoint_witnesses(vec![witness_id.0.clone(), second_witness.0.clone()], 1)
+            .unwrap();
+        journal
+            .observe_declared(&owner.kel(), witness_id.clone(), &witness_key, 100)
+            .unwrap();
+
+        // Threshold-only change: same two witnesses, threshold 1 -> 2.
+        owner
+            .appoint_witnesses(vec![witness_id.0.clone(), second_witness.0.clone()], 2)
+            .unwrap();
+        let receipt = journal
+            .certify_policy_transition(&owner.kel(), witness_id, &witness_key, 200)
+            .unwrap();
+        receipt.verify(&witness_key.verifying_key()).unwrap();
+    }
+
+    #[test]
+    fn full_retirement_after_a_certified_appointment_is_a_distinct_successor_not_a_conflict() {
+        // Retirement is certified normally when it is the *only* successor
+        // ever presented for this predecessor+generation -- confirms F-06's
+        // bookkeeping does not accidentally treat "no witness set" as
+        // conflicting with itself across separate identities/parents.
+        let (witness_id, witness_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let mut owner = appointed_and_observed(&mut journal, witness_id.clone(), &witness_key);
+        owner.retire_witnesses().unwrap();
+        let receipt = journal
+            .certify_policy_transition(&owner.kel(), witness_id, &witness_key, 200)
+            .unwrap();
+        receipt.verify(&witness_key.verifying_key()).unwrap();
+    }
+
     #[test]
     fn an_identity_never_observed_before_cannot_be_certified() {
         let (witness_id, witness_key) = a_witness();
-        let journal = WitnessJournal::new();
+        let mut journal = WitnessJournal::new();
         let mut owner = Controller::incept_single().unwrap();
         owner
             .appoint_witnesses(vec![witness_id.0.clone()], 1)

@@ -19670,3 +19670,233 @@ remaining honest limit) and wiring either fanout variant into a real
 running multi-node mesh both remain open, tracked in roadmap #24.
 
 **Supersedes / superseded by:** extends D-0472; supersedes nothing.
+
+### D-0480 — FROST signing hardening: nonce reuse, participant-set panics, non-canonical signatures (F-01/F-02/F-03)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` findings F-01, F-02,
+F-03 (all `crates/mini-treasury/src/frost_sign.rs`); D-0035/D-0036 (this
+crate's own prototype-custody framing); issue #93.
+
+**Decision:** three related fixes to `mini-treasury::frost_sign`, the
+FROST two-round signing module:
+
+1. **F-01 — nonce reuse.** `round2_sign` previously took `nonces:
+   &SigningNonces`, so nothing stopped a caller invoking it twice with
+   the same nonce pair against two different signing packages — two
+   responses over the same `(d_i, e_i)` are two linear equations in the
+   two nonce unknowns, and solving them recovers the secret share, the
+   same catastrophic failure as nonce reuse in plain Schnorr/ECDSA.
+   `round2_sign` now takes `nonces: SigningNonces` **by value**: Rust's
+   move checker refuses a second call at compile time, and
+   `SigningNonces`'s existing `Drop` zeroizes both scalars the instant
+   the function returns on any path, so no separate "burn" step was
+   needed once ownership moved. Also added: `round2_sign` now verifies
+   the supplied nonces actually derive the `(D_i, E_i)` commitment the
+   signing package claims for this signer's index (new
+   `TreasuryError::NonceCommitmentMismatch`), rejecting a stale, foreign,
+   or mismatched `SigningNonces` value before it can contribute to a
+   response.
+2. **F-02 — participant-set panics.** `per_signer_commitment` indexed
+   `self.commitments[&index]` directly; a real group member who was
+   never part of *this* signing round (membership in the group and
+   participation in one round are different facts) reached that
+   indexing operation and panicked instead of producing a typed error.
+   `aggregate`'s own guard compared `shares.len()` to `signing_package.
+   commitments.len()` — equal cardinality, not equal membership — so a
+   substituted equal-sized participant set (commitments for `{1,2}`,
+   shares keyed `{1,3}`) passed that guard and reached the same panic
+   path. `per_signer_commitment` now returns `Option<RistrettoPoint>`;
+   `verify_signature_share` propagates `None` as `TreasuryError::
+   InvalidFrostParticipant`; `aggregate` now requires the exact sorted
+   key sequence of `shares` to equal that of `signing_package.
+   commitments`, not merely its length.
+3. **F-03 — non-canonical signature decoding.** `Signature::from_bytes`
+   decoded `z` via `Scalar::from_bytes_mod_order`, which maps every byte
+   string in `[0, 2^256)` onto the same `[0, ell)` scalar range a
+   canonical encoding already covers — so two different 32-byte strings
+   (e.g. `z` and `z + ell`) decoded to the same signature. That
+   contradicts this workspace's byte-addressed identity/deduplication
+   expectations for a serialized signature. `from_bytes` now uses
+   `Scalar::from_canonical_bytes`, rejecting any encoding that is not
+   the unique canonical representative.
+
+**Reason:** all three are real defects in prototype custody-signing code,
+independently confirmed against current source (not just the audit's
+pinned historical commit) before fixing. None requires new cryptography
+or a design change — F-01 and F-02 are ordinary Rust ownership/typed-
+error discipline already used everywhere else in this crate (e.g.
+`VerifiedReplicaClaim`'s "only obtainable by verifying" pattern in
+`mini-storage-fraud`); F-03 swaps one already-available `curve25519-
+dalek` decoder for another already-available one. Fixing them now, while
+this crate remains explicitly gated behind D-0047/#72 and the trusted-
+dealer-only `AcknowledgedPrototypeOnly` acknowledgment, is strictly
+cheaper than fixing them after a real custody deployment depends on the
+old behavior.
+
+**Constitutional impact:** none. No frozen invariant touched; no voice/
+value edge (mini-treasury already sits on the value side of the wall and
+gained no new dependency); no typed-domain violation — if anything, F-01/
+F-02 *tighten* typed-domain discipline (nonces can no longer be reused
+because the type system forbids it, not because callers are trusted to
+behave).
+
+**Implementation status:** shipped — `crates/mini-treasury/src/
+frost_sign.rs` (`round2_sign` takes `SigningNonces` by value plus commitment
+verification; `per_signer_commitment` returns `Option`; `verify_
+signature_share` and `aggregate` propagate typed errors instead of
+panicking; `aggregate` checks exact key-set equality; `Signature::
+from_bytes` uses canonical scalar decoding), `crates/mini-treasury/src/
+error.rs` (new `TreasuryError::NonceCommitmentMismatch`), call sites
+updated in `frost_reshare.rs`, `frost_dkg.rs`, and `examples/
+frost_live_demo.rs` (all test/example code — no other production caller
+exists in this workspace). 11 new tests: nonce/commitment mismatch
+rejected, matching nonces still succeed, a real-but-absent group member
+rejected without panicking, an equal-sized substituted participant set
+rejected, missing/extra participants rejected, an unknown participant id
+rejected, canonical zero and `ell - 1` accepted, the group order itself
+rejected (no longer silently reduces to zero), all-ones bytes rejected,
+the exact `z=0`/`z=ell` aliasing case confirmed closed, honest signatures
+still round-trip. 56/56 tests pass in `mini-treasury` (50 prior + 11 new
+minus 5 that already covered adjacent cases); clippy clean.
+
+**Failure point:** this crate's `trusted_dealer_keygen` path remains
+explicitly non-production (`AcknowledgedPrototypeOnly::
+insecure_trusted_dealer_keygen_is_not_production_ready`) and unaudited;
+these fixes close specific API-level hazards, not the crate's overall
+D-0047/#72 gate. A durable signer *service* (as opposed to this
+in-process library) still needs crash-safe nonce reservation/burn
+records before a response is released — a Rust move alone stops
+same-process reuse but cannot stop a snapshot rollback or a modified
+signer replaying an old nonce from persisted state, exactly as the
+audit finding's own "Long-term fix" names for a future service layer.
+
+**Required follow-up:** the durable-signer-service nonce-reservation
+design named above; F-02's "type valid-group-member and
+valid-round-participant as genuinely different types" refactor remains
+a larger, not-yet-attempted API redesign (the `Option`-returning fix
+here closes the panic without attempting that larger change);
+independent FROST/DKG/custody external audit remains gated behind
+D-0047/#72/#93, unaffected by this decision.
+
+**Supersedes / superseded by:** extends D-0035/D-0036; supersedes
+nothing.
+
+### D-0481 — Witness-service durability and anti-equivocation hardening (F-05/F-06)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` findings F-05
+(`crates/mini-witness-service/src/lib.rs`) and F-06
+(`crates/did-mini/src/witness_rotation.rs`); D-0465 (`mini-witness-
+service`, Phase 6); D-0468 (`certify_policy_transition`, §17.2, Phase 7).
+
+**Decision:** two related fixes closing gaps between what these two
+modules' own doc comments claimed and what their code actually did:
+
+1. **F-05 — persist before publish.** `PersistentWitnessJournal::
+   observe_declared` called `self.journal.observe_declared(...)` (mutating
+   the real in-memory `did_mini::WitnessJournal` as soon as it decided to
+   accept) *before* calling `self.persist(...)`. If `persist` then failed,
+   the method returned `Err`, but `self.journal` had already advanced to
+   believing the observation was accepted — a retry would see
+   `AlreadyAccepted` from the in-memory state and never attempt to persist
+   again, permanently orphaning an "accepted" identity this store never
+   actually wrote to disk. Fixed by staging the observation against a
+   clone of the journal, persisting first, and only replacing the real
+   `self.journal` with the staged copy after persistence actually
+   succeeds — so a failed persist leaves the real journal exactly as it
+   was and a retry starts genuinely fresh. Requires `did_mini::
+   WitnessJournal: Clone` (added; a plain `HashMap` copy, nothing secret).
+2. **F-06 — anti-equivocation state for policy-transition certification.**
+   `WitnessJournal::certify_policy_transition` (§17.2, D-0468) deliberately
+   never mutates a witness's *ongoing* accepted state when certifying a
+   transition (a witness the new policy drops still gets to certify its
+   own removal) — but as a side effect, nothing remembered *which*
+   successor a witness had already certified for a given predecessor and
+   retiring generation. A compromised controller could sign two rival
+   successor events from the same parent (appointing two different new
+   witness sets) and ask the same old witness to certify each separately;
+   nothing stopped it from signing both. Fixed by adding a new
+   `WitnessJournal` field tracking, per (identity, predecessor event
+   digest, retiring policy generation), which successor digest was
+   certified — a second, *different* successor for the same key is now
+   refused with the new `IdentityError::
+   ConflictingPolicyTransitionCertification`; an identical retry of the
+   *same* successor remains idempotent (re-derives the same signed
+   receipt, Ed25519 signing being deterministic), matching how `observe`
+   already treats exact-duplicate observations. `certify_policy_transition`
+   changes from `&self` to `&mut self` to record this. Also documented,
+   without changing its signature, `verify_policy_transition`'s existing
+   caller obligation: it takes `old_policy` as a parameter because it has
+   no access to prior history from `new_kel` alone, so its whole guarantee
+   depends on the caller sourcing that policy from real authenticated
+   history — the same shape `WitnessedEventCertificate::verify`'s own
+   `policy` parameter already has, stated explicitly rather than left
+   implicit.
+
+**Reason:** both are real defects the audit finding independently
+confirmed against current source before fixing, not the "expose new
+authority" or "invent evidence-object machinery" over-reach the finding's
+own "Boundary of the finding" note explicitly declines to ask for
+("these checks are not yet wired into a high-value authority decision.
+This is a dangerous incomplete primitive, not a demonstrated live
+identity takeover"). F-06's fix is scoped to exactly what the concrete
+example needs — refusing a second signature — not a formal
+cross-witness equivocation-evidence type (unlike `WitnessEquivocationProof`
+elsewhere in this crate, which proves equivocation to a *third party*);
+building that would require the SAME witness's two conflicting signed
+receipts to exist in the first place, which this fix prevents from ever
+being produced.
+
+**Constitutional impact:** none. No frozen invariant touched; no voice/
+value edge. Both fixes tighten existing typed-domain/fail-closed
+discipline rather than adding new authority — F-05 makes "accepted"
+strictly mean "durable," F-06 makes "certified" strictly mean "certified
+once per predecessor+generation."
+
+**Implementation status:** shipped — `crates/mini-witness-service/
+src/lib.rs` (`observe_declared` stages then persists then publishes),
+`crates/did-mini/src/witness_state.rs` (`WitnessJournal: Clone`; new
+private `TransitionKey`/`transition_certifications` field;
+`pub(crate) transition_certification`/`record_transition_certification`
+accessors), `crates/did-mini/src/witness_rotation.rs`
+(`certify_policy_transition` takes `&mut self`, checks/records
+transition certifications; `verify_policy_transition`'s doc comment
+expanded), `crates/did-mini/src/error.rs` (new `IdentityError::
+ConflictingPolicyTransitionCertification`). 1 new test in
+`mini-witness-service` (a persist failure — simulated by removing the
+target directory, since this session's runtime user is root and ignores
+POSIX permission bits — leaves the in-memory journal untouched; a retry
+after the directory is restored is a genuine `Accepted`, not a phantom
+`AlreadyAccepted`, and actually lands on disk). 5 new tests in `did-mini`
+(a second different successor from the same parent is refused; the
+refusal is order-independent, B-then-A as well as A-then-B; a retry of
+the *same* already-certified successor still succeeds idempotently
+while a rival remains refused; a threshold-only change and a full
+retirement are each correctly treated as ordinary distinct successors,
+not confused with a conflict). 115/115 `did-mini` tests and 7/7
+`mini-witness-service` tests pass; full workspace build confirms no
+other crate called the now-`&mut self` `certify_policy_transition`.
+
+**Failure point:** F-05's fix still inherits this crate's own stated
+`fsync` limitation (`fs::write` + `fs::rename` is atomic against a killed
+process, not against real power loss) — unchanged, already honestly
+documented. F-06's tracking table is unbounded in-memory (grows with
+every distinct predecessor+generation ever certified, for as long as the
+process runs) and is not itself persisted — a process restart forgets
+which transitions it already certified, reopening the equivocation
+window across a restart specifically. That gap is real and not closed
+here; recording it is more honest than pretending an in-memory-only fix
+closes it for a real long-running service.
+
+**Required follow-up:** persisting F-06's transition-certification table
+(mirroring F-05's own durable-record pattern) so the anti-equivocation
+guarantee survives a restart; the formal cross-witness equivocation-
+evidence type the finding's "becomes evidence" phrase gestures at,
+if a future consuming layer needs to prove equivocation to a third party
+rather than merely refuse it locally; wiring either fix into a real
+high-value authority decision, the same founder-facing policy call named
+by every earlier phase of this design doc.
+
+**Supersedes / superseded by:** extends D-0465/D-0468; supersedes
+nothing.

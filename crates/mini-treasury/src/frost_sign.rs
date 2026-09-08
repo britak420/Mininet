@@ -194,15 +194,20 @@ impl SigningPackage {
     }
 
     /// Signer `index`'s own contribution `R_i = D_i + rho_i*E_i` to the
-    /// group commitment.
+    /// group commitment, or `None` if `index` never published a round-1
+    /// commitment into this signing round (F-02: `index` may still be a
+    /// real, verifying-share-holding member of the group as a whole — group
+    /// membership and *this round's* participation are different facts, and
+    /// conflating them by indexing this map directly used to panic instead
+    /// of reporting an unknown participant).
     fn per_signer_commitment(
         &self,
         index: u16,
         binding_factors: &BTreeMap<u16, Scalar>,
-    ) -> RistrettoPoint {
-        let commitment = &self.commitments[&index];
-        let rho = binding_factors[&index];
-        commitment.hiding + commitment.binding * rho
+    ) -> Option<RistrettoPoint> {
+        let commitment = self.commitments.get(&index)?;
+        let rho = binding_factors.get(&index)?;
+        Some(commitment.hiding + commitment.binding * rho)
     }
 }
 
@@ -243,16 +248,36 @@ fn index_scalar(index: u16) -> Scalar {
 }
 
 /// Round 2: compute this signer's response `z_i` to `signing_package`,
-/// using the nonces generated for it in round 1. Calling this twice with
-/// the same `nonces` for two different signing packages doubly-spends the
-/// nonce and leaks the secret share — round 1 must be re-run per signature.
+/// consuming the nonces generated for it in round 1.
+///
+/// Takes `nonces` **by value**, not by reference (F-01): a `&SigningNonces`
+/// could be handed to this function twice — once per signing package — and
+/// nothing in the type system or the old signature stopped a caller from
+/// doing exactly that. Two responses over the same `(d_i, e_i)` pair under
+/// two different transcripts are two linear equations in the two nonce
+/// unknowns; solving them recovers `d_i, e_i` and, from either response,
+/// the secret share `s_i` itself — the same catastrophic failure as nonce
+/// reuse in plain Schnorr/ECDSA. Consuming `nonces` means Rust's move
+/// checker refuses a second call at compile time, and [`SigningNonces`]'s
+/// own [`Drop`] zeroizes both scalars the moment this function returns on
+/// *any* path (success or error) — no separate "burn" step is needed.
+///
+/// Also verifies (F-01's second half) that `nonces` actually derives the
+/// `(D_i, E_i)` commitment `signing_package` claims for this signer's
+/// index, rejecting a stale, foreign, or mismatched `SigningNonces` value
+/// before it can contribute to a response at all.
 pub fn round2_sign(
     key_package: &KeyPackage,
-    nonces: &SigningNonces,
+    nonces: SigningNonces,
     signing_package: &SigningPackage,
 ) -> Result<Scalar> {
-    if !signing_package.commitments.contains_key(&key_package.index) {
+    let Some(commitment) = signing_package.commitments.get(&key_package.index) else {
         return Err(TreasuryError::InvalidFrostParticipant);
+    };
+    if (basepoint() * nonces.hiding).compress() != commitment.hiding.compress()
+        || (basepoint() * nonces.binding).compress() != commitment.binding.compress()
+    {
+        return Err(TreasuryError::NonceCommitmentMismatch);
     }
     let indices = signing_package.indices();
     let binding_factors = signing_package.binding_factors();
@@ -268,6 +293,14 @@ pub fn round2_sign(
 /// share, *before* aggregating — catches a faulty or malicious signer
 /// immediately, with attribution, instead of only learning the final
 /// aggregate signature doesn't verify.
+///
+/// `index` must be **both** a real group member (checked against
+/// `public_key_package.verifying_shares`) **and** an actual participant in
+/// this specific signing round (checked against `signing_package`'s own
+/// commitments) — group membership and round participation are different
+/// facts (F-02). A real group member absent from this round's commitments
+/// now returns [`TreasuryError::InvalidFrostParticipant`] instead of
+/// panicking on a missing map key.
 pub fn verify_signature_share(
     index: u16,
     z_i: Scalar,
@@ -286,7 +319,9 @@ pub fn verify_signature_share(
         &signing_package.message,
     );
     let lambda_i = lagrange_coefficient(index_scalar(index), &indices);
-    let r_i = signing_package.per_signer_commitment(index, &binding_factors);
+    let Some(r_i) = signing_package.per_signer_commitment(index, &binding_factors) else {
+        return Err(TreasuryError::InvalidFrostParticipant);
+    };
 
     Ok((basepoint() * z_i).compress() == (r_i + (c * lambda_i) * y_i).compress())
 }
@@ -309,21 +344,32 @@ impl Signature {
     }
 
     /// Deserialize from the 64-byte wire format. `None` if malformed (wrong
-    /// length, or the first 32 bytes are not a valid compressed Ristretto
-    /// point). The scalar half is reduced mod the group order rather than
-    /// canonical-checked, the same choice this workspace already makes for
-    /// scalar decoding elsewhere (`mini_value::confidential_impl`).
+    /// length, the first 32 bytes are not a valid compressed Ristretto
+    /// point, or the last 32 bytes are not `z`'s canonical little-endian
+    /// encoding).
+    ///
+    /// The scalar half is **canonically** decoded (F-03), not reduced mod
+    /// the group order: `Scalar::from_bytes_mod_order` maps every byte
+    /// string in `[0, 2^256)` onto the same `[0, ell)` range a canonical
+    /// encoding already covers, so two different 32-byte strings (e.g. `z`
+    /// and `z + ell`) can decode to the same signature. That decoder
+    /// aliasing conflicts with this workspace's byte-addressed identity and
+    /// deduplication expectations for a serialized signature — unlike a
+    /// hash's wide-reduction, which legitimately maps a larger input space
+    /// down, a signature's `z` is meant to be a unique 32-byte value with
+    /// one accepted encoding.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let r_bytes: [u8; 32] = bytes.get(..32)?.try_into().ok()?;
-        let z_bytes: [u8; 32] = bytes.get(32..64)?.try_into().ok()?;
         if bytes.len() != 64 {
             return None;
         }
+        let r_bytes: [u8; 32] = bytes[..32].try_into().ok()?;
+        let z_bytes: [u8; 32] = bytes[32..64].try_into().ok()?;
         // Confirm it decompresses to a real point now, so a malformed
         // signature is rejected here rather than surfacing later as a
         // confusing verification failure.
         CompressedRistretto(r_bytes).decompress()?;
-        let z = Scalar::from_bytes_mod_order(z_bytes);
+        let z: Option<Scalar> = Scalar::from_canonical_bytes(z_bytes).into();
+        let z = z?;
         Some(Signature {
             r: CompressedRistretto(r_bytes),
             z,
@@ -335,13 +381,24 @@ impl Signature {
 /// verified individually first (see [`verify_signature_share`]) so a bad
 /// share is caught and attributed rather than silently producing an
 /// aggregate that fails to verify.
+///
+/// Requires `shares` to name **exactly** the same participant indices as
+/// `signing_package`'s own commitments — not merely the same *count*
+/// (F-02). Equal cardinality alone lets a caller substitute one real group
+/// member's index for another who never actually took part in this round
+/// (e.g. commitments for `{1,2}`, shares keyed `{1,3}`): the substituted
+/// index is a genuine member of the group as a whole, so it would
+/// previously reach `verify_signature_share`'s internal map lookups with
+/// nothing having rejected it first.
 pub fn aggregate(
     signing_package: &SigningPackage,
     shares: &BTreeMap<u16, Scalar>,
     public_key_package: &PublicKeyPackage,
 ) -> Result<Signature> {
-    if shares.len() != signing_package.commitments.len() {
-        return Err(TreasuryError::NotEnoughSigners);
+    let committed_indices: Vec<u16> = signing_package.commitments.keys().copied().collect();
+    let share_indices: Vec<u16> = shares.keys().copied().collect();
+    if share_indices != committed_indices {
+        return Err(TreasuryError::InvalidFrostParticipant);
     }
     let mut z = Scalar::ZERO;
     for (&index, &z_i) in shares {
@@ -414,7 +471,8 @@ mod tests {
         let mut z_shares = BTreeMap::new();
         for &i in signer_indices {
             let key_package = shares.iter().find(|s| s.index == i).unwrap();
-            let z_i = round2_sign(key_package, &nonces_by_index[&i], &signing_package).unwrap();
+            let nonces = nonces_by_index.remove(&i).unwrap();
+            let z_i = round2_sign(key_package, nonces, &signing_package).unwrap();
             z_shares.insert(i, z_i);
         }
 
@@ -472,7 +530,8 @@ mod tests {
         let mut z_shares = BTreeMap::new();
         for &i in &signer_indices {
             let key_package = shares.iter().find(|s| s.index == i).unwrap();
-            let z_i = round2_sign(key_package, &nonces_by_index[&i], &signing_package).unwrap();
+            let nonces = nonces_by_index.remove(&i).unwrap();
+            let z_i = round2_sign(key_package, nonces, &signing_package).unwrap();
             z_shares.insert(i, z_i);
         }
         // Tamper with one signer's share.
@@ -528,5 +587,224 @@ mod tests {
         let bytes = signature.to_bytes();
         let decoded = Signature::from_bytes(&bytes).unwrap();
         assert!(verify(&decoded, message, public.group_public_key));
+    }
+
+    // -------------------------------------------------------------------
+    // F-03: Signature::from_bytes canonically decodes z, not mod-order
+    // -------------------------------------------------------------------
+
+    /// A real, valid `R` (compressed Ristretto point bytes) to pair with
+    /// hand-built `z` values below -- these tests are about the scalar
+    /// half's decoding, not the point half.
+    fn a_valid_r() -> [u8; 32] {
+        let (shares, public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        let signature = sign_with(&[1, 2, 3], &shares, &public, 3, b"treasury payout #55");
+        signature.to_bytes()[..32].try_into().unwrap()
+    }
+
+    fn signature_bytes(r: [u8; 32], z: [u8; 32]) -> [u8; 64] {
+        let mut out = [0u8; 64];
+        out[..32].copy_from_slice(&r);
+        out[32..].copy_from_slice(&z);
+        out
+    }
+
+    /// The Ristretto/Ed25519 group order `ell = 2^252 +
+    /// 27742317777372353535851937790883648493`, little-endian -- the exact
+    /// published constant `curve25519-dalek` itself uses internally
+    /// (`constants::BASEPOINT_ORDER_PRIVATE`), copied here because the
+    /// public alias for it was deprecated in 4.1.1 with no replacement.
+    /// Not a scalar in canonical range: a valid scalar is `< ell`.
+    const GROUP_ORDER_BYTES: [u8; 32] = [
+        0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde,
+        0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x10,
+    ];
+
+    #[test]
+    fn canonical_zero_and_order_minus_one_are_accepted() {
+        let r = a_valid_r();
+        assert!(Signature::from_bytes(&signature_bytes(r, [0u8; 32])).is_some());
+
+        // ell - 1, the largest canonical scalar, little-endian.
+        let mut order_minus_one = GROUP_ORDER_BYTES;
+        order_minus_one[0] -= 1;
+        assert!(Signature::from_bytes(&signature_bytes(r, order_minus_one)).is_some());
+    }
+
+    #[test]
+    fn the_group_order_itself_is_rejected_not_reduced_to_zero() {
+        // ell reduces to 0 under from_bytes_mod_order -- the exact aliasing
+        // this decoder must no longer perform.
+        let r = a_valid_r();
+        assert!(Signature::from_bytes(&signature_bytes(r, GROUP_ORDER_BYTES)).is_none());
+    }
+
+    #[test]
+    fn all_ones_bytes_are_rejected() {
+        let r = a_valid_r();
+        assert!(Signature::from_bytes(&signature_bytes(r, [0xFFu8; 32])).is_none());
+    }
+
+    #[test]
+    fn distinct_byte_strings_no_longer_alias_to_the_same_signature() {
+        // The exact hole this closes: z=0 and z=ell used to decode
+        // identically under mod-order reduction. They must now decode to
+        // either two different signatures or one rejected input, never the
+        // same accepted signature from two different wire encodings.
+        let r = a_valid_r();
+        let zero_sig = Signature::from_bytes(&signature_bytes(r, [0u8; 32]));
+        let order_sig = Signature::from_bytes(&signature_bytes(r, GROUP_ORDER_BYTES));
+        assert!(zero_sig.is_some());
+        assert!(order_sig.is_none());
+    }
+
+    #[test]
+    fn honest_signatures_still_round_trip_after_canonical_decoding() {
+        // Reconfirms signature_round_trips_through_bytes under a different
+        // signer set/message, guarding against the canonical check being
+        // too strict for real signer output.
+        let (shares, public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        let message = b"treasury payout #56";
+        let signature = sign_with(&[2, 3, 4], &shares, &public, 3, message);
+        let decoded = Signature::from_bytes(&signature.to_bytes()).unwrap();
+        assert!(verify(&decoded, message, public.group_public_key));
+    }
+
+    // -------------------------------------------------------------------
+    // F-01: round2_sign consumes SigningNonces and checks the commitment
+    // -------------------------------------------------------------------
+    //
+    // A *second call* with the same `SigningNonces` value is not tested
+    // here at runtime because it cannot happen at runtime: `round2_sign`
+    // now takes `nonces: SigningNonces` by value, so Rust's move checker
+    // refuses a second use at compile time -- a strictly stronger
+    // guarantee than any test could demonstrate. What a runtime test can
+    // and does check is the other half of F-01's fix: that the nonces
+    // actually correspond to the published commitment for this signer.
+
+    #[test]
+    fn round2_sign_rejects_nonces_that_do_not_derive_the_published_commitment() {
+        let (shares, _public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        // Two independent round-1 runs for the same index: the commitment
+        // published in the signing package comes from the first, but the
+        // signer (by bug, stale cache, or malice) supplies the nonces from
+        // the second.
+        let (_stale_nonces, published_commitment) = round1_commit(1).unwrap();
+        let (fresh_nonces, _unpublished_commitment) = round1_commit(1).unwrap();
+        let (_, c2) = round1_commit(2).unwrap();
+        let (_, c3) = round1_commit(3).unwrap();
+        let signing_package = SigningPackage::new(
+            3,
+            b"treasury payout #49".to_vec(),
+            vec![published_commitment, c2, c3],
+        )
+        .unwrap();
+        let key_package = shares.iter().find(|s| s.index == 1).unwrap();
+
+        let err = round2_sign(key_package, fresh_nonces, &signing_package).unwrap_err();
+        assert_eq!(err, TreasuryError::NonceCommitmentMismatch);
+    }
+
+    #[test]
+    fn round2_sign_accepts_the_matching_nonces_for_the_same_published_commitment() {
+        // Sanity check alongside the mismatch test above: the honest path
+        // (nonces paired with their own commitment) must still succeed.
+        let (shares, _public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        let (nonces, commitment) = round1_commit(1).unwrap();
+        let (_, c2) = round1_commit(2).unwrap();
+        let (_, c3) = round1_commit(3).unwrap();
+        let signing_package =
+            SigningPackage::new(3, b"treasury payout #50".to_vec(), vec![commitment, c2, c3])
+                .unwrap();
+        let key_package = shares.iter().find(|s| s.index == 1).unwrap();
+
+        assert!(round2_sign(key_package, nonces, &signing_package).is_ok());
+    }
+
+    // -------------------------------------------------------------------
+    // F-02: a real group member absent from this signing round is a typed
+    // error, not a panic
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn verify_signature_share_rejects_a_real_group_member_absent_from_this_round() {
+        let (_, public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        let (_, c1) = round1_commit(1).unwrap();
+        let (_, c2) = round1_commit(2).unwrap();
+        // Round only ever committed indices {1, 2}; index 4 is a real
+        // member of the 5-participant group but never took part here.
+        let signing_package =
+            SigningPackage::new(2, b"treasury payout #51".to_vec(), vec![c1, c2]).unwrap();
+
+        let err = verify_signature_share(4, Scalar::ZERO, &signing_package, &public).unwrap_err();
+        assert_eq!(err, TreasuryError::InvalidFrostParticipant);
+    }
+
+    #[test]
+    fn aggregate_rejects_an_equal_sized_substituted_participant_set() {
+        // The exact attack F-02 names: commitments for {1,2}, shares keyed
+        // {1,3}. Same cardinality, different membership -- must not reach
+        // the internal per-signer lookups at all.
+        let (shares, public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        let (nonces1, c1) = round1_commit(1).unwrap();
+        let (_, c2) = round1_commit(2).unwrap();
+        let signing_package =
+            SigningPackage::new(2, b"treasury payout #52".to_vec(), vec![c1, c2]).unwrap();
+        let key_package1 = shares.iter().find(|s| s.index == 1).unwrap();
+        let z1 = round2_sign(key_package1, nonces1, &signing_package).unwrap();
+
+        let mut substituted = BTreeMap::new();
+        substituted.insert(1u16, z1);
+        // Index 3 is a real group member (threshold 3-of-5) but never
+        // published a commitment into this round.
+        substituted.insert(3u16, Scalar::ZERO);
+
+        let err = aggregate(&signing_package, &substituted, &public).unwrap_err();
+        assert_eq!(err, TreasuryError::InvalidFrostParticipant);
+    }
+
+    #[test]
+    fn aggregate_rejects_missing_and_extra_participants() {
+        let (shares, public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        let (nonces1, c1) = round1_commit(1).unwrap();
+        let (nonces2, c2) = round1_commit(2).unwrap();
+        let signing_package =
+            SigningPackage::new(2, b"treasury payout #53".to_vec(), vec![c1, c2]).unwrap();
+        let key_package1 = shares.iter().find(|s| s.index == 1).unwrap();
+        let key_package2 = shares.iter().find(|s| s.index == 2).unwrap();
+        let z1 = round2_sign(key_package1, nonces1, &signing_package).unwrap();
+        let z2 = round2_sign(key_package2, nonces2, &signing_package).unwrap();
+
+        // Missing: only one of the two committed shares supplied.
+        let mut missing = BTreeMap::new();
+        missing.insert(1u16, z1);
+        assert_eq!(
+            aggregate(&signing_package, &missing, &public).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+
+        // Extra: both committed shares plus an uncommitted third.
+        let mut extra = BTreeMap::new();
+        extra.insert(1u16, z1);
+        extra.insert(2u16, z2);
+        extra.insert(3u16, Scalar::ZERO);
+        assert_eq!(
+            aggregate(&signing_package, &extra, &public).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
+    fn verify_signature_share_rejects_an_unknown_participant_id() {
+        let (_, public) = trusted_dealer_keygen(5, 3, ack()).unwrap();
+        let (_, c1) = round1_commit(1).unwrap();
+        let (_, c2) = round1_commit(2).unwrap();
+        let signing_package =
+            SigningPackage::new(2, b"treasury payout #54".to_vec(), vec![c1, c2]).unwrap();
+
+        // Index 999 is not a member of the group at all.
+        let err = verify_signature_share(999, Scalar::ZERO, &signing_package, &public).unwrap_err();
+        assert_eq!(err, TreasuryError::InvalidFrostParticipant);
     }
 }

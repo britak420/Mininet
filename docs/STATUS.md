@@ -317,7 +317,13 @@ given time.
   `open`/`open_with_capacity` rebuild exact in-memory state by replaying
   each persisted `(kel, observed_epoch)` through `WitnessJournal::
   observe_declared` unchanged, never a second, less-reviewed restore
-  path; bounded by an identity-count quota; 6 tests. **KEL head gossip
+  path; bounded by an identity-count quota; 7 tests (D-0481 added one: a
+  persistence failure now stages the observation against a journal
+  clone and only publishes it after a successful write, so a failed
+  persist can no longer leave the in-memory journal believing an
+  unwritten observation was accepted — the prior order let a retry see
+  `AlreadyAccepted` from memory alone and never attempt to persist
+  again). **KEL head gossip
   summaries shipped (Phase 5's first slice, D-0466):** `did_mini::
   gossip`'s `KelHeadSummary` — a compact, unsigned `(identity, sequence,
   event_digest, witness_policy_generation)` claim, buildable from a live
@@ -356,6 +362,15 @@ given time.
   gained an `accepted_policy` field (the *whole* old `WitnessPolicy`, not
   just its generation number) so a witness can know which policy, and
   which witnesses, it is certifying a transition away from; 12 tests.
+  **Anti-equivocation state added (D-0481):** `certify_policy_transition`
+  now remembers, per predecessor event and retiring generation, which
+  successor it already certified — a second, *different* successor
+  claimed from the same parent (the shape a compromised controller's
+  "ask each old witness separately" attack needs) is refused rather than
+  silently signed, while retrying the identical successor stays
+  idempotent; 5 new tests. Still in-memory only — a process restart
+  forgets prior certifications, reopening the window across a restart;
+  persisting this table is named follow-up.
   **§17.3's new-witness readiness threshold now also shipped (D-0471):**
   `verify_witness_rotation` AND-composes that same old-policy check with
   a new-policy one — enough *new* witnesses' own ordinary first receipts
@@ -777,6 +792,17 @@ given time.
   `AcknowledgedUnauditedDkg`; neither is externally audited yet — see
   `docs/gates/dkg-audit-scope.md` before treating this as production-viable
   at any value level.
+  **FROST signing hardened (D-0480):** `round2_sign` now consumes
+  `SigningNonces` by value (a second use is a compile error, not a
+  documented honest limit) and verifies the nonces derive the published
+  round-1 commitment; `verify_signature_share`/`aggregate` return typed
+  errors instead of panicking on a real group member absent from the
+  current signing round or an equal-sized substituted participant set;
+  `Signature::from_bytes` canonically decodes its response scalar instead
+  of reducing mod the group order, closing a decoder-aliasing hole where
+  two different byte strings could decode to the same signature. Fixes
+  API-level hazards only — the crate's overall D-0047/#72 gate and the
+  trusted-dealer-only prototype status are unchanged.
 - **policy kernel implemented; integration and external review open
   (proposed D-0413)** — the treasury economic model (D-0073,
   `docs/design/treasury-economic-model.md`: XRPL/XMR bridge split,

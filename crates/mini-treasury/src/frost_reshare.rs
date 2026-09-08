@@ -401,7 +401,8 @@ mod tests {
         let mut shares = BTreeMap::new();
         for &i in &signer_indices {
             let key_package = &new_results[&i].0;
-            let z = round2_sign(key_package, &nonces_by_index[&i], &signing_package).unwrap();
+            let nonces = nonces_by_index.remove(&i).unwrap();
+            let z = round2_sign(key_package, nonces, &signing_package).unwrap();
             shares.insert(i, z);
         }
         // Aggregation/verification needs the NEW committee's PublicKeyPackage

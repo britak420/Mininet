@@ -205,13 +205,26 @@ impl PersistentWitnessJournal {
         if !self.known.contains(&identity) && self.known.len() >= self.max_identities {
             return Err(WitnessServiceError::TooManyIdentities);
         }
-        let outcome =
-            self.journal
-                .observe_declared(kel, witness_id, witness_key, observed_epoch)?;
+        // F-05: stage the observation against a clone of the journal rather
+        // than mutating the real one directly. `did_mini::WitnessJournal::
+        // observe_declared` advances its own in-memory state as soon as it
+        // decides to accept -- if this method persisted *after* calling it
+        // on `self.journal` directly, a persistence failure would return
+        // `Err` to the caller while leaving `self.journal` believing the
+        // observation was already accepted. A retry would then see
+        // `AlreadyAccepted` from the in-memory state and never attempt to
+        // persist again, permanently orphaning an "accepted" identity this
+        // store never actually wrote to disk. Persisting first and only
+        // then replacing `self.journal` with the staged copy means a
+        // failed persist leaves the real journal exactly as it was, so a
+        // retry re-attempts the same observation from scratch.
+        let mut staged = self.journal.clone();
+        let outcome = staged.observe_declared(kel, witness_id, witness_key, observed_epoch)?;
         if matches!(outcome, WitnessObservation::Accepted(_)) {
             self.persist(&identity, kel, observed_epoch)?;
             self.known.insert(identity);
         }
+        self.journal = staged;
         Ok(outcome)
     }
 
@@ -457,6 +470,69 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(store.tracked_identity_count(), 0);
         assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    // -----------------------------------------------------------------
+    // F-05: a persistence failure must not leave the in-memory journal
+    // believing an unwritten observation was accepted
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn a_persist_failure_never_leaves_the_in_memory_journal_ahead_of_disk() {
+        // Simulated the way F-05's own concrete example describes ("make
+        // the state directory unwritable") without relying on POSIX
+        // permission bits, which root (this test's runtime user in some
+        // environments) simply ignores: removing the directory `persist`
+        // expects to write into forces the same real I/O error
+        // (`fs::write` into a nonexistent directory) regardless of
+        // privilege level, and is itself a realistic failure (the mount
+        // went away, a parallel cleanup raced it, disk pressure evicted
+        // it) that any real deployment could hit.
+        let root = temp_root("persist-failure");
+        let (witness_id, witness_key) = a_witness();
+        let mut owner = appointed_identity();
+        owner
+            .appoint_witnesses(vec![witness_id.0.clone()], 1)
+            .unwrap();
+
+        let mut store =
+            PersistentWitnessJournal::open(&root, witness_id.clone(), &witness_key).unwrap();
+
+        std::fs::remove_dir_all(&root).unwrap();
+
+        let first_attempt =
+            store.observe_declared(&owner.kel(), witness_id.clone(), &witness_key, 100);
+        assert!(
+            first_attempt.is_err(),
+            "persistence must fail while the directory is gone"
+        );
+        // The in-memory journal must not have advanced: nothing was
+        // durably recorded, so state_for must still see nothing.
+        assert!(
+            store.state_for(&owner.did()).is_none(),
+            "a failed persist must not leave the identity looking accepted in memory"
+        );
+        assert_eq!(store.tracked_identity_count(), 0);
+
+        // Recreate the directory and retry -- must behave as a fresh,
+        // genuine attempt (Accepted), not AlreadyAccepted from a phantom
+        // in-memory acceptance, and must actually land on disk this time.
+        std::fs::create_dir_all(&root).unwrap();
+        let retry = store
+            .observe_declared(&owner.kel(), witness_id.clone(), &witness_key, 101)
+            .unwrap();
+        assert!(
+            matches!(retry, WitnessObservation::Accepted(_)),
+            "the retry must be a genuine acceptance, not a phantom AlreadyAccepted"
+        );
+        assert_eq!(store.tracked_identity_count(), 1);
+
+        // Confirm the record actually reached disk by reopening.
+        drop(store);
+        let reopened = PersistentWitnessJournal::open(&root, witness_id, &witness_key).unwrap();
+        assert!(reopened.state_for(&owner.did()).is_some());
+
         std::fs::remove_dir_all(&root).ok();
     }
 }

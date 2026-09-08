@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 933,
     "headings": 3282,
-    "rust_symbols": 9392
+    "rust_symbols": 9420
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28074,
+      "bytes": 28101,
       "group": "root",
       "headings": [
         {
@@ -1840,7 +1840,7 @@
       ],
       "lines": 448,
       "path": "README.md",
-      "sha256": "27c783c6e3d8da02726551aacfbfe38857e73c3e5849e289c5dddbbc95d43505",
+      "sha256": "4dd067336a3a5d3f777beeb2ff517da88ed83c2373c9595a50ae978f9ccab78c",
       "symbols": [],
       "title": "Mininet"
     },
@@ -2947,7 +2947,7 @@
       "title": "use std::collections::HashMap;"
     },
     {
-      "bytes": 16993,
+      "bytes": 17668,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -2976,9 +2976,9 @@
         "establishment",
         "does"
       ],
-      "lines": 357,
+      "lines": 368,
       "path": "crates/did-mini/src/error.rs",
-      "sha256": "c3b75534fb73d92803f36c54c705c4412e68fa1277b76d72e492f1aa2a15a8db",
+      "sha256": "94c0ad9809fc7e354979909df162d3dbf265f84889871729276e4ec802722692",
       "symbols": [
         {
           "kind": "enum",
@@ -2987,32 +2987,32 @@
         },
         {
           "kind": "impl",
-          "line": 186,
+          "line": 193,
           "name": "fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 187,
+          "line": 194,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 347,
+          "line": 358,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 349,
+          "line": 360,
           "name": "From<CryptoError>"
         },
         {
           "kind": "fn",
-          "line": 350,
+          "line": 361,
           "name": "from"
         },
         {
           "kind": "type",
-          "line": 356,
+          "line": 367,
           "name": "Result"
         }
       ],
@@ -4437,7 +4437,7 @@
       "title": "use mini_crypto::SigningKey;"
     },
     {
-      "bytes": 55873,
+      "bytes": 65111,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -4466,9 +4466,9 @@
         "module",
         "verify"
       ],
-      "lines": 1410,
+      "lines": 1599,
       "path": "crates/did-mini/src/witness_rotation.rs",
-      "sha256": "105509bfd7e4b44d3c5876b368c743add3ebff6604813743643051403bc14c24",
+      "sha256": "6a86266a66bdee4a1ad0d13ae68592e8e00ed372ee823390242e150921032a2e",
       "symbols": [
         {
           "kind": "impl",
@@ -4477,289 +4477,319 @@
         },
         {
           "kind": "fn",
-          "line": 114,
+          "line": 129,
           "name": "certify_policy_transition"
         },
         {
           "kind": "fn",
-          "line": 170,
+          "line": 216,
           "name": "verify_policy_transition"
         },
         {
           "kind": "fn",
-          "line": 211,
+          "line": 257,
           "name": "verify_witness_rotation"
         },
         {
           "kind": "fn",
-          "line": 246,
+          "line": 292,
           "name": "is_policy_change"
         },
         {
           "kind": "fn",
-          "line": 255,
+          "line": 301,
           "name": "same_witness_set"
         },
         {
           "kind": "struct",
-          "line": 294,
+          "line": 340,
           "name": "DeadWitnessRecoveryPolicy"
         },
         {
           "kind": "struct",
-          "line": 328,
+          "line": 374,
           "name": "WitnessUnavailabilityAttestation"
         },
         {
           "kind": "const",
-          "line": 340,
+          "line": 386,
           "name": "UNAVAILABILITY_DOMAIN"
         },
         {
           "kind": "impl",
-          "line": 342,
+          "line": 388,
           "name": "WitnessUnavailabilityAttestation"
         },
         {
           "kind": "fn",
-          "line": 344,
+          "line": 390,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 357,
+          "line": 403,
           "name": "decode"
         },
         {
           "kind": "fn",
-          "line": 384,
+          "line": 430,
           "name": "sign"
         },
         {
           "kind": "fn",
-          "line": 408,
+          "line": 454,
           "name": "verify_dead_witness_recovery"
         },
         {
           "kind": "mod",
-          "line": 475,
+          "line": 521,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 480,
+          "line": 526,
           "name": "a_witness"
         },
         {
           "kind": "fn",
-          "line": 487,
+          "line": 533,
           "name": "appointed_and_observed"
         },
         {
           "kind": "fn",
-          "line": 503,
+          "line": 549,
           "name": "certifying_a_genuine_witness_set_change_produces_a_valid_old_policy_receipt"
         },
         {
           "kind": "fn",
-          "line": 544,
+          "line": 590,
           "name": "certifying_a_transition_never_mutates_the_journals_own_state"
         },
         {
           "kind": "fn",
-          "line": 561,
+          "line": 607,
           "name": "certification_is_deterministic_across_calls"
         },
         {
           "kind": "fn",
-          "line": 578,
-          "name": "an_identity_never_observed_before_cannot_be_certified"
+          "line": 634,
+          "name": "rival_successors"
         },
         {
           "kind": "fn",
-          "line": 592,
-          "name": "a_gapped_successor_is_rejected"
+          "line": 657,
+          "name": "a_second_different_successor_from_the_same_parent_is_refused"
         },
         {
           "kind": "fn",
-          "line": 613,
-          "name": "a_witness_outside_the_old_policy_cannot_certify"
-        },
-        {
-          "kind": "fn",
-          "line": 629,
-          "name": "an_ordinary_non_policy_rotation_cannot_be_certified"
-        },
-        {
-          "kind": "fn",
-          "line": 647,
-          "name": "reordering_the_same_witness_set_is_not_a_policy_change"
-        },
-        {
-          "kind": "fn",
-          "line": 671,
-          "name": "a_threshold_only_change_is_a_policy_change"
+          "line": 678,
+          "name": "order_does_not_matter_b_then_a_is_also_refused"
         },
         {
           "kind": "fn",
           "line": 694,
+          "name": "a_retry_of_the_exact_same_successor_after_a_rival_was_certified_still_only_refuses_the_rival"
+        },
+        {
+          "kind": "fn",
+          "line": 721,
+          "name": "a_threshold_only_change_and_a_harmlessly_reordered_set_are_still_tracked_as_distinct_successors"
+        },
+        {
+          "kind": "fn",
+          "line": 751,
+          "name": "full_retirement_after_a_certified_appointment_is_a_distinct_successor_not_a_conflict"
+        },
+        {
+          "kind": "fn",
+          "line": 767,
+          "name": "an_identity_never_observed_before_cannot_be_certified"
+        },
+        {
+          "kind": "fn",
+          "line": 781,
+          "name": "a_gapped_successor_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 802,
+          "name": "a_witness_outside_the_old_policy_cannot_certify"
+        },
+        {
+          "kind": "fn",
+          "line": 818,
+          "name": "an_ordinary_non_policy_rotation_cannot_be_certified"
+        },
+        {
+          "kind": "fn",
+          "line": 836,
+          "name": "reordering_the_same_witness_set_is_not_a_policy_change"
+        },
+        {
+          "kind": "fn",
+          "line": 860,
+          "name": "a_threshold_only_change_is_a_policy_change"
+        },
+        {
+          "kind": "fn",
+          "line": 883,
           "name": "retiring_the_witness_policy_entirely_is_a_policy_change"
         },
         {
           "kind": "fn",
-          "line": 706,
+          "line": 895,
           "name": "verify_policy_transition_rejects_a_certificate_over_a_non_transition"
         },
         {
           "kind": "fn",
-          "line": 746,
+          "line": 935,
           "name": "verify_policy_transition_enforces_the_old_policys_threshold"
         },
         {
           "kind": "struct",
-          "line": 797,
+          "line": 986,
           "name": "Rotation"
         },
         {
           "kind": "impl",
-          "line": 808,
+          "line": 997,
           "name": "Rotation"
         },
         {
           "kind": "fn",
-          "line": 812,
+          "line": 1001,
           "name": "resolve"
         },
         {
           "kind": "fn",
-          "line": 822,
+          "line": 1011,
           "name": "new_policy_certificate"
         },
         {
           "kind": "fn",
-          "line": 835,
+          "line": 1024,
           "name": "genuine_rotation"
         },
         {
           "kind": "fn",
-          "line": 887,
+          "line": 1076,
           "name": "verify_witness_rotation_succeeds_when_both_thresholds_are_met"
         },
         {
           "kind": "fn",
-          "line": 902,
+          "line": 1091,
           "name": "verify_witness_rotation_fails_when_new_policy_readiness_is_missing"
         },
         {
           "kind": "fn",
-          "line": 918,
+          "line": 1107,
           "name": "verify_witness_rotation_surfaces_an_old_policy_failure_unchanged"
         },
         {
           "kind": "fn",
-          "line": 937,
+          "line": 1126,
           "name": "verify_witness_rotation_enforces_the_new_policys_own_threshold"
         },
         {
           "kind": "fn",
-          "line": 1005,
+          "line": 1194,
           "name": "verify_witness_rotation_succeeds_on_retirement_with_no_new_certificate_needed"
         },
         {
           "kind": "fn",
-          "line": 1046,
+          "line": 1235,
           "name": "verify_witness_rotation_rejects_a_new_policy_certificate_over_the_wrong_event"
         },
         {
           "kind": "fn",
-          "line": 1066,
+          "line": 1255,
           "name": "lenient_policy"
         },
         {
           "kind": "fn",
-          "line": 1073,
+          "line": 1262,
           "name": "attempt"
         },
         {
           "kind": "struct",
-          "line": 1093,
+          "line": 1282,
           "name": "Recovery"
         },
         {
           "kind": "impl",
-          "line": 1110,
+          "line": 1299,
           "name": "Recovery"
         },
         {
           "kind": "fn",
-          "line": 1111,
+          "line": 1300,
           "name": "resolve"
         },
         {
           "kind": "fn",
-          "line": 1119,
+          "line": 1308,
           "name": "new_policy_certificate"
         },
         {
           "kind": "fn",
-          "line": 1132,
+          "line": 1321,
           "name": "a_dead_witness_recovery"
         },
         {
           "kind": "fn",
-          "line": 1175,
+          "line": 1364,
           "name": "dead_witness_recovery_succeeds_with_sufficient_evidence_and_readiness"
         },
         {
           "kind": "fn",
-          "line": 1197,
+          "line": 1386,
           "name": "dead_witness_recovery_fails_the_waiting_period_check"
         },
         {
           "kind": "fn",
-          "line": 1229,
+          "line": 1418,
           "name": "dead_witness_recovery_fails_when_too_few_distinct_witnesses_are_attested"
         },
         {
           "kind": "fn",
-          "line": 1255,
+          "line": 1444,
           "name": "dead_witness_recovery_ignores_duplicate_attestations_for_the_same_witness"
         },
         {
           "kind": "fn",
-          "line": 1283,
+          "line": 1472,
           "name": "dead_witness_recovery_requires_new_policy_readiness_when_a_successor_policy_exists"
         },
         {
           "kind": "fn",
-          "line": 1305,
+          "line": 1494,
           "name": "dead_witness_recovery_rejects_an_attestation_for_a_witness_outside_the_old_policy"
         },
         {
           "kind": "fn",
-          "line": 1332,
+          "line": 1521,
           "name": "dead_witness_recovery_rejects_an_attestation_signed_by_someone_else"
         },
         {
           "kind": "fn",
-          "line": 1360,
+          "line": 1549,
           "name": "dead_witness_recovery_succeeds_on_retirement_with_no_readiness_certificate_needed"
         },
         {
           "kind": "fn",
-          "line": 1389,
+          "line": 1578,
           "name": "a_witness_unavailability_attestation_round_trips_through_encode_decode"
         },
         {
           "kind": "fn",
-          "line": 1398,
+          "line": 1587,
           "name": "a_truncated_attestation_is_rejected_not_partially_parsed"
         }
       ],
       "title": "use std::collections::HashSet;"
     },
     {
-      "bytes": 38500,
+      "bytes": 41369,
       "group": "crate:did-mini",
       "headings": [],
       "keywords": [
@@ -4788,9 +4818,9 @@
         "observe_verified",
         "witnessequivocationproof"
       ],
-      "lines": 916,
+      "lines": 980,
       "path": "crates/did-mini/src/witness_state.rs",
-      "sha256": "03801335e51a5aebd63197db57d5394270d1d81612de52b6cb8ab7b662c195c1",
+      "sha256": "3f11278a7e690bf23dac093a69cd2f8a51e5b4a74746251f56997799e2862337",
       "symbols": [
         {
           "kind": "const",
@@ -4829,227 +4859,232 @@
         },
         {
           "kind": "struct",
-          "line": 146,
+          "line": 153,
+          "name": "TransitionKey"
+        },
+        {
+          "kind": "struct",
+          "line": 169,
           "name": "WitnessJournal"
         },
         {
           "kind": "impl",
-          "line": 150,
+          "line": 174,
           "name": "WitnessJournal"
         },
         {
           "kind": "fn",
-          "line": 151,
+          "line": 175,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 159,
+          "line": 184,
           "name": "state_for"
         },
         {
           "kind": "fn",
-          "line": 172,
+          "line": 236,
           "name": "observe"
         },
         {
           "kind": "fn",
-          "line": 275,
+          "line": 339,
           "name": "observe_verified"
         },
         {
           "kind": "fn",
-          "line": 305,
+          "line": 369,
           "name": "observe_declared"
         },
         {
           "kind": "enum",
-          "line": 321,
+          "line": 385,
           "name": "Decision"
         },
         {
           "kind": "struct",
-          "line": 341,
+          "line": 405,
           "name": "ControllerDuplicityProof"
         },
         {
           "kind": "impl",
-          "line": 348,
+          "line": 412,
           "name": "ControllerDuplicityProof"
         },
         {
           "kind": "fn",
-          "line": 352,
+          "line": 416,
           "name": "assemble"
         },
         {
           "kind": "fn",
-          "line": 370,
+          "line": 434,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 381,
+          "line": 445,
           "name": "decode"
         },
         {
           "kind": "struct",
-          "line": 415,
+          "line": 479,
           "name": "WitnessEquivocationProof"
         },
         {
           "kind": "impl",
-          "line": 421,
+          "line": 485,
           "name": "WitnessEquivocationProof"
         },
         {
           "kind": "fn",
-          "line": 426,
+          "line": 490,
           "name": "assemble"
         },
         {
           "kind": "fn",
-          "line": 450,
+          "line": 514,
           "name": "verify"
         },
         {
           "kind": "fn",
-          "line": 457,
+          "line": 521,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 468,
+          "line": 532,
           "name": "decode"
         },
         {
           "kind": "const",
-          "line": 481,
+          "line": 545,
           "name": "MAX_RECEIPT_BYTES"
         },
         {
           "kind": "mod",
-          "line": 484,
+          "line": 548,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 490,
+          "line": 554,
           "name": "a_witness"
         },
         {
           "kind": "fn",
-          "line": 505,
+          "line": 569,
           "name": "an_event"
         },
         {
           "kind": "fn",
-          "line": 518,
+          "line": 582,
           "name": "a_policy"
         },
         {
           "kind": "fn",
-          "line": 523,
+          "line": 587,
           "name": "first_seen_event_is_accepted_and_receipted"
         },
         {
           "kind": "fn",
-          "line": 547,
+          "line": 611,
           "name": "a_valid_direct_successor_is_accepted_and_updates_state"
         },
         {
           "kind": "fn",
-          "line": 566,
+          "line": 630,
           "name": "an_exact_duplicate_returns_the_same_receipt_without_resigning"
         },
         {
           "kind": "fn",
-          "line": 588,
+          "line": 652,
           "name": "a_stale_ancestor_is_rejected_without_a_receipt"
         },
         {
           "kind": "fn",
-          "line": 610,
+          "line": 674,
           "name": "a_conflicting_same_sequence_event_yields_a_duplicity_proof"
         },
         {
           "kind": "fn",
-          "line": 640,
+          "line": 704,
           "name": "a_conflicting_descendant_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 658,
+          "line": 722,
           "name": "observing_outside_the_policy_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 673,
+          "line": 737,
           "name": "a_controller_duplicity_proof_round_trips"
         },
         {
           "kind": "fn",
-          "line": 684,
+          "line": 748,
           "name": "assembling_a_duplicity_proof_from_different_sequences_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 696,
+          "line": 760,
           "name": "assembling_a_duplicity_proof_from_identical_events_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 708,
+          "line": 772,
           "name": "assembling_a_duplicity_proof_for_a_different_identity_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 720,
+          "line": 784,
           "name": "a_statement"
         },
         {
           "kind": "fn",
-          "line": 741,
+          "line": 805,
           "name": "a_witness_equivocation_proof_round_trips_and_verifies"
         },
         {
           "kind": "fn",
-          "line": 759,
+          "line": 823,
           "name": "assembling_an_equivocation_proof_from_the_same_digest_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 777,
+          "line": 841,
           "name": "assembling_an_equivocation_proof_from_different_witnesses_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 796,
+          "line": 860,
           "name": "observe_verified_accepts_a_genuinely_chain_valid_inception"
         },
         {
           "kind": "fn",
-          "line": 818,
+          "line": 882,
           "name": "observe_verified_accepts_a_genuine_rotation_as_a_direct_successor"
         },
         {
           "kind": "fn",
-          "line": 837,
+          "line": 901,
           "name": "observe_verified_rejects_a_kel_with_a_tampered_signature_and_leaves_state_untouched"
         },
         {
           "kind": "fn",
-          "line": 860,
+          "line": 924,
           "name": "observe_verified_rejects_an_empty_kel"
         },
         {
           "kind": "fn",
-          "line": 882,
+          "line": 946,
           "name": "observe_verified_still_detects_duplicate_stale_and_conflicting_events"
         },
         {
           "kind": "fn",
-          "line": 900,
+          "line": 964,
           "name": "an_equivocation_proof_fails_verification_against_the_wrong_key"
         }
       ],
@@ -14451,7 +14486,7 @@
       "title": "use std::path::Path;"
     },
     {
-      "bytes": 4259,
+      "bytes": 4799,
       "group": "crate:mini-cli",
       "headings": [],
       "keywords": [
@@ -14476,13 +14511,13 @@
         "build",
         "usage",
         "run",
-        "self",
-        "display",
-        "error_code"
+        "file",
+        "but",
+        "self"
       ],
-      "lines": 107,
+      "lines": 117,
       "path": "crates/mini-cli/src/error.rs",
-      "sha256": "2d89e2cf719a342bf14f7a212ffaf772b3b063a4853318f47e7aa519310c6c6c",
+      "sha256": "de669c8f322643bbf788a2503cdc2f46114c00474f2e0f4c8d761c75594a3368",
       "symbols": [
         {
           "kind": "enum",
@@ -14491,32 +14526,32 @@
         },
         {
           "kind": "impl",
-          "line": 46,
+          "line": 51,
           "name": "fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 47,
+          "line": 52,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 76,
+          "line": 85,
           "name": "CliError"
         },
         {
           "kind": "fn",
-          "line": 81,
+          "line": 90,
           "name": "error_code"
         },
         {
           "kind": "impl",
-          "line": 103,
+          "line": 113,
           "name": "std::error::Error"
         },
         {
           "kind": "type",
-          "line": 106,
+          "line": 116,
           "name": "Result"
         }
       ],
@@ -15712,22 +15747,22 @@
       "title": "use std::fs;"
     },
     {
-      "bytes": 3715,
+      "bytes": 7473,
       "group": "crate:mini-cli",
       "headings": [],
       "keywords": [
         "std",
-        "next",
-        "home",
         "path",
+        "next",
         "unwrap",
+        "home",
         "time",
         "sequence",
-        "lock",
         "clierror",
         "to_string",
+        "counter",
+        "lock",
         "assert_eq",
-        "lock_path",
         "process",
         "u64",
         "map_err",
@@ -15735,55 +15770,85 @@
         "now",
         "duration_since",
         "unix_epoch",
-        "counter_path",
-        "counter",
+        "lock_path",
+        "every",
         "join",
-        "true",
-        "current"
+        "env",
+        "temp_dir"
       ],
-      "lines": 119,
+      "lines": 205,
       "path": "crates/mini-cli/src/sequence.rs",
-      "sha256": "ee7e731a13871b7568fabb3e6464e3a1e7a9aa09b6aef5d2e526ffc3d48f4d02",
+      "sha256": "e0f4ea5c6b6e9d472b3c314ee9f474f3a495dfa1217707e1f69846ef4b5d61f9",
       "symbols": [
         {
           "kind": "fn",
-          "line": 11,
+          "line": 12,
           "name": "counter_path"
         },
         {
           "kind": "fn",
-          "line": 15,
+          "line": 16,
           "name": "lock_path"
         },
         {
           "kind": "fn",
-          "line": 23,
+          "line": 24,
           "name": "next"
         },
         {
           "kind": "fn",
-          "line": 50,
+          "line": 62,
           "name": "now_ms"
         },
         {
           "kind": "mod",
-          "line": 58,
+          "line": 70,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 62,
+          "line": 74,
           "name": "sequence_numbers_increase_and_persist_across_calls"
         },
         {
           "kind": "fn",
-          "line": 78,
+          "line": 90,
           "name": "sequence_lock_is_created_and_reused"
         },
         {
           "kind": "fn",
-          "line": 95,
+          "line": 107,
           "name": "concurrent_allocations_are_unique_and_monotonic"
+        },
+        {
+          "kind": "fn",
+          "line": 131,
+          "name": "new_test_home"
+        },
+        {
+          "kind": "fn",
+          "line": 150,
+          "name": "empty_nonnumeric_and_overflowing_files_are_refused_not_reset"
+        },
+        {
+          "kind": "fn",
+          "line": 163,
+          "name": "invalid_utf8_content_is_refused_not_treated_as_first_use"
+        },
+        {
+          "kind": "fn",
+          "line": 175,
+          "name": "a_directory_in_place_of_the_counter_file_is_a_read_error_not_first_use"
+        },
+        {
+          "kind": "fn",
+          "line": 186,
+          "name": "an_exhausted_counter_at_u64_max_is_preserved_not_silently_reset"
+        },
+        {
+          "kind": "fn",
+          "line": 197,
+          "name": "first_creation_still_starts_at_one"
         }
       ],
       "title": "use std::fs::{self, OpenOptions};"
@@ -69715,7 +69780,7 @@
       "title": "mini-treasury"
     },
     {
-      "bytes": 10257,
+      "bytes": 10256,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
@@ -69746,7 +69811,7 @@
       ],
       "lines": 293,
       "path": "crates/mini-treasury/examples/frost_live_demo.rs",
-      "sha256": "8abdbca759abf47aa8f229e1f9c04d7143a253e8729841530e8190d9fbdbcf7b",
+      "sha256": "fb3eacd5741899ac99aa2b0ef3a29cd2e45fa3e92167b102469561cb053d9e2b",
       "symbols": [
         {
           "kind": "const",
@@ -69879,38 +69944,38 @@
       "title": "pub use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};"
     },
     {
-      "bytes": 4724,
+      "bytes": 5309,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
         "treasuryerror",
         "write",
         "frost",
+        "signer",
         "participant",
         "fmt",
         "threshold",
         "share",
-        "error",
-        "result",
-        "signer",
         "failed",
         "package",
         "key",
         "verification",
         "did",
         "old",
+        "error",
         "set",
         "rate",
+        "round-1",
+        "commitment",
         "resharing",
         "invalid",
         "zero",
         "time",
-        "entry",
-        "count"
+        "entry"
       ],
-      "lines": 107,
+      "lines": 119,
       "path": "crates/mini-treasury/src/error.rs",
-      "sha256": "2b969586fa6a2e07484c5d46897cad130377c42e74a26da6346ed356f4f28517",
+      "sha256": "61df61a94e1f6141ec4e95722ae35449eb75adf025a22d24a7a3d930713faac0",
       "symbols": [
         {
           "kind": "enum",
@@ -69919,29 +69984,29 @@
         },
         {
           "kind": "impl",
-          "line": 56,
+          "line": 62,
           "name": "fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 63,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 103,
+          "line": 115,
           "name": "std::error::Error"
         },
         {
           "kind": "type",
-          "line": 106,
+          "line": 118,
           "name": "Result"
         }
       ],
       "title": "use core::fmt;"
     },
     {
-      "bytes": 35033,
+      "bytes": 35081,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
@@ -69970,9 +70035,9 @@
         "trusted_dealer_keygen",
         "frost_sign"
       ],
-      "lines": 885,
+      "lines": 886,
       "path": "crates/mini-treasury/src/frost_dkg.rs",
-      "sha256": "4da50027d67355ecb7a3c26169b6522477799a26570843f499af491efa6ba705",
+      "sha256": "c63248886fd718c70b967660429ba37428cb4a432872a906107f1328f92c4f8b",
       "symbols": [
         {
           "kind": "struct",
@@ -70290,7 +70355,7 @@
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 23023,
+      "bytes": 23071,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
@@ -70319,9 +70384,9 @@
         "subset",
         "never"
       ],
-      "lines": 564,
+      "lines": 565,
       "path": "crates/mini-treasury/src/frost_reshare.rs",
-      "sha256": "d43aa48760af12d327a15fbea1af38cdf98a4ab0ff43ae0d3d418d0c2f879fec",
+      "sha256": "4292b77f2feee6c6a8f07e088faf4ae5f29178923d8cdeedbbd9fe667e38c489",
       "symbols": [
         {
           "kind": "fn",
@@ -70380,29 +70445,29 @@
         },
         {
           "kind": "fn",
-          "line": 416,
+          "line": 417,
           "name": "insufficient_old_quorum_is_rejected_at_finalize"
         },
         {
           "kind": "fn",
-          "line": 451,
+          "line": 452,
           "name": "a_tampered_reshare_contribution_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 484,
+          "line": 485,
           "name": "a_misbehaving_old_sender_can_be_excluded_via_the_shared_dkg_complaint_machinery"
         },
         {
           "kind": "fn",
-          "line": 552,
+          "line": 553,
           "name": "resharing_and_ordinary_dkg_round1_packages_share_a_type_but_not_a_finalize_path"
         }
       ],
       "title": "use std::collections::{BTreeMap, BTreeSet};"
     },
     {
-      "bytes": 21311,
+      "bytes": 35344,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
@@ -70431,9 +70496,9 @@
         "same",
         "r_i"
       ],
-      "lines": 533,
+      "lines": 811,
       "path": "crates/mini-treasury/src/frost_sign.rs",
-      "sha256": "01c52fe2e1a28282ff8a02ac2afbd6ae79ae77f3b49a6a1d88b53996f35b8d3f",
+      "sha256": "d86e0546e004a8fa0480647645007f5bd2043260fca6687168aa033766d2022b",
       "symbols": [
         {
           "kind": "struct",
@@ -70502,133 +70567,203 @@
         },
         {
           "kind": "fn",
-          "line": 198,
+          "line": 203,
           "name": "per_signer_commitment"
         },
         {
           "kind": "fn",
-          "line": 210,
+          "line": 215,
           "name": "challenge"
         },
         {
           "kind": "fn",
-          "line": 241,
+          "line": 246,
           "name": "index_scalar"
         },
         {
           "kind": "fn",
-          "line": 249,
+          "line": 269,
           "name": "round2_sign"
         },
         {
           "kind": "fn",
-          "line": 271,
+          "line": 304,
           "name": "verify_signature_share"
         },
         {
           "kind": "struct",
-          "line": 297,
+          "line": 332,
           "name": "Signature"
         },
         {
           "kind": "impl",
-          "line": 302,
+          "line": 337,
           "name": "Signature"
         },
         {
           "kind": "fn",
-          "line": 304,
+          "line": 339,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 316,
+          "line": 361,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 338,
+          "line": 393,
           "name": "aggregate"
         },
         {
           "kind": "fn",
-          "line": 362,
+          "line": 419,
           "name": "verify"
         },
         {
           "kind": "mod",
-          "line": 371,
+          "line": 428,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 375,
+          "line": 432,
           "name": "ack"
         },
         {
           "kind": "fn",
-          "line": 380,
+          "line": 437,
           "name": "debug_output_redacts_both_secret_scalars"
         },
         {
           "kind": "fn",
-          "line": 393,
+          "line": 450,
           "name": "nonces_hiding_bytes"
         },
         {
           "kind": "fn",
-          "line": 397,
+          "line": 454,
           "name": "sign_with"
         },
         {
           "kind": "fn",
-          "line": 425,
+          "line": 483,
           "name": "a_threshold_sized_subset_produces_a_valid_signature"
         },
         {
           "kind": "fn",
-          "line": 433,
+          "line": 491,
           "name": "a_different_threshold_sized_subset_also_produces_a_valid_signature"
         },
         {
           "kind": "fn",
-          "line": 441,
+          "line": 499,
           "name": "fewer_than_threshold_signers_are_rejected_at_package_construction"
         },
         {
           "kind": "fn",
-          "line": 450,
+          "line": 508,
           "name": "duplicate_signer_index_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 458,
+          "line": 516,
           "name": "a_tampered_signature_share_is_caught_before_aggregation"
         },
         {
           "kind": "fn",
-          "line": 486,
+          "line": 545,
           "name": "signature_fails_verification_under_a_different_message"
         },
         {
           "kind": "fn",
-          "line": 498,
+          "line": 557,
           "name": "signature_fails_verification_under_a_different_group_key"
         },
         {
           "kind": "fn",
-          "line": 507,
+          "line": 566,
           "name": "wrong_length_signature_bytes_are_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 514,
+          "line": 573,
           "name": "an_invalid_curve_point_in_signature_bytes_is_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 524,
+          "line": 583,
           "name": "signature_round_trips_through_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 599,
+          "name": "a_valid_r"
+        },
+        {
+          "kind": "fn",
+          "line": 605,
+          "name": "signature_bytes"
+        },
+        {
+          "kind": "const",
+          "line": 618,
+          "name": "GROUP_ORDER_BYTES"
+        },
+        {
+          "kind": "fn",
+          "line": 625,
+          "name": "canonical_zero_and_order_minus_one_are_accepted"
+        },
+        {
+          "kind": "fn",
+          "line": 636,
+          "name": "the_group_order_itself_is_rejected_not_reduced_to_zero"
+        },
+        {
+          "kind": "fn",
+          "line": 644,
+          "name": "all_ones_bytes_are_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 650,
+          "name": "distinct_byte_strings_no_longer_alias_to_the_same_signature"
+        },
+        {
+          "kind": "fn",
+          "line": 663,
+          "name": "honest_signatures_still_round_trip_after_canonical_decoding"
+        },
+        {
+          "kind": "fn",
+          "line": 687,
+          "name": "round2_sign_rejects_nonces_that_do_not_derive_the_published_commitment"
+        },
+        {
+          "kind": "fn",
+          "line": 710,
+          "name": "round2_sign_accepts_the_matching_nonces_for_the_same_published_commitment"
+        },
+        {
+          "kind": "fn",
+          "line": 731,
+          "name": "verify_signature_share_rejects_a_real_group_member_absent_from_this_round"
+        },
+        {
+          "kind": "fn",
+          "line": 745,
+          "name": "aggregate_rejects_an_equal_sized_substituted_participant_set"
+        },
+        {
+          "kind": "fn",
+          "line": 768,
+          "name": "aggregate_rejects_missing_and_extra_participants"
+        },
+        {
+          "kind": "fn",
+          "line": 799,
+          "name": "verify_signature_share_rejects_an_unknown_participant_id"
         }
       ],
       "title": "use std::collections::BTreeMap;"
@@ -75585,7 +75720,7 @@
       "title": "did-mini deliberately stays filesystem-free and dependency-minimal (see its"
     },
     {
-      "bytes": 18912,
+      "bytes": 22840,
       "group": "crate:mini-witness-service",
       "headings": [],
       "keywords": [
@@ -75614,9 +75749,9 @@
         "persisted",
         "max_tracked_identities"
       ],
-      "lines": 463,
+      "lines": 539,
       "path": "crates/mini-witness-service/src/lib.rs",
-      "sha256": "ce82b10419efb8ba8fa4b4263304e6ece9f4f09a5ecde34c2c14e14f19bc1e1f",
+      "sha256": "4069b1adefa3d4a906eb45f60ca7c91984a869ee64458f65cf0354ca17368b48",
       "symbols": [
         {
           "kind": "const",
@@ -75700,83 +75835,88 @@
         },
         {
           "kind": "fn",
-          "line": 220,
+          "line": 233,
           "name": "state_for"
         },
         {
           "kind": "fn",
-          "line": 225,
+          "line": 238,
           "name": "tracked_identity_count"
         },
         {
           "kind": "fn",
-          "line": 229,
+          "line": 242,
           "name": "record_path"
         },
         {
           "kind": "fn",
-          "line": 241,
+          "line": 254,
           "name": "persist"
         },
         {
           "kind": "fn",
-          "line": 251,
+          "line": 264,
           "name": "encode_record"
         },
         {
           "kind": "fn",
-          "line": 260,
+          "line": 273,
           "name": "decode_record"
         },
         {
           "kind": "mod",
-          "line": 287,
+          "line": 300,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 291,
+          "line": 304,
           "name": "temp_root"
         },
         {
           "kind": "fn",
-          "line": 304,
+          "line": 317,
           "name": "a_witness"
         },
         {
           "kind": "fn",
-          "line": 309,
+          "line": 322,
           "name": "appointed_identity"
         },
         {
           "kind": "fn",
-          "line": 317,
+          "line": 330,
           "name": "an_accepted_receipt_survives_a_restart_byte_for_byte"
         },
         {
           "kind": "fn",
-          "line": 355,
+          "line": 368,
           "name": "a_second_open_answers_a_resubmission_with_already_accepted"
         },
         {
           "kind": "fn",
-          "line": 381,
+          "line": 394,
           "name": "a_stray_tmp_file_from_an_interrupted_write_is_ignored_on_open"
         },
         {
           "kind": "fn",
-          "line": 394,
+          "line": 407,
           "name": "a_corrupt_state_file_is_rejected_not_silently_skipped"
         },
         {
           "kind": "fn",
-          "line": 409,
+          "line": 422,
           "name": "a_full_journal_refuses_a_new_identity_but_not_an_existing_one"
         },
         {
           "kind": "fn",
-          "line": 449,
+          "line": 462,
           "name": "an_identity_without_a_declared_policy_is_rejected_and_nothing_is_persisted"
+        },
+        {
+          "kind": "fn",
+          "line": 482,
+          "name": "a_persist_failure_never_leaves_the_in_memory_journal_ahead_of_disk"
         }
       ],
       "title": "use std::collections::HashSet;"
@@ -78087,7 +78227,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1186582,
+      "bytes": 1200602,
       "group": "docs",
       "headings": [
         {
@@ -78517,9 +78657,9 @@
         "first",
         "kel"
       ],
-      "lines": 19673,
+      "lines": 19903,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "e6fc01b9e98018bd6b989481ea785c5d7542402868282caa78406bc29f63c770",
+      "sha256": "476250fab7bff4fdeeceeaacb42896f10489c2fdd7c7d0d9971a2f9aa39dc633",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -79855,7 +79995,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 180001,
+      "bytes": 181737,
       "group": "docs",
       "headings": [
         {
@@ -79890,77 +80030,77 @@
         },
         {
           "level": 2,
-          "line": 433,
+          "line": 448,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 870,
+          "line": 896,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 917,
+          "line": 943,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1139,
+          "line": 1165,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1366,
+          "line": 1392,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1465,
+          "line": 1491,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1495,
+          "line": 1521,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1822,
+          "line": 1848,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2311,
+          "line": 2337,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2402,
+          "line": 2428,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2482,
+          "line": 2508,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2548,
+          "line": 2574,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2565,
+          "line": 2591,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2601,
+          "line": 2627,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2666,
+          "line": 2692,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -79990,9 +80130,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2701,
+      "lines": 2727,
       "path": "docs/STATUS.md",
-      "sha256": "bed4a04aa9dbf264c3ed5a0dde85df6a378a3c407774f235aa627b1cad4180ba",
+      "sha256": "52f7eac177d68761fc900a08d01e90ac99a6147ca1f642822ecdac6b4872a1a3",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -96859,7 +96999,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 85487,
+      "bytes": 86587,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -96888,9 +97028,9 @@
         "independently",
         "both"
       ],
-      "lines": 1238,
+      "lines": 1249,
       "path": "governance/work-claims.json",
-      "sha256": "5ff47432b7525ef69610ff6394fa933581dd837415d65dd8dd418a24081ebcc9",
+      "sha256": "f73cd64509a3c6c08be6f47c03b875cc78831b3f7000eb273ecc43dc57d5ff0f",
       "symbols": [],
       "title": "{"
     },

@@ -181,6 +181,13 @@ pub enum IdentityError {
     /// [`crate::DeadWitnessRecoveryPolicy`] — a single missing witness must
     /// never be enough to justify recovery.
     InsufficientUnavailabilityEvidence { needed: usize, got: usize },
+    /// A witness was asked to certify a *different* successor than the one
+    /// it already certified for the exact same predecessor event and
+    /// retiring policy generation (F-06) — refused, since signing it would
+    /// let a compromised controller collect old-policy certificates for
+    /// two rival policy-changing successors by asking each old witness
+    /// separately, one certificate per rival.
+    ConflictingPolicyTransitionCertification,
 }
 
 impl fmt::Display for IdentityError {
@@ -339,6 +346,10 @@ impl fmt::Display for IdentityError {
             IdentityError::InsufficientUnavailabilityEvidence { needed, got } => write!(
                 f,
                 "not enough distinct old witnesses attested unreachable: needed {needed}, got {got}"
+            ),
+            IdentityError::ConflictingPolicyTransitionCertification => write!(
+                f,
+                "already certified a different successor for this exact predecessor and generation"
             ),
         }
     }
