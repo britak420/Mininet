@@ -20915,3 +20915,133 @@ a real signing-key management story is ever designed for the appliance
 image (no plan exists yet).
 
 **Supersedes / superseded by:** none.
+
+### D-0492 — F-17 assessed: founder-guarded governance is a genuine, undischarged structural fact; a silent-staleness gap in its own record is closed, the concentration itself is not  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-17
+(`governance/bootstrap-operating-state.json`, `.github/CODEOWNERS`);
+D-0083 (the exception this finding examines); `tools/check_governance.py`.
+
+**Decision:** F-17 is not a code defect and this entry does not claim to
+close it. Re-verified directly against the checked-in artifacts the
+finding cites: `.github/CODEOWNERS` routes every governance-sensitive
+path (`/governance/`, `docs/FOUNDER_DIRECTIVES.md`, `docs/INVARIANTS.md`,
+`docs/DECISION_LOG.md`, `crates/mini-crypto/`, `crates/mini-value/`,
+`crates/mini-treasury/`, `crates/mini-identity/`, `crates/mini-consensus/`,
+`crates/mini-chain/`, `crates/mini-forge/`, and more) to a single
+`@mininet-labs` handle, and its own header comment already states the
+honest fact plainly: "the active GitHub ruleset requires zero approvals."
+`governance/bootstrap-operating-state.json` currently declares
+`independent_non_founder_human_maintainers: 0`,
+`production_release_candidate: false`, `forge_canonical: false` — all
+three consistent with what's independently observable from checked-in
+state today. The finding's own concrete example (remove the Founder's
+GitHub account; can independent participants still authenticate history,
+deliberate, approve, and ship a security update without an emergency
+bypass?) is answered "no" by design under the active D-0083 exception,
+and D-0083 says so itself: it is "a real procedural weakening of D-0033,"
+temporary, and does not claim independent quorum. That is the honest
+state, not a gap this report discovered.
+
+One genuine, narrowly-scoped gap *was* found and is fixed: nothing
+anywhere checked whether `bootstrap-operating-state.json`'s own
+`last_verified_at` field was ever re-confirmed against live reality — the
+field existed, was declared required by the schema, and was never once
+read by `tools/check_governance.py`. A record can decay into pure fiction
+indefinitely with every other field still individually well-formed and
+every existing check still green. `validate_bootstrap_operating_state`
+now parses `last_verified_at` (hard failure if missing/malformed/
+future-dated — a validator time-traveling into its own future is not a
+record, it's a typo) and emits a non-blocking warning once the record is
+more than 30 days stale, naming exactly what needs re-confirming
+(maintainer count, release status, Forge-canonical status) and citing
+this finding. Run today against the real repository state, it correctly
+fires: `last_verified_at` is dated 2026-07-12, 58 days before this entry.
+
+**Reason:** the finding's long-term fix — a measured succession/removal
+drill with independently onboarded human maintainers, documented
+conflict-of-interest boundaries, verified live GitHub ruleset state, an
+off-platform evidence mirror, and a legitimate-governance sunset of
+D-0083 — is a set of real-world personnel, account-control, and
+process actions. None of them is achievable by writing source code; all
+of them require actions only the Founder (today's sole human maintainer)
+or a future independent maintainer can actually take, and CLAUDE.md is
+explicit that "Founder direction, repository ownership, [or] the
+temporary D-0083 integration exception... cannot substitute for" the
+lawful process that would end this exception. Fabricating any of that —
+backdating a verification, inventing a "second reviewer" that is really
+the same actor under a different label, or unilaterally editing
+`bootstrap-operating-state.json`'s substantive fields myself without a
+real personnel change behind them — would be exactly the "AI assertion
+manufactur[ing] legitimacy" the finding names as the one thing that must
+never happen. The staleness check is different in kind: it does not
+assert independence exists, only that the *declaration* of the current
+(honestly acknowledged) dependency gets re-examined on a cadence instead
+of silently aging past relevance while every other automated check stays
+green. 30 days was chosen because it divides D-0083's own 3-month
+exception window into thirds and surfaces staleness well before that
+window's separate, already-enforced hard expiry
+(`expires_at`, blocking since before this entry) would catch it anyway —
+not because any prior decision fixed that number; a future entry is free
+to tighten or loosen it with reasoning of its own.
+
+**Constitutional impact:** none. No Tier-F invariant, Directive, or
+D-0083 trigger condition is touched; `governance/bootstrap-operating-
+state.json`'s substantive declared fields (maintainer count, release/
+Forge-canonical status, expiry) are unchanged by this entry — only the
+tooling that watches the record's own freshness changed.
+
+**Implementation status:** partially addressed; the code-shaped
+sub-problem (silent staleness) is shipped, the structural finding itself
+is not something a decision-log entry can discharge.
+- `tools/check_governance.py`: `validate_bootstrap_operating_state` gained
+  a required `warnings` parameter; `last_verified_at` is now parsed via
+  the same `parse_instant` used for `effective_at`/`expires_at` (hard
+  failure if missing, malformed, or in the future), and a new
+  `BOOTSTRAP_STATE_MAX_VERIFICATION_AGE` (30 days) constant gates a
+  non-blocking warning when the record is stale. `main()`'s existing
+  `--mode baseline` invocation (used by both PR and push jobs in
+  `.github/workflows/governance-policy.yml`) already prints warnings
+  without gating on them, matching this repository's established pattern
+  for a finding that must stay loud without blocking unrelated
+  engineering (the same shape as D-0441/D-0486's dependency-advisory
+  warnings).
+- `tools/test_check_governance.py`: `BootstrapOperatingProfileTests`
+  gained `validate_state_full` (returns both errors and warnings) and
+  five new/adjusted tests: the real repository's current record does
+  trigger the staleness warning at a `now` 39 days past its
+  `last_verified_at` and does not at 8 days past; a future-dated
+  `last_verified_at` fails closed; a missing `last_verified_at` fails
+  closed. All pre-existing tests in this class still pass unmodified in
+  behavior (they only assert on `errors`, which the staleness warning
+  never touches).
+
+**Failure point:** this decision cannot and does not claim any of the
+following, all still true exactly as the finding states them: no
+independent human maintainer has been onboarded; the live GitHub
+ruleset/branch-protection/team-membership state has not been
+independently audited from outside a plain branch-API summary (this
+session has no tool access to GitHub's ruleset API at all, only what
+checked-in files like `.github/CODEOWNERS` declare); no succession or
+founder-absence drill has been run, simulated, or even designed; no
+off-platform evidence mirror exists. The new staleness warning is
+itself unauditable proof of nothing — it fires on a wall-clock
+comparison against a field a human (or an AI acting on human instruction)
+writes by hand, so a bad-faith or careless update to `last_verified_at`
+alone, with no real re-verification behind it, silences the warning
+exactly as easily as a genuine one would. It converts "silently never
+checked" into "loudly asks," nothing more.
+
+**Required follow-up:** everything in the finding's own "Long-term fix"
+and "Acceptance tests to implement" sections remains open and is not
+re-litigated here: onboard independently accountable human maintainers,
+document their conflict-of-interest boundaries, independently verify the
+live repository ruleset (not just its committed-file declarations),
+stand up an off-platform canonical-history evidence mirror, and run a
+real founder-absence/hostile-hosting drill before any claim of
+decentralized production governance is made. This is founder/human
+governance work; no future PR titled "close F-17" should be accepted
+without exactly that evidence attached.
+
+**Supersedes / superseded by:** none.

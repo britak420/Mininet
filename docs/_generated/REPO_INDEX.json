@@ -2,7 +2,7 @@
   "counts": {
     "crates": 75,
     "files": 936,
-    "headings": 3334,
+    "headings": 3344,
     "rust_symbols": 9454
   },
   "crates": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28093,
+      "bytes": 28239,
       "group": "root",
       "headings": [
         {
@@ -1808,7 +1808,7 @@
         },
         {
           "level": 2,
-          "line": 444,
+          "line": 446,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 448,
+      "lines": 450,
       "path": "README.md",
-      "sha256": "ba1d9fb3a7f7098521bdf92564d14b5897c2e1fbb50166ba7f685d19eee2fb1a",
+      "sha256": "aca3cfab0122dea76ce5ae18ecfff8db08187600c3f02055e00afad4bd9c936d",
       "symbols": [],
       "title": "Mininet"
     },
@@ -78664,7 +78664,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1260962,
+      "bytes": 1269130,
       "group": "docs",
       "headings": [
         {
@@ -79094,9 +79094,9 @@
         "first",
         "kel"
       ],
-      "lines": 20918,
+      "lines": 21048,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "7dd4d521429ad925472c0535d1b5fd9002c634dbd775e03e376cc7cac440825e",
+      "sha256": "9d949a77aed72b2d1c420a07ddde28a4782c8ff981ad0081f9a1d00d2c8942b2",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -97436,7 +97436,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 95616,
+      "bytes": 96629,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97465,9 +97465,9 @@
         "independently",
         "both"
       ],
-      "lines": 1288,
+      "lines": 1291,
       "path": "governance/work-claims.json",
-      "sha256": "aa9e0ad567bb5703eaf99aa588ce210ab3a3c4b637ff76d901e876ee7450542f",
+      "sha256": "a978b80ddfb93799987d802917cbc8db054c5094e30f48aa30d61cdc1dfa7bcc",
       "symbols": [],
       "title": "{"
     },
@@ -97882,40 +97882,91 @@
       "title": "`### D-0123 \u2014 Title  \u00b7  *Status*`"
     },
     {
-      "bytes": 57009,
+      "bytes": 58550,
       "group": "tools",
-      "headings": [],
+      "headings": [
+        {
+          "level": 1,
+          "line": 69,
+          "text": "PR #327 finding F-17 (D-0492): the record's own last_verified_at timestamp"
+        },
+        {
+          "level": 1,
+          "line": 70,
+          "text": "was never checked against wall-clock time, so it could go arbitrarily"
+        },
+        {
+          "level": 1,
+          "line": 71,
+          "text": "stale -- silently -- while `status` stayed \"active\". 30 days divides"
+        },
+        {
+          "level": 1,
+          "line": 72,
+          "text": "D-0083's 3-month exception window into thirds and is short enough that a"
+        },
+        {
+          "level": 1,
+          "line": 73,
+          "text": "stale record surfaces well before the window's own hard expiry gate"
+        },
+        {
+          "level": 1,
+          "line": 74,
+          "text": "(`expires_at`, checked separately above) would catch it anyway. This is a"
+        },
+        {
+          "level": 1,
+          "line": 75,
+          "text": "warning, not a merge-blocking failure: a validator cannot itself confirm"
+        },
+        {
+          "level": 1,
+          "line": 76,
+          "text": "GitHub team membership, ruleset state, or release status, so it cannot"
+        },
+        {
+          "level": 1,
+          "line": 77,
+          "text": "manufacture the re-verification it is asking for -- only make the absence"
+        },
+        {
+          "level": 1,
+          "line": 78,
+          "text": "of one impossible to miss."
+        }
+      ],
       "keywords": [
         "governance",
         "path",
         "json",
-        "compile",
         "import",
-        "schema",
-        "human",
-        "constitutional",
-        "canonical",
-        "founder",
-        "invariants",
-        "security",
-        "release",
+        "compile",
+        "status",
+        "cannot",
         "github",
-        "owner",
-        "admin",
-        "agents",
-        "design",
-        "repository",
-        "list",
-        "reviewer",
+        "schema",
+        "record",
+        "own",
+        "checked",
+        "stale",
         "active",
-        "checkpoint",
-        "independently"
+        "window",
+        "state",
+        "days",
+        "separately",
+        "validator",
+        "release",
+        "make",
+        "constitutional",
+        "invariants",
+        "security"
       ],
-      "lines": 1223,
+      "lines": 1247,
       "path": "tools/check_governance.py",
-      "sha256": "f4ba98ca31b4c550d11267e43937d79aeee43e8736ad4e9f9afb82e36cb41797",
+      "sha256": "c7456434974d85d254d8b5f64e173709ccc71fe9454f76abaffa23d42bcdad3d",
       "symbols": [],
-      "title": "\"\"\"Reference Mininet bootstrap governance validator."
+      "title": "PR #327 finding F-17 (D-0492): the record's own last_verified_at timestamp"
     },
     {
       "bytes": 7427,
@@ -98456,7 +98507,7 @@
       "title": "\"\"\""
     },
     {
-      "bytes": 43469,
+      "bytes": 45298,
       "group": "tools",
       "headings": [
         {
@@ -98491,9 +98542,9 @@
         "line",
         "importlib"
       ],
-      "lines": 1026,
+      "lines": 1059,
       "path": "tools/test_check_governance.py",
-      "sha256": "6749445e5ce5cb4fde161b107528c8c5ca9765ceb01fa13661d61e9cf9b07d48",
+      "sha256": "54663a613bcacf0ecd3d873efa73b41c3bf1bd3692d4181e6432e04c2681fc72",
       "symbols": [],
       "title": "The five canonical documents \u2014 read order for any non-trivial task"
     },
