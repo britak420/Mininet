@@ -1,28 +1,8 @@
-//! Runtime privacy-tier execution gate.
-//!
-//! Policy vocabulary is not implementation evidence. Direct and Relayed have
-//! concrete executors after #291; Mixed and Burst remain unavailable until the
-//! exact Sphinx/Loopix executor receives independent review under #72/D-0305.
-//!
-//! **Not yet a mandatory dispatch point (F-15).** No function in this crate
-//! (or anywhere in this workspace) currently calls [`executable_transport`]
-//! before establishing a real connection — `runtime.rs`'s own
-//! `connect_authenticated_tcp`/`build_verified_onion_route` are reached
-//! directly by a caller that already decided which one to call, without ever
-//! consulting this gate. The Mixed/Burst refusal today is real only because
-//! this crate does not offer a mix/burst executor at all, not because some
-//! enforced single entry point turns every send through this check. What
-//! *is* closed here: [`ExecutableTransport`] cannot be constructed except by
-//! calling [`executable_transport`] — its variants carry a private
-//! [`Sealed`] token, so a future caller cannot accidentally (or a hostile
-//! code path deliberately) manufacture `ExecutableTransport::ThreeHopOnion`
-//! and skip the Mixed/Burst rejection the moment this crate ever does wire a
-//! real dispatcher through this type. Building that dispatcher — the actual
-//! mandatory gate the long-term fix calls for — needs a real, single send
-//! entry point this crate does not have yet; inventing one unilaterally here
-//! would be exactly the kind of unreviewed architecture decision this
-//! session's other findings (D-0478, D-0487's declined trait redesign)
-//! already decline to make without it.
+//! Runtime privacy-tier execution gate. `dispatch_transport` calls this before
+//! every authenticated application send, including PublicationRoutingPlan
+//! dispatch. Mixed/Burst cannot fall back to direct/onion transport. The
+//! lower-level anonymous bearer and packet builders remain protocol primitives
+//! and cannot issue an ObservedSendReceipt.
 
 use mini_privacy_policy::PrivacyTier;
 

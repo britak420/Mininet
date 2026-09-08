@@ -41,7 +41,9 @@
 
 mod approval;
 mod error;
+mod payout_journal;
 mod reconciliation;
+pub use payout_journal::{PayoutJournal, PayoutPhase};
 
 pub use approval::{
     payout_message, verify_payout_approvals, CandidateApproval, TreasuryApprovedPayout,

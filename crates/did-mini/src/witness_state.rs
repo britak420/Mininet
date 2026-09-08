@@ -291,6 +291,20 @@ impl WitnessJournal {
                 Err(IdentityError::WitnessConflictingDescendant { sequence: event.sn })
             }
             Decision::Accept => {
+                // A separately certified transition reserves this successor
+                // even while the old accepted head is retained. Ordinary
+                // observation must not publish a rival successor afterward.
+                if let Some(previous) = self.states.get(&identity) {
+                    if let Some(certified) = self.transition_certification(
+                        &identity,
+                        &event.prior,
+                        previous.accepted_policy.generation,
+                    ) {
+                        if certified != event_digest.as_slice() {
+                            return Err(IdentityError::ConflictingPolicyTransitionCertification);
+                        }
+                    }
+                }
                 let statement = WitnessReceiptStatement {
                     version: crate::witness::WitnessReceiptVersion::V1,
                     identity: identity.clone(),

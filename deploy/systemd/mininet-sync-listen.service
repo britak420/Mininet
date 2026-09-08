@@ -50,6 +50,7 @@ RestrictNamespaces=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 ReadWritePaths=/var/lib/mininet
+ReadWritePaths=/var/lib/.mininet-maintenance-mininet.lock
 
 [Install]
 WantedBy=mininet.target

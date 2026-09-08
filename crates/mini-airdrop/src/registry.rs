@@ -17,8 +17,7 @@
 //! to report a successful, distinct [`crate::claim::ClaimOutcome`] for the
 //! same entitlement -- a real double-award, not a theoretical one.
 //! [`ClaimedRegistry::try_reserve`] closes that gap by making "check and
-//! record" one call a backend must implement atomically (a single
-//! `O_EXCL`-style exclusive file create for [`crate::file_registry::
+//! record" one call a backend must implement atomically (a transaction under a cross-process file lock for [`crate::file_registry::
 //! FileClaimedRegistry`]).
 //!
 //! `try_reserve` also fixes the finding's other named failure: "a valid
@@ -63,7 +62,7 @@ pub enum ReservationOutcome {
 /// `try_reserve` call rather than a separate check-then-write pair.
 pub trait ClaimedRegistry {
     /// `true` if `identity_root` has already claimed this campaign.
-    fn already_claimed(&self, identity_root: &Did) -> bool;
+    fn already_claimed(&self, campaign_id: &[u8], identity_root: &Did) -> bool;
 
     /// Atomically check-and-record a claim for `identity_root` at
     /// `at_ms`, bound to `outcome_digest` (see
@@ -87,6 +86,7 @@ pub trait ClaimedRegistry {
     /// registry did not actually manage to reserve.
     fn try_reserve(
         &mut self,
+        campaign_id: &[u8],
         identity_root: &Did,
         outcome_digest: [u8; 32],
         at_ms: u64,
@@ -99,7 +99,7 @@ pub trait ClaimedRegistry {
 /// for a real persisted implementation.
 #[derive(Debug, Default)]
 pub struct InMemoryClaimedRegistry {
-    claimed: std::collections::HashMap<Did, (u64, [u8; 32])>,
+    claimed: std::collections::HashMap<(Vec<u8>, Did), (u64, [u8; 32])>,
 }
 
 impl InMemoryClaimedRegistry {
@@ -108,24 +108,31 @@ impl InMemoryClaimedRegistry {
     }
 
     /// When `identity_root` claimed, if it has.
-    pub fn claimed_at(&self, identity_root: &Did) -> Option<u64> {
-        self.claimed.get(identity_root).map(|(at_ms, _)| *at_ms)
+    pub fn claimed_at(&self, campaign_id: &[u8], identity_root: &Did) -> Option<u64> {
+        self.claimed
+            .get(&(campaign_id.to_vec(), identity_root.clone()))
+            .map(|(at_ms, _)| *at_ms)
     }
 }
 
 impl ClaimedRegistry for InMemoryClaimedRegistry {
-    fn already_claimed(&self, identity_root: &Did) -> bool {
-        self.claimed.contains_key(identity_root)
+    fn already_claimed(&self, campaign_id: &[u8], identity_root: &Did) -> bool {
+        self.claimed
+            .contains_key(&(campaign_id.to_vec(), identity_root.clone()))
     }
 
     fn try_reserve(
         &mut self,
+        campaign_id: &[u8],
         identity_root: &Did,
         outcome_digest: [u8; 32],
         at_ms: u64,
     ) -> Result<ReservationOutcome> {
         use std::collections::hash_map::Entry;
-        match self.claimed.entry(identity_root.clone()) {
+        match self
+            .claimed
+            .entry((campaign_id.to_vec(), identity_root.clone()))
+        {
             Entry::Vacant(slot) => {
                 slot.insert((at_ms, outcome_digest));
                 Ok(ReservationOutcome::Fresh)

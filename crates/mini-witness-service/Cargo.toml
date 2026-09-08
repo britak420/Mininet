@@ -10,6 +10,7 @@ authors.workspace = true
 publish = false
 
 [dependencies]
+mini-durable = { path = "../mini-durable" }
 # did-mini deliberately stays filesystem-free and dependency-minimal (see its
 # own Cargo.toml); this crate is the anchor-to-a-real-process split this
 # workspace already applies elsewhere (mini-chain -> mini-consensus,

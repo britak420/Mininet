@@ -47,7 +47,15 @@ pub fn load_envelope<B: Backend>(
 ) -> Result<Option<IntakeEnvelope>> {
     let key = backend_key(&intake_id.0.to_bytes());
     match backend.get_blob(&key)? {
-        Some(bytes) => Ok(Some(IntakeEnvelope::from_bytes(&bytes)?)),
+        Some(bytes) => {
+            let envelope = IntakeEnvelope::from_bytes(&bytes)?;
+            if &envelope.intake_id != intake_id
+                || derive_intake_id(&envelope.source.digest) != *intake_id
+            {
+                return Err(IntakeCoordError::SourceDigestMismatch);
+            }
+            Ok(Some(envelope))
+        }
         None => Ok(None),
     }
 }
@@ -124,10 +132,8 @@ pub fn intake_local_file<B: Backend>(
 
     let digest = Multihash::of(HashAlgorithm::Blake3, &bytes);
     let intake_id = derive_intake_id(&digest);
-    let envelope_key = backend_key(&intake_id.0.to_bytes());
-
-    if let Some(existing) = backend.get_blob(&envelope_key)? {
-        return Ok(IntakeEnvelope::from_bytes(&existing)?);
+    if let Some(existing) = load_envelope(backend, &intake_id)? {
+        return Ok(existing);
     }
 
     let source_key = backend_key(&digest.to_bytes());
@@ -149,7 +155,7 @@ pub fn intake_local_file<B: Backend>(
         declared_name,
     };
     let envelope = IntakeEnvelope::new(intake_id, source);
-    backend.put_blob(&envelope_key, &envelope.to_bytes())?;
+    save_envelope(backend, &envelope)?;
     Ok(envelope)
 }
 
@@ -160,7 +166,12 @@ pub fn intake_local_file<B: Backend>(
 /// via its own internal write, and that only ever writes a fresh
 /// `Unreviewed`/`UntrustedExternal` envelope.
 pub fn save_envelope<B: Backend>(backend: &mut B, envelope: &IntakeEnvelope) -> Result<()> {
+    if derive_intake_id(&envelope.source.digest) != envelope.intake_id {
+        return Err(IntakeCoordError::SourceDigestMismatch);
+    }
+    let bytes = envelope.to_bytes();
+    IntakeEnvelope::from_bytes(&bytes)?;
     let key = backend_key(&envelope.intake_id.0.to_bytes());
-    backend.put_blob(&key, &envelope.to_bytes())?;
+    backend.put_blob(&key, &bytes)?;
     Ok(())
 }

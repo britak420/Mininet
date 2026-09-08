@@ -1,7 +1,7 @@
 [package]
 name = "mini-publication-policy"
 version = "0.0.1"
-description = "Typed protected-publishing vocabulary (PublicationProfile/AchievedResultReceipt): publication-time choices and their achieved privacy/price, built on the existing privacy/transport/pricing policy crates."
+description = "Publication routing plans and checked transport submission with explicit execution limits."
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -23,3 +23,5 @@ mini-privacy-policy = { path = "../mini-privacy-policy" }
 mini-relay = { path = "../mini-relay" }
 mini-resource-pricing = { path = "../mini-resource-pricing" }
 mini-transport-policy = { path = "../mini-transport-policy" }
+mini-bearer = { path = "../mini-bearer" }
+mini-transport-security = { path = "../mini-transport-security" }

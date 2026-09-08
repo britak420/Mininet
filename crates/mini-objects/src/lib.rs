@@ -46,8 +46,8 @@ mod private_object;
 mod pseudonym;
 
 pub use capability::{
-    CapabilityGrant, CapabilityRight, CapabilityScope, CapabilityToken, CapabilityTokenCommitment,
-    CAPABILITY_VERSION,
+    AuthenticatedObjectOwner, CapabilityGrant, CapabilityRequest, CapabilityRight, CapabilityScope,
+    CapabilityToken, CapabilityTokenCommitment, CAPABILITY_VERSION,
 };
 pub use envelope_v2::{
     ObjectEnvelopeV2, OpaqueRoute, RetentionClass, StorageDescriptor, ENVELOPE_VERSION,

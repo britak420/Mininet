@@ -197,22 +197,12 @@ impl WitnessJournal {
 /// before delegating threshold/membership/signature checking to
 /// [`WitnessedEventCertificate::verify`] unchanged.
 ///
-/// **Caller obligation, stated explicitly (F-06):** `old_policy` is taken
-/// as a parameter, not derived here, because this function has no access
-/// to the identity's prior history — only `new_kel`, the *post*-transition
-/// KEL. That means this function's entire guarantee is only as strong as
-/// the caller's own assurance that `old_policy` is genuinely the policy
-/// this identity held immediately before `new_kel`'s head event, not a
-/// policy the caller merely typed in or was handed by an untrusted party.
-/// A caller must source `old_policy` from its own previously-verified
-/// history for this identity (e.g. a retained [`WitnessIdentityState`] via
-/// `WitnessJournal::state_for`, or an equivalently authenticated prior
-/// [`Kel`] truncated to the predecessor event) — never from an
-/// unauthenticated request. This is the same caller-supplied-and-trusted
-/// shape [`WitnessedEventCertificate::verify`]'s own `policy` parameter
-/// already has; it is not unique to this function, but is worth stating
-/// bluntly here since a forged `old_policy` would make this whole check
-/// vacuous.
+/// The supplied policy must exactly match the policy derived from the
+/// authenticated KEL prefix preceding the transition, including generation,
+/// threshold and witness membership. It is an expectation to cross-check,
+/// not caller-provided authority. The KEL must still come from the verifier's
+/// retained identity history/freshness policy; this does not discover unseen
+/// controller forks or impose rotation assurance on every consumer.
 pub fn verify_policy_transition(
     old_policy: &WitnessPolicy,
     new_kel: &Kel,
@@ -221,6 +211,23 @@ pub fn verify_policy_transition(
 ) -> Result<()> {
     new_kel.verify()?;
     let event = new_kel.events().last().ok_or(IdentityError::EmptyKel)?;
+    // Bind the caller's policy to the authenticated predecessor history.
+    // A self-selected policy must never certify its own authority. `verify`
+    // above authenticated every event, so the prefix uses the same KEL's
+    // actual pre-transition state, including explicit witness retirement.
+    let predecessor = Kel::new(
+        new_kel.scid().to_owned(),
+        new_kel.events()[..new_kel.len() - 1].to_vec(),
+    );
+    let declared = predecessor
+        .declared_witness_policy()
+        .ok_or(IdentityError::NoWitnessPolicyDeclared)?;
+    if declared.generation != old_policy.generation
+        || declared.threshold != old_policy.threshold
+        || !same_witness_set(&declared.witnesses, &old_policy.witnesses)
+    {
+        return Err(IdentityError::WitnessReceiptMismatch);
+    }
     let new_policy = new_kel.declared_witness_policy();
     if !is_policy_change(old_policy, new_policy.as_ref()) {
         return Err(IdentityError::NotAWitnessPolicyChange);

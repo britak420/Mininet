@@ -31,6 +31,8 @@ pub enum TransportSecurityError {
     Replay,
     InvalidSelectionPolicy,
     MixedTransportNotReviewed,
+    TransportTargetMismatch,
+    UnimplementedProtection,
     /// Every bounded dial candidate failed before a fully authenticated
     /// connection existed. No partially verified state is returned.
     DialExhausted {
@@ -68,6 +70,8 @@ impl core::fmt::Display for TransportSecurityError {
             Self::RoutingKeyMismatch => write!(f, "routing key does not match the authenticated endpoint"),
             Self::Replay => write!(f, "transport authentication or advertisement replayed"),
             Self::InvalidSelectionPolicy => write!(f, "invalid diverse-peer selection policy"),
+            Self::TransportTargetMismatch => write!(f, "requested tier does not match the selected transport target"),
+            Self::UnimplementedProtection => write!(f, "transport executor cannot establish the requested protection"),
             Self::MixedTransportNotReviewed => write!(
                 f,
                 "mixed/burst transport is unavailable until the exact executor receives independent review"

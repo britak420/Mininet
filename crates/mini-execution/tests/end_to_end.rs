@@ -644,8 +644,20 @@ struct AllowListVerifier {
 }
 
 impl ClaimVerifier for AllowListVerifier {
-    fn verify_claim(&self, digest: &[u8; 32], _group: &[NullifierRecord]) -> bool {
-        self.allowed.contains(digest)
+    fn verify_claim(
+        &self,
+        _network: &[u8; 32],
+        digest: &[u8; 32],
+        _group: &[NullifierRecord],
+    ) -> Option<mini_execution::ShieldedClaimEffects> {
+        self.allowed.contains(digest).then(|| test_effects(digest))
+    }
+    fn verify_genesis_allocation(
+        &self,
+        _network: &[u8; 32],
+        _allocation: &mini_execution::ShieldedGenesisAllocation,
+    ) -> bool {
+        true
     }
 }
 
@@ -661,13 +673,20 @@ impl ClaimVerifier for AllowListVerifier {
 #[test]
 fn a_validator_with_a_configured_verifier_rejects_a_block_whose_claim_it_cannot_verify() {
     let fx = fixture();
-    let mut chain = LedgerChain::genesis();
+    let mut chain = shielded_genesis();
     let body = SettlementBlockBody::new(vec![])
         .with_nullifiers(vec![NullifierRecord::new(vec![0x77; 32], NULLIFIER_CLAIM)]);
 
     // The proposer never verified the claim -- this is the state_root an
     // unconditionally-trusting node (no verifier configured) would sign.
-    let unverified_next = mini_execution::apply_block(chain.state(), &body).unwrap();
+    let unverified_next = mini_execution::apply_block_with_verifier(
+        chain.state(),
+        &body,
+        Some(&AllowListVerifier {
+            allowed: vec![NULLIFIER_CLAIM],
+        }),
+    )
+    .unwrap();
     let header = BlockHeader {
         height: 1,
         prev_hash: chain.tip_hash(),
@@ -702,7 +721,7 @@ fn a_validator_with_a_configured_verifier_rejects_a_block_whose_claim_it_cannot_
             Some(&verifier),
         )
         .unwrap_err();
-    assert_eq!(err, ExecutionError::StateRootMismatch);
+    assert_eq!(err, ExecutionError::InvalidShieldedClaim);
     assert_eq!(
         chain.height(),
         0,
@@ -715,7 +734,7 @@ fn a_validator_with_a_configured_verifier_rejects_a_block_whose_claim_it_cannot_
 #[test]
 fn a_validator_with_a_configured_verifier_finalizes_a_claim_it_can_verify() {
     let fx = fixture();
-    let mut chain = LedgerChain::genesis();
+    let mut chain = shielded_genesis();
     let body = SettlementBlockBody::new(vec![])
         .with_nullifiers(vec![NullifierRecord::new(vec![0x77; 32], NULLIFIER_CLAIM)]);
     let verifier = AllowListVerifier {
@@ -759,4 +778,32 @@ fn a_validator_with_a_configured_verifier_finalizes_a_claim_it_can_verify() {
         chain.state().finalized_nullifier(&[0x77; 32]),
         Some(NULLIFIER_CLAIM)
     );
+}
+
+fn test_effects(digest: &[u8; 32]) -> mini_execution::ShieldedClaimEffects {
+    mini_execution::ShieldedClaimEffects {
+        ring_members: vec![mini_execution::ShieldedOutput {
+            public_key: vec![7; 32],
+            amount_commitment: vec![8; 32],
+        }],
+        outputs: vec![mini_execution::ShieldedOutput {
+            public_key: digest.to_vec(),
+            amount_commitment: vec![8; 32],
+        }],
+        fee_micro: 0,
+    }
+}
+fn shielded_genesis() -> mini_execution::LedgerChain {
+    mini_execution::LedgerChain::genesis_with_shielded_allocations(
+        mini_settlement::MININET_NETWORK_ID,
+        vec![mini_execution::ShieldedGenesisAllocation {
+            output: mini_execution::ShieldedOutput {
+                public_key: vec![7; 32],
+                amount_commitment: vec![8; 32],
+            },
+            amount_micro: 1_000,
+        }],
+        &AllowListVerifier { allowed: vec![] },
+    )
+    .unwrap()
 }

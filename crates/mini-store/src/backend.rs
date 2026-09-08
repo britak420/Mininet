@@ -4,7 +4,6 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
 use crate::{Result, StoreError};
@@ -161,8 +160,8 @@ pub struct FsBackend {
 impl FsBackend {
     /// Open (creating directories as needed) a backend rooted at `root`.
     pub fn open(root: &Path) -> Result<Self> {
-        fs::create_dir_all(root.join("blobs"))?;
-        fs::create_dir_all(root.join("meta"))?;
+        mini_durable::create_dir_all(&root.join("blobs"))?;
+        mini_durable::create_dir_all(&root.join("meta"))?;
         Ok(FsBackend {
             root: root.to_path_buf(),
         })
@@ -279,15 +278,9 @@ impl FsBackend {
 
     fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+            mini_durable::create_dir_all(parent)?;
         }
-        let tmp = path.with_extension("tmp");
-        {
-            let mut f = fs::File::create(&tmp)?;
-            f.write_all(bytes)?;
-            f.sync_all()?;
-        }
-        fs::rename(&tmp, path)?;
+        mini_durable::atomic_replace(path, bytes)?;
         Ok(())
     }
 

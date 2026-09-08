@@ -1,147 +1,105 @@
-//! A durable, crash-recoverable backing store for `did_mini::WitnessJournal`
-//! — design doc Phase 6 ("persistent witness service: durable state, crash
-//! recovery, bounded retention, quotas"), following Phase 4's receipt
-//! collection protocol (D-0464) and the phases before it.
+//! Durable witness observations and transition certifications (F-05/F-06).
 //!
-//! ## Why this is a separate crate, not a `did-mini` module
+//! Every released receipt is stored verbatim with the verified KEL and exact
+//! observation epoch. Recovery replays the same state machine and requires its
+//! output to equal the stored receipt. The same signing key must be supplied
+//! after restart; key migration is an explicit recovery operation.
 //!
-//! `did-mini`'s own `Cargo.toml` states its scope deliberately: "this crate
-//! is security-critical and must stay easy to review and reproduce...
-//! It has NO network or chain dependency." Filesystem persistence is a new
-//! category of capability that crate has never carried, and this workspace
-//! already has a standing pattern for exactly this split — a pure, in-memory
-//! state machine in one crate, anchored to a real process/store in another:
-//! `mini-chain`'s finality math anchored by `mini-consensus`, `mini-update`'s
-//! freshness policy anchored by `mini-installer`. This crate is that anchor
-//! for `did_mini::WitnessJournal`.
+//! A lifetime OS lock excludes other processes. Writes stage in memory, flush
+//! file contents, rename, and flush the parent directory before publication.
+//! Any write error poisons the instance until reopen because a failed directory
+//! barrier can leave a committed rename with an uncertain durability outcome.
 //!
-//! ## Why this never re-implements the state machine
-//!
-//! [`PersistentWitnessJournal`] persists only what is needed to reconstruct
-//! *exactly* the same decision on replay: the accepted KEL and the
-//! observation epoch used at the time. On replay it hands both, unchanged,
-//! to [`did_mini::WitnessJournal::observe_declared`] (D-0464) — the same
-//! function live traffic uses, which itself derives the witness policy
-//! from the KEL's own most recent establishment event rather than
-//! accepting one as a parameter (D-0459). Crash recovery is "replay the
-//! same pure function over what was durably recorded," never a bespoke
-//! restore path with its own trust logic — the same discipline this tree
-//! already applies to rebuilding execution state from a snapshot rather
-//! than trusting a persisted derived value. Because Ed25519 signing is
-//! deterministic, replaying an acceptance reproduces the exact same
-//! [`did_mini::WitnessReceipt`] bytes a requester who received it before a
-//! restart still holds — proven by this crate's own round-trip test, not
-//! assumed.
-//!
-//! A durable record is written *before* [`PersistentWitnessJournal::observe_declared`]
-//! returns an `Accepted` outcome to its caller, not after — so a caller can
-//! never observe (and hand a requester) a receipt this store has not yet
-//! made durable. What this crate does **not** guarantee: an `fsync` barrier
-//! against power loss mid-write. `fs::write` then `fs::rename` is atomic
-//! against a *killed process* (the old, complete file is never partially
-//! overwritten in place), the same guarantee most user-space atomic-replace
-//! patterns settle for, but it is not a claim of durability across an
-//! OS-level crash or power failure — stated here rather than left implicit.
-//!
-//! ## What this does not do
-//!
-//! No network transport — carrying [`did_mini::witness_protocol`]'s
-//! messages over a real socket is separate, later work for whichever crate
-//! first runs a witness service, the same way `mini-consensus::discovery`
-//! is a separate adapter over `mini-net::pex`. No gossip (Phase 5). No
-//! witness-rotation-aware pruning (Phase 7): retiring an old record is a
-//! host operation this crate does not perform on its own. Bounded by
-//! identity *count* only ([`MAX_TRACKED_IDENTITIES`]); nothing here bounds
-//! disk space per identity beyond one KEL's own existing size cap.
+//! Legacy v1 records omitted certifications and original receipts, so they are
+//! refused for explicit reconciliation rather than silently resumed. Records
+//! have per-identity and aggregate replay limits. No automatic history pruning,
+//! remote witness service, external rollback anchor, or hardware fault proof is
+//! implied. See docs/audits/pr332-durability.md for recovery requirements.
 
-use std::collections::HashSet;
-use std::fs;
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use did_mini::{Did, IdentityError, Kel, WitnessId, WitnessIdentityState};
-use did_mini::{WitnessJournal, WitnessObservation};
-use mini_crypto::{HashAlgorithm, SigningKey};
+use did_mini::{WitnessJournal, WitnessObservation, WitnessReceipt};
+use mini_crypto::{HashAlgorithm, SigningKey, VerifyingKey};
 
-/// Hard cap on distinct identities one persistent journal will track,
-/// applied before accepting a *new* identity — an allocation/disk bound,
-/// never revisited for an identity this journal already tracks. Use
-/// [`PersistentWitnessJournal::open_with_capacity`] to set a different
-/// bound (tests use a small one to exercise this path cheaply).
+/// Maximum distinct identities, checked both on startup and admission.
 pub const MAX_TRACKED_IDENTITIES: usize = 100_000;
+/// Bound each eager read and the total replay allocation.
+pub const MAX_RECORD_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_TOTAL_RECORD_BYTES: u64 = 512 * 1024 * 1024;
+const RECORD_DOMAIN: &[u8] = b"mini-witness-service/record/v2";
 
-/// Domain tag for one persisted record, so a file from a future incompatible
-/// format is refused rather than misread.
-const RECORD_DOMAIN: &[u8] = b"mini-witness-service/record/v1";
-
-/// Errors this crate's persistence layer can produce, wrapping `did-mini`'s
-/// own errors for the state-machine replay it performs.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum WitnessServiceError {
-    /// A filesystem operation failed.
     Io(std::io::Error),
-    /// `did-mini`'s own state machine rejected an observation or a
-    /// persisted KEL failed to decode/verify on replay.
     Identity(IdentityError),
-    /// A persisted record's bytes were truncated, wrong-domain, or carried
-    /// trailing bytes.
     CorruptRecord,
-    /// Accepting a new identity would exceed this journal's configured
-    /// capacity.
     TooManyIdentities,
+    TooLarge,
+    MigrationRequired,
+    RecoveryRequired,
+    WrongWitnessKey,
 }
-
 impl core::fmt::Display for WitnessServiceError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            WitnessServiceError::Io(e) => write!(f, "witness service storage: {e}"),
-            WitnessServiceError::Identity(e) => write!(f, "witness service: {e}"),
-            WitnessServiceError::CorruptRecord => {
-                write!(f, "witness service: persisted record is corrupt")
-            }
-            WitnessServiceError::TooManyIdentities => {
-                write!(f, "witness service: identity capacity exceeded")
-            }
+            Self::Io(e) => write!(f, "witness service storage: {e}"),
+            Self::Identity(e) => write!(f, "witness service: {e}"),
+            Self::CorruptRecord => write!(f, "witness service: persisted record is corrupt"),
+            Self::TooManyIdentities => write!(f, "witness service: identity capacity exceeded"),
+            Self::TooLarge => write!(f, "witness service: replay capacity exceeded"),
+            Self::MigrationRequired => write!(
+                f,
+                "witness service: legacy state requires reconciliation before signing"
+            ),
+            Self::RecoveryRequired => write!(
+                f,
+                "witness service: storage outcome uncertain; reopen required"
+            ),
+            Self::WrongWitnessKey => write!(
+                f,
+                "witness service: signer differs from retained receipt key"
+            ),
         }
     }
 }
-
 impl std::error::Error for WitnessServiceError {}
-
 impl From<std::io::Error> for WitnessServiceError {
     fn from(e: std::io::Error) -> Self {
-        WitnessServiceError::Io(e)
+        Self::Io(e)
     }
 }
-
 impl From<IdentityError> for WitnessServiceError {
     fn from(e: IdentityError) -> Self {
-        WitnessServiceError::Identity(e)
+        Self::Identity(e)
     }
 }
-
-/// Result alias for this crate.
 pub type Result<T> = core::result::Result<T, WitnessServiceError>;
 
-/// A [`did_mini::WitnessJournal`] whose accepted events survive a restart.
-///
-/// Every accepted observation is durably recorded before this type reports
-/// it to its own caller. On [`Self::open`], every previously-recorded
-/// identity is replayed through
-/// [`did_mini::WitnessJournal::observe_declared`] to rebuild exactly the
-/// in-memory state (and receipts) a process that never stopped would still
-/// hold.
+#[derive(Debug, Clone)]
+struct RecordEvent {
+    transition: bool,
+    kel: Vec<u8>,
+    receipt: WitnessReceipt,
+}
+
 #[derive(Debug)]
 pub struct PersistentWitnessJournal {
     root: PathBuf,
+    _lock: File,
     journal: WitnessJournal,
-    known: HashSet<Did>,
+    records: HashMap<Did, Vec<RecordEvent>>,
+    total_bytes: u64,
     max_identities: usize,
+    witness_id: WitnessId,
+    witness_key: VerifyingKey,
+    poisoned: bool,
 }
-
 impl PersistentWitnessJournal {
-    /// Open (or create) a persistent witness journal rooted at `root`, with
-    /// the default [`MAX_TRACKED_IDENTITIES`] capacity.
     pub fn open(
         root: impl Into<PathBuf>,
         witness_id: WitnessId,
@@ -149,8 +107,6 @@ impl PersistentWitnessJournal {
     ) -> Result<Self> {
         Self::open_with_capacity(root, witness_id, witness_key, MAX_TRACKED_IDENTITIES)
     }
-
-    /// Like [`Self::open`], with an explicit identity capacity.
     pub fn open_with_capacity(
         root: impl Into<PathBuf>,
         witness_id: WitnessId,
@@ -158,42 +114,98 @@ impl PersistentWitnessJournal {
         max_identities: usize,
     ) -> Result<Self> {
         let root = root.into();
-        fs::create_dir_all(&root)?;
+        mini_durable::create_dir_all(&root)?;
+        let lock = mini_durable::try_lock_exclusive(&root.join("journal.lock"))?;
         let mut journal = WitnessJournal::new();
-        let mut known = HashSet::new();
+        let mut records = HashMap::new();
+        let mut total_bytes = 0u64;
         for entry in fs::read_dir(&root)? {
-            let entry = entry?;
-            let path = entry.path();
-            // A `.tmp` file is a write this process (or a prior one) never
-            // finished — see `persist`'s write-then-rename discipline. The
-            // previous, complete `.state` file (if any) is untouched and is
-            // what recovery must use instead; the stray temp file is simply
-            // ignored, never treated as a record.
+            let path = entry?.path();
             if path.extension().and_then(|e| e.to_str()) != Some("state") {
                 continue;
             }
-            let bytes = fs::read(&path)?;
-            let (kel_bytes, observed_epoch) = decode_record(&bytes)?;
-            let kel = Kel::from_bytes(&kel_bytes)?;
-            let identity = kel.did();
-            journal.observe_declared(&kel, witness_id.clone(), witness_key, observed_epoch)?;
-            known.insert(identity);
+            if records.len() >= max_identities {
+                return Err(WitnessServiceError::TooManyIdentities);
+            }
+            let metadata = fs::symlink_metadata(&path)?;
+            if !metadata.is_file() || metadata.file_type().is_symlink() {
+                return Err(WitnessServiceError::CorruptRecord);
+            }
+            total_bytes = total_bytes
+                .checked_add(metadata.len())
+                .ok_or(WitnessServiceError::TooLarge)?;
+            if metadata.len() > MAX_RECORD_BYTES as u64 || total_bytes > MAX_TOTAL_RECORD_BYTES {
+                return Err(WitnessServiceError::TooLarge);
+            }
+            let mut bytes = Vec::new();
+            File::open(&path)?
+                .take(MAX_RECORD_BYTES as u64 + 1)
+                .read_to_end(&mut bytes)?;
+            if bytes.len() > MAX_RECORD_BYTES {
+                return Err(WitnessServiceError::TooLarge);
+            }
+            let events = decode_record(&bytes)?;
+            let mut identity = None;
+            for event in &events {
+                let kel = Kel::from_bytes(&event.kel)?;
+                let did = kel.did();
+                if identity.as_ref().is_some_and(|previous| previous != &did) {
+                    return Err(WitnessServiceError::CorruptRecord);
+                }
+                identity = Some(did);
+                if event.receipt.statement.witness_id != witness_id
+                    || event.receipt.verify(&witness_key.verifying_key()).is_err()
+                {
+                    return Err(WitnessServiceError::WrongWitnessKey);
+                }
+                let epoch = event.receipt.statement.observed_epoch;
+                let replayed = if event.transition {
+                    journal.certify_policy_transition(
+                        &kel,
+                        witness_id.clone(),
+                        witness_key,
+                        epoch,
+                    )?
+                } else {
+                    let WitnessObservation::Accepted(receipt) =
+                        journal.observe_declared(&kel, witness_id.clone(), witness_key, epoch)?
+                    else {
+                        return Err(WitnessServiceError::CorruptRecord);
+                    };
+                    receipt
+                };
+                if replayed != event.receipt {
+                    return Err(WitnessServiceError::CorruptRecord);
+                }
+            }
+            let identity = identity.ok_or(WitnessServiceError::CorruptRecord)?;
+            if record_path(&root, &identity) != path || records.insert(identity, events).is_some() {
+                return Err(WitnessServiceError::CorruptRecord);
+            }
         }
-        Ok(PersistentWitnessJournal {
+        Ok(Self {
             root,
+            _lock: lock,
             journal,
-            known,
+            records,
+            total_bytes,
             max_identities,
+            witness_id,
+            witness_key: witness_key.verifying_key(),
+            poisoned: false,
         })
     }
 
-    /// Observe `kel`'s head event as `witness_id`, signing with
-    /// `witness_key` at `observed_epoch`, deriving the witness policy from
-    /// `kel`'s own declared policy rather than accepting one as a
-    /// parameter (D-0459) — durable. An `Accepted` outcome is written to
-    /// disk before this call returns; every other outcome
-    /// (`AlreadyAccepted`, `Stale`, `ControllerDuplicity`) never changed
-    /// this journal's accepted state, so nothing new is written.
+    fn check_ready(&self, witness_id: &WitnessId, key: &SigningKey) -> Result<()> {
+        if self.poisoned {
+            return Err(WitnessServiceError::RecoveryRequired);
+        }
+        if witness_id != &self.witness_id || key.verifying_key() != self.witness_key {
+            return Err(WitnessServiceError::WrongWitnessKey);
+        }
+        Ok(())
+    }
+
     pub fn observe_declared(
         &mut self,
         kel: &Kel,
@@ -201,99 +213,169 @@ impl PersistentWitnessJournal {
         witness_key: &SigningKey,
         observed_epoch: u64,
     ) -> Result<WitnessObservation> {
+        self.check_ready(&witness_id, witness_key)?;
         let identity = kel.did();
-        if !self.known.contains(&identity) && self.known.len() >= self.max_identities {
+        if !self.records.contains_key(&identity) && self.records.len() >= self.max_identities {
             return Err(WitnessServiceError::TooManyIdentities);
         }
-        // F-05: stage the observation against a clone of the journal rather
-        // than mutating the real one directly. `did_mini::WitnessJournal::
-        // observe_declared` advances its own in-memory state as soon as it
-        // decides to accept -- if this method persisted *after* calling it
-        // on `self.journal` directly, a persistence failure would return
-        // `Err` to the caller while leaving `self.journal` believing the
-        // observation was already accepted. A retry would then see
-        // `AlreadyAccepted` from the in-memory state and never attempt to
-        // persist again, permanently orphaning an "accepted" identity this
-        // store never actually wrote to disk. Persisting first and only
-        // then replacing `self.journal` with the staged copy means a
-        // failed persist leaves the real journal exactly as it was, so a
-        // retry re-attempts the same observation from scratch.
         let mut staged = self.journal.clone();
         let outcome = staged.observe_declared(kel, witness_id, witness_key, observed_epoch)?;
-        if matches!(outcome, WitnessObservation::Accepted(_)) {
-            self.persist(&identity, kel, observed_epoch)?;
-            self.known.insert(identity);
+        if let WitnessObservation::Accepted(receipt) = &outcome {
+            self.persist(
+                &identity,
+                RecordEvent {
+                    transition: false,
+                    kel: kel.to_bytes(),
+                    receipt: receipt.clone(),
+                },
+            )?;
         }
         self.journal = staged;
         Ok(outcome)
     }
 
-    /// This witness's retained state for `identity`, if it has observed
-    /// anything for it yet.
+    /// Commit certification before exposing the signature. Identical retries
+    /// return the original receipt including its original observation epoch.
+    pub fn certify_policy_transition(
+        &mut self,
+        kel: &Kel,
+        witness_id: WitnessId,
+        witness_key: &SigningKey,
+        observed_epoch: u64,
+    ) -> Result<WitnessReceipt> {
+        self.check_ready(&witness_id, witness_key)?;
+        let identity = kel.did();
+        let bytes = kel.to_bytes();
+        if let Some(previous) = self.records.get(&identity).and_then(|events| {
+            events
+                .iter()
+                .find(|event| event.transition && event.kel == bytes)
+        }) {
+            return Ok(previous.receipt.clone());
+        }
+        let mut staged = self.journal.clone();
+        let receipt =
+            staged.certify_policy_transition(kel, witness_id, witness_key, observed_epoch)?;
+        self.persist(
+            &identity,
+            RecordEvent {
+                transition: true,
+                kel: bytes,
+                receipt: receipt.clone(),
+            },
+        )?;
+        self.journal = staged;
+        Ok(receipt)
+    }
+
     pub fn state_for(&self, identity: &Did) -> Option<&WitnessIdentityState> {
-        self.journal.state_for(identity)
+        if self.poisoned {
+            None
+        } else {
+            self.journal.state_for(identity)
+        }
     }
-
-    /// How many distinct identities this journal currently tracks.
     pub fn tracked_identity_count(&self) -> usize {
-        self.known.len()
+        self.records.len()
     }
 
-    fn record_path(&self, identity: &Did) -> PathBuf {
-        // Hashed rather than the raw SCID string: `Did` already restricts
-        // its charset, but naming a file directly from untrusted-shaped
-        // input is exactly the kind of thing this tree never does without
-        // a reason not to — a fixed-width digest closes any path-shaped
-        // concern by construction instead of relying on a caller elsewhere
-        // getting SCID validation right forever.
-        let hash = HashAlgorithm::Blake3.digest(identity.as_str().as_bytes());
-        let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
-        self.root.join(format!("{hex}.state"))
-    }
-
-    fn persist(&self, identity: &Did, kel: &Kel, observed_epoch: u64) -> Result<()> {
-        let bytes = encode_record(&kel.to_bytes(), observed_epoch);
-        let final_path = self.record_path(identity);
-        let tmp_path = final_path.with_extension("tmp");
-        fs::write(&tmp_path, &bytes)?;
-        fs::rename(&tmp_path, &final_path)?;
+    fn persist(&mut self, identity: &Did, event: RecordEvent) -> Result<()> {
+        let mut events = self.records.get(identity).cloned().unwrap_or_default();
+        let previous_bytes = if events.is_empty() {
+            0
+        } else {
+            encode_record(&events).len() as u64
+        };
+        events.push(event);
+        let bytes = encode_record(&events);
+        let total = self.total_bytes - previous_bytes + bytes.len() as u64;
+        if bytes.len() > MAX_RECORD_BYTES || total > MAX_TOTAL_RECORD_BYTES {
+            return Err(WitnessServiceError::TooLarge);
+        }
+        if let Err(error) = mini_durable::atomic_replace(&record_path(&self.root, identity), &bytes)
+        {
+            self.poisoned = true;
+            return Err(error.into());
+        }
+        self.records.insert(identity.clone(), events);
+        self.total_bytes = total;
         Ok(())
     }
 }
 
-fn encode_record(kel_bytes: &[u8], observed_epoch: u64) -> Vec<u8> {
-    let mut w = Vec::with_capacity(RECORD_DOMAIN.len() + 4 + kel_bytes.len() + 8);
-    w.extend_from_slice(RECORD_DOMAIN);
-    w.extend_from_slice(&(kel_bytes.len() as u32).to_be_bytes());
-    w.extend_from_slice(kel_bytes);
-    w.extend_from_slice(&observed_epoch.to_be_bytes());
-    w
+fn record_path(root: &Path, identity: &Did) -> PathBuf {
+    let mut input = b"mini-witness-service/identity/v2\0".to_vec();
+    input.extend_from_slice(identity.as_str().as_bytes());
+    let hash = HashAlgorithm::Blake3.digest(&input);
+    let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+    root.join(format!("{hex}.state"))
 }
-
-fn decode_record(bytes: &[u8]) -> Result<(Vec<u8>, u64)> {
-    let prefix_len = RECORD_DOMAIN.len();
-    if bytes.len() < prefix_len + 4 {
+fn encode_record(events: &[RecordEvent]) -> Vec<u8> {
+    let mut bytes = RECORD_DOMAIN.to_vec();
+    bytes.extend_from_slice(&(events.len() as u32).to_be_bytes());
+    for event in events {
+        bytes.push(u8::from(event.transition));
+        for field in [&event.kel, &event.receipt.encode()] {
+            bytes.extend_from_slice(&(field.len() as u32).to_be_bytes());
+            bytes.extend_from_slice(field);
+        }
+    }
+    let checksum = HashAlgorithm::Blake3.digest(&bytes);
+    bytes.extend_from_slice(&checksum);
+    bytes
+}
+fn take<'a>(bytes: &mut &'a [u8], len: usize) -> Result<&'a [u8]> {
+    if bytes.len() < len {
         return Err(WitnessServiceError::CorruptRecord);
     }
-    if &bytes[..prefix_len] != RECORD_DOMAIN {
+    let (head, tail) = bytes.split_at(len);
+    *bytes = tail;
+    Ok(head)
+}
+fn number(bytes: &mut &[u8]) -> Result<usize> {
+    Ok(u32::from_be_bytes(
+        take(bytes, 4)?
+            .try_into()
+            .map_err(|_| WitnessServiceError::CorruptRecord)?,
+    ) as usize)
+}
+fn decode_record(bytes: &[u8]) -> Result<Vec<RecordEvent>> {
+    if bytes.starts_with(b"mini-witness-service/record/v1") {
+        return Err(WitnessServiceError::MigrationRequired);
+    }
+    if !bytes.starts_with(RECORD_DOMAIN) || bytes.len() < RECORD_DOMAIN.len() + 4 + 32 {
         return Err(WitnessServiceError::CorruptRecord);
     }
-    let mut pos = prefix_len;
-    let mut len_bytes = [0u8; 4];
-    len_bytes.copy_from_slice(&bytes[pos..pos + 4]);
-    let kel_len = u32::from_be_bytes(len_bytes) as usize;
-    pos += 4;
-    let end = pos
-        .checked_add(kel_len)
-        .ok_or(WitnessServiceError::CorruptRecord)?;
-    if bytes.len() != end + 8 {
+    let (data, checksum) = bytes.split_at(bytes.len() - 32);
+    if HashAlgorithm::Blake3.digest(data).as_slice() != checksum {
         return Err(WitnessServiceError::CorruptRecord);
     }
-    let kel_bytes = bytes[pos..end].to_vec();
-    let mut epoch_bytes = [0u8; 8];
-    epoch_bytes.copy_from_slice(&bytes[end..end + 8]);
-    let observed_epoch = u64::from_be_bytes(epoch_bytes);
-    Ok((kel_bytes, observed_epoch))
+    let mut body = &data[RECORD_DOMAIN.len()..];
+    let count = number(&mut body)?;
+    if count == 0 || count > body.len() / 9 {
+        return Err(WitnessServiceError::CorruptRecord);
+    }
+    let mut events = Vec::new();
+    for _ in 0..count {
+        let transition = match take(&mut body, 1)?[0] {
+            0 => false,
+            1 => true,
+            _ => return Err(WitnessServiceError::CorruptRecord),
+        };
+        let size = number(&mut body)?;
+        let kel = take(&mut body, size)?.to_vec();
+        let size = number(&mut body)?;
+        let receipt = WitnessReceipt::decode(take(&mut body, size)?)?;
+        events.push(RecordEvent {
+            transition,
+            kel,
+            receipt,
+        });
+    }
+    if !body.is_empty() {
+        return Err(WitnessServiceError::CorruptRecord);
+    }
+    Ok(events)
 }
 
 #[cfg(test)]
@@ -469,7 +551,14 @@ mod tests {
         let result = store.observe_declared(&owner.kel(), witness_id, &witness_key, 1);
         assert!(result.is_err());
         assert_eq!(store.tracked_identity_count(), 0);
-        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+        assert_eq!(
+            std::fs::read_dir(&root)
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().is_some_and(|e| e == "state"))
+                .count(),
+            0
+        );
         std::fs::remove_dir_all(&root).ok();
     }
 
@@ -519,6 +608,13 @@ mod tests {
         // genuine attempt (Accepted), not AlreadyAccepted from a phantom
         // in-memory acceptance, and must actually land on disk this time.
         std::fs::create_dir_all(&root).unwrap();
+        assert!(matches!(
+            store.observe_declared(&owner.kel(), witness_id.clone(), &witness_key, 101),
+            Err(WitnessServiceError::RecoveryRequired)
+        ));
+        drop(store);
+        let mut store =
+            PersistentWitnessJournal::open(&root, witness_id.clone(), &witness_key).unwrap();
         let retry = store
             .observe_declared(&owner.kel(), witness_id.clone(), &witness_key, 101)
             .unwrap();
@@ -534,5 +630,176 @@ mod tests {
         assert!(reopened.state_for(&owner.did()).is_some());
 
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    fn forks(witness: &WitnessId) -> (Controller, Controller, Controller) {
+        let mut owner = Controller::incept_single().unwrap();
+        owner.appoint_witnesses(vec![witness.0.clone()], 1).unwrap();
+        let (current, next) = owner.export_current_and_next_keys_for_storage();
+        let mut a = Controller::restore(&owner.kel(), current, next).unwrap();
+        let (current, next) = owner.export_current_and_next_keys_for_storage();
+        let mut b = Controller::restore(&owner.kel(), current, next).unwrap();
+        a.appoint_witnesses(vec![witness.0.clone(), a_witness().0 .0], 1)
+            .unwrap();
+        b.appoint_witnesses(vec![witness.0.clone(), a_witness().0 .0], 1)
+            .unwrap();
+        (owner, a, b)
+    }
+
+    #[test]
+    fn transition_commitments_survive_restart_and_refuse_both_conflict_orders() {
+        for reverse in [false, true] {
+            let root = temp_root("transition-restart");
+            let (witness, key) = a_witness();
+            let (owner, mut a, mut b) = forks(&witness);
+            if reverse {
+                std::mem::swap(&mut a, &mut b);
+            }
+            let receipt = {
+                let mut store =
+                    PersistentWitnessJournal::open(&root, witness.clone(), &key).unwrap();
+                store
+                    .observe_declared(&owner.kel(), witness.clone(), &key, 100)
+                    .unwrap();
+                store
+                    .certify_policy_transition(&a.kel(), witness.clone(), &key, 101)
+                    .unwrap()
+            };
+            let mut store = PersistentWitnessJournal::open(&root, witness.clone(), &key).unwrap();
+            assert_eq!(
+                store
+                    .certify_policy_transition(&a.kel(), witness.clone(), &key, 999)
+                    .unwrap(),
+                receipt
+            );
+            assert!(matches!(
+                store.certify_policy_transition(&b.kel(), witness.clone(), &key, 102),
+                Err(WitnessServiceError::Identity(
+                    IdentityError::ConflictingPolicyTransitionCertification
+                ))
+            ));
+            assert!(matches!(
+                store.observe_declared(&b.kel(), witness.clone(), &key, 103),
+                Err(WitnessServiceError::Identity(
+                    IdentityError::ConflictingPolicyTransitionCertification
+                ))
+            ));
+            // Accepting the certified head does not erase its certification.
+            store
+                .observe_declared(&a.kel(), witness.clone(), &key, 104)
+                .unwrap();
+            drop(store);
+            let mut store = PersistentWitnessJournal::open(&root, witness.clone(), &key).unwrap();
+            assert_eq!(
+                store
+                    .certify_policy_transition(&a.kel(), witness.clone(), &key, 1000)
+                    .unwrap(),
+                receipt
+            );
+            drop(store);
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn uncertain_certification_does_not_release_a_signature_or_allow_retry() {
+        let root = temp_root("certification-failure");
+        let (witness, key) = a_witness();
+        let (owner, a, b) = forks(&witness);
+        let mut store = PersistentWitnessJournal::open(&root, witness.clone(), &key).unwrap();
+        store
+            .observe_declared(&owner.kel(), witness.clone(), &key, 1)
+            .unwrap();
+        // Make rename fail without removing previously committed evidence.
+        let destination = record_path(&root, &owner.did());
+        let saved = fs::read(&destination).unwrap();
+        fs::remove_file(&destination).unwrap();
+        fs::create_dir(&destination).unwrap();
+        assert!(store
+            .certify_policy_transition(&a.kel(), witness.clone(), &key, 2)
+            .is_err());
+        assert!(matches!(
+            store.certify_policy_transition(&b.kel(), witness.clone(), &key, 3),
+            Err(WitnessServiceError::RecoveryRequired)
+        ));
+        fs::remove_dir(&destination).unwrap();
+        fs::write(&destination, saved).unwrap();
+        drop(store);
+        let mut store = PersistentWitnessJournal::open(&root, witness.clone(), &key).unwrap();
+        store
+            .certify_policy_transition(&b.kel(), witness, &key, 4)
+            .unwrap();
+    }
+
+    #[test]
+    fn a_rotated_key_never_resigns_old_receipts() {
+        let root = temp_root("wrong-key");
+        let (witness, key) = a_witness();
+        let (owner, _, _) = forks(&witness);
+        let mut store = PersistentWitnessJournal::open(&root, witness.clone(), &key).unwrap();
+        store
+            .observe_declared(&owner.kel(), witness.clone(), &key, 1)
+            .unwrap();
+        drop(store);
+        assert!(matches!(
+            PersistentWitnessJournal::open(&root, witness, &SigningKey::generate().unwrap()),
+            Err(WitnessServiceError::WrongWitnessKey)
+        ));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn startup_enforces_record_size_identity_capacity_and_legacy_migration() {
+        let root = temp_root("load-limits");
+        let (witness, key) = a_witness();
+        let (owner, _, _) = forks(&witness);
+        let mut store = PersistentWitnessJournal::open(&root, witness.clone(), &key).unwrap();
+        store
+            .observe_declared(&owner.kel(), witness.clone(), &key, 1)
+            .unwrap();
+        drop(store);
+        assert!(matches!(
+            PersistentWitnessJournal::open_with_capacity(&root, witness.clone(), &key, 0),
+            Err(WitnessServiceError::TooManyIdentities)
+        ));
+        let path = record_path(&root, &owner.did());
+        File::create(&path)
+            .unwrap()
+            .set_len(MAX_RECORD_BYTES as u64 + 1)
+            .unwrap();
+        assert!(matches!(
+            PersistentWitnessJournal::open(&root, witness.clone(), &key),
+            Err(WitnessServiceError::TooLarge)
+        ));
+        fs::write(&path, b"mini-witness-service/record/v1").unwrap();
+        assert!(matches!(
+            PersistentWitnessJournal::open(&root, witness, &key),
+            Err(WitnessServiceError::MigrationRequired)
+        ));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn another_process_cannot_open_a_live_journal() {
+        const ENV: &str = "MINI_WITNESS_LOCK_CHILD";
+        if let Some(root) = std::env::var_os(ENV) {
+            let (witness, key) = a_witness();
+            assert!(PersistentWitnessJournal::open(PathBuf::from(root), witness, &key).is_err());
+            return;
+        }
+        let root = temp_root("process-lock");
+        let (witness, key) = a_witness();
+        let store = PersistentWitnessJournal::open(&root, witness, &key).unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "tests::another_process_cannot_open_a_live_journal",
+            ])
+            .env(ENV, &root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
     }
 }

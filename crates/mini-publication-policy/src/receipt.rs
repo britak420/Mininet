@@ -56,6 +56,35 @@ pub struct PublicationRoutingPlan {
     pub profile: PublicationProfile,
     pub achievable: AchievedPrivacy,
     pub quote: Option<Quote>,
+    request: TransportRequest,
+}
+
+impl PublicationRoutingPlan {
+    /// Submit this plan through the actual checked executor. Only a successful
+    /// bearer send returns a receipt; routing/pricing alone cannot mint one.
+    pub fn dispatch<B: mini_bearer::Bearer>(
+        &self,
+        connection: &mut mini_transport_security::AuthenticatedConnection<B>,
+        target: mini_transport_security::TransportTarget<'_>,
+        plaintext: &[u8],
+        aad: &[u8],
+    ) -> Result<mini_transport_security::ObservedSendReceipt> {
+        // Public display fields may be edited by a UI. Never let those edits
+        // replace the immutable request selected at planning time.
+        if self.profile.transport != self.request.privacy.tier {
+            return Err(crate::PublicationPolicyError::Transport(
+                mini_transport_security::TransportSecurityError::TransportTargetMismatch,
+            ));
+        }
+        mini_transport_security::dispatch_transport(
+            &self.request,
+            connection,
+            target,
+            plaintext,
+            aad,
+        )
+        .map_err(crate::PublicationPolicyError::Transport)
+    }
 }
 
 /// Build a [`PublicationRoutingPlan`] for `profile`, given the protection
@@ -75,13 +104,14 @@ pub fn publication_routing_plan_for(
     payload_mb: u64,
     storage_days: u64,
 ) -> Result<PublicationRoutingPlan> {
-    let decision = route(&TransportRequest {
+    let request = TransportRequest {
         privacy: PrivacyRequest {
             tier: profile.transport,
             properties,
         },
         payload_size_class,
-    })?;
+    };
+    let decision = route(&request)?;
 
     let price_quote = if profile.transport == PrivacyTier::Direct {
         None
@@ -93,6 +123,7 @@ pub fn publication_routing_plan_for(
         profile,
         achievable: decision.achieved,
         quote: price_quote,
+        request,
     })
 }
 

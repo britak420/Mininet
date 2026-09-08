@@ -1,208 +1,173 @@
-//! A real, on-disk [`ClaimedRegistry`] backed by one atomically-published
-//! marker file per identity root, so [`FileClaimedRegistry::try_reserve`]
-//! is a genuine atomic reservation rather than an in-memory check followed
-//! by a separate write (PR #327 finding F-20). A crash immediately after
-//! a successful reservation still leaves it durably recorded before any
-//! caller goes on to trigger a real payout.
-//!
-//! Publishing is write-temp-then-`hard_link`, not a direct
-//! `create_new` on the final path. An earlier version of this file did
-//! use a direct exclusive create, and a real concurrency test (below)
-//! caught the bug that shape has: `create_new` makes the *name* appear
-//! atomically, but the file's *content* is written in a separate step
-//! after that, so a second caller racing the first can observe the name
-//! existing with zero or partial bytes and misread that as a corrupt
-//! record instead of a legitimate prior claim. Writing the full record to
-//! a private, uniquely-named temp file first (fsynced before it is ever
-//! linked) and then publishing it at the final name with [`fs::hard_link`]
-//! -- which fails atomically with `AlreadyExists` if a reservation is
-//! already there -- means the final path never exists with anything but
-//! complete content; there is no window left to observe.
-//!
-//! Every read (`already_claimed`, and the existing-record comparison
-//! inside `try_reserve`) goes straight to disk rather than an in-process
-//! cache -- the filesystem is the single source of truth, so two
-//! `FileClaimedRegistry` instances over the same directory (two threads,
-//! or two separate processes) agree immediately, not only after one
-//! reopens.
-
-use std::collections::hash_map::DefaultHasher;
-use std::fs::{self, OpenOptions};
-use std::hash::{Hash, Hasher};
-use std::io::{ErrorKind, Read, Write};
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use did_mini::Did;
+//! Campaign-bound, cross-process claim reservations. All successful writes
+//! include file and directory durability barriers. Local disk rollback still
+//! needs an independently retained canonical payout history; this is bookkeeping.
 
 use crate::error::{AirdropError, Result};
 use crate::registry::{ClaimedRegistry, ReservationOutcome};
+use did_mini::Did;
+use mini_crypto::hash::blake3_256;
+use std::fs;
+use std::io::{ErrorKind, Read};
+use std::path::{Path, PathBuf};
 
-const RECORD_DOMAIN: &[u8] = b"mini-airdrop/claim-reservation-record/v1";
-/// Fixed on-disk record size: domain tag + 32-byte outcome digest +
-/// 8-byte big-endian `at_ms`. Any file at a reservation path that is not
-/// exactly this size is corrupt, not a format this crate ever wrote.
-const RECORD_BYTES: usize = RECORD_DOMAIN.len() + 32 + 8;
+const RECORD_DOMAIN: &[u8] = b"mini-airdrop/claim-reservation-record/v2";
+const KEY_DOMAIN: &[u8] = b"mini-airdrop/claim-reservation-key/v2";
+const MAX_RECORD_BYTES: u64 = 2048;
 
-/// A [`ClaimedRegistry`] backed by one file per identity root inside a
-/// directory, named by a content hash of the root's scid (never the raw
-/// scid text) so no identity string ever has to be a safe filename on
-/// every target filesystem.
+fn disk(error: std::io::Error) -> AirdropError {
+    AirdropError::RegistryWriteFailed(error.to_string())
+}
+
 #[derive(Debug)]
 pub struct FileClaimedRegistry {
     dir: PathBuf,
 }
 
 impl FileClaimedRegistry {
-    /// Open (or create) the registry directory at `dir`. Unlike the old
-    /// single-append-log design, nothing is preloaded into memory --
-    /// every subsequent call reads the specific file it needs directly,
-    /// which is what makes cross-instance agreement immediate rather than
-    /// reopen-to-see.
+    /// Open a v2 registry. Legacy 64-bit filenames cannot establish campaign
+    /// or identity binding: refuse them for explicit reconciliation/migration.
     pub fn open(dir: impl Into<PathBuf>) -> Result<Self> {
         let dir = dir.into();
-        fs::create_dir_all(&dir).map_err(|e| AirdropError::RegistryWriteFailed(e.to_string()))?;
-        Ok(FileClaimedRegistry { dir })
+        mini_durable::create_dir_all(&dir).map_err(disk)?;
+        let registry = Self { dir };
+        let _lock =
+            mini_durable::lock_exclusive(&registry.dir.join(".registry.lock")).map_err(disk)?;
+        for entry in fs::read_dir(&registry.dir).map_err(disk)? {
+            let entry = entry.map_err(disk)?;
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.ends_with(".claim") && !Self::claim_name(&name) {
+                return Err(AirdropError::CorruptReservationRecord);
+            }
+        }
+        Ok(registry)
     }
 
-    /// How many claims are currently on record. Always a fresh directory
-    /// listing, never a cache.
-    pub fn len(&self) -> usize {
-        fs::read_dir(&self.dir)
-            .map(|entries| entries.filter_map(std::result::Result::ok).count())
-            .unwrap_or(0)
+    fn claim_name(name: &str) -> bool {
+        name.len() == 70
+            && name.ends_with(".claim")
+            && name.as_bytes()[..64].iter().all(u8::is_ascii_hexdigit)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+    /// Count only complete reservation names, never locks or crash temp files.
+    /// Directory errors propagate rather than reporting an empty campaign.
+    pub fn len(&self) -> Result<usize> {
+        let mut count = 0;
+        for entry in fs::read_dir(&self.dir).map_err(disk)? {
+            if Self::claim_name(&entry.map_err(disk)?.file_name().to_string_lossy()) {
+                count += 1;
+            }
+        }
+        Ok(count)
     }
 
-    /// A filesystem-safe, collision-resistant filename for `identity_root`
-    /// that never embeds the raw scid text. `DefaultHasher` is fine here:
-    /// this is a directory-entry name picked for filesystem safety, not a
-    /// security boundary -- the actual claim authorization is the KEL
-    /// signature `crate::claim::verify_and_resolve_claim` already checked
-    /// before ever calling into this registry.
-    fn reservation_path(&self, identity_root: &Did) -> PathBuf {
-        let mut hasher = DefaultHasher::new();
-        identity_root.as_str().hash(&mut hasher);
-        self.dir.join(format!("{:016x}.claim", hasher.finish()))
+    pub fn is_empty(&self) -> Result<bool> {
+        Ok(self.len()? == 0)
     }
 
-    /// A private, per-attempt staging path in the same directory (so
-    /// [`fs::hard_link`] to the final [`Self::reservation_path`] stays a
-    /// same-filesystem, atomic operation). Uniqueness only needs to avoid
-    /// two concurrent attempts colliding with each other, not resist a
-    /// guessing adversary -- the exclusivity that actually matters is
-    /// `hard_link`'s onto the final name.
-    fn staging_path(&self, identity_root: &Did) -> PathBuf {
-        let mut hasher = DefaultHasher::new();
-        identity_root.as_str().hash(&mut hasher);
-        std::thread::current().id().hash(&mut hasher);
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        self.dir.join(format!(
-            "{:016x}.claim.tmp.{}.{}",
-            hasher.finish(),
-            std::process::id(),
-            nanos
-        ))
+    fn binding(campaign: &[u8], identity: &Did) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&(campaign.len() as u64).to_be_bytes());
+        bytes.extend_from_slice(campaign);
+        bytes.extend_from_slice(&(identity.as_str().len() as u64).to_be_bytes());
+        bytes.extend_from_slice(identity.as_str().as_bytes());
+        bytes
     }
 
-    fn encode_record(outcome_digest: [u8; 32], at_ms: u64) -> Vec<u8> {
-        let mut out = Vec::with_capacity(RECORD_BYTES);
-        out.extend_from_slice(RECORD_DOMAIN);
-        out.extend_from_slice(&outcome_digest);
+    fn reservation_path(&self, campaign: &[u8], identity: &Did) -> PathBuf {
+        let mut input = KEY_DOMAIN.to_vec();
+        input.extend(Self::binding(campaign, identity));
+        let hash = blake3_256(&input);
+        let name: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+        self.dir.join(format!("{name}.claim"))
+    }
+
+    fn encode_record(campaign: &[u8], identity: &Did, digest: [u8; 32], at_ms: u64) -> Vec<u8> {
+        let mut out = RECORD_DOMAIN.to_vec();
+        out.extend(Self::binding(campaign, identity));
+        out.extend_from_slice(&digest);
         out.extend_from_slice(&at_ms.to_be_bytes());
+        let checksum = blake3_256(&out);
+        out.extend_from_slice(&checksum);
         out
     }
 
-    /// Read back an existing reservation record, or `None` if the path
-    /// simply does not exist. `Err` means the path exists but this crate
-    /// cannot trust what is in it (wrong size, wrong domain tag) -- a
-    /// truncated-mid-write crash artifact, and this fails closed rather
-    /// than guessing whether it represents a real prior claim.
-    fn read_record(path: &Path) -> Result<Option<([u8; 32], u64)>> {
-        let mut file = match fs::File::open(path) {
+    fn read_record(
+        path: &Path,
+        campaign: &[u8],
+        identity: &Did,
+    ) -> Result<Option<([u8; 32], u64)>> {
+        let file = match fs::File::open(path) {
             Ok(f) => f,
             Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(AirdropError::RegistryWriteFailed(e.to_string())),
+            Err(e) => return Err(disk(e)),
         };
-        let mut buf = Vec::with_capacity(RECORD_BYTES);
-        file.read_to_end(&mut buf)
-            .map_err(|e| AirdropError::RegistryWriteFailed(e.to_string()))?;
-        if buf.len() != RECORD_BYTES || &buf[..RECORD_DOMAIN.len()] != RECORD_DOMAIN {
+        let mut bytes = Vec::new();
+        file.take(MAX_RECORD_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(disk)?;
+        let mut prefix = RECORD_DOMAIN.to_vec();
+        prefix.extend(Self::binding(campaign, identity));
+        let end = prefix.len() + 40;
+        if bytes.len() != end + 32
+            || bytes.len() as u64 > MAX_RECORD_BYTES
+            || !bytes.starts_with(&prefix)
+            || blake3_256(&bytes[..end]) != bytes[end..]
+        {
             return Err(AirdropError::CorruptReservationRecord);
         }
-        let mut digest = [0u8; 32];
-        digest.copy_from_slice(&buf[RECORD_DOMAIN.len()..RECORD_DOMAIN.len() + 32]);
-        let mut at_bytes = [0u8; 8];
-        at_bytes.copy_from_slice(&buf[RECORD_DOMAIN.len() + 32..]);
-        Ok(Some((digest, u64::from_be_bytes(at_bytes))))
+        let digest = bytes[prefix.len()..prefix.len() + 32].try_into().unwrap();
+        let at_ms = u64::from_be_bytes(bytes[prefix.len() + 32..end].try_into().unwrap());
+        Ok(Some((digest, at_ms)))
     }
 }
 
 impl ClaimedRegistry for FileClaimedRegistry {
-    fn already_claimed(&self, identity_root: &Did) -> bool {
-        self.reservation_path(identity_root).is_file()
+    /// Advisory only; ambiguity is treated as reserved. Authorization always
+    /// uses the fallible, locked `try_reserve` operation below.
+    fn already_claimed(&self, campaign: &[u8], identity: &Did) -> bool {
+        !matches!(
+            Self::read_record(
+                &self.reservation_path(campaign, identity),
+                campaign,
+                identity
+            ),
+            Ok(None)
+        )
     }
 
     fn try_reserve(
         &mut self,
-        identity_root: &Did,
-        outcome_digest: [u8; 32],
+        campaign: &[u8],
+        identity: &Did,
+        digest: [u8; 32],
         at_ms: u64,
     ) -> Result<ReservationOutcome> {
-        let path = self.reservation_path(identity_root);
-
-        // Fast path: a plain read already tells us the common cases
-        // (idempotent retry, genuine conflict) without writing anything.
-        // This is only an optimization -- the exclusivity guarantee below
-        // does not depend on this read having seen the true current state.
-        if let Some((existing_digest, _)) = Self::read_record(&path)? {
-            return if existing_digest == outcome_digest {
-                Ok(ReservationOutcome::IdempotentRetry)
-            } else {
-                Err(AirdropError::AlreadyClaimed)
-            };
+        if campaign.len() > crate::snapshot::MAX_CAMPAIGN_ID_BYTES {
+            return Err(AirdropError::CampaignIdTooLong);
         }
-
-        // Write the complete record to a private staging file first --
-        // fully fsynced before it is ever visible at the final name.
-        let staging = self.staging_path(identity_root);
-        let record = Self::encode_record(outcome_digest, at_ms);
-        let write_result = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&staging)
-            .and_then(|mut file| file.write_all(&record).and_then(|()| file.sync_all()));
-        if let Err(e) = write_result {
-            let _ = fs::remove_file(&staging);
-            return Err(AirdropError::RegistryWriteFailed(e.to_string()));
+        let _lock = mini_durable::lock_exclusive(&self.dir.join(".registry.lock")).map_err(disk)?;
+        let path = self.reservation_path(campaign, identity);
+        if let Some((existing, _)) = Self::read_record(&path, campaign, identity)? {
+            if existing != digest {
+                return Err(AirdropError::AlreadyClaimed);
+            }
+            // A previous attempt may have failed after rename but before its
+            // directory barrier. Never let an idempotent retry skip durability.
+            fs::OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .and_then(|f| f.sync_all())
+                .map_err(disk)?;
+            mini_durable::sync_parent(&path).map_err(disk)?;
+            return Ok(ReservationOutcome::IdempotentRetry);
         }
-
-        // Publish atomically: hard_link fails with AlreadyExists if a
-        // reservation is already at `path`, and otherwise the link (and
-        // therefore `path`'s complete content) becomes visible in one
-        // filesystem operation -- no partial-content window.
-        let publish_result = fs::hard_link(&staging, &path);
-        let _ = fs::remove_file(&staging);
-
-        match publish_result {
-            Ok(()) => Ok(ReservationOutcome::Fresh),
-            Err(e) if e.kind() == ErrorKind::AlreadyExists => match Self::read_record(&path)? {
-                Some((existing_digest, _)) if existing_digest == outcome_digest => {
-                    Ok(ReservationOutcome::IdempotentRetry)
-                }
-                Some(_) => Err(AirdropError::AlreadyClaimed),
-                None => Err(AirdropError::RegistryWriteFailed(
-                    "reservation marker vanished during read-back".to_string(),
-                )),
-            },
-            Err(e) => Err(AirdropError::RegistryWriteFailed(e.to_string())),
-        }
+        mini_durable::atomic_replace(
+            &path,
+            &Self::encode_record(campaign, identity, digest, at_ms),
+        )
+        .map_err(disk)?;
+        Ok(ReservationOutcome::Fresh)
     }
 }
 
@@ -240,11 +205,79 @@ mod tests {
     }
 
     #[test]
+    fn campaigns_are_independent_and_records_cannot_be_transplanted() {
+        let dir = temp_dir("binding");
+        let a = root();
+        let b = root();
+        let digest = digest_for(&a, 10, b"payee");
+        let mut registry = FileClaimedRegistry::open(&dir).unwrap();
+        assert_eq!(
+            registry.try_reserve(b"a", &a, digest, 1).unwrap(),
+            ReservationOutcome::Fresh
+        );
+        assert_eq!(
+            registry.try_reserve(b"b", &a, digest, 1).unwrap(),
+            ReservationOutcome::Fresh
+        );
+        let original = registry.reservation_path(b"a", &a);
+        assert_eq!(original.file_name().unwrap().len(), 70);
+        fs::copy(&original, registry.reservation_path(b"a", &b)).unwrap();
+        assert_eq!(
+            registry.try_reserve(b"a", &b, digest, 2).unwrap_err(),
+            AirdropError::CorruptReservationRecord
+        );
+        fs::copy(&original, registry.reservation_path(b"c", &a)).unwrap();
+        assert_eq!(
+            registry.try_reserve(b"c", &a, digest, 2).unwrap_err(),
+            AirdropError::CorruptReservationRecord
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn legacy_records_fail_closed_and_temporary_files_are_not_claims() {
+        let dir = temp_dir("legacy");
+        let registry = FileClaimedRegistry::open(&dir).unwrap();
+        fs::write(dir.join("ab.claim.tmp.crash"), b"partial").unwrap();
+        assert_eq!(registry.len().unwrap(), 0);
+        fs::write(dir.join("0123456789abcdef.claim"), b"legacy").unwrap();
+        assert!(matches!(
+            FileClaimedRegistry::open(&dir),
+            Err(AirdropError::CorruptReservationRecord)
+        ));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn oversized_or_checksum_corrupted_records_are_refused() {
+        let dir = temp_dir("integrity");
+        let a = root();
+        let digest = digest_for(&a, 10, b"payee");
+        let mut registry = FileClaimedRegistry::open(&dir).unwrap();
+        registry.try_reserve(b"a", &a, digest, 1).unwrap();
+        let path = registry.reservation_path(b"a", &a);
+        let mut bytes = fs::read(&path).unwrap();
+        let last = bytes.len() - 1;
+        bytes[last] ^= 1;
+        fs::write(&path, bytes).unwrap();
+        assert_eq!(
+            registry.try_reserve(b"a", &a, digest, 2).unwrap_err(),
+            AirdropError::CorruptReservationRecord
+        );
+        fs::write(&path, vec![1; MAX_RECORD_BYTES as usize + 1]).unwrap();
+        assert_eq!(
+            registry.try_reserve(b"a", &a, digest, 2).unwrap_err(),
+            AirdropError::CorruptReservationRecord
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn a_fresh_registry_has_no_claims() {
         let dir = temp_dir("fresh");
         let registry = FileClaimedRegistry::open(&dir).unwrap();
-        assert!(registry.is_empty());
-        assert!(!registry.already_claimed(&root()));
+        assert!(registry.is_empty().unwrap());
+        assert!(!registry.already_claimed(b"campaign-1", &root()));
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -257,14 +290,16 @@ mod tests {
         {
             let mut registry = FileClaimedRegistry::open(&dir).unwrap();
             assert_eq!(
-                registry.try_reserve(&r, digest, 1_000).unwrap(),
+                registry
+                    .try_reserve(b"campaign-1", &r, digest, 1_000)
+                    .unwrap(),
                 ReservationOutcome::Fresh
             );
         }
 
         let reopened = FileClaimedRegistry::open(&dir).unwrap();
-        assert!(reopened.already_claimed(&r));
-        assert_eq!(reopened.len(), 1);
+        assert!(reopened.already_claimed(b"campaign-1", &r));
+        assert_eq!(reopened.len().unwrap(), 1);
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -277,17 +312,17 @@ mod tests {
         {
             let mut registry = FileClaimedRegistry::open(&dir).unwrap();
             registry
-                .try_reserve(&a, digest_for(&a, 100, b"pa"), 100)
+                .try_reserve(b"campaign-1", &a, digest_for(&a, 100, b"pa"), 100)
                 .unwrap();
             registry
-                .try_reserve(&b, digest_for(&b, 200, b"pb"), 200)
+                .try_reserve(b"campaign-1", &b, digest_for(&b, 200, b"pb"), 200)
                 .unwrap();
         }
 
         let reopened = FileClaimedRegistry::open(&dir).unwrap();
-        assert!(reopened.already_claimed(&a));
-        assert!(reopened.already_claimed(&b));
-        assert_eq!(reopened.len(), 2);
+        assert!(reopened.already_claimed(b"campaign-1", &a));
+        assert!(reopened.already_claimed(b"campaign-1", &b));
+        assert_eq!(reopened.len().unwrap(), 2);
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -298,13 +333,23 @@ mod tests {
         let mut registry = FileClaimedRegistry::open(&dir).unwrap();
 
         registry
-            .try_reserve(&r, digest_for(&r, 1_000, b"honest-payee"), 100)
+            .try_reserve(
+                b"campaign-1",
+                &r,
+                digest_for(&r, 1_000, b"honest-payee"),
+                100,
+            )
             .unwrap();
 
         // Same identity root, but a different resolved outcome (e.g. an
         // attacker trying to redirect an already-claimed entitlement) --
         // this is a real conflicting claim, not a retry.
-        let conflicting = registry.try_reserve(&r, digest_for(&r, 1_000, b"attacker-payee"), 200);
+        let conflicting = registry.try_reserve(
+            b"campaign-1",
+            &r,
+            digest_for(&r, 1_000, b"attacker-payee"),
+            200,
+        );
         assert_eq!(conflicting.unwrap_err(), AirdropError::AlreadyClaimed);
         let _ = fs::remove_dir_all(&dir);
     }
@@ -322,21 +367,27 @@ mod tests {
         let mut registry = FileClaimedRegistry::open(&dir).unwrap();
 
         assert_eq!(
-            registry.try_reserve(&r, digest, 100).unwrap(),
+            registry
+                .try_reserve(b"campaign-1", &r, digest, 100)
+                .unwrap(),
             ReservationOutcome::Fresh
         );
         assert_eq!(
-            registry.try_reserve(&r, digest, 999).unwrap(),
+            registry
+                .try_reserve(b"campaign-1", &r, digest, 999)
+                .unwrap(),
             ReservationOutcome::IdempotentRetry
         );
         // A third retry, from a completely fresh registry instance over
         // the same directory, still agrees.
         let mut reopened = FileClaimedRegistry::open(&dir).unwrap();
         assert_eq!(
-            reopened.try_reserve(&r, digest, 12345).unwrap(),
+            reopened
+                .try_reserve(b"campaign-1", &r, digest, 12345)
+                .unwrap(),
             ReservationOutcome::IdempotentRetry
         );
-        assert_eq!(reopened.len(), 1);
+        assert_eq!(reopened.len().unwrap(), 1);
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -362,7 +413,7 @@ mod tests {
             thread::spawn(move || {
                 let mut registry = FileClaimedRegistry::open(&dir).unwrap();
                 barrier.wait();
-                registry.try_reserve(&r, digest_for(&r, 1_000, payee), 100)
+                registry.try_reserve(b"campaign-1", &r, digest_for(&r, 1_000, payee), 100)
             })
         };
 
@@ -392,18 +443,18 @@ mod tests {
         let r = root();
         let mut registry = FileClaimedRegistry::open(&dir).unwrap();
         registry
-            .try_reserve(&r, digest_for(&r, 1_000, b"payee"), 100)
+            .try_reserve(b"campaign-1", &r, digest_for(&r, 1_000, b"payee"), 100)
             .unwrap();
 
         // Simulate a crash mid-write: chop bytes off the marker file
         // directly, bypassing this crate's own writer.
-        let path = registry.reservation_path(&r);
+        let path = registry.reservation_path(b"campaign-1", &r);
         let mut bytes = fs::read(&path).unwrap();
         bytes.truncate(bytes.len() - 3);
         fs::write(&path, &bytes).unwrap();
 
-        assert!(registry.already_claimed(&r));
-        let retry = registry.try_reserve(&r, digest_for(&r, 1_000, b"payee"), 200);
+        assert!(registry.already_claimed(b"campaign-1", &r));
+        let retry = registry.try_reserve(b"campaign-1", &r, digest_for(&r, 1_000, b"payee"), 200);
         assert_eq!(retry.unwrap_err(), AirdropError::CorruptReservationRecord);
         let _ = fs::remove_dir_all(&dir);
     }

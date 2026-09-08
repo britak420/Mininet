@@ -17,6 +17,7 @@ publish = false
 # (mini-chain -> mini-consensus, mini-update -> mini-installer) applied to
 # the shielded-spend validity rule.
 mini-execution = { path = "../mini-execution" }
+mini-value = { path = "../mini-value" }
 mini-private-payment = { path = "../mini-private-payment" }
 
 [dev-dependencies]
@@ -26,4 +27,7 @@ mini-private-payment = { path = "../mini-private-payment" }
 # dependency of this crate — see Cargo.toml's own dependency list above,
 # unchanged by this.
 mini-crypto = { path = "../mini-crypto" }
-mini-value = { path = "../mini-value" }
+
+mini-chain = { path = "../mini-chain" }
+mini-consensus = { path = "../mini-consensus" }
+did-mini = { path = "../did-mini" }

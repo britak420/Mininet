@@ -170,13 +170,16 @@ mod tests {
     fn a_valid_wire_result_converts_and_round_trips_its_fields() {
         let wire = wire_result("/a", 4_000);
         let result = federated_result_from_wire(wire.clone(), provider(b"p1")).unwrap();
-        assert_eq!(result.result.result.url, wire.url);
+        assert_eq!(result.result().result.url, wire.url);
         assert_eq!(
-            result.result.result.relevance_score_bps.value(),
+            result.result().result.relevance_score_bps.value(),
             wire.relevance_score_bps
         );
-        assert_eq!(result.result.source_observation.0, wire.source_observation);
-        assert_eq!(result.provider, provider(b"p1"));
+        assert_eq!(
+            result.result().source_observation.0,
+            wire.source_observation
+        );
+        assert_eq!(result.provider().clone(), provider(b"p1"));
     }
 
     #[test]
@@ -210,17 +213,28 @@ mod tests {
     }
 
     #[test]
-    fn merging_deduplicates_a_url_present_in_both_local_and_remote_by_score() {
+    fn merging_preserves_competing_remote_claims_without_score_authority() {
         let local =
             vec![federated_result_from_wire(wire_result("/a", 1_000), provider(b"local")).unwrap()];
         let remote = vec![wire_result("/a", 9_000), wire_result("/b", 500)];
         let merged = merge_remote_results(local, remote, provider(b"remote"), 10).unwrap();
 
         assert_eq!(merged.len(), 2);
-        assert_eq!(merged[0].result.result.url, url("/a"));
-        assert_eq!(merged[0].provider, provider(b"remote"));
-        assert_eq!(merged[0].result.result.relevance_score_bps.value(), 9_000);
-        assert_eq!(merged[1].result.result.url, url("/b"));
+        assert_eq!(merged[0].result().result.url, url("/a"));
+        assert_eq!(merged[0].remote_claims().len(), 2);
+        assert!(merged[0].remote_claims().iter().any(|claim| claim
+            .result
+            .result
+            .relevance_score_bps
+            .value()
+            == 9_000));
+        assert!(merged[0].remote_claims().iter().any(|claim| claim
+            .result
+            .result
+            .relevance_score_bps
+            .value()
+            == 1_000));
+        assert_eq!(merged[1].result().result.url, url("/b"));
     }
 
     #[test]
@@ -230,8 +244,8 @@ mod tests {
         let remote = vec![wire_result("/b", 900), wire_result("/c", 800)];
         let merged = merge_remote_results(local, remote, provider(b"remote"), 2).unwrap();
         assert_eq!(merged.len(), 2);
-        assert_eq!(merged[0].result.result.url, url("/a"));
-        assert_eq!(merged[1].result.result.url, url("/b"));
+        assert_eq!(merged[0].result().result.url, url("/a"));
+        assert_eq!(merged[1].result().result.url, url("/b"));
     }
 
     #[test]
@@ -331,7 +345,7 @@ mod tests {
         // own held index. The remote's self-asserted number must not win
         // merely because it is bigger.
         let local_result = genuine_local_result(3);
-        let local_score = local_result.result.result.relevance_score_bps.value();
+        let local_score = local_result.result().result.relevance_score_bps.value();
         assert!(
             local_score < WeightBps::MAX.value(),
             "fixture must not already be maxed out, or this test proves nothing"
@@ -349,7 +363,7 @@ mod tests {
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].origin(), ResultOrigin::LocallyComputed);
         assert_eq!(
-            merged[0].result.result.relevance_score_bps.value(),
+            merged[0].result().result.relevance_score_bps.value(),
             local_score,
             "the locally-verified score must survive unchanged, not be replaced by the hostile claim"
         );
@@ -368,8 +382,32 @@ mod tests {
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].origin(), ResultOrigin::LocallyComputed);
         assert!(
-            merged[0].result.result.relevance_score_bps.value()
-                >= weak.result.result.relevance_score_bps.value()
+            merged[0].result().result.relevance_score_bps.value()
+                >= weak.result().result.relevance_score_bps.value()
+        );
+    }
+    #[test]
+    fn hostile_remote_scores_cannot_change_order_and_disagreement_survives_remerge() {
+        let a = federated_result_from_wire(wire_result("/a", 1), provider(b"p1")).unwrap();
+        let mut conflicting = wire_result("/a", 10_000);
+        conflicting.ranking_profile = RankingProfileId(digest(b"other-profile"));
+        conflicting.source_observation = digest(b"other-observation");
+        conflicting.title = "contradictory title".into();
+        let b = federated_result_from_wire(conflicting, provider(b"p2")).unwrap();
+        let c = federated_result_from_wire(wire_result("/z", 10_000), provider(b"p3")).unwrap();
+        let forward = merge_federated_results(vec![a.clone(), b.clone(), c.clone()], 10);
+        let reverse = merge_federated_results(vec![c, b.clone(), a], 10);
+        assert_eq!(forward, reverse);
+        assert_eq!(forward[0].result().result.url, url("/a"));
+        assert_eq!(forward[0].remote_claims().len(), 2);
+        let again = merge_federated_results(vec![forward[0].clone(), b], 10);
+        assert_eq!(again[0], forward[0]);
+        let real = genuine_local_result(1);
+        let hostile =
+            federated_result_from_wire(wire_result("/aaa", 10_000), provider(b"hostile")).unwrap();
+        assert_eq!(
+            merge_federated_results(vec![hostile, real.clone()], 1),
+            vec![real]
         );
     }
 }

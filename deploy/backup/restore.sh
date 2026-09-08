@@ -23,6 +23,9 @@
 #   MININET_BACKUP_PASSPHRASE=... deploy/backup/restore.sh <archive> --batch
 
 set -euo pipefail
+umask 077
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARCHIVE_TOOL="${SCRIPT_DIR}/state_archive.py"
 
 STATE_DIR="${MININET_STATE_DIR:-/var/lib/mininet}"
 
@@ -46,6 +49,14 @@ fail() { printf '[mininet-restore] ERROR: %s\n' "$*" >&2; exit 1; }
 [[ "${EUID}" -eq 0 ]] || fail "must run as root (writes ${STATE_DIR} and /etc/mininet)"
 
 command -v gpg >/dev/null 2>&1 || fail "gpg not found (install the gnupg package)"
+command -v python3 >/dev/null 2>&1 || fail "python3 not found"
+command -v flock >/dev/null 2>&1 || fail "flock not found"
+[[ ! -L "${STATE_DIR}" ]] || fail "state directory must not be a symlink"
+state_parent="$(cd "$(dirname "${STATE_DIR}")" && pwd -P)"
+STATE_DIR="${state_parent}/$(basename "${STATE_DIR}")"
+# Updated mini CLI processes hold a shared lease at this stable sibling path.
+exec 9<> "${state_parent}/.mininet-maintenance-$(basename "${STATE_DIR}").lock"
+flock --exclusive --nonblock 9 || fail "node state is in use; stop the sync service and other mini commands first"
 
 # Integrity first, so a truncated download is distinguishable from a wrong
 # passphrase. Without this the operator sees "decryption failed" for both.
@@ -91,7 +102,7 @@ fi
 install -d -m 0750 "$(dirname "${STATE_DIR}")"
 workdir="$(mktemp -d "$(dirname "${STATE_DIR}")/.mininet-restore.XXXXXX")"
 # shellcheck disable=SC2064 # expand workdir now, not at trap time
-trap "rm -rf -- '${workdir}'" EXIT
+trap 'rm -rf -- "${workdir}"' EXIT
 chmod 0700 "${workdir}"
 
 log "decrypting"
@@ -109,49 +120,14 @@ else
         || fail "decryption failed (wrong passphrase, or an archive this key does not open)"
 fi
 
-# F-16: reject any archive member that could write outside the staging
-# directory before ever extracting one byte -- an absolute path, or a
-# `..` path-traversal component anywhere in the path, rather than trusting
-# the installed tar's own default protections (which vary by version and
-# by whether `-P`/`--absolute-names` was ever set in some other context).
-log "validating archive member paths"
-while IFS= read -r member; do
-    case "${member}" in
-        /*) fail "archive contains an absolute path, refusing to extract: ${member}" ;;
-        *..*) fail "archive contains a path-traversal component, refusing to extract: ${member}" ;;
-    esac
-done < <(tar -tzf "${workdir}/state.tar.gz")
-
-log "extracting"
-tar -xzf "${workdir}/state.tar.gz" -C "${workdir}"
-
 state_name="$(basename "${STATE_DIR}")"
-[[ -d "${workdir}/${state_name}" ]] \
-    || fail "archive does not contain a '${state_name}' directory — is this a Mininet node backup?"
-# The extracted directory must be real, not a symlink escaping the
-# staging area -- a malicious archive could otherwise plant a symlink
-# named exactly `${state_name}` pointing anywhere on the filesystem.
-[[ ! -L "${workdir}/${state_name}" ]] \
-    || fail "archive's '${state_name}' entry is a symlink, refusing to treat it as extracted state"
-
-# F-16: never leave neither a usable old state nor a complete new one.
-# `workdir` (via mktemp -d below) is created on the same filesystem as
-# STATE_DIR's own parent specifically so this whole sequence is a chain
-# of same-filesystem renames (atomic at the OS level), not a delete
-# followed by a cross-filesystem copy: the previous state is moved aside
-# -- not deleted -- before the new one is moved into place, and only
-# removed once the new state already occupies STATE_DIR. An interruption
-# at any point before the final `rm -rf` still leaves either the fully
-# intact previous state (at its `.previous` path) or the fully intact new
-# state (already at STATE_DIR) recoverable; it can never lose both.
-previous="${STATE_DIR}.previous.$$"
-if [[ -e "${STATE_DIR}" ]]; then
-    mv -- "${STATE_DIR}" "${previous}"
-fi
-mv -- "${workdir}/${state_name}" "${STATE_DIR}"
-if [[ -e "${previous}" ]]; then
-    rm -rf -- "${previous}"
-fi
+log "validating and extracting bounded regular-file archive"
+python3 "${ARCHIVE_TOOL}" extract "${workdir}/state.tar.gz" "${workdir}/extracted" "${state_name}"
+previous="${STATE_DIR}.restore-previous"
+[[ ! -e "${previous}" && ! -L "${previous}" ]] \
+    || fail "an earlier restore left ${previous}; reconcile it before restoring again"
+python3 "${ARCHIVE_TOOL}" publish "${workdir}/extracted/${state_name}" "${STATE_DIR}" "${previous}"
+[[ ! -e "${previous}" ]] || log "previous state retained at ${previous} for recovery"
 
 # Ownership by NAME, not by the archived numeric uid: the mininet system
 # user may well have a different uid on this machine.
@@ -161,15 +137,16 @@ else
     log "the 'mininet' user does not exist yet; run the installer, then re-chown ${STATE_DIR}"
 fi
 chmod 0750 "${STATE_DIR}"
+python3 "${ARCHIVE_TOOL}" validate-tree "${STATE_DIR}"
 
-if [[ -f "${workdir}/appliance.conf" ]]; then
+if [[ -f "${workdir}/extracted/appliance.conf" ]]; then
     install -d -m 0755 /etc/mininet
     if [[ -f /etc/mininet/appliance.conf ]]; then
         log "/etc/mininet/appliance.conf already exists; archived copy left at ${STATE_DIR}/appliance.conf.restored"
-        install -m 0640 -o mininet -g mininet "${workdir}/appliance.conf" \
+        install -m 0640 -o mininet -g mininet "${workdir}/extracted/appliance.conf" \
             "${STATE_DIR}/appliance.conf.restored"
     else
-        install -m 0644 "${workdir}/appliance.conf" /etc/mininet/appliance.conf
+        install -m 0644 "${workdir}/extracted/appliance.conf" /etc/mininet/appliance.conf
     fi
 fi
 

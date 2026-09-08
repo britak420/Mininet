@@ -99,7 +99,7 @@ impl PorepStorageProof {
 }
 
 impl ProofOfSpaceTimeSource for PorepStorageProof {
-    fn proven_capacity(&mut self, now_ms: u64) -> Option<mini_spacetime::ProvenCapacity> {
+    fn proven_capacity(&mut self, now_ms: u64) -> Option<mini_spacetime::ObservedCapacity> {
         self.0.proven_capacity(now_ms)
     }
 }

@@ -118,6 +118,113 @@ pub fn round1_commit(index: u16) -> Result<(SigningNonces, NonceCommitment)> {
     Ok((SigningNonces { hiding, binding }, commitment))
 }
 
+/// A process-locked, crash-safe signer service for the existing FROST prototype.
+/// Commitments are reserved before publication and burned durably before any
+/// response is computed. Secret nonces are never serialized: restart abandons
+/// unfinished rounds. Retain this journal with the signer; restoring both memory
+/// and disk from a prior snapshot requires an independent anti-rollback anchor.
+/// This service does not grant custody authorization or replace external audit.
+#[derive(Debug)]
+pub struct DurableFrostSigner {
+    directory: std::path::PathBuf,
+    key: KeyPackage,
+    binding: Vec<u8>,
+    _lock: std::fs::File,
+}
+
+/// Private nonce material reserved by one durable signer. Cannot be cloned,
+/// decoded, or passed to the low-level prototype signing function.
+#[derive(Debug)]
+pub struct DurableSigningNonces {
+    nonces: SigningNonces,
+    record_name: String,
+    signer_binding: Vec<u8>,
+}
+
+fn journal_error(error: impl std::fmt::Display) -> TreasuryError {
+    TreasuryError::SigningJournal(error.to_string())
+}
+
+impl DurableFrostSigner {
+    pub fn open(directory: impl Into<std::path::PathBuf>, key: KeyPackage) -> Result<Self> {
+        let directory = directory.into();
+        mini_durable::create_dir_all(&directory).map_err(journal_error)?;
+        let lock = mini_durable::try_lock_exclusive(&directory.join("signer.lock"))
+            .map_err(journal_error)?;
+        let mut binding = b"mini-treasury/durable-signer/v1".to_vec();
+        binding.extend_from_slice(&key.index.to_be_bytes());
+        binding.extend_from_slice(key.group_public_key.compress().as_bytes());
+        let manifest = directory.join("signer.binding");
+        match std::fs::read(&manifest) {
+            Ok(bytes) if bytes == binding => {}
+            Ok(_) => return Err(journal_error("signer identity does not match journal")),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // Never treat a deleted manifest in a used journal as first use.
+                if std::fs::read_dir(&directory)
+                    .map_err(journal_error)?
+                    .count()
+                    != 1
+                {
+                    return Err(journal_error("missing binding in nonempty signer journal"));
+                }
+                mini_durable::atomic_replace(&manifest, &binding).map_err(journal_error)?;
+            }
+            Err(e) => return Err(journal_error(e)),
+        }
+        Ok(Self {
+            directory,
+            key,
+            binding,
+            _lock: lock,
+        })
+    }
+
+    pub fn commit(&mut self) -> Result<(DurableSigningNonces, NonceCommitment)> {
+        let (nonces, commitment) = round1_commit(self.key.index)?;
+        let mut input = self.binding.clone();
+        input.extend_from_slice(commitment.hiding.compress().as_bytes());
+        input.extend_from_slice(commitment.binding.compress().as_bytes());
+        let record_name = format!("{}.nonce", blake3::hash(&input).to_hex());
+        let path = self.directory.join(&record_name);
+        if path.try_exists().map_err(journal_error)? {
+            return Err(journal_error("nonce commitment already reserved"));
+        }
+        mini_durable::atomic_replace(&path, &self.record(b"reserved")).map_err(journal_error)?;
+        Ok((
+            DurableSigningNonces {
+                nonces,
+                record_name,
+                signer_binding: self.binding.clone(),
+            },
+            commitment,
+        ))
+    }
+
+    /// Burns even on an invalid signing package. A crash after this barrier may
+    /// lose a response, but cannot justify signing another transcript with it.
+    pub fn sign(
+        &mut self,
+        nonces: DurableSigningNonces,
+        package: &SigningPackage,
+    ) -> Result<Scalar> {
+        if nonces.signer_binding != self.binding {
+            return Err(journal_error("nonce belongs to a different signer"));
+        }
+        let path = self.directory.join(&nonces.record_name);
+        if std::fs::read(&path).map_err(journal_error)? != self.record(b"reserved") {
+            return Err(journal_error("nonce not reserved or already burned"));
+        }
+        mini_durable::atomic_replace(&path, &self.record(b"burned")).map_err(journal_error)?;
+        round2_sign(&self.key, nonces.nonces, package)
+    }
+
+    fn record(&self, status: &[u8]) -> Vec<u8> {
+        let mut bytes = self.binding.clone();
+        bytes.extend_from_slice(status);
+        bytes
+    }
+}
+
 /// The coordinator-assembled bundle every round-2 signer needs: the
 /// message being signed, and every participating signer's round-1
 /// commitment. Constructing one enforces that at least `threshold`
@@ -254,13 +361,14 @@ fn index_scalar(index: u16) -> Scalar {
 /// could be handed to this function twice — once per signing package — and
 /// nothing in the type system or the old signature stopped a caller from
 /// doing exactly that. Two responses over the same `(d_i, e_i)` pair under
-/// two different transcripts are two linear equations in the two nonce
-/// unknowns; solving them recovers `d_i, e_i` and, from either response,
-/// the secret share `s_i` itself — the same catastrophic failure as nonce
+/// three independent transcripts can provide three linear equations in
+/// the two nonce unknowns and secret share, recovering all three — the
+/// catastrophic failure is the same as nonce
 /// reuse in plain Schnorr/ECDSA. Consuming `nonces` means Rust's move
 /// checker refuses a second call at compile time, and [`SigningNonces`]'s
 /// own [`Drop`] zeroizes both scalars the moment this function returns on
-/// *any* path (success or error) — no separate "burn" step is needed.
+/// *any* path (success or error). Durable service callers additionally use
+/// [`DurableFrostSigner`] to burn a journal record before releasing a response.
 ///
 /// Also verifies (F-01's second half) that `nonces` actually derives the
 /// `(D_i, E_i)` commitment `signing_package` claims for this signer's

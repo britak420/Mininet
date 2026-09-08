@@ -45,8 +45,8 @@ pub use replay::{ReplayCache, MAX_REPLAY_CACHE_ENTRIES};
 pub use runtime::{
     authenticate_established_initiator, authenticate_established_responder,
     build_verified_onion_route, connect_authenticated_tcp, connect_first_authenticated_tcp,
-    AuthenticatedConnection, AuthenticatedDialTarget, LocalSessionIdentity, PeerExpectation,
-    VerifiedRelay, SESSION_AUTH_FRAME_AAD,
+    dispatch_transport, AuthenticatedConnection, AuthenticatedDialTarget, LocalSessionIdentity,
+    ObservedSendReceipt, PeerExpectation, TransportTarget, VerifiedRelay, SESSION_AUTH_FRAME_AAD,
 };
 pub use selection::{
     diverse_dial_plan, DialAttempt, PeerSelectionPolicy, MAX_DIAL_TIMEOUT_MS, MAX_SELECTED_PEERS,

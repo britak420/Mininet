@@ -62,6 +62,7 @@ mod body;
 mod chain;
 mod error;
 mod nullifier;
+mod shielded;
 mod snapshot;
 mod state;
 
@@ -74,3 +75,5 @@ pub use nullifier::{
 };
 pub use snapshot::{MAX_LEDGER_SNAPSHOT_BYTES, MAX_LEDGER_SNAPSHOT_ENTRIES};
 pub use state::{apply_block, apply_block_with_verifier, LedgerState, MAX_ACCOUNT_BYTES};
+
+pub use shielded::{ShieldedClaimEffects, ShieldedGenesisAllocation, ShieldedOutput};

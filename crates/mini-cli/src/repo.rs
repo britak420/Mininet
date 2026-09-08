@@ -84,7 +84,7 @@ pub fn commit_paths(
         resolve_branch(&store, &human, branch).map_err(|e| CliError::Forge(e.to_string()))?;
     let parents: Vec<ObjectId> = parent.into_iter().collect();
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let obj = commit(
         &mut store,
         &human,
@@ -182,7 +182,7 @@ pub fn branch(
 
     if let Some(commit_ref) = set_to {
         let commit_id = ObjectId::parse(commit_ref).map_err(|e| CliError::Object(e.to_string()))?;
-        let seq = sequence::next(home)?;
+        let seq = sequence::next(home, store_path)?;
         set_branch(
             &mut store,
             &human,

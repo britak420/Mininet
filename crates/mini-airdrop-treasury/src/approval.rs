@@ -58,11 +58,15 @@ pub fn payout_message(campaign_id: &[u8], outcome: &ClaimOutcome) -> Vec<u8> {
 /// `mini_transport_security::ExecutableTransport`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TreasuryApprovedPayout {
+    campaign_id: Vec<u8>,
     outcome: ClaimOutcome,
     approving_signers: Vec<Did>,
 }
 
 impl TreasuryApprovedPayout {
+    pub fn campaign_id(&self) -> &[u8] {
+        &self.campaign_id
+    }
     /// The claim outcome this approval covers.
     pub fn outcome(&self) -> &ClaimOutcome {
         &self.outcome
@@ -129,6 +133,7 @@ pub fn verify_payout_approvals(
     approving_signers.sort_by(|a, b| a.as_str().cmp(b.as_str()));
 
     Ok(TreasuryApprovedPayout {
+        campaign_id: campaign_id.to_vec(),
         outcome: outcome.clone(),
         approving_signers,
     })

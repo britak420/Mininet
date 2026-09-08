@@ -52,6 +52,8 @@ pub enum PostKind {
         /// The linked media manifest's object id.
         media: ObjectId,
     },
+    /// Text published from one intake, with both immutable identifiers signed.
+    Intake { intake: ObjectId, source: ObjectId },
 }
 
 /// A resolved, structurally validated post.
@@ -92,6 +94,30 @@ pub fn build_post(
         .payload(Payload::Public(text.as_bytes().to_vec()))
         .sign(human, device)?;
     Ok(post)
+}
+
+/// Sign text together with the intake id and source digest. These links are
+/// content addresses, not claims that the intake was independently reviewed.
+#[allow(clippy::too_many_arguments)]
+pub fn build_intake_post(
+    human: &Did,
+    device: &Controller,
+    text: &str,
+    intake: ObjectId,
+    source: ObjectId,
+    timestamp_ms: u64,
+    sequence: u64,
+) -> Result<Object> {
+    if text.len() > MAX_POST_BYTES {
+        return Err(SocialError::FieldTooLarge);
+    }
+    Ok(ObjectBuilder::new(ObjectType::POST)
+        .timestamp_ms(timestamp_ms)
+        .sequence(sequence)
+        .link("intake", intake)
+        .link("source", source)
+        .payload(Payload::Public(text.as_bytes().to_vec()))
+        .sign(human, device)?)
 }
 
 /// Publish a plain text post: zero structural links, payload is the post's
@@ -158,6 +184,16 @@ pub fn decode_post(object: &Object) -> Result<Post> {
         [] => PostKind::Plain,
         [Link { rel, target }] if rel == MEDIA_LINK_REL => PostKind::Media {
             media: target.clone(),
+        },
+        [Link {
+            rel: intake_rel,
+            target: intake,
+        }, Link {
+            rel: source_rel,
+            target: source,
+        }] if intake_rel == "intake" && source_rel == "source" => PostKind::Intake {
+            intake: intake.clone(),
+            source: source.clone(),
         },
         _ => return Err(SocialError::BadPost),
     };

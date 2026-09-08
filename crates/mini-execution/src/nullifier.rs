@@ -1,54 +1,8 @@
-//! Shielded spends, as consensus sees them: **opaque bytes and nothing
-//! else**.
-//!
-//! A private payment is a ring signature, a set of Pedersen commitments, a
-//! balance equation and a stack of range proofs. None of that appears here,
-//! and none of it may. What the canonical ledger has to decide about a
-//! shielded spend is exactly one thing — *which* claim first spent a given
-//! output — and that question is answerable from two opaque values: the
-//! **key image** the spend published, and the **digest** of the claim that
-//! published it.
-//!
-//! # Why the chain does not understand private payments
-//!
-//! Three reasons, in increasing order of how badly they would bite.
-//!
-//! 1. **The voice/value wall (P1, Directive 16).** `mini-private-payment`
-//!    reaches `mini-value`, and this crate reaches `mini-chain`. A
-//!    dependency edge between them would be the first path in this tree
-//!    from a value crate to the crate that counts votes. There is none
-//!    today and there must be none tomorrow, so the two halves meet through
-//!    `(Vec<u8>, [u8; 32])` — standard-library types, no shared crate, no
-//!    format either side can drift from.
-//! 2. **Liveness.** A validator that had to verify a Bulletproof and a
-//!    16-member MLSAG per shielded spend before it could vote would be a
-//!    validator whose block time is set by the most expensive cryptography
-//!    in the protocol. Verification belongs where it already is —
-//!    `mini_private_payment::verify`, run by whoever cares — and the chain
-//!    orders the results.
-//! 3. **Neutrality.** A chain that could read a payment's contents is a
-//!    chain that could be made to treat some payments differently. This is
-//!    the same argument `mini-private-payment` makes for not depending on
-//!    `mini-social`: the layer that orders transactions must not be able to
-//!    tell what they are for.
-//!
-//! # What this costs, stated plainly
-//!
-//! The chain finalizes a key image on a proposer's say-so. It does **not**
-//! check that some valid claim produced it, because it cannot — that check
-//! is the cryptography it deliberately cannot see. A Byzantine proposer can
-//! therefore burn an output that is not theirs by including a record naming
-//! its key image, and honest nodes would finalize it.
-//!
-//! That was a real hole and [`ClaimVerifier`] is the validator-set half of
-//! closing it (D-0474, [roadmap R8](../../../docs/ROADMAP_TO_RELEASE.md)):
-//! an opaque, caller-injected extension point a validator's own process can
-//! use to refuse a block whose shielded spends it cannot itself verify,
-//! without this crate ever importing the cryptography that proves them.
-//! See [`ClaimVerifier`]'s own docs for the shape and
-//! [`crate::apply_block_with_verifier`]/
-//! [`crate::LedgerChain::apply_finalized_block_with_verifier`] for where it
-//! plugs in. The succinct-proof alternative remains unbuilt.
+//! Shielded-spend validity crosses the voice/value wall through opaque records
+//! and an injected verifier. Execution, voting, commitment, and recovery require
+//! independent claim verification; a quorum certificate never substitutes for it.
+//! The consensus crates cannot inspect amounts or use them as vote weights.
+//! Missing evidence rejects a candidate until the evidence is available.
 
 use mini_crypto::HashAlgorithm;
 
@@ -128,21 +82,27 @@ impl NullifierRecord {
 /// and confirms the result's own key images and transcript digest exactly
 /// match `group`/`digest` rather than merely existing.
 ///
-/// A caller-injected extension point, never required: every existing
-/// [`crate::apply_block`]/[`crate::LedgerChain::apply_finalized_block`]
-/// caller is unaffected, because those still pass no verifier at all
-/// (`None` behaves exactly as before this trait existed — see
-/// [`crate::apply_block_with_verifier`]'s own docs for why that must stay
-/// true). `mini-shielded-verify` is the concrete implementation composing
-/// this trait with `mini_private_payment::verify`, kept in its own crate
-/// specifically so this one never links it (P1, Directive 16 — the same
-/// reasoning this module's own docs already give for why the chain cannot
-/// understand private payments at all).
+/// Required for every shielded state transition and checkpoint. A missing
+/// verifier rejects shielded input; transparent-only bodies remain supported.
+/// `mini-shielded-verify` provides the concrete cryptographic implementation
+/// without adding a value dependency to the consensus crates.
 pub trait ClaimVerifier: Send + Sync {
     /// Returns `true` only if a real claim verifies and its key
     /// images/transcript digest exactly match `group`/`digest` — never on
     /// trust, never on the claim's mere presence.
-    fn verify_claim(&self, digest: &[u8; 32], group: &[NullifierRecord]) -> bool;
+    fn verify_claim(
+        &self,
+        network_id: &[u8; 32],
+        digest: &[u8; 32],
+        group: &[NullifierRecord],
+    ) -> Option<crate::ShieldedClaimEffects>;
+
+    /// Verify explicit genesis funding and public commitment encodings.
+    fn verify_genesis_allocation(
+        &self,
+        network_id: &[u8; 32],
+        allocation: &crate::ShieldedGenesisAllocation,
+    ) -> bool;
 }
 
 #[cfg(test)]

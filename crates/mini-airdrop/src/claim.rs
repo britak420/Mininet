@@ -180,7 +180,12 @@ pub fn verify_and_resolve_claim(
         recipient: request.recipient.clone(),
     };
 
-    match registry.try_reserve(&request.identity_root, outcome_digest(&outcome), now_ms)? {
+    match registry.try_reserve(
+        &request.campaign_id,
+        &request.identity_root,
+        outcome_digest(&outcome),
+        now_ms,
+    )? {
         ReservationOutcome::Fresh | ReservationOutcome::IdempotentRetry => Ok(outcome),
     }
 }
@@ -235,8 +240,11 @@ mod tests {
         assert_eq!(outcome.identity_root, claimant.did());
         assert_eq!(outcome.amount_micro, 1_000);
         assert_eq!(outcome.recipient, b"payee-address");
-        assert!(registry.already_claimed(&claimant.did()));
-        assert_eq!(registry.claimed_at(&claimant.did()), Some(500));
+        assert!(registry.already_claimed(b"campaign-1", &claimant.did()));
+        assert_eq!(
+            registry.claimed_at(b"campaign-1", &claimant.did()),
+            Some(500)
+        );
     }
 
     #[test]
@@ -318,7 +326,7 @@ mod tests {
             AirdropError::NotEligible
         );
         // A failed verification must never mark anything claimed.
-        assert!(!registry.already_claimed(&claimant.did()));
+        assert!(!registry.already_claimed(b"campaign-1", &claimant.did()));
     }
 
     #[test]

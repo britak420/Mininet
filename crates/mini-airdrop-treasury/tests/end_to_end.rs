@@ -73,7 +73,7 @@ fn a_full_snapshot_to_treasury_approval_flow_succeeds() {
     // A second claim attempt for the same identity root is rejected --
     // even against a freshly reopened registry over the same file.
     let reopened = FileClaimedRegistry::open(&registry_path).unwrap();
-    assert!(reopened.already_claimed(&claimant.did()));
+    assert!(reopened.already_claimed(b"e2e-campaign", &claimant.did()));
 
     // -- Treasury signer set approves the resolved outcome. --
     let s1 = Controller::incept_single().unwrap();
@@ -142,7 +142,7 @@ fn an_ineligible_identity_never_reaches_treasury_approval() {
     // Nothing was ever marked claimed -- a caller retrying with a
     // corrected request (or a legitimately different identity) is not
     // blocked by this failed attempt.
-    assert!(!registry.already_claimed(&outsider.did()));
+    assert!(!registry.already_claimed(b"e2e-campaign", &outsider.did()));
 
     let _ = std::fs::remove_dir_all(&registry_path);
 }

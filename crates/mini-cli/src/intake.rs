@@ -28,6 +28,7 @@
 //! that claim -- none exists yet (see D-0429's Required follow-up).
 
 use std::fs::{self, File, OpenOptions};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use mini_intake::{intake_local_file, load_envelope, save_envelope};
@@ -50,8 +51,8 @@ fn publish_journal_dir(home: &Path) -> PathBuf {
     home.join("intake_publish_journal")
 }
 
-fn publish_lock_path(home: &Path, id: &IntakeId) -> PathBuf {
-    publish_journal_dir(home).join(format!("{}.lock", encode_intake_id(id)))
+fn publish_lock_path(home: &Path, _id: &IntakeId) -> PathBuf {
+    home.join("intake.lock")
 }
 
 fn publish_journal_path(home: &Path, id: &IntakeId) -> PathBuf {
@@ -64,18 +65,10 @@ fn publish_journal_path(home: &Path, id: &IntakeId) -> PathBuf {
 /// `mini intake publish-post <id>` invocations racing over the same id
 /// serialize instead of both signing and inserting a post.
 fn acquire_publish_lock(home: &Path, id: &IntakeId) -> Result<File> {
-    let dir = publish_journal_dir(home);
-    fs::create_dir_all(&dir).map_err(|e| CliError::Io(e.to_string()))?;
-    let lock = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .open(publish_lock_path(home, id))
+    mini_durable::create_dir_all(&publish_journal_dir(home))
         .map_err(|e| CliError::Io(e.to_string()))?;
-    #[allow(clippy::incompatible_msrv)]
-    lock.lock().map_err(|e| CliError::Io(e.to_string()))?;
-    Ok(lock)
+    mini_durable::lock_exclusive(&publish_lock_path(home, id))
+        .map_err(|e| CliError::Io(e.to_string()))
 }
 
 /// Recover an interrupted previous publish attempt's already-signed post,
@@ -102,11 +95,36 @@ fn read_publish_journal<IB: mini_store::Backend>(
     human: &did_mini::Did,
     envelope: &mini_intake_types::IntakeEnvelope,
 ) -> Result<Option<Object>> {
-    let object = match fs::read(publish_journal_path(home, id)) {
-        Ok(bytes) => Object::from_bytes(&bytes).map_err(|e| CliError::Object(e.to_string()))?,
+    let path = publish_journal_path(home, id);
+    let file = match OpenOptions::new().read(true).write(true).open(&path) {
+        Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(CliError::Io(e.to_string())),
     };
+    // Post payload + bounded envelope/signature overhead, before allocation.
+    const MAX_JOURNAL_BYTES: u64 = 16 * 1024 * 1024;
+    if file
+        .metadata()
+        .map_err(|e| CliError::Io(e.to_string()))?
+        .len()
+        > MAX_JOURNAL_BYTES
+    {
+        return Err(CliError::Intake(
+            "publish journal exceeds size limit".to_owned(),
+        ));
+    }
+    file.sync_all().map_err(|e| CliError::Io(e.to_string()))?;
+    mini_durable::sync_parent(&path).map_err(|e| CliError::Io(e.to_string()))?;
+    let mut bytes = Vec::new();
+    file.take(MAX_JOURNAL_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| CliError::Io(e.to_string()))?;
+    if bytes.len() as u64 > MAX_JOURNAL_BYTES {
+        return Err(CliError::Intake(
+            "publish journal exceeds size limit".to_owned(),
+        ));
+    }
+    let object = Object::from_bytes(&bytes).map_err(|e| CliError::Object(e.to_string()))?;
     mini_intake_social::verify_recovered_post_matches_intake(
         intake_backend,
         human,
@@ -119,6 +137,13 @@ fn read_publish_journal<IB: mini_store::Backend>(
             encode_intake_id(id)
         ))
     })?;
+    let identity = crate::identity::load(home)?;
+    mini_objects::verify_provenance(&object, &identity.human.kel(), &identity.device.kel())
+        .map_err(|e| {
+            CliError::Intake(format!(
+                "publish journal does not match authenticated local root/device provenance: {e}"
+            ))
+        })?;
     Ok(Some(object))
 }
 
@@ -129,20 +154,21 @@ fn read_publish_journal<IB: mini_store::Backend>(
 /// feed-eligible post. Writes to a temp file then renames, matching
 /// `FsBackend`'s own atomic-write convention.
 fn write_publish_journal(home: &Path, id: &IntakeId, object: &Object) -> Result<()> {
-    fs::create_dir_all(publish_journal_dir(home)).map_err(|e| CliError::Io(e.to_string()))?;
-    let path = publish_journal_path(home, id);
-    let tmp = path.with_extension("tmp");
-    fs::write(&tmp, object.to_bytes()).map_err(|e| CliError::Io(e.to_string()))?;
-    fs::rename(&tmp, &path).map_err(|e| CliError::Io(e.to_string()))?;
-    Ok(())
+    mini_durable::create_dir_all(&publish_journal_dir(home))
+        .map_err(|e| CliError::Io(e.to_string()))?;
+    mini_durable::atomic_replace(&publish_journal_path(home, id), &object.to_bytes())
+        .map_err(|e| CliError::Io(e.to_string()))
 }
 
-/// Mark a publish attempt complete. Best-effort: an attempt that already
-/// succeeded (the post is inserted and the link is attached) is complete
-/// regardless of whether this cleanup itself runs, so a failure here is
-/// not surfaced as a command error.
-fn clear_publish_journal(home: &Path, id: &IntakeId) {
-    let _ = fs::remove_file(publish_journal_path(home, id));
+/// Cleanup is committed only after object and envelope writes both succeeded.
+/// A failed barrier returns an error; retry validates the existing link.
+fn clear_publish_journal(home: &Path, id: &IntakeId) -> Result<()> {
+    let path = publish_journal_path(home, id);
+    match fs::remove_file(&path) {
+        Ok(()) => mini_durable::sync_parent(&path).map_err(|e| CliError::Io(e.to_string())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(CliError::Io(error.to_string())),
+    }
 }
 
 /// The `IntakeLink::Post` target this envelope already carries, if any.
@@ -190,6 +216,9 @@ fn parse_review_state(s: &str) -> Result<ReviewState> {
 
 /// `mini intake add <path>` -- intake one local text/Markdown file.
 pub fn cmd_add(home: &Path, path_str: &str) -> Result<String> {
+    mini_durable::create_dir_all(home).map_err(|e| CliError::Io(e.to_string()))?;
+    let _lock = mini_durable::lock_exclusive(&home.join("intake.lock"))
+        .map_err(|e| CliError::Io(e.to_string()))?;
     let mut backend = open_intake_backend(home)?;
     let path = PathBuf::from(path_str);
     let envelope = intake_local_file(&mut backend, &path, sequence::now_ms())
@@ -229,6 +258,7 @@ pub fn cmd_show(home: &Path, id_hex: &str) -> Result<String> {
 pub fn cmd_advance(home: &Path, id_hex: &str, next_state: &str) -> Result<String> {
     let mut backend = open_intake_backend(home)?;
     let id = decode_intake_id(id_hex)?;
+    let _lock = acquire_publish_lock(home, &id)?;
     let mut envelope = load_envelope(&backend, &id)
         .map_err(|e| CliError::Intake(e.to_string()))?
         .ok_or_else(|| CliError::Usage(format!("no intake envelope for id {id_hex}")))?;
@@ -275,7 +305,42 @@ pub fn cmd_publish_post(home: &Path, store_path: &Path, id_hex: &str) -> Result<
         .ok_or_else(|| CliError::Usage(format!("no intake envelope for id {id_hex}")))?;
 
     if let Some(IntakeLink::Post(digest)) = existing_post_link(&envelope) {
-        clear_publish_journal(home, &id);
+        let encoded =
+            mini_crypto::encoding::encode(mini_crypto::encoding::BASE58BTC, &digest.to_bytes())
+                .map_err(|e| CliError::Object(e.to_string()))?;
+        let object_id =
+            mini_objects::ObjectId::parse(&encoded).map_err(|e| CliError::Object(e.to_string()))?;
+        let social_store = crate::store::open_store(store_path)?;
+        let object = social_store
+            .get(&object_id)
+            .map_err(|e| CliError::Store(e.to_string()))?;
+        mini_objects::verify_provenance(&object, &identity.human.kel(), &identity.device.kel())
+            .map_err(|e| CliError::Object(e.to_string()))?;
+        mini_intake_social::verify_recovered_post_matches_intake(
+            &intake_backend,
+            &identity.human_did(),
+            &envelope,
+            &object,
+        )
+        .map_err(|e| CliError::Intake(e.to_string()))?;
+        if let Some(pending) =
+            read_publish_journal(home, &id, &intake_backend, &identity.human_did(), &envelope)?
+        {
+            if pending.id() != object.id() {
+                return Err(CliError::Intake(
+                    "pending journal conflicts with published link".to_owned(),
+                ));
+            }
+        }
+        // Recommit both objects before removing recovery evidence. A prior
+        // invocation may have renamed either file but failed its final barrier.
+        let mut social_store = social_store;
+        social_store
+            .insert(&object)
+            .map_err(|e| CliError::Store(e.to_string()))?;
+        save_envelope(&mut intake_backend, &envelope)
+            .map_err(|e| CliError::Intake(e.to_string()))?;
+        clear_publish_journal(home, &id)?;
         return Ok(format!(
             "intake {id_hex} already published as post {}",
             hex_encode(&digest.to_bytes())
@@ -288,7 +353,7 @@ pub fn cmd_publish_post(home: &Path, store_path: &Path, id_hex: &str) -> Result<
     let object = match read_publish_journal(home, &id, &intake_backend, &human, &envelope)? {
         Some(object) => object,
         None => {
-            let seq = sequence::next(home)?;
+            let seq = sequence::next(home, store_path)?;
             let now = sequence::now_ms();
             let object = mini_intake_social::build_accepted_intake_post(
                 &intake_backend,
@@ -304,6 +369,8 @@ pub fn cmd_publish_post(home: &Path, store_path: &Path, id_hex: &str) -> Result<
         }
     };
 
+    mini_objects::verify_provenance(&object, &identity.human.kel(), &identity.device.kel())
+        .map_err(|e| CliError::Object(e.to_string()))?;
     social_store
         .insert(&object)
         .map_err(|e| CliError::Store(e.to_string()))?;
@@ -315,7 +382,7 @@ pub fn cmd_publish_post(home: &Path, store_path: &Path, id_hex: &str) -> Result<
         .map_err(|e| CliError::Intake(e.to_string()))?;
     save_envelope(&mut intake_backend, &envelope).map_err(|e| CliError::Intake(e.to_string()))?;
 
-    clear_publish_journal(home, &id);
+    clear_publish_journal(home, &id)?;
 
     Ok(format!(
         "published post {} for intake {id_hex}",
@@ -558,5 +625,57 @@ mod tests {
         let backend = open_intake_backend(&home).unwrap();
         let envelope = load_envelope(&backend, &id).unwrap().unwrap();
         assert_eq!(envelope.links().len(), 1);
+    }
+
+    #[test]
+    fn claimed_local_author_with_undelegated_signing_device_is_refused() {
+        let (home, store, id, identity) = setup_accepted_envelope();
+        let impostor_home = tempfile::tempdir().unwrap();
+        let impostor = crate::identity::init(impostor_home.path()).unwrap();
+        let backend = open_intake_backend(home.path()).unwrap();
+        let envelope = load_envelope(&backend, &id).unwrap().unwrap();
+        let object = mini_intake_social::build_accepted_intake_post(
+            &backend,
+            &identity.human_did(),
+            &impostor.device,
+            &envelope,
+            1,
+            1,
+        )
+        .unwrap();
+        write_publish_journal(home.path(), &id, &object).unwrap();
+        let error =
+            cmd_publish_post(home.path(), store.path(), &encode_intake_id(&id)).unwrap_err();
+        assert!(error.to_string().contains("provenance"));
+        assert!(crate::store::open_store(store.path())
+            .unwrap()
+            .all_ids()
+            .unwrap()
+            .is_empty());
+        assert!(publish_journal_path(home.path(), &id).exists());
+    }
+
+    #[test]
+    fn a_link_without_its_published_object_does_not_report_success() {
+        let (home, store, id, _) = setup_accepted_envelope();
+        cmd_publish_post(home.path(), store.path(), &encode_intake_id(&id)).unwrap();
+        let empty_store = tempfile::tempdir().unwrap();
+        assert!(cmd_publish_post(home.path(), empty_store.path(), &encode_intake_id(&id)).is_err());
+    }
+
+    #[test]
+    fn racing_review_transition_cannot_erase_a_completed_publication_link() {
+        let (home, store, id, _) = setup_accepted_envelope();
+        let id_hex = encode_intake_id(&id);
+        let published = std::thread::scope(|scope| {
+            let publisher = scope.spawn(|| cmd_publish_post(home.path(), store.path(), &id_hex));
+            let reviewer = scope.spawn(|| cmd_advance(home.path(), &id_hex, "superseded"));
+            reviewer.join().unwrap().unwrap();
+            publisher.join().unwrap().is_ok()
+        });
+        let backend = open_intake_backend(home.path()).unwrap();
+        let envelope = load_envelope(&backend, &id).unwrap().unwrap();
+        assert_eq!(envelope.review_state(), ReviewState::Superseded);
+        assert_eq!(envelope.links().len(), usize::from(published));
     }
 }

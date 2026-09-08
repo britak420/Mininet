@@ -239,3 +239,28 @@ fn read_verified_source_bytes_rejects_a_hand_built_envelope_with_a_mismatched_in
     let result = read_verified_source_bytes(&backend, &mismatched);
     assert!(matches!(result, Err(IntakeCoordError::IntakeIdMismatch)));
 }
+
+#[test]
+fn loading_an_envelope_binds_both_requested_id_and_source_digest() {
+    let dir = tempdir().unwrap();
+    let mut backend = MemoryBackend::new();
+    let a = intake_local_file(&mut backend, &write_temp(dir.path(), "a.txt", "alpha"), 1).unwrap();
+    let b = intake_local_file(&mut backend, &write_temp(dir.path(), "b.txt", "bravo"), 1).unwrap();
+    let key = blob_key(&a.intake_id.0);
+    backend.put_blob(&key, &b.to_bytes()).unwrap();
+    assert!(matches!(
+        load_envelope(&backend, &a.intake_id),
+        Err(IntakeCoordError::SourceDigestMismatch)
+    ));
+    assert!(matches!(
+        intake_local_file(&mut backend, &dir.path().join("a.txt"), 2),
+        Err(IntakeCoordError::SourceDigestMismatch)
+    ));
+    let mut forged = b;
+    forged.intake_id = a.intake_id.clone();
+    backend.put_blob(&key, &forged.to_bytes()).unwrap();
+    assert!(matches!(
+        load_envelope(&backend, &a.intake_id),
+        Err(IntakeCoordError::SourceDigestMismatch)
+    ));
+}

@@ -37,6 +37,9 @@
 # Restore with deploy/backup/restore.sh.
 
 set -euo pipefail
+umask 077
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARCHIVE_TOOL="${SCRIPT_DIR}/state_archive.py"
 
 STATE_DIR="${MININET_STATE_DIR:-/var/lib/mininet}"
 CONFIG_FILE="/etc/mininet/appliance.conf"
@@ -59,21 +62,35 @@ fail() { printf '[mininet-backup] ERROR: %s\n' "$*" >&2; exit 1; }
 
 command -v tar >/dev/null 2>&1 || fail "tar not found"
 command -v gpg >/dev/null 2>&1 || fail "gpg not found (install the gnupg package)"
+command -v python3 >/dev/null 2>&1 || fail "python3 not found"
+command -v flock >/dev/null 2>&1 || fail "flock not found"
+[[ ! -L "${STATE_DIR}" ]] || fail "state directory must not be a symlink"
+state_parent="$(cd "$(dirname "${STATE_DIR}")" && pwd -P)"
+STATE_DIR="${state_parent}/$(basename "${STATE_DIR}")"
+# Updated mini CLI processes hold a shared lease at this stable sibling path.
+exec 9<> "${state_parent}/.mininet-maintenance-$(basename "${STATE_DIR}").lock"
+flock --exclusive --nonblock 9 || fail "node state is in use; stop the sync service and other mini commands first"
 
 mkdir -p "${OUT_DIR}"
+OUT_DIR="$(cd "${OUT_DIR}" && pwd -P)"
+case "${OUT_DIR}/" in "${STATE_DIR}/"*) fail "backup output must be outside node state" ;; esac
 # The archive contains key material. Anyone who can read the directory can
 # attempt an offline passphrase attack against it, so the directory itself
 # is restricted even though the file is encrypted.
 chmod 0700 "${OUT_DIR}"
 
-stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+stamp="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 archive="${OUT_DIR}/mininet-node-${stamp}.tar.gz.gpg"
 manifest="${OUT_DIR}/mininet-node-${stamp}.manifest"
+staging="$(mktemp "${OUT_DIR}/.mininet-backup.XXXXXX")"
+trap 'rm -f -- "${staging}"' EXIT
 
 if [[ "${BATCH}" -eq 1 ]]; then
     [[ -n "${MININET_BACKUP_PASSPHRASE:-}" ]] \
         || fail "--batch requires MININET_BACKUP_PASSPHRASE in the environment"
 fi
+
+python3 "${ARCHIVE_TOOL}" validate-tree "${STATE_DIR}"
 
 log "archiving ${STATE_DIR}$( [[ -r ${CONFIG_FILE} ]] && printf ' and %s' "${CONFIG_FILE}" )"
 
@@ -95,15 +112,19 @@ if [[ "${BATCH}" -eq 1 ]]; then
     tar "${tar_args[@]}" \
         | gpg --batch --yes --symmetric --cipher-algo AES256 \
               --passphrase-fd 3 \
-              --output "${archive}" \
+              --output "${staging}" \
               3< <(printf '%s' "${MININET_BACKUP_PASSPHRASE}")
 else
     log "you will be prompted for a passphrase; there is no way to recover it"
     tar "${tar_args[@]}" \
-        | gpg --symmetric --cipher-algo AES256 --output "${archive}"
+        | gpg --yes --symmetric --cipher-algo AES256 --output "${staging}"
 fi
 
-chmod 0600 "${archive}"
+chmod 0600 "${staging}"
+python3 "${ARCHIVE_TOOL}" sync-file "${staging}"
+[[ ! -e "${archive}" ]] || fail "archive name already exists"
+mv -- "${staging}" "${archive}"
+python3 "${ARCHIVE_TOOL}" sync-file "${archive}"
 
 # A digest of the *encrypted* archive, so a later restore can tell a
 # corrupted file from a wrong passphrase. It is not a signature and proves
@@ -111,6 +132,7 @@ chmod 0600 "${archive}"
 if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "${archive}" | awk '{print $1}' > "${manifest}"
     chmod 0600 "${manifest}"
+    python3 "${ARCHIVE_TOOL}" sync-file "${manifest}"
 fi
 
 log "wrote ${archive}"

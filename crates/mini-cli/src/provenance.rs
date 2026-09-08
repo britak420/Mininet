@@ -78,7 +78,7 @@ pub fn record(
         finished_ms,
     };
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let obj = record_provenance(
         &mut store,
         &identity.human_did(),

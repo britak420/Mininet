@@ -35,6 +35,7 @@ pub struct LedgerState {
     /// spent it. Opaque bytes on both sides; see [`crate::nullifier`].
     pub(crate) nullifiers: BTreeMap<Vec<u8>, [u8; 32]>,
     pub(crate) monetary: MonetaryLedger,
+    pub(crate) shielded: crate::shielded::ShieldedLedger,
     pub(crate) balances: BTreeMap<Vec<u8>, Amount>,
     pub(crate) allocated_circulating: Amount,
     pub(crate) unallocated_circulating: Amount,
@@ -61,6 +62,7 @@ impl LedgerState {
             rejected: BTreeMap::new(),
             nullifiers: BTreeMap::new(),
             monetary: MonetaryLedger::new(genesis_circulating),
+            shielded: crate::shielded::ShieldedLedger::default(),
             balances: BTreeMap::new(),
             allocated_circulating: Amount::ZERO,
             unallocated_circulating: genesis_circulating,
@@ -107,6 +109,7 @@ impl LedgerState {
             rejected: BTreeMap::new(),
             nullifiers: BTreeMap::new(),
             monetary: MonetaryLedger::new(genesis_circulating),
+            shielded: crate::shielded::ShieldedLedger::default(),
             balances,
             allocated_circulating: allocated,
             unallocated_circulating: Amount::ZERO,
@@ -130,6 +133,35 @@ impl LedgerState {
     /// claim against real finality.
     pub fn finalized_nullifier(&self, key_image: &[u8]) -> Option<[u8; 32]> {
         self.nullifiers.get(key_image).copied()
+    }
+
+    /// Configure a funded shielded genesis. Real network genesis must be
+    /// established by its governing process; this constructor grants no authority.
+    pub fn with_shielded_genesis(
+        network_id: [u8; 32],
+        allocations: Vec<crate::ShieldedGenesisAllocation>,
+        verifier: &dyn crate::ClaimVerifier,
+    ) -> Result<Self> {
+        let shielded =
+            crate::shielded::ShieldedLedger::genesis(&network_id, allocations, verifier)?;
+        let mut state = Self::with_network_and_genesis_supply(
+            network_id,
+            Amount::from_micro(shielded.pool_micro()),
+        );
+        state.unallocated_circulating = Amount::ZERO;
+        state.shielded = shielded;
+        state.verify_supply_conservation()?;
+        Ok(state)
+    }
+
+    pub fn shielded_genesis_commitment(&self) -> [u8; 32] {
+        self.shielded.genesis_commitment()
+    }
+    pub fn shielded_outputs(&self) -> &BTreeMap<Vec<u8>, Vec<u8>> {
+        self.shielded.outputs()
+    }
+    pub fn shielded_pool(&self) -> Amount {
+        Amount::from_micro(self.shielded.pool_micro())
     }
 
     /// How many shielded spends this state has finalized.
@@ -162,7 +194,7 @@ impl LedgerState {
     /// (Directive 4) checkable as a plain equality on this one hash.
     pub fn commitment(&self) -> [u8; 32] {
         let mut w = Vec::new();
-        w.extend_from_slice(b"mini-execution/ledger-state/v4");
+        w.extend_from_slice(b"mini-execution/ledger-state/v5");
         w.extend_from_slice(&self.network_id);
         w.extend_from_slice(&(self.finalized.len() as u64).to_be_bytes());
         for (payer, (sequence, digest)) in &self.finalized {
@@ -182,6 +214,7 @@ impl LedgerState {
             w.extend_from_slice(key_image);
             w.extend_from_slice(claim_digest);
         }
+        w.extend_from_slice(&self.shielded.to_bytes());
         w.extend_from_slice(&self.monetary.commitment().to_bytes());
         w.extend_from_slice(&(self.balances.len() as u64).to_be_bytes());
         for (account, balance) in &self.balances {
@@ -198,6 +231,7 @@ impl LedgerState {
         let accounted = self
             .allocated_circulating
             .checked_add(self.unallocated_circulating)
+            .and_then(|amount| amount.checked_add(self.shielded_pool()))
             .map_err(|_| ExecutionError::AmountOverflow)?;
         let circulating = self
             .monetary
@@ -248,6 +282,18 @@ impl CanonicalLedgerView for LedgerState {
     }
 }
 
+impl LedgerState {
+    /// Independently validate every shielded claim retained in a checkpoint.
+    /// Decoding and a finality certificate do not establish spend validity.
+    pub fn verify_shielded_claims(
+        &self,
+        verifier: Option<&dyn crate::ClaimVerifier>,
+    ) -> Result<()> {
+        self.shielded
+            .verify_replay(&self.network_id, &self.nullifiers, verifier)
+    }
+}
+
 /// Apply a finalized block's body to `prev`, producing the next state.
 ///
 /// Per claim, in body order (canonical order — M3): a claim wins its
@@ -265,12 +311,9 @@ pub fn apply_block(prev: &LedgerState, body: &SettlementBlockBody) -> Result<Led
     apply_block_with_verifier(prev, body, None)
 }
 
-/// [`apply_block`], with an optional [`crate::ClaimVerifier`] gating every
-/// shielded-spend group's finalization (D-0474, roadmap R8) — passing
-/// `None` reproduces [`apply_block`] exactly, so every existing caller
-/// (every test in this tree included) is unaffected by this function's
-/// existence. See [`crate::ClaimVerifier`]'s own docs for what an
-/// implementor must actually check.
+/// Apply a body, requiring a verifier whenever it contains shielded spends.
+/// Transparent-only callers may omit the verifier. Missing evidence fails closed.
+///
 pub fn apply_block_with_verifier(
     prev: &LedgerState,
     body: &SettlementBlockBody,
@@ -285,11 +328,14 @@ pub fn apply_block_with_verifier(
     if body.nullifiers.len() > crate::nullifier::MAX_NULLIFIERS_PER_BLOCK {
         return Err(ExecutionError::TooManyNullifiers);
     }
+    if !body.nullifiers.is_empty() && claim_verifier.is_none() {
+        return Err(ExecutionError::MissingClaimVerifier);
+    }
     let mut next = prev.clone();
     for claim in &body.claims {
         apply_one_claim(&mut next, claim)?;
     }
-    apply_nullifiers(&mut next, &body.nullifiers, claim_verifier);
+    apply_nullifiers(&mut next, &body.nullifiers, claim_verifier)?;
     if let Some(epoch) = body.monetary_epochs.first() {
         epoch
             .to_wire_bytes()
@@ -333,27 +379,22 @@ pub fn apply_block_with_verifier(
 /// under the same digest is idempotent, because networks re-deliver and a
 /// duplicate is not a double-spend.
 ///
-/// Nothing here validates the *cryptography* on its own — see
-/// [`crate::nullifier`] for why it cannot — unless `claim_verifier` is
-/// configured (D-0474, roadmap R8), in which case a group's own records
-/// (not just their key images being free) must also pass
-/// [`crate::ClaimVerifier::verify_claim`] before it can finalize. `None`
-/// reproduces the original, unconditional-trust behavior exactly.
+/// Every group must carry valid evidence before any nullifier is applied.
+/// Missing or rejected evidence invalidates the entire candidate body.
 fn apply_nullifiers(
     state: &mut LedgerState,
     records: &[crate::nullifier::NullifierRecord],
     claim_verifier: Option<&dyn crate::ClaimVerifier>,
-) {
+) -> Result<()> {
+    if records.is_empty() {
+        return Ok(());
+    }
+    let verifier = claim_verifier.ok_or(ExecutionError::MissingClaimVerifier)?;
     let mut order: Vec<[u8; 32]> = Vec::new();
     let mut groups: BTreeMap<[u8; 32], Vec<&crate::nullifier::NullifierRecord>> = BTreeMap::new();
     for record in records {
         if !record.is_well_formed() {
-            // A malformed record poisons its whole group: the claim it
-            // belongs to cannot be finalized from a body that failed to
-            // name one of its inputs storably.
-            groups.remove(&record.claim_digest);
-            order.retain(|digest| *digest != record.claim_digest);
-            continue;
+            return Err(ExecutionError::InvalidShieldedClaim);
         }
         let entry = groups.entry(record.claim_digest).or_insert_with(|| {
             order.push(record.claim_digest);
@@ -366,6 +407,10 @@ fn apply_nullifiers(
         let Some(group) = groups.get(&digest) else {
             continue;
         };
+        let owned: Vec<_> = group.iter().map(|record| (*record).clone()).collect();
+        let effects = verifier
+            .verify_claim(&state.network_id, &digest, &owned)
+            .ok_or(ExecutionError::InvalidShieldedClaim)?;
         let takeable = group.iter().all(|record| {
             match state.nullifiers.get(&record.key_image) {
                 // Free, or already ours: a re-broadcast of the same claim.
@@ -376,17 +421,16 @@ fn apply_nullifiers(
         if !takeable {
             continue;
         }
-        if let Some(verifier) = claim_verifier {
-            let owned: Vec<crate::nullifier::NullifierRecord> =
-                group.iter().map(|record| (*record).clone()).collect();
-            if !verifier.verify_claim(&digest, &owned) {
-                continue;
-            }
-        }
+        let fee = state.shielded.apply(digest, effects)?;
+        state.unallocated_circulating = state
+            .unallocated_circulating
+            .checked_add(Amount::from(fee))
+            .map_err(|_| ExecutionError::AmountOverflow)?;
         for record in group {
             state.nullifiers.insert(record.key_image.clone(), digest);
         }
     }
+    Ok(())
 }
 
 fn apply_one_claim(state: &mut LedgerState, claim: &PaymentClaim) -> Result<()> {

@@ -42,7 +42,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, RwLock};
 
-use mini_execution::{ClaimVerifier, NullifierRecord};
+use mini_execution::{
+    ClaimVerifier, NullifierRecord, ShieldedClaimEffects, ShieldedGenesisAllocation, ShieldedOutput,
+};
 use mini_private_payment::PrivatePaymentClaim;
 
 /// A claim's wire bytes failed to decode — see
@@ -135,26 +137,34 @@ impl ShieldedClaimVerifier {
 }
 
 impl ClaimVerifier for ShieldedClaimVerifier {
-    fn verify_claim(&self, digest: &[u8; 32], group: &[NullifierRecord]) -> bool {
+    fn verify_claim(
+        &self,
+        network_id: &[u8; 32],
+        digest: &[u8; 32],
+        group: &[NullifierRecord],
+    ) -> Option<ShieldedClaimEffects> {
+        if network_id != &self.network_id {
+            return None;
+        }
         let Some(bytes) = self.evidence.get(digest) else {
             // No evidence, no trust — the honest default a caller-injected
             // verifier must have (see mini-execution::ClaimVerifier's own
             // docs: never on the claim's mere presence, and here there is
             // not even that).
-            return false;
+            return None;
         };
         let Ok(claim) = PrivatePaymentClaim::decode(&bytes) else {
-            return false;
+            return None;
         };
         let Ok(verified) = mini_private_payment::verify(&claim, &self.network_id) else {
-            return false;
+            return None;
         };
         if verified.transcript_digest() != digest {
-            return false;
+            return None;
         }
         let mut expected: BTreeSet<Vec<u8>> = verified.key_images().map(|k| k.to_vec()).collect();
         if expected.len() != group.len() {
-            return false;
+            return None;
         }
         for record in group {
             // Defense in depth: `apply_nullifiers` already only ever
@@ -162,13 +172,56 @@ impl ClaimVerifier for ShieldedClaimVerifier {
             // a verifier is a trust boundary — it must not assume every
             // future caller upholds that precondition perfectly.
             if record.claim_digest != *digest {
-                return false;
+                return None;
             }
             if !expected.remove(&record.key_image) {
-                return false;
+                return None;
             }
         }
-        expected.is_empty()
+        if !expected.is_empty() {
+            return None;
+        }
+        if !claim.outputs.iter().all(|output| {
+            mini_value::one_time_key_is_well_formed(&output.output.one_time_address)
+                && mini_value::one_time_key_is_well_formed(&output.output.tx_public_key)
+        }) {
+            return None;
+        }
+        Some(ShieldedClaimEffects {
+            ring_members: claim
+                .inputs
+                .iter()
+                .flat_map(|input| {
+                    input
+                        .ring
+                        .iter()
+                        .zip(&input.ring_commitments)
+                        .map(|(key, commitment)| ShieldedOutput {
+                            public_key: key.clone(),
+                            amount_commitment: commitment.clone(),
+                        })
+                })
+                .collect(),
+            outputs: claim
+                .outputs
+                .iter()
+                .map(|output| ShieldedOutput {
+                    public_key: output.output.one_time_address.clone(),
+                    amount_commitment: output.amount_commitment.clone(),
+                })
+                .collect(),
+            fee_micro: claim.fee_micro,
+        })
+    }
+    fn verify_genesis_allocation(
+        &self,
+        network_id: &[u8; 32],
+        allocation: &ShieldedGenesisAllocation,
+    ) -> bool {
+        network_id == &self.network_id
+            && mini_value::one_time_key_is_well_formed(&allocation.output.public_key)
+            && allocation.output.amount_commitment
+                == mini_value::public_amount_commitment(allocation.amount_micro)
     }
 }
 
@@ -196,7 +249,9 @@ mod tests {
         let evidence = Arc::new(ClaimEvidencePool::new());
         let verifier = ShieldedClaimVerifier::new([7u8; 32], evidence);
         let group = [NullifierRecord::new(vec![1u8; 32], [9u8; 32])];
-        assert!(!verifier.verify_claim(&[9u8; 32], &group));
+        assert!(!verifier
+            .verify_claim(&[7; 32], &[9u8; 32], &group)
+            .is_some());
     }
 
     #[test]
@@ -207,6 +262,8 @@ mod tests {
         let evidence = Arc::new(ClaimEvidencePool::new());
         let verifier = ShieldedClaimVerifier::new([7u8; 32], evidence);
         let mismatched_group = [NullifierRecord::new(vec![1u8; 32], [1u8; 32])];
-        assert!(!verifier.verify_claim(&[9u8; 32], &mismatched_group));
+        assert!(!verifier
+            .verify_claim(&[7; 32], &[9u8; 32], &mismatched_group)
+            .is_some());
     }
 }

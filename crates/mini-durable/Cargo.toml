@@ -1,0 +1,10 @@
+[package]
+name = "mini-durable"
+version = "0.0.1"
+description = "Local filesystem commit barriers and process exclusion for security state"
+edition.workspace = true
+rust-version = "1.89"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false

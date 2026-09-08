@@ -10,6 +10,7 @@
 mod support;
 
 use mini_spacetime::verify_storage_challenge;
+
 use mini_storage_fraud::{
     capacity_units_of, ProviderStanding, ReplicaLifecycle, ReplicaState, StorageUnitPolicy,
     WindowPolicy,
@@ -37,19 +38,17 @@ fn prove_window(
     beacon: &[u8],
     policy: &WindowPolicy,
 ) -> bool {
-    let commitment = mini_porep::replica_commitment(replica);
-    for challenge in lifecycle.challenges_for(window, beacon, policy) {
-        let Some(response) = mini_porep::respond(replica, &challenge) else {
-            return false;
-        };
-        if response.leaf_index != challenge.leaf_index {
-            return false;
-        }
-        if !verify_storage_challenge(&commitment, &challenge, &response) {
-            return false;
-        }
-    }
-    lifecycle.record_proven_window(window, policy).is_ok()
+    let responses: Option<Vec<_>> = lifecycle
+        .challenges_for(window, beacon, policy)
+        .iter()
+        .map(|challenge| mini_porep::respond(replica, challenge))
+        .collect();
+    let Some(responses) = responses else {
+        return false;
+    };
+    lifecycle
+        .record_proven_window(window, beacon, &responses, policy)
+        .is_ok()
 }
 
 fn tracked() -> (ReplicaLifecycle, mini_porep::SealedReplica) {
@@ -319,12 +318,14 @@ fn provider_capacity_is_the_sum_of_actively_proving_replicas() {
         let (claim, replica) = registered_claim(&provider, &[&first, &second], &ctx, &data(50));
         let verified = claim.verify(&directory, &policy()).unwrap();
         let root = verified.replica_root();
-        standing.track(ReplicaLifecycle::begin(
-            verified,
-            GENESIS,
-            GENESIS,
-            &windows(),
-        ));
+        standing
+            .track(ReplicaLifecycle::begin(
+                verified,
+                GENESIS,
+                GENESIS,
+                &windows(),
+            ))
+            .unwrap();
         replicas.push((root, replica));
     }
     assert_eq!(standing.len(), 3);
@@ -381,10 +382,10 @@ fn block_production_weight_matches_the_underlying_formula() {
     ));
 
     let mut standing = ProviderStanding::new();
-    standing.track(lifecycle);
+    standing.track(lifecycle).unwrap();
 
-    let params = mini_spacetime::ProposerParams::default_params();
-    let direct = mini_spacetime::proposer_weight(standing.proven_capacity(&units()), 1, &params);
+    let params = mini_storage_fraud::ProposerParams::default_params();
+    let direct = mini_spacetime::isqrt(standing.proven_capacity(&units()).units());
     let wrapped = standing.block_production_weight(&units(), 1, &params);
     assert_eq!(wrapped, direct);
     assert!(
@@ -400,9 +401,9 @@ fn block_production_weight_is_zero_before_anything_is_proven() {
     // real caller would actually use.
     let (lifecycle, _replica) = tracked();
     let mut standing = ProviderStanding::new();
-    standing.track(lifecycle);
+    standing.track(lifecycle).unwrap();
 
-    let params = mini_spacetime::ProposerParams::default_params();
+    let params = mini_storage_fraud::ProposerParams::default_params();
     assert_eq!(standing.block_production_weight(&units(), 1, &params), 0);
 }
 
@@ -453,11 +454,11 @@ fn block_production_weight_only_ever_sees_audited_capacity() {
     ));
 
     let mut standing_a = ProviderStanding::new();
-    standing_a.track(lifecycle_a);
+    standing_a.track(lifecycle_a).unwrap();
     let mut standing_b = ProviderStanding::new();
-    standing_b.track(lifecycle_b);
+    standing_b.track(lifecycle_b).unwrap();
 
-    let params = mini_spacetime::ProposerParams::default_params();
+    let params = mini_storage_fraud::ProposerParams::default_params();
     // Same sealed byte count (data(70) both times) -> same real weight, each
     // independently derived from its own audited registration rather than
     // from any number either provider asserted.
@@ -509,7 +510,7 @@ fn tracking_the_same_replica_twice_does_not_double_its_capacity() {
     let root = lifecycle.claim().replica_root();
 
     let mut standing = ProviderStanding::new();
-    standing.track(lifecycle);
+    standing.track(lifecycle).unwrap();
     assert_eq!(standing.len(), 1);
     let once = standing.proven_capacity(&units()).units();
 
@@ -523,7 +524,7 @@ fn tracking_the_same_replica_twice_does_not_double_its_capacity() {
         b"beacon",
         &windows()
     ));
-    standing.track(lifecycle_again);
+    assert!(standing.track(lifecycle_again).is_err());
 
     assert_eq!(
         standing.len(),
@@ -538,9 +539,9 @@ fn tracking_the_same_replica_twice_does_not_double_its_capacity() {
 
     // Confirms block_production_weight agrees with the dedup too, not
     // just proven_capacity's own raw unit count.
-    let params = mini_spacetime::ProposerParams::default_params();
+    let params = mini_storage_fraud::ProposerParams::default_params();
     assert_eq!(
         standing.block_production_weight(&units(), 1, &params),
-        mini_spacetime::proposer_weight(standing.proven_capacity(&units()), 1, &params),
+        mini_spacetime::isqrt(standing.proven_capacity(&units()).units()),
     );
 }

@@ -14,6 +14,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKUP="$REPO_ROOT/deploy/backup/backup.sh"
 RESTORE="$REPO_ROOT/deploy/backup/restore.sh"
+python3 "$REPO_ROOT/deploy/backup/test_state_archive.py"
 
 if [[ "${EUID}" -ne 0 ]]; then
     exec sudo -E bash "$0" "$@"
@@ -66,6 +67,14 @@ mkdir -p "$WORK/out"
 bash "$BACKUP" "$WORK/out" --batch >/dev/null
 archive="$(ls "$WORK"/out/*.tar.gz.gpg)"
 ok "backup produced $archive"
+
+step "maintenance lease refuses backup while a writer is active"
+exec 8<> "$WORK/state/.mininet-maintenance-mininet.lock"
+flock --shared 8
+must_fail bash "$BACKUP" "$WORK/out" --batch
+flock --unlock 8
+exec 8>&-
+ok "active writer excludes backup"
 
 rm -rf "$MININET_STATE_DIR"
 bash "$RESTORE" "$archive" --batch >/dev/null

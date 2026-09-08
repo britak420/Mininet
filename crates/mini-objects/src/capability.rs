@@ -10,7 +10,32 @@ use did_mini::{Controller, Did, IndexedSig, Kel};
 
 use crate::codec::{Reader, Writer};
 use crate::error::{ObjectError, Result};
-use crate::object::ObjectId;
+use crate::object::{verify_provenance, Object, ObjectId};
+
+/// Authenticated ownership of one immutable, content-addressed object.
+/// The private fields cannot be populated from a grant's issuer or a raw DID.
+/// Construction checks canonical bytes, device signature and root delegation.
+/// This proves authorship of this exact object; mutable ownership/chain policy
+/// requires its own authenticated state and is deliberately not accepted here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthenticatedObjectOwner {
+    scope: CapabilityScope,
+    owner: Did,
+}
+
+impl AuthenticatedObjectOwner {
+    pub fn verify(object: &Object, root: &Kel, device: &Kel) -> Result<Self> {
+        // Object exposes mutable payload/author fields. Never trust its cached
+        // id: recompute from canonical bytes before accepting the binding.
+        let canonical = Object::from_bytes(&object.to_bytes())?;
+        canonical.verify_integrity(object.id())?;
+        verify_provenance(&canonical, root, device)?;
+        Ok(Self {
+            scope: CapabilityScope::Object(canonical.id().clone()),
+            owner: canonical.author_human,
+        })
+    }
+}
 
 /// This module's grant format version.
 pub const CAPABILITY_VERSION: u8 = 1;
@@ -18,6 +43,36 @@ pub const CAPABILITY_VERSION: u8 = 1;
 const GRANT_SIGNING_DOMAIN: &[u8] = b"mininet/mini-objects/capability-grant/v1";
 const TOKEN_COMMITMENT_DOMAIN: &[u8] = b"mininet/mini-objects/capability-token-commitment/v1";
 const HOLDER_PROOF_DOMAIN: &[u8] = b"mininet/mini-objects/capability-holder-proof/v1";
+
+/// One verifier-issued, single-use request challenge. `context` should commit
+/// to the audience/session and exact operation bytes (including write content).
+/// It has no Clone/deserialization constructor: retaining it in verifier memory
+/// binds a successful proof to one request. After restart a fresh random
+/// challenge is required; old holder signatures do not authorize the new one.
+#[derive(Debug)]
+pub struct CapabilityRequest {
+    nonce: [u8; 32],
+    context: [u8; 32],
+    consumed: bool,
+}
+
+impl CapabilityRequest {
+    pub fn generate(context: [u8; 32]) -> Result<Self> {
+        Ok(Self {
+            nonce: mini_crypto::random_32()?,
+            context,
+            consumed: false,
+        })
+    }
+
+    /// Public bytes sent to the holder, never an authorization by themselves.
+    pub fn challenge(&self) -> [u8; 64] {
+        let mut challenge = [0; 64];
+        challenge[..32].copy_from_slice(&self.nonce);
+        challenge[32..].copy_from_slice(&self.context);
+        challenge
+    }
+}
 
 const MAX_DID_BYTES: usize = 256;
 /// Mirrors `did_mini::MAX_SIGNATURES` rather than restating a smaller
@@ -229,11 +284,13 @@ impl CapabilityGrant {
     /// operation in this workspace, and bound to this exact grant (via its
     /// nonce and token commitment) so a holder proof for one grant can
     /// never be replayed against another.
-    fn holder_proof_message(&self) -> Vec<u8> {
+    fn holder_proof_message(&self, challenge: &[u8; 64]) -> Vec<u8> {
         let mut w = Writer::new();
         w.raw(HOLDER_PROOF_DOMAIN);
         w.raw(&self.nonce);
         w.raw(&self.token_commitment.0);
+        w.raw(&self.signing_bytes());
+        w.raw(challenge);
         w.into_bytes()
     }
 
@@ -241,8 +298,8 @@ impl CapabilityGrant {
     /// call this on the device holding the grantee pseudonym's keys, then
     /// present the result alongside the token to whoever calls
     /// [`CapabilityGrant::validate`].
-    pub fn prove_holder(&self, grantee: &Controller) -> Vec<IndexedSig> {
-        grantee.sign_message(&self.holder_proof_message())
+    pub fn prove_holder(&self, grantee: &Controller, challenge: &[u8; 64]) -> Vec<IndexedSig> {
+        grantee.sign_message(&self.holder_proof_message(challenge))
     }
 
     /// Full validation: issuer signature, resource-owner authorization,
@@ -250,36 +307,32 @@ impl CapabilityGrant {
     /// holder proof. Fails closed on any mismatch — never partially
     /// authorizes.
     ///
-    /// `resource_owner` must be the *actual* owner of the resource named
-    /// by `requested_scope`, established by the caller through its own
-    /// trusted channel (e.g. an `Object`'s `author_human`, a directory
-    /// record, or a chain-anchored ownership fact) — never derived from
-    /// anything inside this grant (F-13). A valid grant signature alone
-    /// is not authorization: any signer can produce a perfectly
-    /// well-formed, validly-signed grant naming somebody else's resource,
-    /// and without this check `validate` returning `Ok` would look
-    /// indistinguishable from a grant the resource's real owner actually
-    /// issued. This check makes that specific confusion impossible to
-    /// reach through this function — a caller that cannot establish a
-    /// trusted owner has no way to call `validate` at all, rather than a
-    /// caller that forgets to check ownership separately after a
-    /// signature-only success.
+    /// `resource_owner` is minted by verifying the exact signed object's
+    /// content address, signature, and root/device delegation. Its bound scope
+    /// must match the request. Passing the grant issuer as a raw DID cannot
+    /// create this proof. The holder signs the verifier-issued request challenge;
+    /// success consumes it. The session must supply fresh KEL state and bind
+    /// the request context to the exact operation it then executes.
     #[allow(clippy::too_many_arguments)]
     pub fn validate(
         &self,
         issuer_kel: &Kel,
-        resource_owner: &Did,
+        resource_owner: &AuthenticatedObjectOwner,
         requested_scope: &CapabilityScope,
         requested_right: CapabilityRight,
         token: &CapabilityToken,
         grantee_kel: &Kel,
         holder_proof: &[IndexedSig],
         now_ms: u64,
+        request: &mut CapabilityRequest,
     ) -> Result<()> {
         if issuer_kel.did().as_str() != self.issuer.as_str() {
             return Err(ObjectError::DeviceMismatch);
         }
-        if resource_owner.as_str() != self.issuer.as_str() {
+        if &resource_owner.scope != requested_scope {
+            return Err(ObjectError::CapabilityScopeMismatch);
+        }
+        if resource_owner.owner != self.issuer {
             return Err(ObjectError::CapabilityIssuerNotResourceOwner);
         }
         issuer_kel
@@ -308,8 +361,15 @@ impl CapabilityGrant {
             return Err(ObjectError::CapabilityGranteeMismatch);
         }
         grantee_kel
-            .verify_message(&self.holder_proof_message(), holder_proof)
+            .verify_message(
+                &self.holder_proof_message(&request.challenge()),
+                holder_proof,
+            )
             .map_err(|_| ObjectError::CapabilityGranteeMismatch)?;
+        if request.consumed {
+            return Err(ObjectError::CapabilityRequestReplay);
+        }
+        request.consumed = true;
         Ok(())
     }
 
@@ -422,14 +482,39 @@ mod tests {
         grantee: Controller,
         scope: CapabilityScope,
         token: CapabilityToken,
+        ownership: AuthenticatedObjectOwner,
+        request: std::cell::RefCell<CapabilityRequest>,
+    }
+
+    fn owned_object(owner: &mut Controller) -> (Object, Controller) {
+        let device = Controller::incept_device_single_from_seeds(
+            &owner.did(),
+            &mini_crypto::random_32().unwrap(),
+            &mini_crypto::random_32().unwrap(),
+        )
+        .unwrap();
+        owner
+            .delegate_device(&device.did(), did_mini::Capabilities::primary())
+            .unwrap();
+        let object = crate::ObjectBuilder::new(crate::ObjectType::POST)
+            .payload(crate::Payload::Public(b"some-object".to_vec()))
+            .sign(&owner.did(), &device)
+            .unwrap();
+        (object, device)
     }
 
     fn fixture() -> Fixture {
+        let mut issuer = Controller::incept_single().unwrap();
+        let (object, device) = owned_object(&mut issuer);
+        let ownership =
+            AuthenticatedObjectOwner::verify(&object, &issuer.kel(), &device.kel()).unwrap();
         Fixture {
-            issuer: Controller::incept_single().unwrap(),
+            issuer,
             grantee: Controller::incept_single().unwrap(),
-            scope: CapabilityScope::Object(ObjectId::of(b"some-object")),
+            scope: CapabilityScope::Object(object.id().clone()),
             token: CapabilityToken::generate().unwrap(),
+            ownership,
+            request: std::cell::RefCell::new(CapabilityRequest::generate([42; 32]).unwrap()),
         }
     }
 
@@ -444,7 +529,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let proof = grant.prove_holder(&f.grantee);
+        let proof = grant.prove_holder(&f.grantee, &f.request.borrow().challenge());
         (grant, proof)
     }
 
@@ -473,13 +558,14 @@ mod tests {
         grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap();
     }
@@ -491,13 +577,14 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Append,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityRightMismatch);
@@ -510,13 +597,14 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityRightMismatch);
@@ -530,13 +618,14 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &other_scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityScopeMismatch);
@@ -550,13 +639,14 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &wrong_token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityTokenMismatch);
@@ -577,19 +667,20 @@ mod tests {
             None,
         )
         .unwrap();
-        let proof = grant.prove_holder(&f.grantee);
+        let proof = grant.prove_holder(&f.grantee, &f.request.borrow().challenge());
         // Validating against the *original* scope with the same token must fail:
         // the grant's own commitment was computed for `other_scope`, not `f.scope`.
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityScopeMismatch);
@@ -603,13 +694,14 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &bogus_proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityGranteeMismatch);
@@ -624,13 +716,14 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &impostor_proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         // Wrong KEL for the claimed grantee is caught by the DID check;
@@ -657,17 +750,18 @@ mod tests {
             Some(1_000),
         )
         .unwrap();
-        let proof = grant.prove_holder(&f.grantee);
+        let proof = grant.prove_holder(&f.grantee, &f.request.borrow().challenge());
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 1_000,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityExpired);
@@ -686,17 +780,18 @@ mod tests {
             None,
         )
         .unwrap();
-        let proof = grant.prove_holder(&f.grantee);
+        let proof = grant.prove_holder(&f.grantee, &f.request.borrow().challenge());
         let err = grant
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 500,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::CapabilityNotYetValid);
@@ -710,133 +805,80 @@ mod tests {
         let err = grant
             .validate(
                 &other_issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::DeviceMismatch);
     }
 
-    // F-13: a valid grant signature is not, by itself, authorization over
-    // the resource it names. These tests reproduce the finding's own
-    // concrete example directly: Mallory issues a perfectly well-formed,
-    // validly-signed grant over Alice's resource, and a caller that
-    // correctly supplies Alice as the resource owner must still be
-    // refused -- Mallory's own signature over her own grant proves
-    // nothing about who owns the resource it names.
-
     #[test]
-    fn an_attacker_issued_grant_over_another_owners_resource_is_refused() {
-        let alice = Controller::incept_single().unwrap();
-        let mallory = Controller::incept_single().unwrap();
-        let grantee = Controller::incept_single().unwrap();
-        let scope = CapabilityScope::Object(ObjectId::of(b"alices-object"));
-        let token = CapabilityToken::generate().unwrap();
-
-        // Mallory issues a grant naming Alice's object -- structurally
-        // perfect, correctly signed by its actual issuer (herself).
+    fn attacker_cannot_use_own_object_proof_to_authorize_alices_resource() {
+        let f = fixture();
+        let attacker = fixture();
         let grant = CapabilityGrant::issue(
-            &mallory,
-            grantee.did(),
-            scope.clone(),
+            &attacker.issuer,
+            f.grantee.did(),
+            f.scope.clone(),
             CapabilityRight::Read,
-            &token,
+            &f.token,
             None,
             None,
         )
         .unwrap();
-        let proof = grant.prove_holder(&grantee);
-
-        // A caller that has independently established Alice as the
-        // object's real owner (its own trusted channel -- not anything
-        // inside this grant) must refuse it, even though every other
-        // check (signature, scope, right, token, holder proof) passes.
-        let err = grant
-            .validate(
-                &mallory.kel(),
-                &alice.did(),
-                &scope,
-                CapabilityRight::Read,
-                &token,
-                &grantee.kel(),
-                &proof,
-                0,
-            )
-            .unwrap_err();
-        assert_eq!(err, ObjectError::CapabilityIssuerNotResourceOwner);
-
-        // The exact same grant, against its real issuer as the resource
-        // owner, validates normally -- refusing the impostor case above
-        // did not also break the legitimate one.
-        grant
-            .validate(
-                &mallory.kel(),
-                &mallory.did(),
-                &scope,
-                CapabilityRight::Read,
-                &token,
-                &grantee.kel(),
-                &proof,
-                0,
-            )
-            .unwrap();
-    }
-
-    #[test]
-    fn a_valid_alice_issued_grant_remains_usable_by_its_intended_holder() {
-        // The finding's own acceptance criterion, stated directly: fixing
-        // the impostor case above must not also break the legitimate
-        // owner-issued path.
-        let f = fixture();
-        let (grant, proof) = issue_and_prove(&f, CapabilityRight::Read);
-        grant
-            .validate(
-                &f.issuer.kel(),
-                &f.issuer.did(),
+        let proof = grant.prove_holder(&f.grantee, &f.request.borrow().challenge());
+        assert_eq!(
+            grant.validate(
+                &attacker.issuer.kel(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
-            )
-            .unwrap();
-    }
-
-    #[test]
-    fn a_caller_that_supplies_no_trusted_owner_cannot_treat_validate_as_authorization() {
-        // A caller that has not established a resource owner at all --
-        // e.g. it only just decoded the grant off the wire and has not
-        // yet looked up who owns the named object -- must not be able to
-        // pass the grant's own issuer as the "owner" and trivially pass:
-        // that is exactly circular ("the grant says its issuer is
-        // authorized, therefore the issuer is authorized"). This test
-        // documents that `validate` refuses to help with that shortcut:
-        // it only ever confirms `resource_owner == issuer`, never
-        // discovers or vouches for `resource_owner` itself. A completely
-        // unrelated party is naturally refused the same way an attacker
-        // naming someone else's resource is.
-        let f = fixture();
-        let (grant, proof) = issue_and_prove(&f, CapabilityRight::Read);
-        let unrelated_party = Controller::incept_single().unwrap();
-        let err = grant
-            .validate(
-                &f.issuer.kel(),
-                &unrelated_party.did(),
+                &mut f.request.borrow_mut()
+            ),
+            Err(ObjectError::CapabilityIssuerNotResourceOwner)
+        );
+        // The original circular bypass: attacker supplies a real proof of an
+        // object they own, while their grant names Alice's object.
+        assert_eq!(
+            grant.validate(
+                &attacker.issuer.kel(),
+                &attacker.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
-            )
-            .unwrap_err();
-        assert_eq!(err, ObjectError::CapabilityIssuerNotResourceOwner);
+                &mut f.request.borrow_mut()
+            ),
+            Err(ObjectError::CapabilityScopeMismatch)
+        );
+    }
+
+    #[test]
+    fn ownership_proof_rejects_mutated_object_and_revoked_delegation() {
+        let mut owner = Controller::incept_single().unwrap();
+        let (object, device) = owned_object(&mut owner);
+        let mut mutated = object.clone();
+        mutated.payload = crate::Payload::Public(b"substituted".to_vec());
+        assert_eq!(
+            AuthenticatedObjectOwner::verify(&mutated, &owner.kel(), &device.kel()),
+            Err(ObjectError::IdMismatch)
+        );
+        let stranger = Controller::incept_single().unwrap();
+        assert!(AuthenticatedObjectOwner::verify(&object, &stranger.kel(), &device.kel()).is_err());
+        owner.revoke_device(&device.did()).unwrap();
+        assert!(AuthenticatedObjectOwner::verify(&object, &owner.kel(), &device.kel()).is_err());
     }
 
     #[test]
@@ -881,7 +923,7 @@ mod tests {
             Some(2_000),
         )
         .unwrap();
-        let proof = grant.prove_holder(&f.grantee);
+        let proof = grant.prove_holder(&f.grantee, &f.request.borrow().challenge());
         let decoded = CapabilityGrant::from_bytes(&grant.to_bytes()).unwrap();
         assert_eq!(decoded.not_before_ms, Some(1_000));
         assert_eq!(decoded.expires_at_ms, Some(2_000));
@@ -889,13 +931,14 @@ mod tests {
             decoded
                 .validate(
                     &f.issuer.kel(),
-                    &f.issuer.did(),
+                    &f.ownership,
                     &f.scope,
                     CapabilityRight::Read,
                     &f.token,
                     &f.grantee.kel(),
                     &proof,
                     500,
+                    &mut f.request.borrow_mut()
                 )
                 .unwrap_err(),
             ObjectError::CapabilityNotYetValid
@@ -903,26 +946,28 @@ mod tests {
         decoded
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 1_500,
+                &mut f.request.borrow_mut(),
             )
             .unwrap();
         assert_eq!(
             decoded
                 .validate(
                     &f.issuer.kel(),
-                    &f.issuer.did(),
+                    &f.ownership,
                     &f.scope,
                     CapabilityRight::Read,
                     &f.token,
                     &f.grantee.kel(),
                     &proof,
                     2_000,
+                    &mut f.request.borrow_mut()
                 )
                 .unwrap_err(),
             ObjectError::CapabilityExpired
@@ -937,13 +982,14 @@ mod tests {
         decoded
             .validate(
                 &f.issuer.kel(),
-                &f.issuer.did(),
+                &f.ownership,
                 &f.scope,
                 CapabilityRight::Reply,
                 &f.token,
                 &f.grantee.kel(),
                 &proof,
                 0,
+                &mut f.request.borrow_mut(),
             )
             .unwrap();
     }
@@ -999,5 +1045,66 @@ mod tests {
             CapabilityRight::Append,
         );
         assert_ne!(commitment_a, commitment_b);
+    }
+    #[test]
+    fn holder_proof_cannot_replay_or_cross_operation_contexts() {
+        let f = fixture();
+        let (grant, proof) = issue_and_prove(&f, CapabilityRight::Append);
+        let mut another = CapabilityRequest::generate([43; 32]).unwrap();
+        assert_eq!(
+            grant.validate(
+                &f.issuer.kel(),
+                &f.ownership,
+                &f.scope,
+                CapabilityRight::Append,
+                &f.token,
+                &f.grantee.kel(),
+                &proof,
+                0,
+                &mut another
+            ),
+            Err(ObjectError::CapabilityGranteeMismatch)
+        );
+        grant
+            .validate(
+                &f.issuer.kel(),
+                &f.ownership,
+                &f.scope,
+                CapabilityRight::Append,
+                &f.token,
+                &f.grantee.kel(),
+                &proof,
+                0,
+                &mut f.request.borrow_mut(),
+            )
+            .unwrap();
+        assert_eq!(
+            grant.validate(
+                &f.issuer.kel(),
+                &f.ownership,
+                &f.scope,
+                CapabilityRight::Append,
+                &f.token,
+                &f.grantee.kel(),
+                &proof,
+                0,
+                &mut f.request.borrow_mut()
+            ),
+            Err(ObjectError::CapabilityRequestReplay)
+        );
+        let proof = grant.prove_holder(&f.grantee, &another.challenge());
+        grant
+            .validate(
+                &f.issuer.kel(),
+                &f.ownership,
+                &f.scope,
+                CapabilityRight::Append,
+                &f.token,
+                &f.grantee.kel(),
+                &proof,
+                0,
+                &mut another,
+            )
+            .unwrap();
     }
 }

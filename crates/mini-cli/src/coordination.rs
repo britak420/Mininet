@@ -135,7 +135,7 @@ pub fn team_propose(
         lifecycle,
         &dependencies,
         sequence::now_ms(),
-        sequence::next(home)?,
+        sequence::next(home, store_path)?,
     )
     .map_err(|error| CliError::Forge(error.to_string()))?;
     Ok(CommandResult::new(format!(
@@ -234,7 +234,7 @@ pub fn task_create(home: &Path, store_path: &Path, mut args: Vec<String>) -> Res
         &acceptance,
         &non_goals,
         sequence::now_ms(),
-        sequence::next(home)?,
+        sequence::next(home, store_path)?,
     )
     .map_err(|error| CliError::Forge(error.to_string()))?;
     Ok(
@@ -343,7 +343,7 @@ pub fn task_claim(home: &Path, store_path: &Path, mut args: Vec<String>) -> Resu
         lease_expires_ms,
         &notes,
         sequence::now_ms(),
-        sequence::next(home)?,
+        sequence::next(home, store_path)?,
     )
     .map_err(|error| CliError::Forge(error.to_string()))?;
     Ok(CommandResult::new(format!(
@@ -384,7 +384,7 @@ pub fn task_review(home: &Path, store_path: &Path, mut args: Vec<String>) -> Res
         &evidence,
         &limitations,
         sequence::now_ms(),
-        sequence::next(home)?,
+        sequence::next(home, store_path)?,
     )
     .map_err(|error| CliError::Forge(error.to_string()))?;
     Ok(CommandResult::new(format!(

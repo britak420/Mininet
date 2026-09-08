@@ -60,7 +60,8 @@ pub use corpus_bundle::{
 };
 pub use error::{FederationError, Result};
 pub use federate::{
-    federate_query, merge_federated_results, FederatedResult, FederationSource, ResultOrigin,
+    federate_query, merge_federated_results, FederatedResult, FederationSource, RemoteClaim,
+    ResultOrigin,
 };
 pub use history::{
     Snapshot, SnapshotIndex, SnapshotInsert, SnapshotLimits, VersionRelation,

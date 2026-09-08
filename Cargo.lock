@@ -2378,6 +2378,7 @@ version = "0.0.1"
 dependencies = [
  "did-mini",
  "mini-crypto",
+ "mini-durable",
  "mini-uniqueness",
 ]
 
@@ -2387,6 +2388,10 @@ version = "0.0.1"
 dependencies = [
  "did-mini",
  "mini-airdrop",
+ "mini-crypto",
+ "mini-durable",
+ "mini-execution",
+ "mini-settlement",
  "mini-treasury",
 ]
 
@@ -2472,6 +2477,7 @@ dependencies = [
  "mini-bearer",
  "mini-build-runner-wasmtime",
  "mini-crypto",
+ "mini-durable",
  "mini-forge",
  "mini-installer",
  "mini-intake",
@@ -2594,6 +2600,10 @@ dependencies = [
  "mini-sync",
  "mini-windows-vault",
 ]
+
+[[package]]
+name = "mini-durable"
+version = "0.0.1"
 
 [[package]]
 name = "mini-econ-sim"
@@ -2814,6 +2824,7 @@ dependencies = [
  "did-mini",
  "mini-bearer",
  "mini-crypto",
+ "mini-durable",
 ]
 
 [[package]]
@@ -2865,10 +2876,12 @@ dependencies = [
 name = "mini-publication-policy"
 version = "0.0.1"
 dependencies = [
+ "mini-bearer",
  "mini-privacy-policy",
  "mini-relay",
  "mini-resource-pricing",
  "mini-transport-policy",
+ "mini-transport-security",
 ]
 
 [[package]]
@@ -2971,6 +2984,9 @@ dependencies = [
 name = "mini-shielded-verify"
 version = "0.0.1"
 dependencies = [
+ "did-mini",
+ "mini-chain",
+ "mini-consensus",
  "mini-crypto",
  "mini-execution",
  "mini-private-payment",
@@ -3019,6 +3035,7 @@ version = "0.0.1"
 dependencies = [
  "did-mini",
  "mini-crypto",
+ "mini-durable",
  "mini-objects",
 ]
 
@@ -3061,6 +3078,7 @@ dependencies = [
  "curve25519-dalek",
  "did-mini",
  "mini-crypto",
+ "mini-durable",
  "zeroize",
 ]
 
@@ -3125,6 +3143,7 @@ version = "0.0.1"
 dependencies = [
  "did-mini",
  "mini-crypto",
+ "mini-durable",
 ]
 
 [[package]]

@@ -30,7 +30,7 @@ pub const MAX_LEDGER_SNAPSHOT_ENTRIES: usize = 65_536;
 // a state restored without its nullifiers would treat every shielded output
 // it had already finalized as unspent, which is a replay of every private
 // payment the chain had ever seen.
-const DOMAIN: &[u8] = b"mini-execution/ledger-snapshot/v2";
+const DOMAIN: &[u8] = b"mini-execution/ledger-snapshot/v3";
 
 impl LedgerState {
     /// Encode the entire deterministic state in one canonical byte sequence.
@@ -75,6 +75,7 @@ impl LedgerState {
             out.extend_from_slice(claim_digest);
         }
 
+        put_bytes(&mut out, &self.shielded.to_bytes())?;
         encode_monetary(&mut out, &monetary)?;
 
         put_count(&mut out, self.balances.len())?;
@@ -144,6 +145,8 @@ impl LedgerState {
             nullifiers.insert(key_image, reader.array_32()?);
         }
 
+        let shielded =
+            crate::shielded::ShieldedLedger::from_bytes(reader.bytes(MAX_LEDGER_SNAPSHOT_BYTES)?)?;
         let monetary_snapshot = decode_monetary(&mut reader)?;
         let monetary = MonetaryLedger::import_snapshot(monetary_snapshot)
             .map_err(ExecutionError::InvalidMonetaryEpoch)?;
@@ -175,6 +178,7 @@ impl LedgerState {
             rejected,
             nullifiers,
             monetary,
+            shielded,
             balances,
             allocated_circulating,
             unallocated_circulating,
@@ -217,6 +221,7 @@ fn snapshot_encoded_len(state: &LedgerState, monetary: &MonetaryLedgerSnapshot) 
         add_snapshot_len(&mut length, 4 + key_image.len() + 32)?;
     }
 
+    add_snapshot_len(&mut length, 4 + state.shielded.to_bytes().len())?;
     add_snapshot_len(&mut length, 16 + 16 + 16 + 1)?;
     if monetary.last_epoch.is_some() {
         add_snapshot_len(&mut length, 8)?;

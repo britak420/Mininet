@@ -41,6 +41,8 @@ pub enum ObjectError {
     CapabilityTokenMismatch,
     /// The holder proof was not made by the grant's named grantee.
     CapabilityGranteeMismatch,
+    /// A verifier-issued request challenge has already authorized an operation.
+    CapabilityRequestReplay,
     /// The grant's validity window has already ended.
     CapabilityExpired,
     /// The grant's validity window has not started yet.
@@ -64,6 +66,9 @@ impl core::fmt::Display for ObjectError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ObjectError::Truncated => write!(f, "object bytes truncated"),
+            ObjectError::CapabilityRequestReplay => {
+                write!(f, "capability request challenge was already consumed")
+            }
             ObjectError::TrailingBytes => write!(f, "trailing bytes after object"),
             ObjectError::NoncanonicalSignatureOrder => {
                 write!(f, "signature indices are unsorted or repeated")

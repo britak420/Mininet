@@ -57,11 +57,14 @@ pub enum TreasuryError {
     /// SigningNonces`] value, or an attempt to sign against a commitment
     /// this signer never made.
     NonceCommitmentMismatch,
+    /// The durable signer cannot prove the nonce is reserved and unused.
+    SigningJournal(String),
 }
 
 impl fmt::Display for TreasuryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            TreasuryError::SigningJournal(message) => write!(f, "signing journal: {message}"),
             TreasuryError::InvalidSignerSet => write!(f, "invalid treasury signer set"),
             TreasuryError::InvalidThreshold => write!(f, "invalid signer threshold"),
             TreasuryError::NoRateInEffect => write!(f, "no governed rate in effect at this time"),

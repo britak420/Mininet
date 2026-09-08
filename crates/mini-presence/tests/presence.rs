@@ -604,6 +604,8 @@ fn a_replay_guards_durable_write_failure_fails_the_whole_exchange_closed() {
     // Restore the directory: since the exchange was refused, both nonces
     // are still genuinely fresh and the same attestation now verifies.
     std::fs::create_dir_all(&dir).unwrap();
+    assert!(verify_presence(&att, &ctx, &mut replay).is_err());
+    let mut replay = FileReplayGuard::open(&path, 60_000).unwrap();
     assert!(verify_presence(&att, &ctx, &mut replay).is_ok());
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -76,6 +76,18 @@ impl LedgerChain {
         })
     }
 
+    pub fn genesis_with_shielded_allocations(
+        network_id: [u8; 32],
+        allocations: Vec<crate::ShieldedGenesisAllocation>,
+        verifier: &dyn crate::ClaimVerifier,
+    ) -> Result<Self> {
+        Ok(Self {
+            height: 0,
+            tip_hash: [0; 32],
+            state: LedgerState::with_shielded_genesis(network_id, allocations, verifier)?,
+        })
+    }
+
     /// Restore a chain from a complete state whose commitment is bound to
     /// one locally-verified quorum-finalized header. This is the only state-
     /// replacement path; an unsigned state blob can never become canonical.
@@ -87,9 +99,38 @@ impl LedgerChain {
         oracle: &dyn ValidatorOracle,
         expected_network_id: [u8; 32],
     ) -> Result<Self> {
+        Self::from_finalized_snapshot_with_verifier(
+            header,
+            state,
+            qc,
+            validators,
+            oracle,
+            expected_network_id,
+            LedgerState::new().shielded_genesis_commitment(),
+            None,
+        )
+    }
+
+    /// Restore a checkpoint with independent validity evidence for all its
+    /// shielded claims. Evidence must be available before installing the state.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_finalized_snapshot_with_verifier(
+        header: &BlockHeader,
+        state: LedgerState,
+        qc: &QuorumCertificate,
+        validators: &ValidatorSet,
+        oracle: &dyn ValidatorOracle,
+        expected_network_id: [u8; 32],
+        expected_shielded_genesis: [u8; 32],
+        claim_verifier: Option<&dyn crate::ClaimVerifier>,
+    ) -> Result<Self> {
         if state.network_id() != expected_network_id {
             return Err(ExecutionError::SnapshotWrongNetwork);
         }
+        if state.shielded_genesis_commitment() != expected_shielded_genesis {
+            return Err(ExecutionError::ShieldedGenesisMismatch);
+        }
+        state.verify_shielded_claims(claim_verifier)?;
         state.verify_supply_conservation()?;
         state.verify_balance_map_total()?;
         verify_finality(qc, validators, oracle)?;
@@ -144,21 +185,9 @@ impl LedgerChain {
         self.apply_finalized_block_with_verifier(header, body, qc, validators, oracle, None)
     }
 
-    /// [`Self::apply_finalized_block`], with an optional
-    /// [`crate::ClaimVerifier`] gating shielded-spend finalization exactly
-    /// as [`crate::apply_block_with_verifier`] does (D-0474, roadmap R8).
-    /// `None` reproduces [`Self::apply_finalized_block`] exactly.
-    ///
-    /// Deliberately **not** wired into state-sync/catch-up's own
-    /// already-QC'd historical batches (`mini_consensus::node`'s
-    /// `verify_state_sync`) — those already trust `verify_finality`'s
-    /// already-formed quorum certificate as sufficient proof a height is
-    /// canonical; re-deriving local claim-verification agreement for
-    /// history predating this node's own participation would make a node
-    /// unable to ever catch up past a claim it lacks evidence for, which
-    /// is a liveness regression this slice does not accept. This gate
-    /// applies to a node's *own* live round: the height it is actively
-    /// proposing, voting on, or committing.
+    /// Verify finality and independently verify all shielded claim evidence.
+    /// A missing verifier rejects every shielded body, including historical
+    /// recovery. A QC proves ordering, not validity of unavailable evidence.
     #[allow(clippy::too_many_arguments)]
     pub fn apply_finalized_block_with_verifier(
         &mut self,

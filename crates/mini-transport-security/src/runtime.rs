@@ -12,13 +12,14 @@ use std::time::Duration;
 use did_mini::{Controller, Did, FreshnessPins, Kel};
 use mini_bearer::{Bearer, BearerError, Channel, Initiator, TcpBearer};
 use mini_crypto::AgreementPublicKey;
+use mini_privacy_policy::{PrivacyRequest, PrivacyTier, ProtectionProperty};
 use mini_relay::{build_onion, ConnectionId, OnionHop, OnionPacket, RelayRole};
-use mini_transport_policy::PayloadSizeClass;
+use mini_transport_policy::{PayloadSizeClass, TransportRequest};
 
 use crate::{
-    diverse_dial_plan, AuthenticatedPeer, PeerSelectionPolicy, ReplayCache, Result,
-    SessionAuthClaim, SessionRole, TransportPurpose, TransportSecurityError,
-    VerifiedPeerAdvertisement, MAX_DIAL_TIMEOUT_MS, MIN_DIAL_TIMEOUT_MS,
+    diverse_dial_plan, executable_transport, AuthenticatedPeer, ExecutableTransport,
+    PeerSelectionPolicy, ReplayCache, Result, SessionAuthClaim, SessionRole, TransportPurpose,
+    TransportSecurityError, VerifiedPeerAdvertisement, MAX_DIAL_TIMEOUT_MS, MIN_DIAL_TIMEOUT_MS,
 };
 
 /// AEAD associated data for encrypted authentication claims on CH1.
@@ -125,6 +126,26 @@ impl<B: Bearer> AuthenticatedConnection<B> {
     /// CH1's local send counter has already advanced and remote receipt is
     /// unknowable.
     pub fn send(&mut self, plaintext: &[u8], aad: &[u8]) -> Result<()> {
+        let endpoint = self.peer.endpoint_id;
+        dispatch_transport(
+            &TransportRequest {
+                privacy: PrivacyRequest {
+                    tier: PrivacyTier::Direct,
+                    properties: Vec::new(),
+                },
+                payload_size_class: PayloadSizeClass::Small,
+            },
+            self,
+            TransportTarget::Direct { endpoint },
+            plaintext,
+            aad,
+        )?;
+        Ok(())
+    }
+
+    // Only the checked dispatcher may submit application data. Handshake
+    // messages above are separate protocol frames, not privacy-tier payloads.
+    fn send_checked_frame(&mut self, plaintext: &[u8], aad: &[u8]) -> Result<()> {
         self.ensure_usable()?;
         let ciphertext = self.channel.seal(plaintext, aad)?;
         if let Err(error) = self.bearer.send(&ciphertext) {
@@ -162,6 +183,124 @@ impl<B: Bearer> AuthenticatedConnection<B> {
             Err(TransportSecurityError::ConnectionPoisoned)
         }
     }
+}
+
+/// Exact route selected for this send. A tier/target mismatch is an error;
+/// there is no fallback from a requested onion/mix route to direct delivery.
+#[derive(Debug)]
+pub enum TransportTarget<'a> {
+    Direct {
+        endpoint: crate::TransportEndpointId,
+    },
+    Onion {
+        relays: [VerifiedRelay<'a>; 3],
+        destination_connection_id: ConnectionId,
+        destination_key: AgreementPublicKey,
+        now_ms: u64,
+        expires_at_ms: u64,
+    },
+}
+
+/// Evidence of a successful local bearer submission, minted only by dispatch.
+/// For Relayed this records submission to the authenticated entry relay. It
+/// does not assert relay forwarding, destination receipt, payment, storage,
+/// source anonymity against colluding relays, or resistance to correlation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObservedSendReceipt {
+    tier: PrivacyTier,
+    peer: crate::TransportEndpointId,
+    payload_digest: [u8; 32],
+    channel_binding: [u8; 32],
+}
+
+impl ObservedSendReceipt {
+    pub fn tier(&self) -> PrivacyTier {
+        self.tier
+    }
+    pub fn peer(&self) -> crate::TransportEndpointId {
+        self.peer
+    }
+    pub fn payload_digest(&self) -> [u8; 32] {
+        self.payload_digest
+    }
+    pub fn channel_binding(&self) -> [u8; 32] {
+        self.channel_binding
+    }
+}
+
+/// Mandatory application dispatch for authenticated transport. Checks the
+/// executable tier and each requested property before any sealing or send.
+/// Anonymous low-level CH1 remains available for protocol handshakes and
+/// explicitly anonymous callers; it cannot mint this execution receipt.
+pub fn dispatch_transport<B: Bearer>(
+    request: &TransportRequest,
+    connection: &mut AuthenticatedConnection<B>,
+    target: TransportTarget<'_>,
+    plaintext: &[u8],
+    aad: &[u8],
+) -> Result<ObservedSendReceipt> {
+    let executor = executable_transport(request.privacy.tier, true)?;
+    // The policy vocabulary also names storage/personhood/payment properties.
+    // A send cannot establish those just because route() prices their tier.
+    for property in &request.privacy.properties {
+        let available = match property {
+            ProtectionProperty::ContentSecrecy => true,
+            ProtectionProperty::CounterpartyIpHiding | ProtectionProperty::MetadataMinimization => {
+                request.privacy.tier == PrivacyTier::Relayed
+            }
+            _ => false,
+        };
+        if !available {
+            return Err(TransportSecurityError::UnimplementedProtection);
+        }
+    }
+    let frame = match (executor, target) {
+        (ExecutableTransport::AuthenticatedDirect(_), TransportTarget::Direct { endpoint }) => {
+            if connection.peer.endpoint_id != endpoint {
+                return Err(TransportSecurityError::EndpointMismatch);
+            }
+            plaintext.to_vec()
+        }
+        (
+            ExecutableTransport::ThreeHopOnion(_),
+            TransportTarget::Onion {
+                relays,
+                destination_connection_id,
+                destination_key,
+                now_ms,
+                expires_at_ms,
+            },
+        ) => {
+            if connection.peer.endpoint_id != relays[0].advertisement.endpoint_id() {
+                return Err(TransportSecurityError::EndpointMismatch);
+            }
+            if connection.peer.purpose != TransportPurpose::Relay {
+                return Err(TransportSecurityError::WrongPurpose);
+            }
+            build_verified_onion_route(
+                relays,
+                destination_connection_id,
+                request.payload_size_class,
+                destination_key,
+                plaintext,
+                now_ms,
+                expires_at_ms,
+            )?
+            .to_bytes()?
+        }
+        _ => return Err(TransportSecurityError::TransportTargetMismatch),
+    };
+    connection.send_checked_frame(&frame, aad)?;
+    let mut commitment = b"mininet/transport-submitted-payload/v1".to_vec();
+    commitment.extend_from_slice(&(aad.len() as u64).to_be_bytes());
+    commitment.extend_from_slice(aad);
+    commitment.extend_from_slice(plaintext);
+    Ok(ObservedSendReceipt {
+        tier: request.privacy.tier,
+        peer: connection.peer.endpoint_id,
+        payload_digest: mini_crypto::HashAlgorithm::Blake3.digest(&commitment),
+        channel_binding: connection.channel_binding(),
+    })
 }
 
 /// Authenticate an already-established initiator-side channel. The responder
@@ -721,5 +860,190 @@ mod tests {
         )
         .unwrap();
         assert_eq!(packet.hop_index, 0);
+    }
+    #[derive(Debug, Clone, Default)]
+    struct RecordingBearer(std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>>);
+    impl Bearer for RecordingBearer {
+        fn send(&mut self, frame: &[u8]) -> mini_bearer::Result<()> {
+            self.0.lock().unwrap().push(frame.to_vec());
+            Ok(())
+        }
+        fn recv(&mut self) -> mini_bearer::Result<Vec<u8>> {
+            Err(BearerError::Closed)
+        }
+        fn try_recv(&mut self) -> mini_bearer::Result<Option<Vec<u8>>> {
+            Ok(None)
+        }
+    }
+
+    fn recording_connection(
+        ad: &VerifiedPeerAdvertisement,
+    ) -> (AuthenticatedConnection<RecordingBearer>, Channel) {
+        let (initiator, hello) = mini_bearer::Initiator::start().unwrap();
+        let (remote, response) = mini_bearer::Responder::respond(&hello).unwrap();
+        let channel = initiator.finish(&response).unwrap();
+        let peer = AuthenticatedPeer {
+            root: ad.root().clone(),
+            device: ad.device().clone(),
+            endpoint_id: ad.endpoint_id(),
+            routing_key: ad.routing_key(),
+            capabilities: Capabilities::primary(),
+            purpose: TransportPurpose::Relay,
+        };
+        (
+            AuthenticatedConnection {
+                bearer: RecordingBearer::default(),
+                channel,
+                peer,
+                usable: true,
+            },
+            remote,
+        )
+    }
+
+    fn request(tier: PrivacyTier, properties: Vec<ProtectionProperty>) -> TransportRequest {
+        TransportRequest {
+            privacy: PrivacyRequest { tier, properties },
+            payload_size_class: PayloadSizeClass::Small,
+        }
+    }
+
+    #[test]
+    fn actual_dispatch_refuses_missing_executor_fallback_wrong_peer_and_unimplemented_properties_without_send(
+    ) {
+        let ad = verified(10, "10.0.0.1:9000");
+        let (mut connection, mut remote) = recording_connection(&ad);
+        for tier in [PrivacyTier::Mixed, PrivacyTier::Burst, PrivacyTier::Relayed] {
+            assert!(dispatch_transport(
+                &request(tier, vec![]),
+                &mut connection,
+                TransportTarget::Direct {
+                    endpoint: ad.endpoint_id()
+                },
+                b"secret",
+                b"aad"
+            )
+            .is_err());
+        }
+        assert_eq!(
+            dispatch_transport(
+                &request(PrivacyTier::Direct, vec![]),
+                &mut connection,
+                TransportTarget::Direct {
+                    endpoint: crate::TransportEndpointId::from_bytes([0; 32])
+                },
+                b"secret",
+                b"aad"
+            ),
+            Err(TransportSecurityError::EndpointMismatch)
+        );
+        for property in [
+            ProtectionProperty::CounterpartyIpHiding,
+            ProtectionProperty::StorageAvailability,
+            ProtectionProperty::HumanUniquenessSignal,
+            ProtectionProperty::TimingCorrelationResistance,
+        ] {
+            assert_eq!(
+                dispatch_transport(
+                    &request(PrivacyTier::Direct, vec![property]),
+                    &mut connection,
+                    TransportTarget::Direct {
+                        endpoint: ad.endpoint_id()
+                    },
+                    b"secret",
+                    b"aad"
+                ),
+                Err(TransportSecurityError::UnimplementedProtection)
+            );
+        }
+        assert!(connection.bearer.0.lock().unwrap().is_empty());
+        let receipt = dispatch_transport(
+            &request(
+                PrivacyTier::Direct,
+                vec![ProtectionProperty::ContentSecrecy],
+            ),
+            &mut connection,
+            TransportTarget::Direct {
+                endpoint: ad.endpoint_id(),
+            },
+            b"secret",
+            b"aad",
+        )
+        .unwrap();
+        assert_eq!(receipt.tier(), PrivacyTier::Direct);
+        assert_eq!(receipt.peer(), ad.endpoint_id());
+        // Refusals did not consume the channel nonce or leak any earlier frame.
+        assert_eq!(
+            remote
+                .open(&connection.bearer.0.lock().unwrap()[0], b"aad")
+                .unwrap(),
+            b"secret"
+        );
+    }
+
+    #[test]
+    fn relayed_dispatch_submits_only_a_verified_onion_and_never_falls_back_on_route_failure() {
+        let a = verified(10, "10.0.0.1:9000");
+        let b = verified(20, "10.0.1.1:9000");
+        let c = verified(30, "10.0.2.1:9000");
+        let destination = AgreementSecretKey::from_seed(&[99; 32]);
+        let (mut connection, mut remote) = recording_connection(&a);
+        let req = request(
+            PrivacyTier::Relayed,
+            vec![ProtectionProperty::CounterpartyIpHiding],
+        );
+        for bad in [true, false] {
+            let target = TransportTarget::Onion {
+                relays: [
+                    VerifiedRelay::new(&a, b"rendezvous"),
+                    VerifiedRelay::new(if bad { &a } else { &b }, b"delivery"),
+                    VerifiedRelay::new(&c, b"destination"),
+                ],
+                destination_connection_id: ConnectionId::from_bytes([1; 16]),
+                destination_key: destination.public_key(),
+                now_ms: 1_500,
+                expires_at_ms: 10_000,
+            };
+            let result = dispatch_transport(&req, &mut connection, target, b"secret", b"onion");
+            if bad {
+                assert_eq!(result, Err(TransportSecurityError::RouteEndpointReuse));
+                assert!(connection.bearer.0.lock().unwrap().is_empty());
+            } else {
+                assert_eq!(result.unwrap().tier(), PrivacyTier::Relayed);
+            }
+        }
+        let bytes = remote
+            .open(&connection.bearer.0.lock().unwrap()[0], b"onion")
+            .unwrap();
+        assert!(!bytes.windows(6).any(|window| window == b"secret"));
+        let mut packet = OnionPacket::from_bytes(&bytes).unwrap();
+        for seed in [14, 24, 34] {
+            let mut replay = mini_relay::OnionReplayCache::new(8).unwrap();
+            let peeled = packet
+                .peel(
+                    &AgreementSecretKey::from_seed(&[seed; 32]),
+                    1_500,
+                    &mut replay,
+                )
+                .unwrap();
+            match peeled.forward {
+                mini_relay::OnionForward::Next(next) => packet = next,
+                mini_relay::OnionForward::Destination(opaque) => {
+                    let mut replay = mini_relay::OnionReplayCache::new(8).unwrap();
+                    assert_eq!(
+                        mini_relay::open_onion_destination(
+                            &opaque,
+                            &destination,
+                            1_500,
+                            &mut replay
+                        )
+                        .unwrap(),
+                        b"secret"
+                    );
+                    return;
+                }
+            }
+        }
+        panic!("destination was not reached");
     }
 }

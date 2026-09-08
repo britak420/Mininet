@@ -116,13 +116,8 @@ pub struct ConsensusNode<O> {
     history: VecDeque<FinalizedBlock>,
     /// Optional local, non-authoritative persistent recovery archive.
     archive: Option<ConsensusArchive>,
-    /// Optional shielded-spend claim verifier (D-0474, roadmap R8) gating
-    /// this node's own live proposal validation, proposal building, and
-    /// commit — never the state-sync/catch-up paths, which trust an
-    /// already-formed quorum certificate instead (see
-    /// [`mini_execution::LedgerChain::apply_finalized_block_with_verifier`]'s
-    /// own docs for why). `None` reproduces this node's pre-D-0474
-    /// behavior exactly — set via [`ConsensusNode::with_claim_verifier`].
+    /// Required to process shielded bodies or checkpoints on any live or
+    /// recovery path. Without one, this node supports transparent bodies only.
     claim_verifier: Option<Arc<dyn mini_execution::ClaimVerifier>>,
 }
 
@@ -162,13 +157,32 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
         }
     }
 
-    /// Configure a shielded-spend claim verifier for this node's own live
-    /// proposal validation, proposal building, and commit (D-0474, roadmap
-    /// R8). Without this, a `NullifierRecord` group finalizes on the
-    /// proposer's say-so alone, exactly as before this existed — see
-    /// [`mini_execution::ClaimVerifier`]'s own docs for what an
-    /// implementor must check, and `mini-shielded-verify` for a concrete
-    /// one composing `mini_private_payment::verify`.
+    /// Start from an explicitly configured genesis. This does not import an
+    /// arbitrary checkpoint: only height zero is accepted, and all shielded
+    /// genesis allocations are independently verified before the node starts.
+    pub fn new_with_genesis(
+        config: NodeConfig<O>,
+        genesis: LedgerChain,
+        verifier: Option<Arc<dyn mini_execution::ClaimVerifier>>,
+    ) -> Result<Self> {
+        if genesis.height() != 0 {
+            return Err(mini_execution::ExecutionError::WrongHeight {
+                expected: 0,
+                got: genesis.height(),
+            }
+            .into());
+        }
+        genesis
+            .state()
+            .verify_shielded_claims(verifier.as_deref())?;
+        let mut node = Self::new(config);
+        node.chain = genesis;
+        node.claim_verifier = verifier;
+        Ok(node)
+    }
+
+    /// Configure independent shielded validity verification for live consensus
+    /// and recovery. Missing evidence rejects the candidate without state changes.
     pub fn with_claim_verifier(mut self, verifier: Arc<dyn mini_execution::ClaimVerifier>) -> Self {
         self.claim_verifier = Some(verifier);
         self
@@ -179,23 +193,39 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
     /// checkpoint QC and every suffix block are verified through the same
     /// validator set, KEL oracle, and execution path as network state sync.
     pub fn new_with_archive(config: NodeConfig<O>, archive: ConsensusArchive) -> Result<Self> {
+        Self::new_with_archive_and_verifier(config, archive, None)
+    }
+
+    /// Configure shielded verification before recovering a durable archive.
+    pub fn new_with_archive_and_verifier(
+        config: NodeConfig<O>,
+        archive: ConsensusArchive,
+        verifier: Option<Arc<dyn mini_execution::ClaimVerifier>>,
+    ) -> Result<Self> {
         let mut node = Self::new(config);
-        if archive.network_id() != node.state().network_id() {
+        node.claim_verifier = verifier;
+        node.recover_archive(archive)
+    }
+
+    /// Recover using this node's configured genesis and verifier. Archive
+    /// snapshots cannot replace that genesis or bypass missing claim evidence.
+    pub fn recover_archive(mut self, archive: ConsensusArchive) -> Result<Self> {
+        if archive.network_id() != self.state().network_id() {
             return Err(ConsensusError::StateSyncWrongNetwork);
         }
-        node.archive = Some(archive.clone());
+        self.archive = Some(archive.clone());
         loop {
-            let before = node.finalized_height();
+            let before = self.finalized_height();
             let response = archive.response(StateSyncRequest {
-                network_id: node.state().network_id(),
+                network_id: self.state().network_id(),
                 from_height: before,
             })?;
-            node.apply_state_sync_internal(response, false, false)?;
-            if node.finalized_height() == before {
+            self.apply_state_sync_internal(response, false, false)?;
+            if self.finalized_height() == before {
                 break;
             }
         }
-        Ok(node)
+        Ok(self)
     }
 
     /// The height currently being decided (one past the finalized tip).
@@ -352,12 +382,13 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
                             got: block.header.height,
                         });
                     }
-                    let commitment = candidate.apply_finalized_block(
+                    let commitment = candidate.apply_finalized_block_with_verifier(
                         &block.header,
                         &block.body,
                         &block.qc,
                         &self.validators,
                         &self.oracle,
+                        self.claim_verifier.as_deref(),
                     )?;
                     emits.push(Emit::Committed {
                         height: block.header.height,
@@ -373,10 +404,12 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
                         got: snapshot.height(),
                     });
                 }
-                let mut candidate = snapshot.as_ref().clone().into_chain(
+                let mut candidate = snapshot.as_ref().clone().into_chain_with_verifier(
                     response.network_id,
                     &self.validators,
                     &self.oracle,
+                    self.state().shielded_genesis_commitment(),
+                    self.claim_verifier.as_deref(),
                 )?;
                 let mut emits = vec![Emit::Committed {
                     height: snapshot.height(),
@@ -393,12 +426,13 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
                             got: block.header.height,
                         });
                     }
-                    let commitment = candidate.apply_finalized_block(
+                    let commitment = candidate.apply_finalized_block_with_verifier(
                         &block.header,
                         &block.body,
                         &block.qc,
                         &self.validators,
                         &self.oracle,
+                        self.claim_verifier.as_deref(),
                     )?;
                     emits.push(Emit::Committed {
                         height: block.header.height,
@@ -1003,11 +1037,50 @@ mod tests {
         allowed: Vec<[u8; 32]>,
     }
     impl ClaimVerifier for AllowListVerifier {
-        fn verify_claim(&self, digest: &[u8; 32], _group: &[NullifierRecord]) -> bool {
-            self.allowed.contains(digest)
+        fn verify_claim(
+            &self,
+            _network: &[u8; 32],
+            digest: &[u8; 32],
+            _group: &[NullifierRecord],
+        ) -> Option<mini_execution::ShieldedClaimEffects> {
+            self.allowed.contains(digest).then(|| test_effects(digest))
+        }
+        fn verify_genesis_allocation(
+            &self,
+            _network: &[u8; 32],
+            _allocation: &mini_execution::ShieldedGenesisAllocation,
+        ) -> bool {
+            true
         }
     }
 
+    fn test_effects(digest: &[u8; 32]) -> mini_execution::ShieldedClaimEffects {
+        mini_execution::ShieldedClaimEffects {
+            ring_members: vec![mini_execution::ShieldedOutput {
+                public_key: vec![7; 32],
+                amount_commitment: vec![8; 32],
+            }],
+            outputs: vec![mini_execution::ShieldedOutput {
+                public_key: digest.to_vec(),
+                amount_commitment: vec![8; 32],
+            }],
+            fee_micro: 0,
+        }
+    }
+    fn shielded_genesis() -> mini_execution::LedgerChain {
+        mini_execution::LedgerChain::genesis_with_shielded_allocations(
+            mini_settlement::MININET_NETWORK_ID,
+            vec![mini_execution::ShieldedGenesisAllocation {
+                output: mini_execution::ShieldedOutput {
+                    public_key: vec![7; 32],
+                    amount_commitment: vec![8; 32],
+                },
+                amount_micro: 1_000,
+            }],
+            &AllowListVerifier { allowed: vec![] },
+        )
+        .unwrap()
+    }
     fn body_with_shielded_spend() -> SettlementBlockBody {
         SettlementBlockBody::new(vec![])
             .with_nullifiers(vec![NullifierRecord::new(vec![0x5c; 32], SHIELDED_CLAIM)])
@@ -1040,13 +1113,21 @@ mod tests {
             body_source: Box::new(|_| body_with_shielded_spend()),
         })
         .with_claim_verifier(Arc::new(AllowListVerifier { allowed: vec![] }));
+        node.chain = shielded_genesis();
         let _ = node.start().unwrap();
 
         // The proposer signs a header trusting the claim unconditionally
         // (plain apply_block) -- exactly what an unverifying proposer does.
-        let genesis = LedgerChain::genesis();
+        let genesis = shielded_genesis();
         let b = body_with_shielded_spend();
-        let next = apply_block(genesis.state(), &b).unwrap();
+        let next = apply_block_with_verifier(
+            genesis.state(),
+            &b,
+            Some(&AllowListVerifier {
+                allowed: vec![SHIELDED_CLAIM],
+            }),
+        )
+        .unwrap();
         let header = BlockHeader {
             height: 1,
             prev_hash: genesis.tip_hash(),
@@ -1101,11 +1182,19 @@ mod tests {
         .with_claim_verifier(Arc::new(AllowListVerifier {
             allowed: vec![SHIELDED_CLAIM],
         }));
+        node.chain = shielded_genesis();
         let _ = node.start().unwrap();
 
-        let genesis = LedgerChain::genesis();
+        let genesis = shielded_genesis();
         let b = body_with_shielded_spend();
-        let next = apply_block(genesis.state(), &b).unwrap();
+        let next = apply_block_with_verifier(
+            genesis.state(),
+            &b,
+            Some(&AllowListVerifier {
+                allowed: vec![SHIELDED_CLAIM],
+            }),
+        )
+        .unwrap();
         let header = BlockHeader {
             height: 1,
             prev_hash: genesis.tip_hash(),

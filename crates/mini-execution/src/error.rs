@@ -34,6 +34,13 @@ pub enum ExecutionError {
     /// The body carries more shielded-spend records than
     /// [`crate::MAX_NULLIFIERS_PER_BLOCK`], bounded before any allocation.
     TooManyNullifiers,
+    /// A shielded body or checkpoint cannot be accepted without validity evidence.
+    MissingClaimVerifier,
+    /// At least one shielded group was malformed or failed independent verification.
+    InvalidShieldedClaim,
+    UnknownShieldedInput,
+    DuplicateShieldedOutput,
+    ShieldedGenesisMismatch,
     TooManyMonetaryEpochs,
     InvalidMonetaryEpoch(mini_economy::EconomyError),
     InvalidGenesisAllocation,
@@ -86,6 +93,11 @@ impl fmt::Display for ExecutionError {
             ExecutionError::TooManyNullifiers => {
                 write!(f, "block body exceeds the shielded-spend record cap")
             }
+            ExecutionError::UnknownShieldedInput => write!(f, "shielded ring input is absent from canonical state"),
+            ExecutionError::DuplicateShieldedOutput => write!(f, "shielded output key already exists"),
+            ExecutionError::ShieldedGenesisMismatch => write!(f, "shielded genesis differs from configured canonical genesis"),
+            ExecutionError::MissingClaimVerifier => write!(f, "shielded validity verifier is required"),
+            ExecutionError::InvalidShieldedClaim => write!(f, "shielded claim evidence is invalid or unavailable"),
             ExecutionError::TooManyMonetaryEpochs => {
                 write!(f, "block body contains more than one monetary epoch")
             }

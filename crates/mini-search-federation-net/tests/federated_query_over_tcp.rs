@@ -226,14 +226,14 @@ fn a_federated_query_merges_a_local_source_with_one_pulled_over_a_real_tcp_socke
     assert_eq!(results.len(), 2);
     // The strongly-linked local document outranks the weakly-linked pulled
     // one under the identical query and profile.
-    assert_eq!(results[0].provider, local.provider);
+    assert_eq!(results[0].provider().clone(), local.provider);
     assert_eq!(
-        results[0].result.result.url.canonical_string(),
+        results[0].result().result.url.canonical_string(),
         "https://local.example/strong"
     );
-    assert_eq!(results[1].provider, remote_provider);
+    assert_eq!(results[1].provider().clone(), remote_provider);
     assert_eq!(
-        results[1].result.result.url.canonical_string(),
+        results[1].result().result.url.canonical_string(),
         "https://remote.example/weak"
     );
 }

@@ -10,6 +10,7 @@ authors.workspace = true
 publish = false
 
 [dependencies]
+mini-durable = { path = "../mini-durable" }
 mini-crypto = { path = "../mini-crypto" }
 did-mini = { path = "../did-mini" }
 mini-bearer = { path = "../mini-bearer" }
