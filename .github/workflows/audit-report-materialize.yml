@@ -1,0 +1,54 @@
+# Temporary report-transfer helper; removed after publication.
+# Reads only fixed public Git blobs, never executes repository/report content.
+name: Audit report materialization
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/audit-report-materialize.yml'
+permissions: {}
+jobs:
+  capture:
+    if: github.event.pull_request.number == 327 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'docs/full-pr-founder-vision-review'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Recover fixed public transfer blobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, pathlib, urllib.request
+          shas = '''5af86bd9fa493c577b6abfc7838162c806ab618b
+          0ea17b23d3a0a01a03c4aabf0a505730e207f237
+          2b9a418c1318cc0860384d04bc45d134c0c5045b
+          552b4cb6d7dedac9a42ad57553700e4b87670a36
+          4fc11a2a6fe89788417f186163d8fdcca0afddde
+          b1abfc509ae52869a5f97dd954b84ba6c2bd7f78
+          16d4a22f7acc5f8ca88a719af4c28e3df5e2c821
+          a29237e86ad7b02916bd5c652da46d47041cb6e2
+          5907652f5df0e6eca8579ea8843978cfac780917
+          13be7a646f3311eb189b6aba07136031c9d94ed4
+          84eeea83f5b9e9669febffe58eac9a1b40c33c7e
+          b5e1c454d51ab7006da3d0b95293000f614ffa8e'''.split()
+          out = pathlib.Path('/tmp/report-transfer')
+          out.mkdir()
+          for i, sha in enumerate(shas, 1):
+              request = urllib.request.Request('https://api.github.com/repos/mininet-labs/Mininet/git/blobs/' + sha, headers={'Authorization': 'Bearer ' + __import__('os').environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  record = json.load(response)
+              data = base64.b64decode(record['content'])
+              actual = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              if actual != sha:
+                  raise RuntimeError('blob integrity mismatch')
+              (out / ('part%02d.bin' % i)).write_bytes(data)
+              print(i, sha, len(data))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: audit-report-transfer-recovered
+          path: /tmp/report-transfer/
+          if-no-files-found: error
+          retention-days: 7
