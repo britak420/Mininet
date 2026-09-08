@@ -486,3 +486,61 @@ fn three_ordinals_under_one_provider_are_three_distinct_replicas() {
     roots.dedup();
     assert_eq!(roots.len(), 3, "each ordinal must seal to its own replica");
 }
+
+// ---------------------------------------------------------------------------
+// F-08: tracking (or requesting weight for) the same replica twice must
+// never double-count its capacity
+// ---------------------------------------------------------------------------
+
+#[test]
+fn tracking_the_same_replica_twice_does_not_double_its_capacity() {
+    // ProviderStanding keys its replicas by replica root -- re-tracking the
+    // same root overwrites rather than adds a second entry, so a caller
+    // that (accidentally or maliciously) hands the same lifecycle to
+    // `track` more than once cannot inflate its own weight.
+    let (mut lifecycle, replica) = tracked();
+    assert!(prove_window(
+        &mut lifecycle,
+        &replica,
+        1,
+        b"beacon",
+        &windows()
+    ));
+    let root = lifecycle.claim().replica_root();
+
+    let mut standing = ProviderStanding::new();
+    standing.track(lifecycle);
+    assert_eq!(standing.len(), 1);
+    let once = standing.proven_capacity(&units()).units();
+
+    // Re-track a lifecycle for the exact same replica root.
+    let (mut lifecycle_again, replica_again) = tracked();
+    assert_eq!(lifecycle_again.claim().replica_root(), root);
+    assert!(prove_window(
+        &mut lifecycle_again,
+        &replica_again,
+        1,
+        b"beacon",
+        &windows()
+    ));
+    standing.track(lifecycle_again);
+
+    assert_eq!(
+        standing.len(),
+        1,
+        "re-tracking the same replica root must not grow the count"
+    );
+    assert_eq!(
+        standing.proven_capacity(&units()).units(),
+        once,
+        "re-tracking the same replica root must not double its capacity"
+    );
+
+    // Confirms block_production_weight agrees with the dedup too, not
+    // just proven_capacity's own raw unit count.
+    let params = mini_spacetime::ProposerParams::default_params();
+    assert_eq!(
+        standing.block_production_weight(&units(), 1, &params),
+        mini_spacetime::proposer_weight(standing.proven_capacity(&units()), 1, &params),
+    );
+}

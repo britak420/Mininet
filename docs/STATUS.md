@@ -2266,6 +2266,16 @@ the top development priority.
   captured; a `mini-desktop` UI surface for the same workflow, and
   signed review attestations, both remain not built. See
   `docs/DECISION_LOG.md` D-0429.
+- **shipped (D-0484)** — the crash-recovery publish journal above now
+  verifies a recovered object is genuinely *this* envelope's own post
+  (same author, same exact text) before ever trusting it, via new
+  `mini_intake_social::verify_recovered_post_matches_intake`, closing a
+  founder-vision-review finding (F-09): previously any well-formed,
+  validly-signed `mini-social` object found at the journal path (keyed
+  only by intake id) was trusted unconditionally, so a stale journal
+  from an unrelated earlier run, a path-construction bug, or a
+  substituted file would have been silently inserted and linked. See
+  `docs/DECISION_LOG.md` D-0484.
 - **shipped, prototype (D-0363, Track C4)** — `mini-commons-policy`
   gains `service_quote_for(entitlement, tier, prices, payload_mb,
   storage_days)`, the paid-service boundary against `mini-resource-pricing`

@@ -417,3 +417,62 @@ fn a_group_that_fails_takeability_never_even_reaches_the_verifier() {
     // Still A's, unchanged -- CLAIM_B never got a chance to be verified.
     assert_eq!(after_b.finalized_nullifier(&image(1)), Some(CLAIM_A));
 }
+
+#[test]
+fn copying_a_real_key_image_under_a_forged_digest_never_takes_it_or_blocks_the_real_claim() {
+    // PR #327's F-07: "A proposer sees a pending valid payment's key
+    // image and includes that image under a different digest first.
+    // Honest execution can then consume the conflict key without a
+    // valid corresponding payment." A verifier that only has evidence
+    // for the real digest (CLAIM_REAL) -- the honest "no evidence, no
+    // trust" shape `mini_shielded_verify::ShieldedClaimVerifier` also
+    // has, since it looks evidence up strictly by digest -- must refuse
+    // the forged group entirely, leaving the real key image free for
+    // the real claim to take whenever its own evidence arrives.
+    const CLAIM_REAL: [u8; 32] = [0x51; 32];
+    const CLAIM_FORGED: [u8; 32] = [0x5f; 32];
+    let stolen_key_image = image(9);
+
+    let verifier = AllowListVerifier {
+        allowed: vec![CLAIM_REAL],
+    };
+
+    // The attacker's forged claim reaches the chain first, copying the
+    // real payment's own key image under a digest it has no evidence
+    // for.
+    let after_attack = apply_block_with_verifier(
+        &LedgerState::new(),
+        &body(vec![NullifierRecord::new(
+            stolen_key_image.clone(),
+            CLAIM_FORGED,
+        )]),
+        Some(&verifier),
+    )
+    .unwrap();
+    assert_eq!(
+        after_attack.finalized_nullifier(&stolen_key_image),
+        None,
+        "the forged claim must never take the key image"
+    );
+    assert_eq!(after_attack.nullifier_count(), 0);
+
+    // The real claim, presented later (a later position in the same
+    // block or a later block -- this proves the later-block case, the
+    // stronger claim), still finds the key image free and finalizes
+    // normally.
+    let after_real = apply_block_with_verifier(
+        &after_attack,
+        &body(vec![NullifierRecord::new(
+            stolen_key_image.clone(),
+            CLAIM_REAL,
+        )]),
+        Some(&verifier),
+    )
+    .unwrap();
+    assert_eq!(
+        after_real.finalized_nullifier(&stolen_key_image),
+        Some(CLAIM_REAL),
+        "the real claim must still be able to take its own key image afterward"
+    );
+    assert_eq!(after_real.nullifier_count(), 1);
+}

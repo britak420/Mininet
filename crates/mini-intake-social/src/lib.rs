@@ -148,6 +148,46 @@ pub fn intake_link_for_post(post: &Object) -> Result<IntakeLink> {
     Ok(IntakeLink::Post(digest))
 }
 
+/// Verify that `object` is genuinely the post [`build_accepted_intake_post`]
+/// would have produced for `envelope` — same author, same exact text —
+/// before a caller trusts it as *this* envelope's own already-signed post
+/// (F-09).
+///
+/// Exists for exactly one situation: a caller (e.g. `mini-cli`'s
+/// crash-recovery publish journal) holds a candidate `Object` it did not
+/// just build itself — recovered from local storage, keyed only by this
+/// envelope's intake id — and needs to confirm it is not a stale journal
+/// left over from an unrelated earlier run, a path-construction bug, or a
+/// substituted file, before treating it as recoverable. A well-formed,
+/// validly-signed `Object` is not by itself proof of that: nothing about
+/// an arbitrary signed `mini-social` post says which intake produced it.
+/// This binds the object's actual decoded author and content to what this
+/// specific envelope would produce, the same check
+/// [`build_accepted_intake_post`] implicitly guarantees for a post it
+/// just signed itself.
+///
+/// Returns [`IntakeSocialError::RecoveredPostMismatch`] on any mismatch
+/// (wrong object type/payload shape, wrong author, or wrong text) — never
+/// partial credit for "close enough."
+pub fn verify_recovered_post_matches_intake<IB: Backend>(
+    intake_backend: &IB,
+    human: &Did,
+    envelope: &IntakeEnvelope,
+    object: &Object,
+) -> Result<()> {
+    let post =
+        mini_social::decode_post(object).map_err(|_| IntakeSocialError::RecoveredPostMismatch)?;
+    if &post.author != human {
+        return Err(IntakeSocialError::RecoveredPostMismatch);
+    }
+    let bytes = mini_intake::read_verified_source_bytes(intake_backend, envelope)?;
+    let text = std::str::from_utf8(&bytes).map_err(|_| IntakeSocialError::NotUtf8)?;
+    if post.text != text {
+        return Err(IntakeSocialError::RecoveredPostMismatch);
+    }
+    Ok(())
+}
+
 // Re-exported only so downstream callers do not need a direct `mini-social`
 // dependency merely to name the type this crate's own bound composes with.
 pub use mini_social::MAX_POST_BYTES;

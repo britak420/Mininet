@@ -32,6 +32,11 @@ pub enum IntakeSocialError {
     /// Deriving the produced post's [`mini_intake_types::IntakeLink::Post`]
     /// target from its object id failed.
     Crypto(CryptoError),
+    /// A candidate recovered post (e.g. from a crash-recovery journal) does
+    /// not decode as, or does not match, the post this envelope's own
+    /// author and content would actually produce (F-09) — refused rather
+    /// than silently trusted as this envelope's own already-signed post.
+    RecoveredPostMismatch,
 }
 
 impl core::fmt::Display for IntakeSocialError {
@@ -48,6 +53,10 @@ impl core::fmt::Display for IntakeSocialError {
             IntakeSocialError::Social(e) => write!(f, "social: {e}"),
             IntakeSocialError::Store(e) => write!(f, "store: {e}"),
             IntakeSocialError::Crypto(e) => write!(f, "crypto: {e}"),
+            IntakeSocialError::RecoveredPostMismatch => write!(
+                f,
+                "candidate recovered post does not match this intake's own author/content"
+            ),
         }
     }
 }

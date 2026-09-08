@@ -81,14 +81,45 @@ fn acquire_publish_lock(home: &Path, id: &IntakeId) -> Result<File> {
 /// Recover an interrupted previous publish attempt's already-signed post,
 /// if one was left behind by a crash between signing and completing the
 /// attempt. `None` means no attempt is in flight for this intake id.
-fn read_publish_journal(home: &Path, id: &IntakeId) -> Result<Option<Object>> {
-    match fs::read(publish_journal_path(home, id)) {
-        Ok(bytes) => Object::from_bytes(&bytes)
-            .map(Some)
-            .map_err(|e| CliError::Object(e.to_string())),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(CliError::Io(e.to_string())),
-    }
+///
+/// A parsed, validly-signed `Object` on disk is not by itself proof that
+/// *this* object is the canonical post for *this* intake (F-09): the
+/// journal file lives at a path keyed only by `id`, and nothing about a
+/// well-formed `Object` says which intake produced it. A stale journal
+/// left over from an unrelated earlier run, a path-construction bug, or a
+/// substituted file would otherwise be silently trusted and inserted as
+/// if it were this envelope's own recovered post. This binds the
+/// recovered object's actual decoded content to what `build_accepted_
+/// intake_post` would have produced for *this* envelope — same author,
+/// same exact text — before ever treating it as recoverable; anything
+/// else is refused rather than silently accepted or silently discarded
+/// (discarding it would let a caller retry into building and signing a
+/// second, distinct post while the mismatched evidence disappears).
+fn read_publish_journal<IB: mini_store::Backend>(
+    home: &Path,
+    id: &IntakeId,
+    intake_backend: &IB,
+    human: &did_mini::Did,
+    envelope: &mini_intake_types::IntakeEnvelope,
+) -> Result<Option<Object>> {
+    let object = match fs::read(publish_journal_path(home, id)) {
+        Ok(bytes) => Object::from_bytes(&bytes).map_err(|e| CliError::Object(e.to_string()))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(CliError::Io(e.to_string())),
+    };
+    mini_intake_social::verify_recovered_post_matches_intake(
+        intake_backend,
+        human,
+        envelope,
+        &object,
+    )
+    .map_err(|_| {
+        CliError::Intake(format!(
+            "publish journal for intake {} does not match this intake's own author/content -- refusing to treat it as a recovered post",
+            encode_intake_id(id)
+        ))
+    })?;
+    Ok(Some(object))
 }
 
 /// Durably persist the exact signed bytes of a newly built (not yet
@@ -254,7 +285,7 @@ pub fn cmd_publish_post(home: &Path, store_path: &Path, id_hex: &str) -> Result<
     let mut social_store = crate::store::open_store(store_path)?;
     let human = identity.human_did();
 
-    let object = match read_publish_journal(home, &id)? {
+    let object = match read_publish_journal(home, &id, &intake_backend, &human, &envelope)? {
         Some(object) => object,
         None => {
             let seq = sequence::next(home)?;
@@ -367,7 +398,114 @@ mod tests {
         let backend = open_intake_backend(home).unwrap();
         let envelope = load_envelope(&backend, &id).unwrap().unwrap();
         assert_eq!(envelope.links().len(), 1);
-        assert!(read_publish_journal(home, &id).unwrap().is_none());
+        // The journal file is gone (cleared on completion), so this
+        // returns None regardless of author/envelope -- neither value
+        // matters once fs::read itself hits NotFound.
+        let backend = open_intake_backend(home).unwrap();
+        assert!(read_publish_journal(home, &id, &backend, &human, &envelope)
+            .unwrap()
+            .is_none());
+    }
+
+    // F-09: a journal file is trusted only when it decodes as the exact
+    // post this envelope's own author/content would produce -- these three
+    // cases (wrong author, unrelated stale content, wrong object type
+    // entirely) are the concrete substitutions the finding names, and each
+    // must be refused rather than silently signed into the store or
+    // silently discarded (discarding would let a caller retry into a
+    // second, distinct post while the mismatched evidence disappears).
+
+    #[test]
+    fn a_journal_object_signed_by_a_different_author_is_refused_not_trusted() {
+        let (home_dir, store_dir, id, _identity) = setup_accepted_envelope();
+        let home = home_dir.path();
+        let store_path = store_dir.path();
+
+        // A different identity's device signs a post for this envelope's
+        // own content -- well-formed and validly signed, but not by this
+        // envelope's owner.
+        let other_home = tempfile::tempdir().unwrap();
+        let other_identity = crate::identity::init(other_home.path()).unwrap();
+        let backend = open_intake_backend(home).unwrap();
+        let envelope = load_envelope(&backend, &id).unwrap().unwrap();
+        let impostor = mini_intake_social::build_accepted_intake_post(
+            &backend,
+            &other_identity.human_did(),
+            &other_identity.device,
+            &envelope,
+            12_345,
+            1,
+        )
+        .unwrap();
+        write_publish_journal(home, &id, &impostor).unwrap();
+
+        let err = cmd_publish_post(home, store_path, &encode_intake_id(&id)).unwrap_err();
+        assert!(err.to_string().contains("does not match"));
+
+        // Refusing it must not silently discard the mismatched journal or
+        // fall through to signing a second post on this attempt.
+        assert!(publish_journal_path(home, &id).exists());
+    }
+
+    #[test]
+    fn a_journal_object_carried_over_from_an_unrelated_intake_is_refused_not_trusted() {
+        let (home_dir, store_dir, id_a, identity) = setup_accepted_envelope();
+        let home = home_dir.path();
+        let store_path = store_dir.path();
+
+        // A second, unrelated Accepted envelope under the *same* home/
+        // identity -- same author, genuinely different content.
+        let notes_path = home.join("other.txt");
+        std::fs::write(&notes_path, "a completely different intake").unwrap();
+        let mut backend = open_intake_backend(home).unwrap();
+        let mut envelope_b =
+            mini_intake::intake_local_file(&mut backend, &notes_path, sequence::now_ms()).unwrap();
+        envelope_b
+            .advance_review_state(ReviewState::UnderReview)
+            .unwrap();
+        envelope_b
+            .advance_review_state(ReviewState::Accepted)
+            .unwrap();
+        save_envelope(&mut backend, &envelope_b).unwrap();
+
+        let stale = mini_intake_social::build_accepted_intake_post(
+            &backend,
+            &identity.human_did(),
+            &identity.device,
+            &envelope_b,
+            12_345,
+            1,
+        )
+        .unwrap();
+
+        // Plant envelope B's genuinely-signed post under envelope A's
+        // journal path, as a path-construction bug or a stale file left
+        // over from an unrelated earlier run would.
+        write_publish_journal(home, &id_a, &stale).unwrap();
+
+        let err = cmd_publish_post(home, store_path, &encode_intake_id(&id_a)).unwrap_err();
+        assert!(err.to_string().contains("does not match"));
+    }
+
+    #[test]
+    fn a_journal_file_that_is_not_a_post_at_all_is_refused_not_trusted() {
+        let (home_dir, store_dir, id, identity) = setup_accepted_envelope();
+        let home = home_dir.path();
+        let store_path = store_dir.path();
+
+        // Well-formed, validly signed by this envelope's own author -- but
+        // a REACTION, not a POST. Decoding it as a post must fail closed,
+        // not be treated as "close enough."
+        let not_a_post = mini_objects::ObjectBuilder::new(mini_objects::ObjectType::REACTION)
+            .timestamp_ms(12_345)
+            .sequence(1)
+            .payload(mini_objects::Payload::Public(Vec::new()))
+            .sign(&identity.human_did(), &identity.device)
+            .unwrap();
+        write_publish_journal(home, &id, &not_a_post).unwrap();
+
+        let err = cmd_publish_post(home, store_path, &encode_intake_id(&id)).unwrap_err();
+        assert!(err.to_string().contains("does not match"));
     }
 
     #[test]

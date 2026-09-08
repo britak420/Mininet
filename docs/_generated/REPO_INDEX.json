@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 933,
     "headings": 3282,
-    "rust_symbols": 9420
+    "rust_symbols": 9428
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28101,
+      "bytes": 28116,
       "group": "root",
       "headings": [
         {
@@ -1840,7 +1840,7 @@
       ],
       "lines": 448,
       "path": "README.md",
-      "sha256": "4dd067336a3a5d3f777beeb2ff517da88ed83c2373c9595a50ae978f9ccab78c",
+      "sha256": "bb573b15eb6ac25ded3b87c5d44312e1dacacfb66a099382700ab67332164e87",
       "symbols": [],
       "title": "Mininet"
     },
@@ -14807,38 +14807,38 @@
       "title": "use std::path::Path;"
     },
     {
-      "bytes": 17741,
+      "bytes": 24044,
       "group": "crate:mini-cli",
       "headings": [],
       "keywords": [
         "home",
-        "path",
         "intake",
-        "clierror",
-        "to_string",
+        "path",
         "object",
-        "map_err",
-        "publish_journal_dir",
-        "intakeid",
-        "lock",
         "post",
-        "fsbackend",
-        "pathbuf",
-        "result",
-        "publish_journal_path",
-        "one",
+        "lock",
+        "publish_journal_dir",
         "file",
         "accepted",
-        "signed",
-        "sequence",
+        "envelope",
+        "same",
+        "pathbuf",
+        "intakeid",
+        "clierror",
+        "caller",
+        "one",
+        "fsbackend",
+        "silently",
+        "evidence",
+        "result",
         "join",
-        "attempt",
-        "tmp",
-        "intake_backend_path"
+        "map_err",
+        "to_string",
+        "attempt"
       ],
-      "lines": 425,
+      "lines": 563,
       "path": "crates/mini-cli/src/intake.rs",
-      "sha256": "7f60db7e8b4a1b145f6e851bb912326d7beb94c0c018c1fb0efe5d5782468fc7",
+      "sha256": "3de22fc43d59b1a9cbfaa66d780669cc99f20e7aa8b977f84cce4857009ea65c",
       "symbols": [
         {
           "kind": "fn",
@@ -14872,87 +14872,102 @@
         },
         {
           "kind": "fn",
-          "line": 84,
+          "line": 98,
           "name": "read_publish_journal"
         },
         {
           "kind": "fn",
-          "line": 100,
+          "line": 131,
           "name": "write_publish_journal"
         },
         {
           "kind": "fn",
-          "line": 113,
+          "line": 144,
           "name": "clear_publish_journal"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 149,
           "name": "existing_post_link"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 157,
           "name": "hex_encode"
         },
         {
           "kind": "fn",
-          "line": 136,
+          "line": 167,
           "name": "encode_intake_id"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 171,
           "name": "decode_intake_id"
         },
         {
           "kind": "fn",
-          "line": 145,
+          "line": 176,
           "name": "parse_review_state"
         },
         {
           "kind": "fn",
-          "line": 161,
+          "line": 192,
           "name": "cmd_add"
         },
         {
           "kind": "fn",
-          "line": 177,
+          "line": 208,
           "name": "cmd_show"
         },
         {
           "kind": "fn",
-          "line": 198,
+          "line": 229,
           "name": "cmd_advance"
         },
         {
           "kind": "fn",
-          "line": 236,
+          "line": 267,
           "name": "cmd_publish_post"
         },
         {
           "kind": "mod",
-          "line": 296,
+          "line": 327,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 302,
+          "line": 333,
           "name": "setup_accepted_envelope"
         },
         {
           "kind": "fn",
-          "line": 330,
+          "line": 361,
           "name": "a_crash_between_signing_and_completing_is_recovered_not_duplicated"
         },
         {
           "kind": "fn",
-          "line": 374,
+          "line": 419,
+          "name": "a_journal_object_signed_by_a_different_author_is_refused_not_trusted"
+        },
+        {
+          "kind": "fn",
+          "line": 451,
+          "name": "a_journal_object_carried_over_from_an_unrelated_intake_is_refused_not_trusted"
+        },
+        {
+          "kind": "fn",
+          "line": 491,
+          "name": "a_journal_file_that_is_not_a_post_at_all_is_refused_not_trusted"
+        },
+        {
+          "kind": "fn",
+          "line": 512,
           "name": "publish_post_is_idempotent_after_a_completed_attempt"
         },
         {
           "kind": "fn",
-          "line": 391,
+          "line": 529,
           "name": "concurrent_publish_post_calls_produce_one_canonical_publication"
         }
       ],
@@ -29629,7 +29644,7 @@
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 14951,
+      "bytes": 17196,
       "group": "crate:mini-execution",
       "headings": [],
       "keywords": [
@@ -29658,9 +29673,9 @@
         "would",
         "settlementblockbody"
       ],
-      "lines": 420,
+      "lines": 479,
       "path": "crates/mini-execution/tests/shielded_ordering.rs",
-      "sha256": "8275dc041867fe0ed814a3ca2b8a20f829cee7fa928869d2e8850338a3813085",
+      "sha256": "bb8040c6f69f5e01c9e2c48346588721817f302be6ff3e1e03da6be9032ab150",
       "symbols": [
         {
           "kind": "const",
@@ -29801,6 +29816,21 @@
           "kind": "fn",
           "line": 400,
           "name": "verify_claim"
+        },
+        {
+          "kind": "fn",
+          "line": 422,
+          "name": "copying_a_real_key_image_under_a_forged_digest_never_takes_it_or_blocks_the_real_claim"
+        },
+        {
+          "kind": "const",
+          "line": 432,
+          "name": "CLAIM_REAL"
+        },
+        {
+          "kind": "const",
+          "line": 433,
+          "name": "CLAIM_FORGED"
         }
       ],
       "title": "use mini_execution::{"
@@ -35329,38 +35359,38 @@
       "title": "[package]"
     },
     {
-      "bytes": 2836,
+      "bytes": 3350,
       "group": "crate:mini-intake-social",
       "headings": [],
       "keywords": [
         "intakesocialerror",
+        "post",
         "intake",
         "write",
+        "envelope",
         "result",
         "fmt",
-        "post",
         "error",
         "core",
         "intakecoorderror",
         "socialerror",
         "cryptoerror",
-        "envelope",
         "failed",
         "social",
         "self",
         "type",
         "bytes",
+        "own",
         "store",
         "crypto",
         "media",
         "textplain",
         "markdown",
-        "source",
-        "display"
+        "source"
       ],
-      "lines": 71,
+      "lines": 80,
       "path": "crates/mini-intake-social/src/error.rs",
-      "sha256": "6f3530522506954f9638a6ab363ed34ea272b09e973604723390c4407fa11e5d",
+      "sha256": "12ea8c8b1bd11327db961cdd8344ff02bbf9fa6e362533d2685181019ddeb416",
       "symbols": [
         {
           "kind": "type",
@@ -35374,54 +35404,54 @@
         },
         {
           "kind": "impl",
-          "line": 37,
+          "line": 42,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 38,
+          "line": 43,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 54,
+          "line": 63,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 56,
+          "line": 65,
           "name": "From<IntakeCoordError>"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 66,
           "name": "from"
         },
         {
           "kind": "impl",
-          "line": 61,
+          "line": 70,
           "name": "From<SocialError>"
         },
         {
           "kind": "fn",
-          "line": 62,
+          "line": 71,
           "name": "from"
         },
         {
           "kind": "impl",
-          "line": 66,
+          "line": 75,
           "name": "From<CryptoError>"
         },
         {
           "kind": "fn",
-          "line": 67,
+          "line": 76,
           "name": "from"
         }
       ],
       "title": "use mini_crypto::CryptoError;"
     },
     {
-      "bytes": 6844,
+      "bytes": 8749,
       "group": "crate:mini-intake-social",
       "headings": [],
       "keywords": [
@@ -35450,9 +35480,9 @@
         "exact",
         "error"
       ],
-      "lines": 154,
+      "lines": 194,
       "path": "crates/mini-intake-social/src/lib.rs",
-      "sha256": "fc26169c5c6bfd7af71cd3224715b09caeb87bce62f30d6be9264f9b5bc73e48",
+      "sha256": "88afaaa40fb66fbba5827c747d8e30a739024a604de329a985825ee9802bfbf5",
       "symbols": [
         {
           "kind": "mod",
@@ -35473,6 +35503,11 @@
           "kind": "fn",
           "line": 145,
           "name": "intake_link_for_post"
+        },
+        {
+          "kind": "fn",
+          "line": 172,
+          "name": "verify_recovered_post_matches_intake"
         }
       ],
       "title": "mod error;"
@@ -63480,7 +63515,7 @@
       "title": "mod support;"
     },
     {
-      "bytes": 17913,
+      "bytes": 19944,
       "group": "crate:mini-storage-fraud",
       "headings": [],
       "keywords": [
@@ -63509,9 +63544,9 @@
         "new",
         "unwrap"
       ],
-      "lines": 489,
+      "lines": 547,
       "path": "crates/mini-storage-fraud/tests/lifecycle.rs",
-      "sha256": "9be43143c8d2db7ce27816dee5d7e84a668d5da4ff24f137385d4befc986fb47",
+      "sha256": "8ecbe462f92ddfb06d114f513eba079d0e3b79ca2d40554923cf6330405d3659",
       "symbols": [
         {
           "kind": "mod",
@@ -63642,6 +63677,11 @@
           "kind": "fn",
           "line": 471,
           "name": "three_ordinals_under_one_provider_are_three_distinct_replicas"
+        },
+        {
+          "kind": "fn",
+          "line": 496,
+          "name": "tracking_the_same_replica_twice_does_not_double_its_capacity"
         }
       ],
       "title": "mod support;"
@@ -78227,7 +78267,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1200602,
+      "bytes": 1212337,
       "group": "docs",
       "headings": [
         {
@@ -78657,9 +78697,9 @@
         "first",
         "kel"
       ],
-      "lines": 19903,
+      "lines": 20110,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "476250fab7bff4fdeeceeaacb42896f10489c2fdd7c7d0d9971a2f9aa39dc633",
+      "sha256": "3ac6d39309be97492274ac36f3b86cf45c5a1c2aba67b7d84fd76395ae2e3603",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -79995,7 +80035,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 181737,
+      "bytes": 182390,
       "group": "docs",
       "headings": [
         {
@@ -80070,37 +80110,37 @@
         },
         {
           "level": 2,
-          "line": 2337,
+          "line": 2347,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2428,
+          "line": 2438,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2508,
+          "line": 2518,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2574,
+          "line": 2584,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2591,
+          "line": 2601,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2627,
+          "line": 2637,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2692,
+          "line": 2702,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80130,9 +80170,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2727,
+      "lines": 2737,
       "path": "docs/STATUS.md",
-      "sha256": "52f7eac177d68761fc900a08d01e90ac99a6147ca1f642822ecdac6b4872a1a3",
+      "sha256": "30ab71aea1f0b1de7eb26123a458b402a0b4b6e224805e3c46119652649f08b4",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -96999,7 +97039,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 86587,
+      "bytes": 87643,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97028,9 +97068,9 @@
         "independently",
         "both"
       ],
-      "lines": 1249,
+      "lines": 1256,
       "path": "governance/work-claims.json",
-      "sha256": "f73cd64509a3c6c08be6f47c03b875cc78831b3f7000eb273ecc43dc57d5ff0f",
+      "sha256": "7bdaeeeccf79db88ef1d4abc05e5f72f0591a0d093cbd767f6818a112d9a0a60",
       "symbols": [],
       "title": "{"
     },

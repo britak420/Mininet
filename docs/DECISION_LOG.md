@@ -19900,3 +19900,210 @@ by every earlier phase of this design doc.
 
 **Supersedes / superseded by:** extends D-0465/D-0468; supersedes
 nothing.
+
+### D-0482 — F-07 confirmed closed by D-0474, with a new test proving the finding's exact attack  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-07
+(`crates/mini-execution/src/lib.rs:72` at the findings pack's pinned
+baseline commit); D-0474 (`mini_execution::ClaimVerifier`, this same
+punch-list branch, built earlier the same day before this findings pack
+was reviewed).
+
+**Decision:** no new mechanism. F-07's concrete attack — "a proposer
+sees a pending valid payment's key image and includes that image under a
+different digest first [so that] honest execution can then consume the
+conflict key without a valid corresponding payment" — is exactly the
+attack shape D-0474's validator-verification model already closes when a
+`ClaimVerifier` is configured, confirmed here with a new test
+(`copying_a_real_key_image_under_a_forged_digest_never_takes_it_or_blocks_the_real_claim`
+in `crates/mini-execution/tests/shielded_ordering.rs`) that builds the
+finding's exact scenario rather than assuming coverage: a forged group
+copies a real key image under a digest the configured verifier has no
+evidence for, is dropped without ever marking the key image taken
+(`apply_nullifiers`'s `continue` on a failed `verify_claim` happens
+*before* the `state.nullifiers.insert` loop, so a rejected group's key
+images are left exactly as free as before it was seen), and the real
+claim — presented afterward, the stronger cross-block case — still
+finds its key image free and finalizes normally.
+
+**Reason:** the findings pack's own baseline commit predates D-0474 by
+hours within the same working session; F-07 is real evidence that the
+audit correctly identified this as the single most important gap (it
+matches the founder-requested audit pack's own top-cited blocker,
+already the reason D-0474 was built first), not evidence that D-0474
+left the concrete attack unclosed. Confirming with a targeted test
+rather than asserting closure by architecture-reading alone matches this
+whole findings-pack response's own discipline: verify against current
+source before claiming coverage.
+
+**Constitutional impact:** none. No new code touches the voice/value
+wall; the new test lives entirely inside `mini-execution`'s own existing
+hand-rolled `ClaimVerifier` test fixture (`AllowListVerifier`), the same
+one every other `ClaimVerifier`-gating test in this file already uses.
+
+**Implementation status:** shipped — one new test, no production code
+change. 18/18 tests pass in `crates/mini-execution/tests/
+shielded_ordering.rs` (17 prior + 1 new).
+
+**Failure point:** unchanged from D-0474's own, restated for clarity
+against F-07's "P0 real-value blocker" framing: `ClaimVerifier` remains
+opt-in (`Option<&dyn ClaimVerifier>`, `None` reproducing pre-D-0474
+behavior) because no live networked consensus deployment exists in this
+workspace yet to make it mandatory in — a validator that does not
+configure one remains exactly as exposed to F-07's attack as before.
+This is not a gap this decision closes; it is the same honest limit
+D-0474 already stated ("running with `None` (the default) keeps today's
+behavior").
+
+**Required follow-up:** unchanged from D-0474's own — claim-evidence
+gossip/retrieval, an accountability trail for which validators verified,
+and wiring a `ClaimVerifier` as the mandatory default once a real
+networked consensus deployment exists to wire it into.
+
+**Supersedes / superseded by:** extends D-0474; supersedes nothing.
+
+### D-0483 — F-08 confirmed substantially closed by D-0477, plus a duplicate-tracking test  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-08
+(`crates/mini-spacetime/src/storage_proof.rs`); D-0477 (`ProviderStanding::
+block_production_weight`, this same punch-list branch, built earlier the
+same day).
+
+**Decision:** no new mechanism; one new test. F-08 names two concerns:
+(1) `ProvenCapacity::from_commitment` is unconditional over any
+caller-constructed `StorageCommitment`, so `proposer_weight` can be
+reached with a fabricated capacity; (2) "copying and adding the same
+capacity also requires caller-side deduplication." Concern (1) is
+exactly what D-0477's own decision log already names, word for word, as
+the gap it closes: `ProviderStanding::block_production_weight`'s only
+capacity-bearing input is `&self`, which can only ever hold replicas
+that passed a real audited registration. Concern (2) was not previously
+tested directly — `ProviderStanding::track` keys its replicas by replica
+root (`BTreeMap<[u8; 32], ReplicaLifecycle>`), so re-tracking the same
+root overwrites rather than adds a second entry, but no test proved that
+structurally before now. Added
+`tracking_the_same_replica_twice_does_not_double_its_capacity` in
+`crates/mini-storage-fraud/tests/lifecycle.rs`: tracks a lifecycle,
+records its capacity, re-tracks a second lifecycle for the *same*
+replica root, and confirms both the tracked count and the aggregate
+capacity are unchanged, and that `block_production_weight` agrees.
+
+**Reason:** matches this session's established discipline for the
+findings pack — confirm against current source and add the missing
+test, rather than re-describing work already done or assuming coverage
+that was never actually exercised. F-08's "Long-term fix" also suggests
+splitting `DeclaredCapacity`/`VerifiedWindowCapacity` as types; D-0477
+took a different, narrower path (a function whose only input is
+already-audited data, rather than two capacity types) that achieves the
+same practical guarantee for its own callers without the larger,
+riskier type-split `mini-spacetime` would need across every existing
+caller of `ProvenCapacity`. That remains a legitimate larger alternative
+this decision does not attempt.
+
+**Constitutional impact:** none. No production code changed; the new
+test lives entirely inside `mini-storage-fraud`'s existing test fixture
+helpers.
+
+**Implementation status:** shipped — 1 new test. 21/21 tests pass in
+`crates/mini-storage-fraud/tests/lifecycle.rs` (20 prior — 17 base plus
+D-0477's 3 — plus 1 new).
+
+**Failure point:** unchanged from D-0477's own, restated: the wider,
+less-safe primitives (`ProvenCapacity::from_commitment`,
+`ProvenCapacity::saturating_add`, bare `mini_spacetime::proposer_weight`)
+remain public and remain exactly as fabricable/double-countable as F-08
+describes, for any caller who reaches for them instead of
+`block_production_weight`. `mini-spacetime` is deliberately the lower,
+generic layer and correctly has no way to know about
+`mini-storage-fraud`'s audit trail, so this is a real, permanent shape
+of the layering — not a gap this or D-0477 close, and not pretended
+closed.
+
+**Required follow-up:** unchanged from D-0477's own — wiring
+`block_production_weight` into a real networked consensus deployment
+once one exists, at which point that deployment's own design should
+decide whether to expose `proposer_weight`/`ProvenCapacity` at all or
+route exclusively through the audited-only path.
+
+**Supersedes / superseded by:** extends D-0477; supersedes nothing.
+
+### D-0484 — Crash-recovery publish journal now verifies the recovered object matches this intake (F-09)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-09
+(`crates/mini-cli/src/intake.rs`); D-0429 (`mini-intake-social`
+publication bridge this crash journal sits on top of).
+
+**Decision:** `mini-cli`'s `mini intake publish-post` crash-recovery
+journal (`read_publish_journal`) previously decoded *any* well-formed,
+validly-signed `mini-social` `Object` found at the journal path keyed
+only by intake id, and trusted it unconditionally as this envelope's own
+already-signed recovered post — F-09's exact finding: nothing about a
+well-formed signed object says which intake produced it, so a stale
+journal left over from an unrelated earlier run, a path-construction
+bug, or a substituted same-length file would be silently inserted and
+linked as if it were this envelope's own post. Fixed by adding
+`mini_intake_social::verify_recovered_post_matches_intake` (decodes the
+candidate as a `Post`, confirms its author matches the caller-supplied
+identity, then re-derives this envelope's own expected text via
+`mini_intake::read_verified_source_bytes` and confirms an exact match)
+and calling it from `read_publish_journal` before ever returning
+`Some(object)` to `cmd_publish_post`; a mismatch is a hard error, not a
+silent fallback to signing a fresh post (which would leave the
+mismatched, unexplained evidence sitting on disk) and not a silent
+accept.
+
+The verification logic lives in `mini-intake-social`, not `mini-cli`
+directly: `mini-cli` has no direct `mini-social` dependency (by design —
+`mini-intake-social` is the documented bridge layer, already re-exporting
+selectively, e.g. `pub use mini_social::MAX_POST_BYTES;`, specifically so
+downstream callers never need one), so the new function follows that
+same established layering rather than adding a new edge.
+
+**Constitutional impact:** none. No dependency-graph change (voice/value
+wall untouched — this is intake/social, not value/governance); no
+cryptography invented (reuses `mini_social::decode_post`'s existing
+signature verification and `mini_intake::read_verified_source_bytes`'s
+existing digest/length re-verification against the envelope).
+
+**Implementation status:** shipped.
+- `crates/mini-intake-social/src/lib.rs`: new
+  `verify_recovered_post_matches_intake<IB: Backend>(intake_backend,
+  human, envelope, object) -> Result<()>`.
+- `crates/mini-intake-social/src/error.rs`: new
+  `IntakeSocialError::RecoveredPostMismatch` variant.
+- `crates/mini-cli/src/intake.rs`: `read_publish_journal` now takes the
+  intake backend, the expected human `Did`, and the envelope (not a
+  pre-computed expected-text string) and delegates the match check;
+  `cmd_publish_post`'s now-redundant inline text re-derivation was
+  removed since the check moved into the shared function. 3 new tests:
+  `a_journal_object_signed_by_a_different_author_is_refused_not_trusted`,
+  `a_journal_object_carried_over_from_an_unrelated_intake_is_refused_not_trusted`
+  (a genuinely different, unrelated Accepted envelope's own validly
+  signed post planted under this envelope's journal path — the "stale
+  journal from an unrelated earlier run" case named in the existing doc
+  comment), and
+  `a_journal_file_that_is_not_a_post_at_all_is_refused_not_trusted` (a
+  validly-signed `REACTION` object, not a `POST`, at the journal path).
+  29/29 tests pass in `mini-cli` (26 prior + 3 new); 9/9 pass in
+  `mini-intake-social`'s `tests/bridge.rs` (unchanged — no existing test
+  touched this path). `cargo fmt --all` and
+  `cargo clippy -p mini-cli -p mini-intake-social --all-targets
+  --all-features -- -D warnings` both clean.
+
+**Failure point:** this closes the crash-recovery journal path
+specifically. The underlying trust model is unchanged and was never
+claimed otherwise by D-0429: `ReviewState::Accepted` remains a local,
+single-operator workflow state with no reviewer identity, signature, or
+external evidence captured (`mini-cli/src/intake.rs`'s own module docs
+already say this explicitly) — this decision does not make "Accepted"
+mean "independently reviewed," it only makes the crash-recovery
+mechanism honest about *which* post it is recovering.
+
+**Required follow-up:** none identified beyond D-0429's own existing
+"Required follow-up" (a real signed evidence/review-attestation policy
+behind `Accepted`, still not built).
+
+**Supersedes / superseded by:** extends D-0429; supersedes nothing.
