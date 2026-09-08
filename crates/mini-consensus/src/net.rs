@@ -241,6 +241,146 @@ fn serve_state_sync_over_tcp_with_timeout(
     Ok(())
 }
 
+/// AEAD associated data for chunked-snapshot transfer — distinct from every
+/// other protocol domain on this link so a ciphertext sealed for this
+/// purpose can never be replayed as if it meant something else.
+const CHUNK_SYNC_AAD: &[u8] = b"mini-consensus/chunk-sync-channel/v1";
+
+/// Fetch `peer_addr`'s current chunked-transfer manifest and every one of
+/// its chunks over one real, freshly-handshaken, encrypted connection —
+/// verifying the manifest's QC before requesting any chunk, and each chunk
+/// against the manifest's own Merkle root as it arrives
+/// ([`crate::chunked_snapshot::SnapshotAssembler`]'s own discipline) — then
+/// hands the fully reassembled, structurally-checked `ConsensusSnapshot` to
+/// `node` via [`ConsensusNode::apply_state_sync`], so archive persistence,
+/// history replacement, and round-restart all happen exactly as they
+/// already do for an ordinary (non-chunked) state-sync snapshot.
+///
+/// `chunk_size` is this call's own choice — a weak/lossy-linked caller picks
+/// something small (down to [`crate::chunked_snapshot::MIN_CHUNK_BYTES`]);
+/// it only bounds how a caller *requests* the manifest be split, and has no
+/// bearing on trust. Returns `Ok(None)` if the peer reports
+/// `WrongNetwork`/`Unavailable` (nothing requested or applied), or
+/// `Ok(Some(height))` for the height actually reached.
+///
+/// One peer, one pass, no retry across peers or chunks — see
+/// [`crate::chunked_snapshot`]'s own honest limits: multi-peer sourcing and
+/// retry policy remain a host decision, exactly as they already are for
+/// [`state_sync_over_tcp`]. A single bad or missing chunk fails the whole
+/// call; a caller wanting resilience retries against this or another peer.
+pub fn chunk_sync_over_tcp<O: ValidatorOracle>(
+    node: &mut ConsensusNode<O>,
+    peer_addr: SocketAddr,
+    chunk_size: usize,
+) -> Result<Option<u64>> {
+    chunk_sync_over_tcp_with_timeout(node, peer_addr, chunk_size, STATE_SYNC_IO_TIMEOUT)
+}
+
+fn chunk_sync_over_tcp_with_timeout<O: ValidatorOracle>(
+    node: &mut ConsensusNode<O>,
+    peer_addr: SocketAddr,
+    chunk_size: usize,
+    timeout: Duration,
+) -> Result<Option<u64>> {
+    let (mut bearer, mut channel) = open_state_sync_client(peer_addr, timeout)?;
+    let network_id = node.state().network_id();
+
+    let chunk_size = u32::try_from(chunk_size).map_err(|_| ConsensusError::TooLarge)?;
+    let manifest_request = crate::chunked_snapshot::ManifestRequest {
+        network_id,
+        chunk_size,
+    };
+    bearer.send(&channel.seal(&manifest_request.to_wire_bytes(), CHUNK_SYNC_AAD)?)?;
+    let sealed = bearer.recv()?;
+    let plaintext = channel.open(&sealed, CHUNK_SYNC_AAD)?;
+    let manifest = match crate::chunked_snapshot::ManifestResponse::from_wire_bytes(&plaintext)? {
+        crate::chunked_snapshot::ManifestResponse::WrongNetwork
+        | crate::chunked_snapshot::ManifestResponse::Unavailable => return Ok(None),
+        crate::chunked_snapshot::ManifestResponse::Manifest(manifest) => *manifest,
+    };
+    let height = manifest.header.height;
+
+    let mut assembler = crate::chunked_snapshot::SnapshotAssembler::new(
+        manifest,
+        node.validators(),
+        node.oracle(),
+    )?;
+    for index in assembler.missing_indices() {
+        let request = crate::chunked_snapshot::ChunkRequest {
+            network_id,
+            height,
+            index,
+        };
+        bearer.send(&channel.seal(&request.to_wire_bytes(), CHUNK_SYNC_AAD)?)?;
+        let sealed = bearer.recv()?;
+        let plaintext = channel.open(&sealed, CHUNK_SYNC_AAD)?;
+        let response = crate::chunked_snapshot::ChunkResponse::from_wire_bytes(&plaintext)?;
+        assembler.accept_chunk(&response)?;
+    }
+    if !assembler.is_complete() {
+        return Err(ConsensusError::Malformed);
+    }
+    let snapshot = assembler.finish()?;
+    let response = StateSyncResponse::snapshot(network_id, snapshot, Vec::new());
+    node.apply_state_sync(response)?;
+    Ok(Some(height))
+}
+
+/// Accept one connection and serve one chunked-transfer round: a
+/// [`crate::chunked_snapshot::ManifestRequest`] for `archive`'s current
+/// [`ConsensusArchive::latest_snapshot`], then every
+/// [`crate::chunked_snapshot::ChunkRequest`] the peer sends over the same
+/// connection until it disconnects. The encrypted, anonymous transport does
+/// not authenticate the peer; it does not need to, because the receiver
+/// independently verifies every payload — the same trust posture
+/// [`serve_state_sync_over_tcp`] already takes.
+pub fn serve_chunk_sync_over_tcp(archive: &ConsensusArchive, listener: &TcpListener) -> Result<()> {
+    serve_chunk_sync_over_tcp_with_timeout(archive, listener, STATE_SYNC_IO_TIMEOUT)
+}
+
+fn serve_chunk_sync_over_tcp_with_timeout(
+    archive: &ConsensusArchive,
+    listener: &TcpListener,
+    timeout: Duration,
+) -> Result<()> {
+    let (mut bearer, mut channel) = accept_state_sync_server(listener, timeout)?;
+    let sealed_request = bearer.recv()?;
+    let plaintext = channel.open(&sealed_request, CHUNK_SYNC_AAD)?;
+    let request = crate::chunked_snapshot::ManifestRequest::from_wire_bytes(&plaintext)?;
+    if request.network_id != archive.network_id() {
+        let response = crate::chunked_snapshot::ManifestResponse::WrongNetwork;
+        bearer.send(&channel.seal(&response.to_wire_bytes()?, CHUNK_SYNC_AAD)?)?;
+        return Ok(());
+    }
+    let Some(snapshot) = archive.latest_snapshot()? else {
+        let response = crate::chunked_snapshot::ManifestResponse::Unavailable;
+        bearer.send(&channel.seal(&response.to_wire_bytes()?, CHUNK_SYNC_AAD)?)?;
+        return Ok(());
+    };
+    let chunker =
+        crate::chunked_snapshot::SnapshotChunker::new(&snapshot, request.chunk_size as usize)?;
+    let response =
+        crate::chunked_snapshot::ManifestResponse::Manifest(Box::new(chunker.manifest().clone()));
+    bearer.send(&channel.seal(&response.to_wire_bytes()?, CHUNK_SYNC_AAD)?)?;
+
+    // Serve chunk requests over this same connection until the peer cleanly
+    // disconnects (it has everything it needs); any other transport error
+    // still propagates rather than being silently swallowed.
+    loop {
+        let sealed_request = match bearer.recv() {
+            Ok(bytes) => bytes,
+            Err(mini_bearer::BearerError::Closed) => return Ok(()),
+            Err(e) => return Err(e.into()),
+        };
+        let plaintext = channel.open(&sealed_request, CHUNK_SYNC_AAD)?;
+        let request = crate::chunked_snapshot::ChunkRequest::from_wire_bytes(&plaintext)?;
+        let Some(chunk_response) = chunker.chunk(request.index) else {
+            return Err(ConsensusError::Malformed);
+        };
+        bearer.send(&channel.seal(&chunk_response.to_wire_bytes()?, CHUNK_SYNC_AAD)?)?;
+    }
+}
+
 /// AEAD associated data for every consensus frame sealed over a link's
 /// [`Channel`] — domain separation so a ciphertext produced for this purpose
 /// can never be replayed as if it meant something else, the same discipline
