@@ -1,8 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use mini_net::{
-    dialable_fanout, fanout_peers, AddressBook, GossipRouter, PeerId, PeerRecord, RoutingTable,
-    BUCKET_SIZE,
+    dialable_fanout, fanout_peers, randomized_dialable_fanout, randomized_fanout_peers,
+    AddressBook, GossipRouter, PeerId, PeerRecord, RoutingTable, BUCKET_SIZE,
 };
 
 fn peer(seed: u8) -> PeerId {
@@ -221,4 +221,96 @@ fn dialable_fanout_is_empty_when_nothing_is_dialable() {
     let book = AddressBook::new();
 
     assert!(dialable_fanout(&routing, &book, &local, 10, None).is_empty());
+}
+
+fn twenty_peers() -> Vec<PeerId> {
+    (0u8..20).map(peer).collect()
+}
+
+#[test]
+fn randomized_fanout_peers_is_reproducible_for_the_same_seed() {
+    let candidates = twenty_peers();
+    let first = randomized_fanout_peers(&candidates, 5, b"round-1");
+    let second = randomized_fanout_peers(&candidates, 5, b"round-1");
+    assert_eq!(first, second);
+}
+
+#[test]
+fn randomized_fanout_peers_differs_across_seeds() {
+    // Same fixture, twelve different seeds against a 20-peer pool: with
+    // cryptographic hashing behind the selection key, expecting every
+    // single seed to reproduce the exact same 5-of-20 selection would be
+    // absurd -- assert that at least one seed actually changes the
+    // result, a property this run either has or doesn't (no flakiness:
+    // every input here is a fixed constant).
+    let candidates = twenty_peers();
+    let baseline = randomized_fanout_peers(&candidates, 5, b"seed-0");
+    let any_different = (1u8..12).any(|i| {
+        let seed = [i];
+        randomized_fanout_peers(&candidates, 5, &seed) != baseline
+    });
+    assert!(
+        any_different,
+        "varying the seed never changed the selection across 12 tries"
+    );
+}
+
+#[test]
+fn randomized_fanout_peers_caps_at_the_requested_size() {
+    let candidates = twenty_peers();
+    let selected = randomized_fanout_peers(&candidates, 5, b"seed");
+    assert_eq!(selected.len(), 5);
+
+    let all = randomized_fanout_peers(&candidates, 100, b"seed");
+    assert_eq!(all.len(), candidates.len());
+}
+
+#[test]
+fn randomized_fanout_peers_never_selects_outside_the_candidate_set() {
+    let candidates = twenty_peers();
+    let selected = randomized_fanout_peers(&candidates, 5, b"seed");
+    assert!(selected.iter().all(|id| candidates.contains(id)));
+    // And never repeats a candidate -- one key per id, sorted then
+    // truncated, so duplicates would mean a real bug in the derivation.
+    let mut sorted = selected.clone();
+    sorted.sort_by_key(|id| id.0);
+    sorted.dedup();
+    assert_eq!(sorted.len(), selected.len());
+}
+
+#[test]
+fn randomized_dialable_fanout_excludes_the_named_peer_and_address_less_peers() {
+    let local = peer(0);
+    let mut routing = RoutingTable::new(local);
+    let mut book = AddressBook::new();
+    for seed in 1u8..20 {
+        routing.insert(peer(seed));
+        if seed != 5 {
+            // seed 5 stays routing-known but address-less.
+            book.insert(peer(seed), addr(9000 + seed as u16));
+        }
+    }
+    let sender = peer(3);
+
+    let selected = randomized_dialable_fanout(&routing, &book, &local, 30, Some(&sender), b"s");
+    assert!(!selected.iter().any(|r| r.id == sender));
+    assert!(!selected.iter().any(|r| r.id == peer(5)));
+    // Every remaining dialable, non-excluded peer must appear once
+    // fanout is large enough to hold them all.
+    assert_eq!(selected.len(), 17);
+}
+
+#[test]
+fn randomized_dialable_fanout_is_reproducible_for_the_same_seed() {
+    let local = peer(0);
+    let mut routing = RoutingTable::new(local);
+    let mut book = AddressBook::new();
+    for seed in 1u8..20 {
+        routing.insert(peer(seed));
+        book.insert(peer(seed), addr(9000 + seed as u16));
+    }
+
+    let first = randomized_dialable_fanout(&routing, &book, &local, 6, None, b"round-7");
+    let second = randomized_dialable_fanout(&routing, &book, &local, 6, None, b"round-7");
+    assert_eq!(first, second);
 }

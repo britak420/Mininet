@@ -19568,3 +19568,105 @@ mini-storage-fraud's codec); optionally, a shared adversarial-decode
 test helper crate, adopted incrementally rather than as a mass retrofit.
 
 **Supersedes / superseded by:** supersedes nothing.
+### D-0473 — Randomized, eclipse-hardened gossip fanout selection  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** D-0472 (`mini_net::dialable_fanout`, the
+deterministic function this hardens), `mini_porep::sample_challenges`
+(D-0064, the seeded-derivation precedent this reuses), `docs/THREAT_MODEL.md`
+"Routing attacks"/"Eclipse attacks" rows, roadmap [#24](../../issues/24),
+Directive 11, [#92](../../issues/92).
+
+**Decision:** `gossip.rs`'s own module docs have named this gap since the
+crate's first slice: "Fanout selection here is deterministic
+(closest-first), not randomized. Real gossip networks randomize fanout
+specifically to resist an attacker positioning itself as every honest
+peer's 'closest' neighbor and silently dropping traffic (an eclipse
+attack)." `mini_net::randomized_fanout_peers(candidates, fanout, seed)`
+closes it: each candidate's selection key is
+`BLAKE3("mini-net/gossip/randomized-fanout/v1" || seed || id)`, sorted
+ascending, first `fanout` kept — selection now depends on `seed`, not a
+candidate's routing distance. `randomized_dialable_fanout` is the
+address-aware counterpart, composed over the same dialable-candidate pool
+`dialable_fanout` (D-0472) already gathers — that gathering step
+(`RoutingTable::closest_peers` filtered through `AddressBook::get`, minus
+`exclude`) is now a shared private `dialable_candidates` helper so
+neither public function reimplements it.
+
+**Why this is the right shape, not a bespoke shuffle:** `mini_porep
+::sample_challenges` already established the pattern this reuses for an
+unrelated purpose (auditor challenge sampling, D-0064): a
+domain-separated, keyed BLAKE3 derivation over `(context, seed, index)`
+gives output that is fully deterministic and reproducible for anyone who
+knows `seed`, yet unpredictable for anyone who does not — exactly the
+property fanout selection needs. A Fisher-Yates shuffle seeded from a
+PRNG would need a PRNG dependency and a seed-to-state conversion this
+tree doesn't otherwise carry; sorting by a keyed hash needs neither and
+composes with nothing but `mini_crypto::HashAlgorithm::Blake3`, already a
+dependency.
+
+**Why `seed` freshness, not the hashing, is what actually buys the
+resistance:** the function itself cannot enforce how a caller chooses
+`seed` — a caller that hardcodes one fixed seed forever gets a different
+*static* selection than closest-first order, which is no better against
+a patient attacker who simply learns that one static answer. The real
+mitigation requires `seed` to change per round (or per message) from
+something no candidate peer controls or can predict in advance — fresh
+local randomness (`mini_crypto::random_32`) is the straightforward
+choice, stated explicitly in the function's own docs rather than assumed.
+
+**What this does not do, stated plainly:**
+
+- **No defense against a fully eclipsed candidate pool.** If every
+  candidate in `candidates`/the dialable pool is already attacker-
+  controlled, randomizing which one gets picked changes nothing — this
+  raises the cost of a *partial* eclipse (occupying some, not all, of a
+  victim's nearby routing positions), it does not close full eclipse.
+  `docs/THREAT_MODEL.md`'s "Routing attacks" row (the one whose own text
+  named "availability-level routing attacks (eclipse)" as undefended) is
+  updated to cite this as partial mitigation; the separate "Eclipse
+  attacks" row, specifically about eclipsing a *validator's* finality
+  view, is untouched — this slice is generic gossip fanout, not
+  consensus-layer eclipse defense.
+- **No bucket-refresh-by-liveness-ping.** `routing.rs`'s own separate
+  honest limit — a full bucket still simply refuses new candidates
+  rather than evicting a stale/dead one — is untouched; that is the
+  complementary hardening this does not provide.
+- **No wiring into a real running mesh.** Same honest limit D-0472
+  already stated for `dialable_fanout`: these are selection functions, a
+  caller still assembles the loop that actually runs live traffic.
+- **No wire-format or transport changes.** No new crate dependency
+  either — `mini_crypto` was already a dependency (`peer.rs`'s
+  `PeerId::generate` already uses `mini_crypto::random_32`).
+
+**Constitutional impact:** none. Composition of an already-reviewed
+primitive (`mini_crypto::HashAlgorithm::Blake3`, the same construction
+this tree already uses for hashing everywhere) applied to a new purpose
+(seeded selection ordering, not integrity or authentication) — not new
+cryptography. No voice/value edge: `mini-net` gains no new dependency at
+all.
+
+**Implementation status:** shipped — `crates/mini-net/src/gossip.rs`
+(new: `RANDOMIZED_FANOUT_DOMAIN`, `randomized_fanout_peers`,
+`randomized_dialable_fanout`, private `dialable_candidates` helper
+factored out of `dialable_fanout`; module doc rewritten to describe both
+selection variants and their respective honest limits),
+`crates/mini-net/src/lib.rs` (re-exports). 7 new tests in
+`crates/mini-net/tests/net.rs`: same seed reproduces the same selection
+(twice, for both the plain and address-aware variant), varying the seed
+across 12 fixed values changes the result at least once, selection caps
+at the requested size and never exceeds the candidate count, every
+selected id is drawn from the real candidate set with no duplicates, and
+the address-aware variant correctly excludes both a named sender and a
+routing-known-but-address-less peer.
+
+**Failure point:** a caller that does not understand the `seed`-freshness
+requirement and reuses a constant seed gains nothing over
+`dialable_fanout`'s existing deterministic order except a different fixed
+answer — the function's docs state this explicitly rather than leaving it
+implicit, but nothing in the type system prevents the mistake.
+
+**Required follow-up:** bucket-refresh-by-liveness-ping (`routing.rs`'s
+remaining honest limit) and wiring either fanout variant into a real
+running multi-node mesh both remain open, tracked in roadmap #24.
+
+**Supersedes / superseded by:** extends D-0472; supersedes nothing.

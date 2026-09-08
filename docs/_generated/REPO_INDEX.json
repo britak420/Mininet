@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 933,
     "headings": 3282,
-    "rust_symbols": 9381
+    "rust_symbols": 9392
   },
   "crates": {
     "did-mini": {
@@ -39580,84 +39580,104 @@
       "title": "use core::fmt;"
     },
     {
-      "bytes": 4316,
+      "bytes": 9158,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
         "self",
         "message",
-        "fanout",
+        "routing",
         "capacity",
         "seen",
+        "fanout",
+        "peer",
         "peerid",
-        "routing",
         "ids",
         "gossiprouter",
         "new",
         "len",
-        "peer",
         "routingtable",
         "order",
-        "usize",
+        "target",
         "gossip",
+        "fanout_peers",
+        "same",
         "forward",
         "honest",
-        "real",
-        "peerrecord",
-        "caller",
-        "target",
-        "is_empty",
-        "fanout_peers"
+        "select",
+        "attacker",
+        "usize",
+        "exclude"
       ],
-      "lines": 109,
+      "lines": 208,
       "path": "crates/mini-net/src/gossip.rs",
-      "sha256": "8ec2c650f32a47c40815133b403b1b678f191157f5b974bd8f7cf84da6ef2f84",
+      "sha256": "cde237f37f63eea1481481cfa545a158e57fa9ec889ff338f29219a94ba073d8",
       "symbols": [
         {
           "kind": "struct",
-          "line": 25,
+          "line": 37,
           "name": "GossipRouter"
         },
         {
           "kind": "impl",
-          "line": 31,
+          "line": 43,
           "name": "GossipRouter"
         },
         {
           "kind": "fn",
-          "line": 34,
+          "line": 46,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 45,
+          "line": 57,
           "name": "record_seen"
         },
         {
           "kind": "fn",
-          "line": 59,
+          "line": 71,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 64,
+          "line": 76,
           "name": "is_empty"
         },
         {
           "kind": "fn",
-          "line": 73,
+          "line": 85,
           "name": "fanout_peers"
         },
         {
           "kind": "fn",
           "line": 94,
+          "name": "dialable_candidates"
+        },
+        {
+          "kind": "fn",
+          "line": 127,
           "name": "dialable_fanout"
+        },
+        {
+          "kind": "const",
+          "line": 144,
+          "name": "RANDOMIZED_FANOUT_DOMAIN"
+        },
+        {
+          "kind": "fn",
+          "line": 168,
+          "name": "randomized_fanout_peers"
+        },
+        {
+          "kind": "fn",
+          "line": 189,
+          "name": "randomized_dialable_fanout"
         }
       ],
-      "title": "use std::collections::{HashSet, VecDeque};"
+      "title": "use std::collections::{HashMap, HashSet, VecDeque};"
     },
     {
-      "bytes": 2555,
+      "bytes": 2619,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
@@ -39686,9 +39706,9 @@
         "other",
         "piece"
       ],
-      "lines": 55,
+      "lines": 58,
       "path": "crates/mini-net/src/lib.rs",
-      "sha256": "57728a5096d5fcb96e6d526b360793aa6e1bd5eb788a65080ae4748787613424",
+      "sha256": "28801a9e102b258fb239cc3d0b68c37c520c3c619990b2c5518186e135956c65",
       "symbols": [
         {
           "kind": "mod",
@@ -40090,7 +40110,7 @@
       "title": "use crate::peer::PeerId;"
     },
     {
-      "bytes": 6681,
+      "bytes": 10122,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
@@ -40107,7 +40127,6 @@
         "record_seen",
         "routingtable",
         "bytes",
-        "addr",
         "near",
         "far",
         "bucket_size",
@@ -40117,11 +40136,12 @@
         "low_bits",
         "closest",
         "msg_id",
-        "selected"
+        "selected",
+        "routing"
       ],
-      "lines": 225,
+      "lines": 317,
       "path": "crates/mini-net/tests/net.rs",
-      "sha256": "9272d0bd9c98afc1379f4d15eadf56647f45b2f129da72b4027d99a880f679e2",
+      "sha256": "f16a8ca714abe65e5fd5a3f65170fb7ae84596acbe6d44bf4193be607bd1faae",
       "symbols": [
         {
           "kind": "fn",
@@ -40207,6 +40227,41 @@
           "kind": "fn",
           "line": 217,
           "name": "dialable_fanout_is_empty_when_nothing_is_dialable"
+        },
+        {
+          "kind": "fn",
+          "line": 226,
+          "name": "twenty_peers"
+        },
+        {
+          "kind": "fn",
+          "line": 231,
+          "name": "randomized_fanout_peers_is_reproducible_for_the_same_seed"
+        },
+        {
+          "kind": "fn",
+          "line": 239,
+          "name": "randomized_fanout_peers_differs_across_seeds"
+        },
+        {
+          "kind": "fn",
+          "line": 259,
+          "name": "randomized_fanout_peers_caps_at_the_requested_size"
+        },
+        {
+          "kind": "fn",
+          "line": 269,
+          "name": "randomized_fanout_peers_never_selects_outside_the_candidate_set"
+        },
+        {
+          "kind": "fn",
+          "line": 282,
+          "name": "randomized_dialable_fanout_excludes_the_named_peer_and_address_less_peers"
+        },
+        {
+          "kind": "fn",
+          "line": 304,
+          "name": "randomized_dialable_fanout_is_reproducible_for_the_same_seed"
         }
       ],
       "title": "use std::net::{IpAddr, Ipv4Addr, SocketAddr};"
@@ -78032,7 +78087,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1180540,
+      "bytes": 1186582,
       "group": "docs",
       "headings": [
         {
@@ -78462,9 +78517,9 @@
         "first",
         "kel"
       ],
-      "lines": 19571,
+      "lines": 19673,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "d6696fe882abae0cf6e5bfe51d9125718d959f07172613bf475ab91b0eb411f0",
+      "sha256": "e6fc01b9e98018bd6b989481ea785c5d7542402868282caa78406bc29f63c770",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -79800,7 +79855,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 178575,
+      "bytes": 180001,
       "group": "docs",
       "headings": [
         {
@@ -79860,52 +79915,52 @@
         },
         {
           "level": 2,
-          "line": 1443,
+          "line": 1465,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1473,
+          "line": 1495,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1800,
+          "line": 1822,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2289,
+          "line": 2311,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2380,
+          "line": 2402,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2460,
+          "line": 2482,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2526,
+          "line": 2548,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2543,
+          "line": 2565,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2579,
+          "line": 2601,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2644,
+          "line": 2666,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -79935,9 +79990,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2679,
+      "lines": 2701,
       "path": "docs/STATUS.md",
-      "sha256": "e371efe2da859c5c72d9926f60b2a3298f26a8b1b97d3158251f5db1f2d71620",
+      "sha256": "bed4a04aa9dbf264c3ed5a0dde85df6a378a3c407774f235aa627b1cad4180ba",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -80049,7 +80104,7 @@
       "title": "Testing this repository"
     },
     {
-      "bytes": 34260,
+      "bytes": 34780,
       "group": "docs",
       "headings": [
         {
@@ -80136,7 +80191,7 @@
       ],
       "lines": 180,
       "path": "docs/THREAT_MODEL.md",
-      "sha256": "5e5ac1d968bd120b2b3880b1e05bfaba042046ab4693221027fd1c89c465ab42",
+      "sha256": "4067626d28ec88721a7154fcef236afde1275373d89549a86e449896087c361d",
       "symbols": [],
       "title": "Threat model \u2014 what could actually kill this"
     },
@@ -96804,7 +96859,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 83834,
+      "bytes": 85487,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -96833,9 +96888,9 @@
         "independently",
         "both"
       ],
-      "lines": 1219,
+      "lines": 1238,
       "path": "governance/work-claims.json",
-      "sha256": "b8fabb32c980d6269130e0c1f68d90a701dc3e85af17c8d9a6bcbd027c872475",
+      "sha256": "5ff47432b7525ef69610ff6394fa933581dd837415d65dd8dd418a24081ebcc9",
       "symbols": [],
       "title": "{"
     },

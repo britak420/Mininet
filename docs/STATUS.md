@@ -1434,9 +1434,31 @@ given time.
   purely through discovered addresses) remains for a caller to wire, the
   same way `mini_consensus::discovery::pex_over_tcp` wires this crate's
   PEX logic for the consensus mesh specifically. Bucket refresh by
-  liveness ping and randomized (rather than deterministic closest-first)
-  fanout remain the two honest limits already named in `routing.rs`/
-  `gossip.rs`'s own module docs, unchanged by this.
+  liveness ping remains the one honest limit still open from
+  `routing.rs`'s own module docs.
+- **shipped (D-0473)** — randomized, eclipse-hardened fanout selection,
+  closing `gossip.rs`'s other named honest limit: `dialable_fanout`'s
+  closest-first order lets an attacker who occupies a victim's nearest
+  routing positions guarantee it always gets selected, forever.
+  `mini_net::randomized_fanout_peers` sorts candidates by a
+  domain-separated `BLAKE3(seed || id)` key instead of caller order — the
+  same seeded-derivation shape `mini_porep::sample_challenges` already
+  uses for auditor challenge sampling (D-0064) — so selection depends on
+  `seed`, not routing distance; `randomized_dialable_fanout` is the
+  address-aware counterpart over the same candidate pool
+  `dialable_fanout` already gathers (factored into a shared private
+  `dialable_candidates` helper so neither reimplements the composition).
+  Directly answers `docs/THREAT_MODEL.md`'s "Routing attacks"/"Eclipse
+  attacks" rows, which named exactly this gap.
+  **What it does not do:** an attacker who already controls 100% of a
+  victim's candidate pool is not defended — randomizing selection among
+  only-attacker candidates changes nothing; this raises the cost of a
+  *partial* eclipse, it does not close full eclipse. `seed` freshness is
+  the caller's responsibility and not enforced by the function itself: a
+  caller that reuses one fixed seed forever gets a different static
+  selection, not an unpredictable one. Bucket refresh by liveness ping
+  remains open, as does wiring either fanout variant into a real running
+  mesh.
 - **not started** — BLE radio adapter (needs real phone hardware,
   [#22](../../issues/22)); NAT traversal; local mesh routing.
 

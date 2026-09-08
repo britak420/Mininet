@@ -1166,7 +1166,7 @@
     },
     {
       "issue": 24,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/pex-driven-gossip-fanout",
       "lease_expires": "2026-09-14",
@@ -1178,7 +1178,26 @@
       "decision_ids": [
         "D-0472"
       ],
-      "notes": "D-0472: mini_net::dialable_fanout composes RoutingTable::closest_peers, AddressBook::get and fanout_peers into the one query a gossiping node needs -- nearest peers to a target it can both route to and dial, skipping address-less routing-known peers and skipping a caller-named exclude (the sender). Closes the gap D-0092's own STATUS.md entry named: PEX-discovered peers now drive real gossip fanout, proven over real TCP in crates/mini-net/tests/pex_driven_gossip_mesh.rs -- a node that knows only one peer discovers a second purely through one PEX round, selects it via dialable_fanout (never a hardcoded address), dials a fresh connection, and gossips a message the receiver accepts exactly once. Pure, transport-agnostic function -- no new mini-bearer dependency added to the library, matching this crate's own documented D-0042 stance. Roadmap #24 (partial). Coordination evidence only, not approval or authority."
+      "notes": "D-0472: mini_net::dialable_fanout composes RoutingTable::closest_peers, AddressBook::get and fanout_peers into the one query a gossiping node needs -- nearest peers to a target it can both route to and dial, skipping address-less routing-known peers and skipping a caller-named exclude (the sender). Closes the gap D-0092's own STATUS.md entry named: PEX-discovered peers now drive real gossip fanout, proven over real TCP in crates/mini-net/tests/pex_driven_gossip_mesh.rs -- a node that knows only one peer discovers a second purely through one PEX round, selects it via dialable_fanout (never a hardcoded address), dials a fresh connection, and gossips a message the receiver accepts exactly once. Pure, transport-agnostic function -- no new mini-bearer dependency added to the library, matching this crate's own documented D-0042 stance. Roadmap #24 (partial). Coordination evidence only, not approval or authority. Closed 2026-09-08: PR #330 merged.",
+      "pull_request": 330
+    },
+    {
+      "issue": 24,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/mini-net-randomized-fanout",
+      "lease_expires": "2026-09-15",
+      "paths": [
+        "crates/mini-net/",
+        "docs/THREAT_MODEL.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0473"
+      ],
+      "notes": "D-0473: mini_net::randomized_fanout_peers/randomized_dialable_fanout close gossip.rs's own named honest limit -- fanout selection was deterministic closest-first, letting an attacker who occupies a victim's nearest routing positions guarantee it always gets selected. Selection now sorts candidates by a domain-separated BLAKE3(seed || id) key instead of caller order, the same seeded-derivation shape mini_porep::sample_challenges (D-0064) already uses for auditor challenge sampling. randomized_dialable_fanout is the address-aware counterpart over the same dialable-candidate pool dialable_fanout (D-0472) already gathers, factored into a shared private dialable_candidates helper. Raises the cost of a partial eclipse (some but not all of a victim's nearby routing positions attacker-controlled) -- does not defend a fully eclipsed candidate pool, and seed freshness (so selection is actually unpredictable, not just a different fixed answer) is the caller's responsibility. docs/THREAT_MODEL.md's Routing attacks row updated to cite this as partial mitigation. 7 new tests. Coordination evidence only, not approval or authority. Closed 2026-09-08: PR #331 merged.",
+      "pull_request": 331
     },
     {
       "issue": 92,
