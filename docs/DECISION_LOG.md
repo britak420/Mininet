@@ -20794,3 +20794,124 @@ decision D-0463's own module doc already names as future work
 ("opt-in, not wired into `TcpMesh`").
 
 **Supersedes / superseded by:** none.
+
+### D-0491 — Node Appliance backup/restore: passphrase off argv, validated tar extraction, crash-safe rename sequence (F-16)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-16
+(`deploy/backup/backup.sh`, `deploy/backup/restore.sh`); PR #304
+(shipped these scripts).
+
+**Decision:** three real, independently reachable bugs in the appliance
+backup/restore tooling that holds an operator's only recoverable
+`did:mini` identity state — all three exactly matching the finding's own
+concrete examples, not theoretical:
+
+1. **Passphrase-in-argv (`backup.sh` batch mode, `restore.sh` batch
+   mode).** Both scripts' `--batch` path read `MININET_BACKUP_PASSPHRASE`
+   from the environment (already the safer input channel —
+   `/proc/<pid>/environ` is readable only by the process owner/root on
+   Linux) but then passed it straight through to `gpg --passphrase
+   "${VALUE}"` — a plain process argument, visible to *any* local process
+   via `/proc/<pid>/cmdline`, which is world-readable by default. This is
+   the finding's exact concrete example ("another local process inspects
+   a command line containing a backup passphrase"). Both call sites now
+   use `gpg --passphrase-fd 3`, fed by process substitution
+   (`3< <(printf '%s' "${MININET_BACKUP_PASSPHRASE}")`) — the passphrase
+   never appears as a command-line argument anywhere.
+2. **Unvalidated tar extraction (`restore.sh`).** `tar -xzf ... -C
+   "${workdir}"` ran directly against a decrypted, otherwise-untrusted
+   archive with no explicit member-path validation, relying entirely on
+   whatever protections the installed `tar` version happens to have by
+   default. `restore.sh` now lists every member (`tar -tzf`) and refuses
+   the archive outright if any entry is an absolute path or contains a
+   `..` path-traversal component, before extracting a single byte; it
+   also refuses if the archive's top-level state directory entry is
+   itself a symlink (which could otherwise redirect the whole restore
+   outside the staging area).
+3. **Non-atomic, data-destroying restore sequence (`restore.sh`).** The
+   previous sequence was `rm -rf "${STATE_DIR}"` followed by `mv
+   "${workdir}/${state_name}" "${STATE_DIR}"` — an interruption (crash,
+   power loss, `SIGKILL`) between those two steps left *neither* a usable
+   old state nor a complete new one, exactly the finding's concrete
+   example. `restore.sh` now stages its working directory on the same
+   filesystem as `STATE_DIR`'s own parent (`mktemp -d` under that
+   directory, not the system default temp filesystem, which is very
+   often a different mount — closing the "cross-filesystem staging"
+   acceptance-test item too, since a same-filesystem `mv` is an atomic
+   rename at the OS level) and performs a rename-swap: the previous state
+   is moved aside (never deleted) *before* the new state is moved into
+   place, and is only removed once the new state already fully occupies
+   `STATE_DIR`. An interruption at any point before the final cleanup
+   still leaves either the fully intact previous state or the fully
+   intact new state recoverable — never neither.
+
+**Reason:** all three are `deploy/backup/backup.sh`'s and `restore.sh`'s
+own explicitly-stated audience — "This archive IS the node's identity"
+— realized as reachable, exploitable-by-a-genuine-accident bugs, not
+speculative hardening. Each has a small, well-understood, standard fix
+(GPG's own documented `--passphrase-fd` mechanism; explicit tar-member
+validation before extraction; stage-then-atomic-rename instead of
+delete-then-move) — none requires inventing new infrastructure or a
+broader mechanism decision, unlike this finding's other named item
+("a checksum alone is not archive safety or authority" — the sha256
+manifest already only ever claimed self-consistency against corruption/
+truncation, per `backup.sh`'s own pre-existing comment "It is not a
+signature and proves nothing about origin"; real archive-origin
+authentication would need a second, separately-managed signing key and
+is left as the honestly-scoped gap it already was, matching this
+session's pattern of declining unreviewed larger mechanism designs).
+
+**Constitutional impact:** none. Deployment tooling only — no protocol
+surface, no crate dependency-graph change, no cryptography invented
+(reuses GPG's own existing, standard `--passphrase-fd` option).
+
+**Implementation status:** shipped.
+- `deploy/backup/backup.sh`: batch-mode `gpg` invocation switched to
+  `--passphrase-fd 3` via process substitution.
+- `deploy/backup/restore.sh`: batch-mode `gpg --decrypt` switched the
+  same way; `workdir` now staged under `$(dirname "${STATE_DIR}")`
+  instead of the system temp directory; new tar-member path validation
+  loop before extraction; new symlink check on the extracted state
+  directory; the `rm -rf` + `mv` replaced with a move-aside/move-in/
+  remove-old sequence.
+- New `deploy/backup/test_backup_restore.sh`: a real, runnable
+  acceptance-test script (matching `tools/no_github_outage_demo.sh`'s
+  narrated, real-tools-on-real-disk pattern, not a description of
+  intended behavior) covering 8 checks: no unsafe `--passphrase` argv
+  usage in either script (static); a full backup→restore round trip
+  recovers byte-identical state; a wrong passphrase is refused; restoring
+  over existing state without `--force` is refused; a truncated/
+  corrupted archive is refused; a path-traversal archive member is
+  rejected before any extraction and the escape path is never created;
+  an interruption simulated between the two rename steps leaves the old
+  state fully recoverable. All 8 pass.
+- `.github/workflows/ci.yml`: new `deploy-backup-restore` job runs this
+  script on every push/PR — `restore.sh` requires `EUID 0` (it writes
+  appliance-owned paths), so the test script re-execs itself under
+  `sudo` when not already root, the same way a real operator would run
+  the restore step; `ubuntu-latest`'s passwordless `sudo` for the
+  default `runner` user makes this work unmodified in CI.
+
+**Failure point:** this is local-simulation acceptance testing, not real
+appliance-hardware acceptance — matching the finding's own "Boundary of
+the finding: lint success cannot establish these properties" almost
+verbatim. Not covered here: disk-full behavior mid-backup (an
+`fs::write`-into-full-disk failure path, untested), live writes to
+`STATE_DIR` racing a backup in progress (no quiescing/snapshotting —
+`tar` reads whatever is on disk at the moment it visits each file, with
+no consistency guarantee across files), and archive-origin
+authentication (named above, an accepted, pre-existing, honestly-scoped
+gap). `MININET_BACKUP_PASSPHRASE` in the environment is still readable
+by any process running as the same user or root — meaningfully narrower
+than the world-readable argv exposure this decision closes, but not
+zero exposure; a hardware-backed secret store is out of scope for a
+software-only appliance image.
+
+**Required follow-up:** disk-full and live-write-during-backup
+acceptance tests, if this tooling is exercised against real appliance
+hardware before its next audit pass; archive-origin authentication, if
+a real signing-key management story is ever designed for the appliance
+image (no plan exists yet).
+
+**Supersedes / superseded by:** none.

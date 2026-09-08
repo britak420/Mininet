@@ -136,6 +136,22 @@ jobs:
         with:
           command: check
 
+  # Real acceptance tests for the Node Appliance backup/restore scripts
+  # (D-0491, PR #327 finding F-16): a passphrase argv leak, an unvalidated
+  # tar-extraction path-traversal, and a delete-then-move restore sequence
+  # that could lose the operator's only recoverable identity state on an
+  # interruption were all real, reachable bugs the previous configuration
+  # never had a test to catch. `ubuntu-latest`'s default `runner` user is
+  # not root, and `restore.sh` requires it (it writes appliance-owned
+  # paths); `test_backup_restore.sh` re-execs itself under `sudo` when not
+  # already root, the same way a real operator would run the restore step.
+  deploy-backup-restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run backup/restore acceptance tests
+        run: bash deploy/backup/test_backup_restore.sh
+
   # SPEC-11's verified-reproducible release check moved to its own workflow
   # (.github/workflows/reproducibility.yml, D-0314): two full clean release
   # builds take 10+ minutes, and gating every PR push -- including

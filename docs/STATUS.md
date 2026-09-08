@@ -2775,6 +2775,22 @@ bootloader, hardware support, security patches, and package infrastructure.
   people meet too late: a dead disk without a backup is a permanently lost
   identity, and cheap hardware is exactly the hardware whose storage
   fails. Before this there was no backup path at all.
+- **hardened (D-0491, F-16)** — three real bugs fixed in `backup/
+  backup.sh`/`restore.sh`: the batch-mode passphrase reached `gpg` as a
+  process argument (`--passphrase`), visible to any local process via the
+  world-readable `/proc/<pid>/cmdline`, now `--passphrase-fd` instead;
+  `restore.sh` extracted a decrypted archive with no explicit path
+  validation, now rejects absolute paths, `..` traversal, and a
+  symlinked top-level entry before extracting anything; and the restore
+  sequence was `rm -rf` the old state then `mv` the new state in, so an
+  interruption between those two steps could lose both — now the old
+  state is staged aside (same filesystem, atomic rename) and only
+  removed once the new state is fully in place, so an interruption at
+  any point leaves one or the other fully recoverable, never neither.
+  New `deploy/backup/test_backup_restore.sh` (8 real checks: round trip,
+  wrong passphrase, missing `--force`, corrupted archive, path-traversal
+  archive, interrupted-restore recovery, no-argv-leak) wired into CI as
+  `deploy-backup-restore`. See `docs/DECISION_LOG.md` D-0491.
 - **not run end-to-end** — no real Debian Stable machine or VM ran the
   installer in this session; verification was manifest lint (unit syntax,
   firewall syntax, sysusers dry-run, live package-name resolution) plus

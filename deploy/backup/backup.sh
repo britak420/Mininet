@@ -85,10 +85,18 @@ if [[ -r "${CONFIG_FILE}" ]]; then
 fi
 
 if [[ "${BATCH}" -eq 1 ]]; then
+    # F-16: never pass the passphrase as a `gpg` argument -- process
+    # arguments are visible to any local process that can read
+    # /proc/<pid>/cmdline (world-readable by default on Linux), unlike
+    # /proc/<pid>/environ (readable only by the process owner/root).
+    # --passphrase-fd reads it from a dedicated file descriptor instead,
+    # fed by process substitution below; gpg's own stdin (fd 0) still
+    # carries the piped tar stream, so the two never collide.
     tar "${tar_args[@]}" \
         | gpg --batch --yes --symmetric --cipher-algo AES256 \
-              --passphrase "${MININET_BACKUP_PASSPHRASE}" \
-              --output "${archive}"
+              --passphrase-fd 3 \
+              --output "${archive}" \
+              3< <(printf '%s' "${MININET_BACKUP_PASSPHRASE}")
 else
     log "you will be prompted for a passphrase; there is no way to recover it"
     tar "${tar_args[@]}" \

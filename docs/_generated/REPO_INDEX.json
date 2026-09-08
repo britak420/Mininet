@@ -1,8 +1,8 @@
 {
   "counts": {
     "crates": 75,
-    "files": 935,
-    "headings": 3288,
+    "files": 936,
+    "headings": 3334,
     "rust_symbols": 9454
   },
   "crates": {
@@ -974,7 +974,7 @@
       "title": "Android beta slice 9 (issue #205, hub #196): SPEC-11's verified-"
     },
     {
-      "bytes": 6891,
+      "bytes": 7804,
       "group": "ci",
       "headings": [
         {
@@ -1014,9 +1014,9 @@
         "set",
         "json"
       ],
-      "lines": 148,
+      "lines": 164,
       "path": ".github/workflows/ci.yml",
-      "sha256": "84555b588a38725d7ceb6d85cdc4910d57d1acbada022d312d2dc764aac6a0f1",
+      "sha256": "735fc93de2a5ea7271fa360c8d38351dfd545f816976b031ea1dca069368e6a0",
       "symbols": [],
       "title": "Least-privilege default: this workflow only reads and checks the repo, it"
     },
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28176,
+      "bytes": 28093,
       "group": "root",
       "headings": [
         {
@@ -1808,7 +1808,7 @@
         },
         {
           "level": 2,
-          "line": 445,
+          "line": 444,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 449,
+      "lines": 448,
       "path": "README.md",
-      "sha256": "50d3f00bb6b6ad1adae9fc3b45e68535a1d122d222b08ddc1711c4bec36d3baa",
+      "sha256": "ba1d9fb3a7f7098521bdf92564d14b5897c2e1fbb50166ba7f685d19eee2fb1a",
       "symbols": [],
       "title": "Mininet"
     },
@@ -76326,7 +76326,7 @@
       "title": "`deploy/` \u2014 Mininet Node Appliance (Day 0)"
     },
     {
-      "bytes": 4819,
+      "bytes": 5335,
       "group": "root",
       "headings": [
         {
@@ -76496,54 +76496,54 @@
         },
         {
           "level": 1,
-          "line": 100,
+          "line": 108,
           "text": "A digest of the *encrypted* archive, so a later restore can tell a"
         },
         {
           "level": 1,
-          "line": 101,
+          "line": 109,
           "text": "corrupted file from a wrong passphrase. It is not a signature and proves"
         },
         {
           "level": 1,
-          "line": 102,
+          "line": 110,
           "text": "nothing about origin."
         }
       ],
       "keywords": [
         "backup",
-        "log",
         "archive",
         "restore",
         "node",
-        "passphrase",
+        "log",
         "batch",
         "appliance",
         "there",
+        "passphrase",
         "key",
+        "never",
         "deploy",
         "directory",
         "out_dir",
-        "identity",
-        "never",
+        "gpg",
         "recovery",
         "operator",
         "encrypted",
-        "one",
         "different",
         "state_dir",
         "fail",
+        "tar",
         "state",
-        "mininet_backup_passphrase"
+        "identity"
       ],
-      "lines": 118,
+      "lines": 126,
       "path": "deploy/backup/backup.sh",
-      "sha256": "d67c3b930b4cfd11b4968fb219dd209b0cecf1ed1386f09ddad455eb249ea4ff",
+      "sha256": "1e4300eeaf7c6368e4d1360c060f21f3b5d3e973e4163441f7bbf970a9a3f7e3",
       "symbols": [],
       "title": "Mininet Node Appliance \u2014 node state backup."
     },
     {
-      "bytes": 5488,
+      "bytes": 8023,
       "group": "root",
       "headings": [
         {
@@ -76648,17 +76648,132 @@
         },
         {
           "level": 1,
+          "line": 86,
+          "text": "F-16: staged on the same filesystem as STATE_DIR's own parent (not the"
+        },
+        {
+          "level": 1,
           "line": 87,
+          "text": "system default temp filesystem, e.g. tmpfs at /tmp, which is very often"
+        },
+        {
+          "level": 1,
+          "line": 88,
+          "text": "a different mount) so the final `mv` operations below are real,"
+        },
+        {
+          "level": 1,
+          "line": 89,
+          "text": "same-filesystem atomic renames rather than a cross-filesystem copy that"
+        },
+        {
+          "level": 1,
+          "line": 90,
+          "text": "a crash or power loss partway through could leave incomplete."
+        },
+        {
+          "level": 1,
+          "line": 93,
           "text": "shellcheck disable=SC2064 # expand workdir now, not at trap time"
         },
         {
           "level": 1,
+          "line": 112,
+          "text": "F-16: reject any archive member that could write outside the staging"
+        },
+        {
+          "level": 1,
           "line": 113,
-          "text": "Ownership by NAME, not by the archived numeric uid: the mininet system"
+          "text": "directory before ever extracting one byte -- an absolute path, or a"
         },
         {
           "level": 1,
           "line": 114,
+          "text": "`..` path-traversal component anywhere in the path, rather than trusting"
+        },
+        {
+          "level": 1,
+          "line": 115,
+          "text": "the installed tar's own default protections (which vary by version and"
+        },
+        {
+          "level": 1,
+          "line": 116,
+          "text": "by whether `-P`/`--absolute-names` was ever set in some other context)."
+        },
+        {
+          "level": 1,
+          "line": 131,
+          "text": "The extracted directory must be real, not a symlink escaping the"
+        },
+        {
+          "level": 1,
+          "line": 132,
+          "text": "staging area -- a malicious archive could otherwise plant a symlink"
+        },
+        {
+          "level": 1,
+          "line": 133,
+          "text": "named exactly `${state_name}` pointing anywhere on the filesystem."
+        },
+        {
+          "level": 1,
+          "line": 137,
+          "text": "F-16: never leave neither a usable old state nor a complete new one."
+        },
+        {
+          "level": 1,
+          "line": 138,
+          "text": "`workdir` (via mktemp -d below) is created on the same filesystem as"
+        },
+        {
+          "level": 1,
+          "line": 139,
+          "text": "STATE_DIR's own parent specifically so this whole sequence is a chain"
+        },
+        {
+          "level": 1,
+          "line": 140,
+          "text": "of same-filesystem renames (atomic at the OS level), not a delete"
+        },
+        {
+          "level": 1,
+          "line": 141,
+          "text": "followed by a cross-filesystem copy: the previous state is moved aside"
+        },
+        {
+          "level": 1,
+          "line": 142,
+          "text": "-- not deleted -- before the new one is moved into place, and only"
+        },
+        {
+          "level": 1,
+          "line": 143,
+          "text": "removed once the new state already occupies STATE_DIR. An interruption"
+        },
+        {
+          "level": 1,
+          "line": 144,
+          "text": "at any point before the final `rm -rf` still leaves either the fully"
+        },
+        {
+          "level": 1,
+          "line": 145,
+          "text": "intact previous state (at its `.previous` path) or the fully intact new"
+        },
+        {
+          "level": 1,
+          "line": 146,
+          "text": "state (already at STATE_DIR) recoverable; it can never lose both."
+        },
+        {
+          "level": 1,
+          "line": 156,
+          "text": "Ownership by NAME, not by the archived numeric uid: the mininet system"
+        },
+        {
+          "level": 1,
+          "line": 157,
           "text": "user may well have a different uid on this machine."
         }
       ],
@@ -76666,33 +76781,185 @@
         "archive",
         "state",
         "state_dir",
-        "log",
         "restore",
-        "workdir",
-        "fail",
         "you",
-        "node",
+        "log",
+        "fail",
         "identity",
         "batch",
+        "node",
+        "one",
         "force",
         "backup",
         "restoring",
-        "tar",
         "gpg",
+        "workdir",
         "deploy",
-        "does",
+        "same",
+        "path",
+        "tar",
         "manifest",
-        "machine",
-        "running",
-        "one",
         "still",
-        "existing"
+        "f-16",
+        "filesystem"
       ],
-      "lines": 135,
+      "lines": 178,
       "path": "deploy/backup/restore.sh",
-      "sha256": "9c84f44dc40d2c8df60232bb4fd4679583de9095986b4242f74126afd13cfbcf",
+      "sha256": "02c09780e91d42ddc6afd4232bfc0a53424c43272371d1f074edf937c7a61cf2",
       "symbols": [],
       "title": "Mininet Node Appliance \u2014 node state restore."
+    },
+    {
+      "bytes": 5765,
+      "group": "root",
+      "headings": [
+        {
+          "level": 1,
+          "line": 2,
+          "text": "Real, runnable acceptance tests for backup.sh/restore.sh (F-16, D-0491)."
+        },
+        {
+          "level": 1,
+          "line": 4,
+          "text": "Every step below drives the actual checked-in scripts against real files"
+        },
+        {
+          "level": 1,
+          "line": 5,
+          "text": "on real disk (tar, gpg, mv) -- never a simulation of what they would do."
+        },
+        {
+          "level": 1,
+          "line": 6,
+          "text": "`restore.sh` requires EUID 0 (it writes /var/lib/mininet-shaped paths);"
+        },
+        {
+          "level": 1,
+          "line": 7,
+          "text": "this script re-execs itself under sudo if not already root, matching how"
+        },
+        {
+          "level": 1,
+          "line": 8,
+          "text": "a real operator would run it."
+        },
+        {
+          "level": 1,
+          "line": 10,
+          "text": "Usage: deploy/backup/test_backup_restore.sh"
+        },
+        {
+          "level": 1,
+          "line": 43,
+          "text": "---------------------------------------------------------------------"
+        },
+        {
+          "level": 1,
+          "line": 45,
+          "text": "The exact class of exposure F-16 names: process arguments are visible to"
+        },
+        {
+          "level": 1,
+          "line": 46,
+          "text": "any local process via /proc/<pid>/cmdline. A real per-process capture"
+        },
+        {
+          "level": 1,
+          "line": 47,
+          "text": "during a live run is racy and environment-dependent; the durable"
+        },
+        {
+          "level": 1,
+          "line": 48,
+          "text": "guarantee is that the source never constructs such a command line at"
+        },
+        {
+          "level": 1,
+          "line": 49,
+          "text": "all, checked here directly."
+        },
+        {
+          "level": 1,
+          "line": 56,
+          "text": "---------------------------------------------------------------------"
+        },
+        {
+          "level": 1,
+          "line": 76,
+          "text": "---------------------------------------------------------------------"
+        },
+        {
+          "level": 1,
+          "line": 82,
+          "text": "---------------------------------------------------------------------"
+        },
+        {
+          "level": 1,
+          "line": 87,
+          "text": "---------------------------------------------------------------------"
+        },
+        {
+          "level": 1,
+          "line": 94,
+          "text": "---------------------------------------------------------------------"
+        },
+        {
+          "level": 1,
+          "line": 121,
+          "text": "---------------------------------------------------------------------"
+        },
+        {
+          "level": 1,
+          "line": 123,
+          "text": "Reproduces the exact rename sequence restore.sh performs and stops"
+        },
+        {
+          "level": 1,
+          "line": 124,
+          "text": "between the two moves, simulating a kill/power-loss at the worst"
+        },
+        {
+          "level": 1,
+          "line": 125,
+          "text": "possible instant -- exactly the finding's concrete example."
+        },
+        {
+          "level": 1,
+          "line": 133,
+          "text": "--- simulated crash point: neither mv into place, nor cleanup, ran yet ---"
+        }
+      ],
+      "keywords": [
+        "restore",
+        "backup",
+        "work",
+        "tar",
+        "real",
+        "step",
+        "mininet_state_dir",
+        "archive",
+        "echo",
+        "gpg",
+        "bash",
+        "passphrase",
+        "must_fail",
+        "batch",
+        "evil",
+        "state",
+        "deploy",
+        "never",
+        "run",
+        "exact",
+        "exit",
+        "out",
+        "evil_build",
+        "f-16"
+      ],
+      "lines": 142,
+      "path": "deploy/backup/test_backup_restore.sh",
+      "sha256": "b875deb6b8bb645a55dcc168063dc43eb46b248221ac77c23a18878d62e4112a",
+      "symbols": [],
+      "title": "Real, runnable acceptance tests for backup.sh/restore.sh (F-16, D-0491)."
     },
     {
       "bytes": 912,
@@ -78397,7 +78664,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1253586,
+      "bytes": 1260962,
       "group": "docs",
       "headings": [
         {
@@ -78827,9 +79094,9 @@
         "first",
         "kel"
       ],
-      "lines": 20797,
+      "lines": 20918,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "4a91d677e8391303649afd86eb923ad7894b3f0de7bcd43efd2724fd5d9d43df",
+      "sha256": "7dd4d521429ad925472c0535d1b5fd9002c634dbd775e03e376cc7cac440825e",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80165,7 +80432,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 188448,
+      "bytes": 189565,
       "group": "docs",
       "headings": [
         {
@@ -80270,7 +80537,7 @@
         },
         {
           "level": 2,
-          "line": 2793,
+          "line": 2809,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80300,9 +80567,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2828,
+      "lines": 2844,
       "path": "docs/STATUS.md",
-      "sha256": "5199bafee7ad32365affe548336bae84a0fabaff7650c3796ec5e082248359e5",
+      "sha256": "1070e64fe4adc36986b61074c75917e998ccbb4bad5bc400a353ccd7c16942d7",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97169,7 +97436,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 94307,
+      "bytes": 95616,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97198,9 +97465,9 @@
         "independently",
         "both"
       ],
-      "lines": 1284,
+      "lines": 1288,
       "path": "governance/work-claims.json",
-      "sha256": "d12fae56a0458e59ec518a81cd8203fc9ca36068641ddb1d926a9fa15589f9e3",
+      "sha256": "aa9e0ad567bb5703eaf99aa588ce210ab3a3c4b637ff76d901e876ee7450542f",
       "symbols": [],
       "title": "{"
     },
@@ -98476,6 +98743,7 @@
     "deploy/README.md",
     "deploy/backup/backup.sh",
     "deploy/backup/restore.sh",
+    "deploy/backup/test_backup_restore.sh",
     "deploy/image/README.md",
     "deploy/installer/install.sh",
     "deploy/installer/preflight.sh",
