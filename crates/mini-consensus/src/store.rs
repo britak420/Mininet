@@ -126,6 +126,14 @@ impl ConsensusArchive {
         self.with_lock(|archive| archive.response_locked(request.from_height))
     }
 
+    /// This archive's most recently persisted [`ConsensusSnapshot`], if any
+    /// — what [`crate::net::serve_chunk_sync_over_tcp`] chunks for a peer.
+    /// `None` if no snapshot has ever been persisted here yet (a fresh or
+    /// still-genesis archive).
+    pub fn latest_snapshot(&self) -> Result<Option<ConsensusSnapshot>> {
+        self.with_lock(|archive| archive.read_snapshot_locked())
+    }
+
     /// Persist a batch only after the caller has independently verified every
     /// block and produced `final_state` by deterministic execution.
     pub(crate) fn record_verified_batch(

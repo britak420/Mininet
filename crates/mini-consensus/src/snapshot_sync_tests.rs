@@ -15,7 +15,10 @@ use mini_chain::{
 use mini_execution::{apply_block, LedgerChain, SettlementBlockBody};
 
 use crate::catchup::FinalizedBlock;
-use crate::net::{serve_state_sync_over_tcp, state_sync_over_tcp};
+use crate::chunked_snapshot::MIN_CHUNK_BYTES;
+use crate::net::{
+    chunk_sync_over_tcp, serve_chunk_sync_over_tcp, serve_state_sync_over_tcp, state_sync_over_tcp,
+};
 use crate::{
     ConsensusArchive, ConsensusArchiveConfig, ConsensusError, ConsensusNode, ConsensusSnapshot,
     NodeConfig, StateSyncResponse,
@@ -283,6 +286,63 @@ fn peer_snapshot_state_sync_rejects_a_gapped_suffix_all_or_nothing() {
     );
     assert_eq!(destination.finalized_height(), 0);
     assert_eq!(destination.commitment(), before);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_long_offline_node_reaches_the_exact_tip_via_chunked_transfer_over_real_tcp() {
+    let fixture = fixture();
+    let root = temp_root("chunked-tcp");
+    let (archive, source_chain, _) = build_archive(&root, &fixture);
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let serving_archive = archive.clone();
+    let server = thread::spawn(move || {
+        serve_chunk_sync_over_tcp(&serving_archive, &listener).unwrap();
+    });
+
+    let mut late = ConsensusNode::new(node_config(&fixture));
+    let reached = chunk_sync_over_tcp(&mut late, address, MIN_CHUNK_BYTES).unwrap();
+    server.join().unwrap();
+
+    // The archive's own snapshot_interval (2) means its latest persisted
+    // snapshot lands on an even height at or below the chain tip (5) — the
+    // chunked path only ever transfers that snapshot, never the ordinary
+    // block suffix after it, so a receiver reaches the snapshot's own
+    // height here, not necessarily the chain's.
+    assert!(reached.is_some());
+    let reached_height = reached.unwrap();
+    assert!(reached_height > 0 && reached_height <= source_chain.height());
+    assert_eq!(late.finalized_height(), reached_height);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn chunk_sync_over_tcp_reports_none_when_the_peer_has_no_snapshot_yet() {
+    let fixture = fixture();
+    let root = temp_root("chunked-tcp-unavailable");
+    let config = ConsensusArchiveConfig {
+        snapshot_interval: 2,
+        max_suffix_blocks: 2,
+        ..ConsensusArchiveConfig::default()
+    };
+    let archive = ConsensusArchive::open(&root, config).unwrap();
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        serve_chunk_sync_over_tcp(&archive, &listener).unwrap();
+    });
+
+    let mut late = ConsensusNode::new(node_config(&fixture));
+    let reached = chunk_sync_over_tcp(&mut late, address, MIN_CHUNK_BYTES).unwrap();
+    server.join().unwrap();
+
+    assert_eq!(reached, None);
+    assert_eq!(late.finalized_height(), 0);
 
     let _ = fs::remove_dir_all(root);
 }
