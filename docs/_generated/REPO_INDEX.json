@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28344,
+      "bytes": 28317,
       "group": "root",
       "headings": [
         {
@@ -1808,7 +1808,7 @@
         },
         {
           "level": 2,
-          "line": 448,
+          "line": 447,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 452,
+      "lines": 451,
       "path": "README.md",
-      "sha256": "c3a96ce4d3a04a3caf1f6437595fa3c27e2ad26581767585e4f262f9ac5b0213",
+      "sha256": "1eda215cc2f6d82fe188cefcc597d2e0930dd20de61e22b27dd7a8f3e6da86bd",
       "symbols": [],
       "title": "Mininet"
     },
@@ -78759,7 +78759,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1312019,
+      "bytes": 1318096,
       "group": "docs",
       "headings": [
         {
@@ -79189,9 +79189,9 @@
         "first",
         "new"
       ],
-      "lines": 21768,
+      "lines": 21876,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "9c654917ce66bacc691ebe5a56fa0e33ff405d3ec4695bb7cf8ff3a0080ed5ce",
+      "sha256": "1b29e59294fa96a43d15e3331a9ac958c47ce4b3e5d729864e555f97c810410a",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -97531,7 +97531,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 102472,
+      "bytes": 103516,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97560,9 +97560,9 @@
         "independently",
         "both"
       ],
-      "lines": 1308,
+      "lines": 1309,
       "path": "governance/work-claims.json",
-      "sha256": "5bf4d64605c502270be2fbb1cf92415a504e21630783966a056d90fbc8e5b11a",
+      "sha256": "654276e5140a7a2fb3e4a5f1955a6012a0b0c69e2550115bb165d6d98ced1859",
       "symbols": [],
       "title": "{"
     },
@@ -97977,7 +97977,7 @@
       "title": "`### D-0123 \u2014 Title  \u00b7  *Status*`"
     },
     {
-      "bytes": 58550,
+      "bytes": 59662,
       "group": "tools",
       "headings": [
         {
@@ -98057,9 +98057,9 @@
         "invariants",
         "security"
       ],
-      "lines": 1247,
+      "lines": 1265,
       "path": "tools/check_governance.py",
-      "sha256": "c7456434974d85d254d8b5f64e173709ccc71fe9454f76abaffa23d42bcdad3d",
+      "sha256": "07c2f6291ab098c16cfdb4b83ea77028bc97c1d3f8ab6675962be339ccf3ec09",
       "symbols": [],
       "title": "PR #327 finding F-17 (D-0492): the record's own last_verified_at timestamp"
     },

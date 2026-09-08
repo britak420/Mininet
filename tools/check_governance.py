@@ -1146,6 +1146,24 @@ def validate_baseline(
 
 
 def validate_proposal(body: str, changed: list[str], errors: list[str], warnings: list[str]) -> None:
+    """Check that a proposal body's *structure* covers what a reviewer needs
+    to see -- the required headings are present, exactly one change class is
+    selected, a protected/Tier-F path change carries the classification and
+    identifiers it needs, and a few known-bad phrasings and gaps are
+    flagged (PR #327 finding F-24).
+
+    This is a coverage check, not a content check: it confirms a proposal
+    did not *forget* to write a section, never that what it wrote under
+    that section is true, complete, or was actually reviewed for depth or
+    security by anyone. A proposal can pass every rule here and still
+    describe unfinished work, an unverified claim, or a citation to a
+    decision that never actually completed what it says it did -- this
+    function has no way to know, and does not pretend to. A clean result
+    means "nothing structurally required is missing," full stop; whether
+    the content is honest remains a human review question, the same
+    boundary `tools/check_decisions.py` and `tools/check_roadmap.py`
+    already draw explicitly in their own module docs.
+    """
     if not body.strip():
         fail(errors, "proposal body is empty or unavailable")
         return

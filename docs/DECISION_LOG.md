@@ -21765,3 +21765,111 @@ external cryptographic review (D-0047) before any production identity
 use. No new follow-up is created by this entry.
 
 **Supersedes / superseded by:** none.
+
+### D-0499 — F-24: `validate_proposal` now states its own coverage-vs-depth boundary explicitly; the rest of this finding's surface was already this honest  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-24
+(`tools/check_decisions.py`, `tools/check_roadmap.py`,
+`docs/FOUNDER_DIRECTIVES.md`). This is the pack's 24th and final
+finding; D-0474 through D-0498 close F-01 through F-23 on this same
+branch/PR.
+
+**Decision:** F-24's own mechanism is meta: can the audit/decision
+tooling itself be structurally green while the work it describes is
+incomplete or misleading? Checked each named tool directly.
+
+`tools/check_decisions.py` and `tools/check_roadmap.py` already state
+this boundary explicitly, in their own module docstrings, predating this
+finding: `check_decisions.py` -- "Grants no authority. Reports
+structural facts about files; it decides nothing about whether the work
+those files describe is correct or permitted." `check_roadmap.py` --
+"What it deliberately does NOT check is whether a row is honest --
+whether `ready` really is unblocked, or whether `done` really finished
+the work. No tool can, and pretending otherwise would recreate the
+'green check that means nothing' problem D-0441 exists to prevent. That
+stays a review question." This is precisely the finding's own concrete
+example ("a roadmap item cites a real D-number and says done while the
+last runtime caller is still unimplemented... All reference/count checks
+can pass") stated as an already-acknowledged limit, not a gap this pass
+discovered.
+
+The finding's "Acceptance tests to implement" -- mutation-testing
+missing/deleted/duplicate decisions -- were already covered:
+`tools/test_registry_checks.py` has
+`test_deleting_a_merged_decision_fails`, `test_duplicate_heading_fails`,
+`test_two_open_claims_on_one_number_fails`,
+`test_claiming_an_already_merged_number_fails`;
+`tools/test_check_roadmap.py` has
+`test_done_citing_a_nonexistent_decision_fails`,
+`test_done_without_a_decision_fails`, `test_duplicate_ids_fail`. All
+predate this finding.
+
+One real, narrow gap was found and closed: `tools/check_governance.py`'s
+`validate_proposal` -- the function this finding's "the new PR-review
+coverage checker" almost certainly names, since it is the one validator
+in this tree that checks a PR body actually contains every section a
+reviewer needs (required headings, a selected change class, protected/
+Tier-F path classification and identifiers, a few known-bad phrasings)
+-- had no doc comment of its own stating what a clean result does and
+does not mean. The module-level docstring covered adjacent ground ("It
+does not infer human identity, reviewer competence, or constitutional
+legitimacy") but never said, specifically, at the one function whose
+green status a reviewer actually reads: this checks structure, not
+content: a proposal can pass every rule here and still describe
+unfinished work or a false citation, and this function has no way to
+know.
+
+**Reason:** the finding's own Long-term fix names two categories:
+things a validator can honestly and mechanically check (immutable
+history, exact scope, decision citations that exist) -- already built,
+already tested, as verified above -- and things that require a human
+(precedence maps distinguishing constitutional principles from
+implementation status, claim-to-executor-to-adversarial-test
+traceability, semantic closure review). The finding's own Boundary note
+draws the same line for its predecessor audit's over-broad SPEC-00/
+founder-directive contradiction claim: "Their respective scopes must be
+reconciled explicitly; this report does not amend either" -- a human-
+reviewed precedence map is exactly the kind of governance-authority
+decision this branch has consistently declined to invent unilaterally
+(same category as F-17's succession drill, D-0492). Adding an honest
+doc comment to the one under-documented coverage-checking function is
+the correctly-scoped response; inventing a "semantic closure" detector
+that tries to verify a decision's prose against the actual code would be
+exactly the "AI-invented reconciliation" this finding's Mechanism
+section warns against by name.
+
+**Constitutional impact:** none. No behavior changed --
+`validate_proposal`'s checks, error messages, and pass/fail outcomes are
+byte-identical; only a doc comment was added. No cryptography, no
+dependency change.
+
+**Implementation status:** shipped (documentation only).
+- `tools/check_governance.py`: `validate_proposal` gained an explicit
+  docstring stating the coverage-vs-content boundary, cross-referencing
+  the same boundary `check_decisions.py`/`check_roadmap.py` already
+  state in their own module docs.
+- `tools/test_check_governance.py`: all 57 existing tests re-run and
+  pass unchanged (a doc-only change).
+- Checked `.github/workflows/governance-policy.yml`'s step names
+  ("Check decision registry," "Validate governance policy baseline for
+  proposal," etc.) for language that could misread as "this PR was
+  reviewed" -- all already neutral and accurate; no change needed.
+  Checked `docs/FOUNDER_DIRECTIVES.md` for any claim that automated
+  checks establish review depth or security -- none found.
+
+**Failure point:** a doc comment cannot, by itself, stop a future reader
+from misreading a green CI check as proof of depth -- it only makes the
+correct reading available at the one place someone would look. No
+"semantic closure" or claim-to-executor traceability tool exists or is
+attempted here; that remains, honestly, a human review question, exactly
+as `check_roadmap.py`'s own docstring already states.
+
+**Required follow-up:** a human-reviewed authority/precedence map
+distinguishing constitutional principles from implementation status, and
+claim-to-executor-to-adversarial-test traceability tooling, both named in
+the finding's own Long-term fix, remain open, unstarted, and are founder/
+human governance decisions outside a single PR's safe scope -- unchanged
+by this entry.
+
+**Supersedes / superseded by:** none.
