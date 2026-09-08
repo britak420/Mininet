@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 936,
     "headings": 3349,
-    "rust_symbols": 9475
+    "rust_symbols": 9476
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28421,
+      "bytes": 28317,
       "group": "root",
       "headings": [
         {
@@ -1808,7 +1808,7 @@
         },
         {
           "level": 2,
-          "line": 448,
+          "line": 447,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 452,
+      "lines": 451,
       "path": "README.md",
-      "sha256": "50637aaedf5dfacd640db1bc94b28e27e3b21c3a71f72a41d941cd4808bd6ef8",
+      "sha256": "79eafeb38cb5bc4bbb6c7c3692d198ea5b52544646c18fecca21e86d7e65318a",
       "symbols": [],
       "title": "Mininet"
     },
@@ -21942,21 +21942,20 @@
       "title": "use crate::error::{ContributionError, Result};"
     },
     {
-      "bytes": 13562,
+      "bytes": 13749,
       "group": "crate:mini-contribution",
       "headings": [],
       "keywords": [
+        "seed",
         "kel",
         "controller",
         "root",
         "did",
-        "seed",
         "device",
         "unwrap",
-        "vec",
         "directory",
+        "vec",
         "identity",
-        "account",
         "insert",
         "signingkey",
         "providerdeclaration",
@@ -21966,68 +21965,74 @@
         "validatororacle",
         "bob",
         "carol",
-        "ledgerchain",
         "store",
         "capabilities",
-        "role"
+        "hashalgorithm",
+        "role",
+        "oracle"
       ],
-      "lines": 380,
+      "lines": 386,
       "path": "crates/mini-contribution/tests/alice_bob_carol.rs",
-      "sha256": "8f88f8e2bd0699a660a9f016b5eda995be076ad94884c48f49efa31d10592796",
+      "sha256": "86baa9f6d63dd35adb3d2ff932af00657f4c7df2c042f5c33a6b082b6fad510a",
       "symbols": [
         {
           "kind": "fn",
-          "line": 39,
+          "line": 42,
+          "name": "test_nonce"
+        },
+        {
+          "kind": "fn",
+          "line": 47,
           "name": "identity"
         },
         {
           "kind": "fn",
-          "line": 49,
+          "line": 57,
           "name": "declaration"
         },
         {
           "kind": "fn",
-          "line": 72,
+          "line": 80,
           "name": "account"
         },
         {
           "kind": "fn",
-          "line": 76,
+          "line": 84,
           "name": "validator"
         },
         {
           "kind": "struct",
-          "line": 87,
+          "line": 95,
           "name": "Directory"
         },
         {
           "kind": "impl",
-          "line": 88,
+          "line": 96,
           "name": "Directory"
         },
         {
           "kind": "fn",
-          "line": 89,
+          "line": 97,
           "name": "insert"
         },
         {
           "kind": "impl",
-          "line": 93,
+          "line": 101,
           "name": "ValidatorOracle"
         },
         {
           "kind": "fn",
-          "line": 94,
+          "line": 102,
           "name": "kel"
         },
         {
           "kind": "fn",
-          "line": 100,
+          "line": 108,
           "name": "alice_publishes_bob_seeds_carol_requests_and_both_are_paid_from_carols_balance"
         },
         {
           "kind": "fn",
-          "line": 311,
+          "line": 317,
           "name": "settlement_is_refused_before_the_engagement_locally_completes"
         }
       ],
@@ -78795,7 +78800,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1325125,
+      "bytes": 1328817,
       "group": "docs",
       "headings": [
         {
@@ -79225,9 +79230,9 @@
         "first",
         "new"
       ],
-      "lines": 21991,
+      "lines": 22057,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "af5646317e2523e0166a39e4709219c75c4745f44ff47acf3461c510461dd282",
+      "sha256": "646d28b2a842bd023026a65ba373256dd5a163c8168f52b795fc40d281c7f8d0",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -97567,7 +97572,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 104874,
+      "bytes": 105344,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97596,9 +97601,9 @@
         "independently",
         "both"
       ],
-      "lines": 1313,
+      "lines": 1314,
       "path": "governance/work-claims.json",
-      "sha256": "68cc0323346f536f01cf6206f54ea2a30ef27e706f00afb691cf394dbaf61390",
+      "sha256": "2badb92e5bb05d582078afbbed662572479741737e294791804e1713d6255ee6",
       "symbols": [],
       "title": "{"
     },
