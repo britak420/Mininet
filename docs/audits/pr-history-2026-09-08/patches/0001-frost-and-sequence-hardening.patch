@@ -1,0 +1,301 @@
+diff --git a/crates/mini-cli/src/sequence.rs b/crates/mini-cli/src/sequence.rs
+index 2dab1609..cd33bdf3 100644
+--- a/crates/mini-cli/src/sequence.rs
++++ b/crates/mini-cli/src/sequence.rs
+@@ -5,6 +5,7 @@
+ 
+ use std::fs::{self, OpenOptions};
+ use std::path::Path;
++use std::io::ErrorKind;
+ 
+ use crate::error::{CliError, Result};
+ 
+@@ -35,8 +36,11 @@ pub fn next(home: &Path) -> Result<u64> {
+ 
+     let path = counter_path(home);
+     let current: u64 = match fs::read_to_string(&path) {
+-        Ok(s) => s.trim().parse().unwrap_or(0),
+-        Err(_) => 0,
++        Ok(s) => s.trim().parse().map_err(|_| {
++            CliError::Io("invalid sequence counter; refusing to reset existing state".to_string())
++        })?,
++        Err(e) if e.kind() == ErrorKind::NotFound => 0,
++        Err(e) => return Err(CliError::Io(e.to_string())),
+     };
+     let next = current
+         .checked_add(1)
+@@ -115,4 +119,54 @@ mod tests {
+         sorted.sort_unstable();
+         assert_eq!(sorted, (1..=8).collect::<Vec<_>>());
+     }
++
++    fn new_test_home(label: &str) -> std::path::PathBuf {
++        let path = std::env::temp_dir().join(format!(
++            "mini-seq-{label}-{}-{}",
++            std::process::id(),
++            std::time::SystemTime::now()
++                .duration_since(std::time::UNIX_EPOCH)
++                .unwrap()
++                .as_nanos()
++        ));
++        fs::create_dir_all(&path).unwrap();
++        path
++    }
++
++    #[test]
++    fn malformed_counter_never_resets_or_rewrites_state() {
++        for value in ["", "not-a-number", "18446744073709551616"] {
++            let home = new_test_home("malformed");
++            fs::write(counter_path(&home), value).unwrap();
++            assert!(next(&home).is_err());
++            assert_eq!(fs::read_to_string(counter_path(&home)).unwrap(), value);
++            fs::remove_dir_all(home).unwrap();
++        }
++    }
++
++    #[test]
++    fn invalid_utf8_and_non_file_counter_are_not_first_use() {
++        let home = new_test_home("invalid-utf8");
++        fs::write(counter_path(&home), [0xff, 0xfe]).unwrap();
++        assert!(next(&home).is_err());
++        assert_eq!(fs::read(counter_path(&home)).unwrap(), [0xff, 0xfe]);
++        fs::remove_file(counter_path(&home)).unwrap();
++        fs::create_dir(counter_path(&home)).unwrap();
++        assert!(next(&home).is_err());
++        assert!(counter_path(&home).is_dir());
++        fs::remove_dir_all(home).unwrap();
++    }
++
++    #[test]
++    fn exhausted_counter_is_preserved() {
++        let home = new_test_home("exhausted");
++        fs::write(counter_path(&home), u64::MAX.to_string()).unwrap();
++        assert!(next(&home).is_err());
++        assert_eq!(
++            fs::read_to_string(counter_path(&home)).unwrap(),
++            u64::MAX.to_string()
++        );
++        fs::remove_dir_all(home).unwrap();
++    }
++
+ }
+diff --git a/crates/mini-treasury/examples/frost_live_demo.rs b/crates/mini-treasury/examples/frost_live_demo.rs
+index 482a2ffe..a2bb97fa 100644
+--- a/crates/mini-treasury/examples/frost_live_demo.rs
++++ b/crates/mini-treasury/examples/frost_live_demo.rs
+@@ -107,7 +107,7 @@ fn device_thread(key_package: KeyPackage, rx: Receiver<ToDevice>, tx: Sender<ToC
+                 let nonces = pending_nonces
+                     .take()
+                     .expect("coordinator must request round 1 before round 2");
+-                let z = round2_sign(&key_package, &nonces, &signing_package)
++                let z = round2_sign(&key_package, nonces, &signing_package)
+                     .expect("this device took part in round 1");
+                 println!("  [device {index}] round 2: computed its signature share");
+                 let _ = tx.send(ToCoordinator::Round2Response { index, z });
+diff --git a/crates/mini-treasury/src/frost_dkg.rs b/crates/mini-treasury/src/frost_dkg.rs
+index e28f035f..a8183232 100644
+--- a/crates/mini-treasury/src/frost_dkg.rs
++++ b/crates/mini-treasury/src/frost_dkg.rs
+@@ -874,7 +874,12 @@ mod tests {
+         let mut shares = BTreeMap::new();
+         for &i in &signer_indices {
+             let key_package = &results[&i].0;
+-            let z = round2_sign(key_package, &nonces_by_index[&i], &signing_package).unwrap();
++            let z = round2_sign(
++                key_package,
++                nonces_by_index.remove(&i).unwrap(),
++                &signing_package,
++            )
++            .unwrap();
+             shares.insert(i, z);
+         }
+ 
+diff --git a/crates/mini-treasury/src/frost_reshare.rs b/crates/mini-treasury/src/frost_reshare.rs
+index a2a7c490..e6ce75a8 100644
+--- a/crates/mini-treasury/src/frost_reshare.rs
++++ b/crates/mini-treasury/src/frost_reshare.rs
+@@ -401,7 +401,12 @@ mod tests {
+         let mut shares = BTreeMap::new();
+         for &i in &signer_indices {
+             let key_package = &new_results[&i].0;
+-            let z = round2_sign(key_package, &nonces_by_index[&i], &signing_package).unwrap();
++            let z = round2_sign(
++                key_package,
++                nonces_by_index.remove(&i).unwrap(),
++                &signing_package,
++            )
++            .unwrap();
+             shares.insert(i, z);
+         }
+         // Aggregation/verification needs the NEW committee's PublicKeyPackage
+diff --git a/crates/mini-treasury/src/frost_sign.rs b/crates/mini-treasury/src/frost_sign.rs
+index c19b88c5..0ed83b72 100644
+--- a/crates/mini-treasury/src/frost_sign.rs
++++ b/crates/mini-treasury/src/frost_sign.rs
+@@ -243,15 +243,31 @@ fn index_scalar(index: u16) -> Scalar {
+ }
+ 
+ /// Round 2: compute this signer's response `z_i` to `signing_package`,
+-/// using the nonces generated for it in round 1. Calling this twice with
+-/// the same `nonces` for two different signing packages doubly-spends the
+-/// nonce and leaks the secret share — round 1 must be re-run per signature.
++/// using and consuming the nonces generated for it in round 1. Success and
++/// error paths both destroy the nonce pair; round 1 must be re-run for each
++/// attempt. A durable signer must additionally prevent snapshot/backup replay.
++///
++/// ```compile_fail
++/// use mini_treasury::frost_sign::{round1_commit, round2_sign, SigningPackage};
++/// use mini_treasury::frost_keygen::KeyPackage;
++/// fn cannot_reuse(key: &KeyPackage, package: &SigningPackage) {
++///     let (nonces, _) = round1_commit(key.index).unwrap();
++///     let _ = round2_sign(key, nonces, package);
++///     let _ = round2_sign(key, nonces, package);
++/// }
++/// ```
+ pub fn round2_sign(
+     key_package: &KeyPackage,
+-    nonces: &SigningNonces,
++    nonces: SigningNonces,
+     signing_package: &SigningPackage,
+ ) -> Result<Scalar> {
+-    if !signing_package.commitments.contains_key(&key_package.index) {
++    let Some(commitment) = signing_package.commitments.get(&key_package.index) else {
++        return Err(TreasuryError::InvalidFrostParticipant);
++    };
++    // Bind the consumed secret pair to what this signing round committed.
++    if commitment.hiding != basepoint() * nonces.hiding
++        || commitment.binding != basepoint() * nonces.binding
++    {
+         return Err(TreasuryError::InvalidFrostParticipant);
+     }
+     let indices = signing_package.indices();
+@@ -277,6 +293,9 @@ pub fn verify_signature_share(
+     let Some(&y_i) = public_key_package.verifying_shares.get(&index) else {
+         return Err(TreasuryError::InvalidFrostParticipant);
+     };
++    if !signing_package.commitments.contains_key(&index) {
++        return Err(TreasuryError::InvalidFrostParticipant);
++    }
+     let indices = signing_package.indices();
+     let binding_factors = signing_package.binding_factors();
+     let r = signing_package.group_commitment(&binding_factors);
+@@ -310,9 +329,8 @@ impl Signature {
+ 
+     /// Deserialize from the 64-byte wire format. `None` if malformed (wrong
+     /// length, or the first 32 bytes are not a valid compressed Ristretto
+-    /// point). The scalar half is reduced mod the group order rather than
+-    /// canonical-checked, the same choice this workspace already makes for
+-    /// scalar decoding elsewhere (`mini_value::confidential_impl`).
++    /// point, or a non-canonical response scalar). Unlike hash-to-scalar,
++    /// serialized signatures must have exactly one accepted scalar encoding.
+     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+         let r_bytes: [u8; 32] = bytes.get(..32)?.try_into().ok()?;
+         let z_bytes: [u8; 32] = bytes.get(32..64)?.try_into().ok()?;
+@@ -323,7 +341,7 @@ impl Signature {
+         // signature is rejected here rather than surfacing later as a
+         // confusing verification failure.
+         CompressedRistretto(r_bytes).decompress()?;
+-        let z = Scalar::from_bytes_mod_order(z_bytes);
++        let z = Option::<Scalar>::from(Scalar::from_canonical_bytes(z_bytes))?;
+         Some(Signature {
+             r: CompressedRistretto(r_bytes),
+             z,
+@@ -343,6 +361,9 @@ pub fn aggregate(
+     if shares.len() != signing_package.commitments.len() {
+         return Err(TreasuryError::NotEnoughSigners);
+     }
++    if !shares.keys().eq(signing_package.commitments.keys()) {
++        return Err(TreasuryError::InvalidFrostParticipant);
++    }
+     let mut z = Scalar::ZERO;
+     for (&index, &z_i) in shares {
+         if !verify_signature_share(index, z_i, signing_package, public_key_package)? {
+@@ -414,7 +435,12 @@ mod tests {
+         let mut z_shares = BTreeMap::new();
+         for &i in signer_indices {
+             let key_package = shares.iter().find(|s| s.index == i).unwrap();
+-            let z_i = round2_sign(key_package, &nonces_by_index[&i], &signing_package).unwrap();
++            let z_i = round2_sign(
++                key_package,
++                nonces_by_index.remove(&i).unwrap(),
++                &signing_package,
++            )
++            .unwrap();
+             z_shares.insert(i, z_i);
+         }
+ 
+@@ -472,7 +498,12 @@ mod tests {
+         let mut z_shares = BTreeMap::new();
+         for &i in &signer_indices {
+             let key_package = shares.iter().find(|s| s.index == i).unwrap();
+-            let z_i = round2_sign(key_package, &nonces_by_index[&i], &signing_package).unwrap();
++            let z_i = round2_sign(
++                key_package,
++                nonces_by_index.remove(&i).unwrap(),
++                &signing_package,
++            )
++            .unwrap();
+             z_shares.insert(i, z_i);
+         }
+         // Tamper with one signer's share.
+@@ -529,4 +560,60 @@ mod tests {
+         let decoded = Signature::from_bytes(&bytes).unwrap();
+         assert!(verify(&decoded, message, public.group_public_key));
+     }
++
++    #[test]
++    fn a_known_group_member_outside_the_signing_round_is_rejected() {
++        let (_, public) = trusted_dealer_keygen(3, 2, ack()).unwrap();
++        let (_, c1) = round1_commit(1).unwrap();
++        let (_, c2) = round1_commit(2).unwrap();
++        let package = SigningPackage::new(2, b"round".to_vec(), vec![c1, c2]).unwrap();
++        assert_eq!(
++            verify_signature_share(3, Scalar::ONE, &package, &public),
++            Err(TreasuryError::InvalidFrostParticipant)
++        );
++    }
++
++    #[test]
++    fn equal_sized_but_different_participant_sets_are_rejected() {
++        let (_, public) = trusted_dealer_keygen(3, 2, ack()).unwrap();
++        let (_, c1) = round1_commit(1).unwrap();
++        let (_, c2) = round1_commit(2).unwrap();
++        let package = SigningPackage::new(2, b"round".to_vec(), vec![c1, c2]).unwrap();
++        let shares = BTreeMap::from([(1, Scalar::ONE), (3, Scalar::ONE)]);
++        assert_eq!(
++            aggregate(&package, &shares, &public),
++            Err(TreasuryError::InvalidFrostParticipant)
++        );
++    }
++
++    #[test]
++    fn nonce_pair_must_match_the_published_commitments() {
++        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
++        let (nonces, _) = round1_commit(1).unwrap();
++        let (_, unrelated_commitment) = round1_commit(1).unwrap();
++        let package = SigningPackage::new(1, b"round".to_vec(), vec![unrelated_commitment])
++            .unwrap();
++        assert_eq!(
++            round2_sign(&keys[0], nonces, &package),
++            Err(TreasuryError::InvalidFrostParticipant)
++        );
++    }
++
++    #[test]
++    fn signature_response_requires_canonical_scalar_bytes() {
++        // The scalar group order, little endian: it must not decode as zero.
++        let order = [
++            0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
++            0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
++            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10,
++        ];
++        let mut bytes = [0u8; 64];
++        bytes[..32].copy_from_slice(basepoint().compress().as_bytes());
++        assert!(Signature::from_bytes(&bytes).is_some());
++        bytes[32..].copy_from_slice(&order);
++        assert!(Signature::from_bytes(&bytes).is_none());
++        bytes[32..].fill(0xff);
++        assert!(Signature::from_bytes(&bytes).is_none());
++    }
++
+ }
