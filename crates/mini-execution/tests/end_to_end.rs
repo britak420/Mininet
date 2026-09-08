@@ -17,7 +17,9 @@ use mini_economy::{
     plan_scalable_epoch, Allocation, Amount, HumanSnapshot, IssuancePolicy, ScalableEpochRequest,
     YEAR_MS,
 };
-use mini_execution::{ClaimVerifier, ExecutionError, LedgerChain, NullifierRecord, SettlementBlockBody};
+use mini_execution::{
+    ClaimVerifier, ExecutionError, LedgerChain, NullifierRecord, SettlementBlockBody,
+};
 use mini_settlement::{reconcile, sign_claim, SettlementState};
 
 fn validator(seed: u8) -> (Controller, Controller) {
@@ -720,8 +722,8 @@ fn a_validator_with_a_configured_verifier_finalizes_a_claim_it_can_verify() {
         allowed: vec![NULLIFIER_CLAIM],
     };
 
-    let next = mini_execution::apply_block_with_verifier(chain.state(), &body, Some(&verifier))
-        .unwrap();
+    let next =
+        mini_execution::apply_block_with_verifier(chain.state(), &body, Some(&verifier)).unwrap();
     let header = BlockHeader {
         height: 1,
         prev_hash: chain.tip_hash(),

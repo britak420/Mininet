@@ -10,8 +10,7 @@
 
 use mini_execution::{ClaimVerifier, NullifierRecord};
 use mini_private_payment::{
-    build, InMemoryOutputSet, OutputSet, PaymentPurpose, PaymentRequest, Recipient,
-    MIN_RING_SIZE,
+    build, InMemoryOutputSet, OutputSet, PaymentPurpose, PaymentRequest, Recipient, MIN_RING_SIZE,
 };
 use mini_shielded_verify::{ClaimEvidencePool, ShieldedClaimVerifier};
 use mini_value::StealthKeypair;

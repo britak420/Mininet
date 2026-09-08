@@ -67,15 +67,21 @@
 //! call earlier phases already left open for their own consuming
 //! decisions.
 
+use std::collections::HashSet;
+
 use mini_crypto::{SigningKey, VerifyingKey};
 
+use crate::codec::{Reader, Writer};
+use crate::controller::Controller;
 use crate::error::{IdentityError, Result};
+use crate::event::IndexedSig;
 use crate::kel::Kel;
 use crate::witness::{
-    sign_witness_receipt, WitnessId, WitnessPolicy, WitnessReceipt, WitnessReceiptStatement,
-    WitnessReceiptVersion, WitnessedEventCertificate,
+    decode_did, encode_did, sign_witness_receipt, WitnessId, WitnessPolicy, WitnessReceipt,
+    WitnessReceiptStatement, WitnessReceiptVersion, WitnessedEventCertificate,
 };
 use crate::witness_state::WitnessJournal;
+use crate::Did;
 
 impl WitnessJournal {
     /// Certify, as an *old* witness, that `kel`'s head event is a valid,
@@ -255,6 +261,214 @@ fn same_witness_set(a: &[WitnessId], b: &[WitnessId]) -> bool {
     a_sorted.sort_by(|x, y| x.0.as_str().cmp(y.0.as_str()));
     b_sorted.sort_by(|x, y| x.0.as_str().cmp(y.0.as_str()));
     a_sorted == b_sorted
+}
+
+// --- §17.4: unavailable-witness recovery (D-0475) ---
+//
+// "A witness set may become unavailable. The protocol needs a recovery
+// path that cannot be triggered casually... No witness set should be
+// able to hold an identity permanently hostage." (research report §17.4)
+//
+// Deliberately the opposite assumption from §17.2/§17.3 above: those
+// require the *old* witnesses to cooperate (certify their own
+// replacement); this exists for exactly the case they cannot or will
+// not. Nothing here can be backed by a third-party signature the way an
+// old-witness certificate is, because the whole premise is that no such
+// third party is reachable. What raises the cost of triggering this path
+// is compounded, caller-configured friction instead: a documented
+// waiting period and a minimum count of *distinct* old witnesses shown
+// unreachable (a real new-witness-readiness certificate is still
+// required whenever a successor policy exists — see
+// `verify_dead_witness_recovery`'s own docs). The research report itself
+// only lists these as "possible requirements", not settled numbers:
+// every threshold here is caller-supplied
+// ([`DeadWitnessRecoveryPolicy`]), never a value this module invents —
+// the same "open protocol questions, not derived figures" discipline
+// `mini_storage_fraud::ReplicaLifecycle` already applies to its own
+// window/challenge parameters.
+
+/// Caller-configured friction for [`verify_dead_witness_recovery`] — see
+/// this section's own module-level docs for why every field here is a
+/// policy choice, not a value this crate derives or defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeadWitnessRecoveryPolicy {
+    /// Minimum count of *distinct* old witnesses that must be attested
+    /// unreachable — a single missing witness must never be enough to
+    /// justify replacing the whole set.
+    pub min_unreachable_witnesses: usize,
+    /// Minimum epochs that must separate an attestation's own
+    /// `first_unreachable_epoch` and `last_attempt_epoch` — the waiting
+    /// period. Coarse epochs, the same unit
+    /// [`crate::WitnessReceiptStatement::observed_epoch`] already uses
+    /// and for the same reason (research report §8.7: an exact timestamp
+    /// increases clock dependency and leaks witness timing).
+    pub min_waiting_period_epochs: u64,
+}
+
+/// The controller's own signed claim that `witness_id` — a member of the
+/// witness policy generation named here — has been unreachable from
+/// `first_unreachable_epoch` through `last_attempt_epoch`.
+///
+/// Signed by the **controller**, not a witness: §17.2/§17.3's receipts
+/// work because a third party the old policy already trusted signs off;
+/// here that third party is exactly what is missing, so nothing can be
+/// backed by anyone but the party asking for recovery. This is **not
+/// independent proof of unavailability** — a controller willing to lie
+/// about its own witnesses can sign this exactly as it could sign
+/// anything else in its own KEL. What it buys is accountability, not
+/// unforgeability: a false attestation is a durable, attributable,
+/// non-repudiable claim under the controller's own signature, verified
+/// against whatever keys were actually authoritative during the claimed
+/// waiting period (via [`Kel::verify_message_at`]) rather than trusted
+/// as a bare unsigned assertion — the same trade
+/// [`crate::WitnessReceiptStatement::observed_epoch`]'s own
+/// "self-reported, like everywhere else in this tree that lacks a time
+/// anchor" precedent already makes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WitnessUnavailabilityAttestation {
+    pub identity: Did,
+    pub witness_id: WitnessId,
+    pub witness_policy_generation: u64,
+    pub first_unreachable_epoch: u64,
+    pub last_attempt_epoch: u64,
+}
+
+/// Domain separation for [`WitnessUnavailabilityAttestation::encode`], so
+/// this can never collide with an unrelated signed statement elsewhere in
+/// the tree (the same discipline every other domain-tagged digest/wire
+/// type in this crate already applies).
+const UNAVAILABILITY_DOMAIN: &[u8] = b"did-mini/witness-unavailability/v1";
+
+impl WitnessUnavailabilityAttestation {
+    /// Encode to the canonical wire form these bytes are signed over.
+    pub fn encode(&self) -> Vec<u8> {
+        let mut w = Writer::new();
+        w.bytes(UNAVAILABILITY_DOMAIN);
+        encode_did(&mut w, &self.identity);
+        encode_did(&mut w, &self.witness_id.0);
+        w.u64(self.witness_policy_generation);
+        w.u64(self.first_unreachable_epoch);
+        w.u64(self.last_attempt_epoch);
+        w.into_bytes()
+    }
+
+    /// Decode from [`Self::encode`]'s wire form. Strict: rejects a wrong
+    /// or missing domain tag, and trailing bytes.
+    pub fn decode(bytes: &[u8]) -> Result<Self> {
+        let mut r = Reader::new(bytes);
+        let domain = r.bytes_limited("domain", UNAVAILABILITY_DOMAIN.len())?;
+        if domain != UNAVAILABILITY_DOMAIN {
+            return Err(IdentityError::BadEvent);
+        }
+        let identity = decode_did(&mut r)?;
+        let witness_id = WitnessId(decode_did(&mut r)?);
+        let witness_policy_generation = r.u64()?;
+        let first_unreachable_epoch = r.u64()?;
+        let last_attempt_epoch = r.u64()?;
+        if !r.finished() {
+            return Err(IdentityError::TrailingBytes);
+        }
+        Ok(WitnessUnavailabilityAttestation {
+            identity,
+            witness_id,
+            witness_policy_generation,
+            first_unreachable_epoch,
+            last_attempt_epoch,
+        })
+    }
+
+    /// Sign this attestation with `controller`'s current keys — the typed
+    /// entry point matching [`Controller::sign_message`]'s own "detached
+    /// payload" pattern, so callers never hand-assemble the message bytes
+    /// a signature is supposed to cover.
+    pub fn sign(&self, controller: &Controller) -> Vec<IndexedSig> {
+        controller.sign_message(&self.encode())
+    }
+}
+
+/// Verify a witness-set rotation via research report §17.4's recovery
+/// path: no old-witness cooperation at all, compensated by
+/// `policy`-gated friction instead.
+///
+/// `attestations` must name enough *distinct* old witnesses
+/// (`policy.min_unreachable_witnesses`) each with a waiting period of at
+/// least `policy.min_waiting_period_epochs`, each verified against
+/// `new_kel`'s own key state immediately before the recovery event (the
+/// controller's keys at attestation-signing time — durable, historical
+/// verification, not "authorized right now").
+///
+/// Exactly like [`verify_witness_rotation`], `new_policy_certificate` is
+/// only required when `new_kel`'s head actually declares a successor
+/// witness policy — retirement (choosing to go unwitnessed) needs no
+/// readiness proof, because there is no new witness set to prove
+/// readiness for. Forbidding retirement here would itself be a way this
+/// path could hold an identity hostage — the controller must remain free
+/// to choose "no witnesses" as its own exit, not just "different
+/// witnesses".
+pub fn verify_dead_witness_recovery(
+    policy: &DeadWitnessRecoveryPolicy,
+    old_policy: &WitnessPolicy,
+    new_kel: &Kel,
+    attestations: &[(WitnessUnavailabilityAttestation, Vec<IndexedSig>)],
+    new_policy_certificate: Option<&WitnessedEventCertificate>,
+    resolve_witness_key: impl Fn(&WitnessId) -> Option<VerifyingKey>,
+) -> Result<()> {
+    new_kel.verify()?;
+    let event = new_kel.events().last().ok_or(IdentityError::EmptyKel)?;
+    let new_policy = new_kel.declared_witness_policy();
+    if !is_policy_change(old_policy, new_policy.as_ref()) {
+        return Err(IdentityError::NotAWitnessPolicyChange);
+    }
+
+    let attesting_sn = event.sn.saturating_sub(1);
+    let mut distinct = HashSet::new();
+    for (attestation, sigs) in attestations {
+        if attestation.identity != new_kel.did()
+            || attestation.witness_policy_generation != old_policy.generation
+        {
+            return Err(IdentityError::WitnessReceiptMismatch);
+        }
+        if !old_policy.contains(&attestation.witness_id) {
+            return Err(IdentityError::WitnessNotInPolicy);
+        }
+        let span = attestation
+            .last_attempt_epoch
+            .checked_sub(attestation.first_unreachable_epoch)
+            .ok_or(IdentityError::RecoveryWaitingPeriodNotMet {
+                needed_epochs: policy.min_waiting_period_epochs,
+                got_epochs: 0,
+            })?;
+        if span < policy.min_waiting_period_epochs {
+            return Err(IdentityError::RecoveryWaitingPeriodNotMet {
+                needed_epochs: policy.min_waiting_period_epochs,
+                got_epochs: span,
+            });
+        }
+        new_kel.verify_message_at(attesting_sn, &attestation.encode(), sigs)?;
+        distinct.insert(attestation.witness_id.clone());
+    }
+    if distinct.len() < policy.min_unreachable_witnesses {
+        return Err(IdentityError::InsufficientUnavailabilityEvidence {
+            needed: policy.min_unreachable_witnesses,
+            got: distinct.len(),
+        });
+    }
+
+    let new_policy = match new_policy {
+        None => return Ok(()),
+        Some(new_policy) => new_policy,
+    };
+    let certificate = new_policy_certificate.ok_or(IdentityError::WitnessThresholdNotMet {
+        needed: new_policy.threshold,
+        got: 0,
+    })?;
+    if certificate.identity != new_kel.did()
+        || certificate.sequence != event.sn
+        || certificate.event_digest != event.digest()
+    {
+        return Err(IdentityError::WitnessReceiptMismatch);
+    }
+    certificate.verify(&new_policy, resolve_witness_key)
 }
 
 #[cfg(test)]
@@ -845,5 +1059,351 @@ mod tests {
             |id| rotation.resolve(id),
         )
         .is_err());
+    }
+
+    // --- §17.4: unavailable-witness recovery ---
+
+    fn lenient_policy() -> DeadWitnessRecoveryPolicy {
+        DeadWitnessRecoveryPolicy {
+            min_unreachable_witnesses: 1,
+            min_waiting_period_epochs: 100,
+        }
+    }
+
+    fn attempt(
+        owner: &Did,
+        witness_id: &WitnessId,
+        generation: u64,
+        first: u64,
+        last: u64,
+    ) -> WitnessUnavailabilityAttestation {
+        WitnessUnavailabilityAttestation {
+            identity: owner.clone(),
+            witness_id: witness_id.clone(),
+            witness_policy_generation: generation,
+            first_unreachable_epoch: first,
+            last_attempt_epoch: last,
+        }
+    }
+
+    /// A controller that appointed one old witness, then unilaterally
+    /// (no witness cooperation at all) rotates straight to a fresh
+    /// witness set -- exactly the shape a real dead-witness recovery
+    /// takes: only the controller's own signature moves the KEL.
+    struct Recovery {
+        old_policy: WitnessPolicy,
+        old_witness: WitnessId,
+        owner: Controller,
+        new_witness: WitnessId,
+        new_witness_key: SigningKey,
+        new_receipt: WitnessReceipt,
+        /// An unavailability attestation for `old_witness`, signed while
+        /// the pre-rotation keys were still current -- `attesting_sn`
+        /// inside `verify_dead_witness_recovery` checks exactly that key
+        /// state, matching the real order of events: evidence accumulates
+        /// and gets attested *before* the controller decides to
+        /// unilaterally rotate away from it.
+        attestation: WitnessUnavailabilityAttestation,
+        attestation_sig: Vec<IndexedSig>,
+    }
+
+    impl Recovery {
+        fn resolve(&self, id: &WitnessId) -> Option<VerifyingKey> {
+            if *id == self.new_witness {
+                Some(self.new_witness_key.verifying_key())
+            } else {
+                None
+            }
+        }
+
+        fn new_policy_certificate(&self) -> WitnessedEventCertificate {
+            let new_policy = self.owner.kel().declared_witness_policy().unwrap();
+            WitnessedEventCertificate::assemble(
+                self.owner.did(),
+                self.new_receipt.statement.sequence,
+                self.new_receipt.statement.event_digest.clone(),
+                new_policy.generation,
+                vec![self.new_receipt.clone()],
+            )
+            .unwrap()
+        }
+    }
+
+    fn a_dead_witness_recovery() -> Recovery {
+        let (old_witness, _old_witness_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let mut owner =
+            appointed_and_observed(&mut journal, old_witness.clone(), &_old_witness_key);
+        let old_policy = journal
+            .state_for(&owner.did())
+            .unwrap()
+            .accepted_policy()
+            .clone();
+
+        // Sign *before* rotating -- `owner`'s current keys are still the
+        // pre-recovery ones at this point.
+        let attestation = attempt(&owner.did(), &old_witness, old_policy.generation, 0, 200);
+        let attestation_sig = attestation.sign(&owner);
+
+        let (new_witness, new_witness_key) = a_witness();
+        owner
+            .appoint_witnesses(vec![new_witness.0.clone()], 1)
+            .unwrap();
+
+        let mut new_witness_journal = WitnessJournal::new();
+        let new_receipt = match new_witness_journal
+            .observe_declared(&owner.kel(), new_witness.clone(), &new_witness_key, 300)
+            .unwrap()
+        {
+            WitnessObservation::Accepted(receipt) => receipt,
+            other => panic!("expected Accepted, got {other:?}"),
+        };
+
+        Recovery {
+            old_policy,
+            old_witness,
+            owner,
+            new_witness,
+            new_witness_key,
+            new_receipt,
+            attestation,
+            attestation_sig,
+        }
+    }
+
+    #[test]
+    fn dead_witness_recovery_succeeds_with_sufficient_evidence_and_readiness() {
+        let recovery = a_dead_witness_recovery();
+        let policy = lenient_policy();
+        let event = recovery.owner.kel().events().last().unwrap().clone();
+        let attestation = recovery.attestation.clone();
+        let sig = recovery.attestation_sig.clone();
+        let new_certificate = recovery.new_policy_certificate();
+
+        verify_dead_witness_recovery(
+            &policy,
+            &recovery.old_policy,
+            &recovery.owner.kel(),
+            &[(attestation, sig)],
+            Some(&new_certificate),
+            |id| recovery.resolve(id),
+        )
+        .unwrap();
+        // Sanity: this really was a rotation event, not an inception.
+        assert!(event.sn > 0);
+    }
+
+    #[test]
+    fn dead_witness_recovery_fails_the_waiting_period_check() {
+        let recovery = a_dead_witness_recovery();
+        let policy = lenient_policy(); // needs 100 epochs
+        let attestation = attempt(
+            &recovery.owner.did(),
+            &recovery.old_witness,
+            recovery.old_policy.generation,
+            0,
+            50, // only 50 epochs of documented unavailability
+        );
+        let sig = attestation.sign(&recovery.owner);
+        let new_certificate = recovery.new_policy_certificate();
+
+        let err = verify_dead_witness_recovery(
+            &policy,
+            &recovery.old_policy,
+            &recovery.owner.kel(),
+            &[(attestation, sig)],
+            Some(&new_certificate),
+            |id| recovery.resolve(id),
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            IdentityError::RecoveryWaitingPeriodNotMet {
+                needed_epochs: 100,
+                got_epochs: 50,
+            }
+        );
+    }
+
+    #[test]
+    fn dead_witness_recovery_fails_when_too_few_distinct_witnesses_are_attested() {
+        let recovery = a_dead_witness_recovery();
+        let policy = DeadWitnessRecoveryPolicy {
+            min_unreachable_witnesses: 2, // more than the one witness this fixture has
+            min_waiting_period_epochs: 100,
+        };
+        let attestation = recovery.attestation.clone();
+        let sig = recovery.attestation_sig.clone();
+        let new_certificate = recovery.new_policy_certificate();
+
+        let err = verify_dead_witness_recovery(
+            &policy,
+            &recovery.old_policy,
+            &recovery.owner.kel(),
+            &[(attestation, sig)],
+            Some(&new_certificate),
+            |id| recovery.resolve(id),
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            IdentityError::InsufficientUnavailabilityEvidence { needed: 2, got: 1 }
+        );
+    }
+
+    #[test]
+    fn dead_witness_recovery_ignores_duplicate_attestations_for_the_same_witness() {
+        // Naming the same witness twice must not count as two distinct
+        // witnesses -- the whole point of `min_unreachable_witnesses`.
+        let recovery = a_dead_witness_recovery();
+        let policy = DeadWitnessRecoveryPolicy {
+            min_unreachable_witnesses: 2,
+            min_waiting_period_epochs: 100,
+        };
+        let attestation = recovery.attestation.clone();
+        let sig = recovery.attestation_sig.clone();
+        let new_certificate = recovery.new_policy_certificate();
+
+        let err = verify_dead_witness_recovery(
+            &policy,
+            &recovery.old_policy,
+            &recovery.owner.kel(),
+            &[(attestation.clone(), sig.clone()), (attestation, sig)],
+            Some(&new_certificate),
+            |id| recovery.resolve(id),
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            IdentityError::InsufficientUnavailabilityEvidence { needed: 2, got: 1 }
+        );
+    }
+
+    #[test]
+    fn dead_witness_recovery_requires_new_policy_readiness_when_a_successor_policy_exists() {
+        let recovery = a_dead_witness_recovery();
+        let policy = lenient_policy();
+        let attestation = recovery.attestation.clone();
+        let sig = recovery.attestation_sig.clone();
+
+        let err = verify_dead_witness_recovery(
+            &policy,
+            &recovery.old_policy,
+            &recovery.owner.kel(),
+            &[(attestation, sig)],
+            None, // no readiness certificate at all
+            |_| None,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            IdentityError::WitnessThresholdNotMet { needed: 1, got: 0 }
+        );
+    }
+
+    #[test]
+    fn dead_witness_recovery_rejects_an_attestation_for_a_witness_outside_the_old_policy() {
+        let recovery = a_dead_witness_recovery();
+        let policy = lenient_policy();
+        let (stranger, _) = a_witness();
+        let attestation = attempt(
+            &recovery.owner.did(),
+            &stranger, // never part of old_policy
+            recovery.old_policy.generation,
+            0,
+            200,
+        );
+        let sig = attestation.sign(&recovery.owner);
+        let new_certificate = recovery.new_policy_certificate();
+
+        let err = verify_dead_witness_recovery(
+            &policy,
+            &recovery.old_policy,
+            &recovery.owner.kel(),
+            &[(attestation, sig)],
+            Some(&new_certificate),
+            |id| recovery.resolve(id),
+        )
+        .unwrap_err();
+        assert_eq!(err, IdentityError::WitnessNotInPolicy);
+    }
+
+    #[test]
+    fn dead_witness_recovery_rejects_an_attestation_signed_by_someone_else() {
+        // A forged attestation the controller never actually signed --
+        // signed instead by an unrelated fresh controller's own keys.
+        let recovery = a_dead_witness_recovery();
+        let policy = lenient_policy();
+        let impostor = Controller::incept_single().unwrap();
+        let attestation = attempt(
+            &recovery.owner.did(),
+            &recovery.old_witness,
+            recovery.old_policy.generation,
+            0,
+            200,
+        );
+        let forged_sig = attestation.sign(&impostor);
+        let new_certificate = recovery.new_policy_certificate();
+
+        assert!(verify_dead_witness_recovery(
+            &policy,
+            &recovery.old_policy,
+            &recovery.owner.kel(),
+            &[(attestation, forged_sig)],
+            Some(&new_certificate),
+            |id| recovery.resolve(id),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn dead_witness_recovery_succeeds_on_retirement_with_no_readiness_certificate_needed() {
+        let (old_witness, old_witness_key) = a_witness();
+        let mut journal = WitnessJournal::new();
+        let mut owner = appointed_and_observed(&mut journal, old_witness.clone(), &old_witness_key);
+        let old_policy = journal
+            .state_for(&owner.did())
+            .unwrap()
+            .accepted_policy()
+            .clone();
+
+        // Sign *before* retiring -- `owner`'s current keys are still the
+        // pre-recovery ones at this point.
+        let attestation = attempt(&owner.did(), &old_witness, old_policy.generation, 0, 200);
+        let sig = attestation.sign(&owner);
+        owner.retire_witnesses().unwrap();
+        let policy = lenient_policy();
+
+        verify_dead_witness_recovery(
+            &policy,
+            &old_policy,
+            &owner.kel(),
+            &[(attestation, sig)],
+            None, // retirement needs no new-witness readiness proof
+            |_| None,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_witness_unavailability_attestation_round_trips_through_encode_decode() {
+        let owner = Controller::incept_single().unwrap();
+        let (witness_id, _) = a_witness();
+        let original = attempt(&owner.did(), &witness_id, 3, 10, 500);
+        let decoded = WitnessUnavailabilityAttestation::decode(&original.encode()).unwrap();
+        assert_eq!(original, decoded);
+    }
+
+    #[test]
+    fn a_truncated_attestation_is_rejected_not_partially_parsed() {
+        let owner = Controller::incept_single().unwrap();
+        let (witness_id, _) = a_witness();
+        let full = attempt(&owner.did(), &witness_id, 3, 10, 500).encode();
+        for cut in 0..full.len() {
+            assert!(
+                WitnessUnavailabilityAttestation::decode(&full[..cut]).is_err(),
+                "truncating to {cut} bytes must be rejected"
+            );
+        }
     }
 }

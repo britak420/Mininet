@@ -169,10 +169,7 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
     /// [`mini_execution::ClaimVerifier`]'s own docs for what an
     /// implementor must check, and `mini-shielded-verify` for a concrete
     /// one composing `mini_private_payment::verify`.
-    pub fn with_claim_verifier(
-        mut self,
-        verifier: Arc<dyn mini_execution::ClaimVerifier>,
-    ) -> Self {
+    pub fn with_claim_verifier(mut self, verifier: Arc<dyn mini_execution::ClaimVerifier>) -> Self {
         self.claim_verifier = Some(verifier);
         self
     }
@@ -523,11 +520,8 @@ impl<O: ValidatorOracle> ConsensusNode<O> {
         if header.body_root != p.body.hash() {
             return (hash, false);
         }
-        match apply_block_with_verifier(
-            self.chain.state(),
-            &p.body,
-            self.claim_verifier.as_deref(),
-        ) {
+        match apply_block_with_verifier(self.chain.state(), &p.body, self.claim_verifier.as_deref())
+        {
             Ok(next) if next.commitment() == header.state_root => (hash, true),
             _ => (hash, false),
         }

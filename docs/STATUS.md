@@ -368,22 +368,39 @@ given time.
   for — the only new code is the AND-composition, plus treating a full
   witness-policy retirement (no new witness set to prove readiness for)
   as vacuously satisfying the new-policy half; 6 tests.
-  **Not yet real:** no bounded/incremental re-verify
+  **§17.4's unavailable-witness recovery now also shipped (D-0475),
+  closing Phase 7 in full:** `verify_dead_witness_recovery` is the
+  deliberately opposite case from §17.2/§17.3 — it works *without* old-
+  witness cooperation, so a witness set going permanently dark can never
+  hold an identity hostage. The controller itself self-signs a typed
+  `WitnessUnavailabilityAttestation` (not a third-party proof — none is
+  available by construction) while its *pre-rotation* keys are still
+  current, documenting a minimum-length unreachability window for a
+  named old witness; the verifier checks that signature against exactly
+  that prior key state via `Kel::verify_message_at`, requires a
+  caller-set minimum number of *distinct* attested-unreachable witnesses
+  (`DeadWitnessRecoveryPolicy`, never hardcoded), and — if the recovery
+  installs a successor policy rather than retiring witnessing outright —
+  still requires that successor's own readiness certificate exactly as
+  §17.3 already does, reusing that check unchanged; full retirement
+  needs none, matching §17.3's own vacuous-retirement precedent; 10
+  tests. **Not yet real:** no bounded/incremental re-verify
   (`observe_verified`/`observe_declared` re-verify the whole chain from
   inception on every call, not just the new suffix), no fork-proof
   construction for the harder "conflicting descendant" case, no
-  recovery-aware handling (every rotation is treated identically), no
-  persistence for `DuplicityRegistry` (in-memory only), no automatic
-  evidence-fetch policy (a `Disagreement`/`Ahead` outcome is returned,
-  never auto-resolved — a host policy choice), no bounded
-  retention/pruning for gossip-summary objects, no unavailable-witness
-  recovery (§17.4, the last piece of Phase 7), no real call site yet gates an authority
-  decision on a `KelAssurance` level, requires old-policy certification
-  before trusting a rotation, or feeds real proofs into
-  `DuplicityRegistry`, no network transport for Phase 4's protocol
-  messages. Each remaining phase is its own later PR, gated behind
-  external review (D-0047) before any high-value authority decision may
-  depend on this layer.
+  recovery-aware handling (every ordinary rotation is treated
+  identically), no persistence for `DuplicityRegistry` (in-memory only),
+  no automatic evidence-fetch policy (a `Disagreement`/`Ahead` outcome is
+  returned, never auto-resolved — a host policy choice), no bounded
+  retention/pruning for gossip-summary objects, no dispute-resolution or
+  reputation consequence for a controller found to have attested falsely
+  under §17.4 (accountability, not unforgeability — stated plainly in
+  D-0475), no real call site yet gates an authority decision on a
+  `KelAssurance` level, requires old-policy certification before trusting
+  a rotation, or feeds real proofs into `DuplicityRegistry`, no network
+  transport for Phase 4's protocol messages. Each remaining phase is its
+  own later PR, gated behind external review (D-0047) before any
+  high-value authority decision may depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire
   tag `0x02`) is real — `VerifyingKey`/`Signature` parse and verify

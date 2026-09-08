@@ -19083,3 +19083,150 @@ decision's scope — each is independently named above and in the
 roadmap.
 
 **Supersedes / superseded by:** extends D-0457; supersedes nothing.
+
+### D-0475 — Unavailable-witness KEL recovery (research report §17.4)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** D-0468/D-0471 (§17.2/§17.3, the
+old-witness-cooperation assumption this decision deliberately drops),
+roadmap R9, `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+committed phased plan (Phase 7, the last unbuilt slice).
+
+**Decision:** add `did_mini::{DeadWitnessRecoveryPolicy,
+WitnessUnavailabilityAttestation, verify_dead_witness_recovery}` to
+`witness_rotation.rs`. A `WitnessUnavailabilityAttestation` is a
+controller-self-signed, typed statement (`identity`, `witness_id`,
+`witness_policy_generation`, `first_unreachable_epoch`,
+`last_attempt_epoch`) — not a third-party proof, since the entire premise
+of this path is that no cooperating third party (old witness) can be
+reached. `verify_dead_witness_recovery` checks: the KEL's head event is a
+genuine witness-policy change (reusing D-0468's `is_policy_change`); each
+supplied attestation names the right identity/generation, names a witness
+that was actually a member of the *old* policy, documents a span
+(`last_attempt_epoch - first_unreachable_epoch`) at least
+`policy.min_waiting_period_epochs`, and — the load-bearing check — is
+itself verified via `Kel::verify_message_at` against the key state
+**immediately preceding** the recovery event (i.e. the pre-rotation
+keys, still current at the moment the evidence was signed, before the
+controller unilaterally rotated away); and that at least
+`policy.min_unreachable_witnesses` *distinct* witnesses are attested
+(a `HashSet`, so naming the same witness twice never counts twice). If
+the recovery event installs a successor witness policy (as opposed to
+retiring witnessing entirely), a `WitnessedEventCertificate` proving the
+*new* policy's own readiness threshold is additionally required — the
+exact same check `verify_witness_rotation` (D-0471) already makes for
+the cooperative case, reused unchanged; if the recovery event retires
+the witness policy instead, no such certificate is required, matching
+D-0471's own vacuous-retirement precedent exactly (`None => Ok(())`).
+All numeric thresholds are caller-supplied via `DeadWitnessRecoveryPolicy`
+— never hardcoded — matching this tree's existing "mechanism, not
+policy" precedent (`WitnessPolicy`, `FreshnessPolicy`,
+`mini_storage_fraud::ReplicaLifecycle`).
+
+**Reason:** the research report's own §17.4 text: "A witness set may
+become unavailable. The protocol needs a recovery path that cannot be
+triggered casually... No witness set should be able to hold an identity
+permanently hostage." §17.2/§17.3 (D-0468/D-0471) both *require*
+old-witness cooperation to reach their higher assurance levels — correct
+for the honest case, but exactly the design that would let an
+unreachable or hostile old witness set permanently block any further
+rotation if it were the *only* path. §17.4 is deliberately the opposite
+case: a recovery path that works *without* that cooperation, so an
+identity is never permanently hostage to witnesses who have gone dark.
+The honest tradeoff this decision makes explicit (see "What this does
+not do" below) is accountability instead of unforgeability: nothing can
+cryptographically *prove* a third party is unreachable from outside that
+third party's own cooperation, so this path settles for a durable,
+non-repudiable, historically-verified controller claim instead of
+inventing a false stronger guarantee.
+
+**Why the pre-rotation key state, not the post-rotation one:** the
+attestation is evidence gathered *before* the controller decides to
+unilaterally rotate — the natural real-world order is "notice the
+witness is unreachable, wait out the policy's minimum period, then
+rotate." Verifying against `event.sn.saturating_sub(1)` (the key state
+that governed the identity right up until the recovery event) checks
+that the evidence genuinely predates the decision to act on it, rather
+than letting the controller retroactively manufacture "evidence" with
+its brand-new post-rotation keys after the fact.
+
+**What this does not do (stated plainly, per this tree's honesty
+rule):**
+- **Not independent proof of unavailability.** This is accountability,
+  not unforgeability: a compromised or dishonest controller can self-sign
+  a false attestation about a witness that was, in fact, reachable. What
+  this path defends against is a *silent, unaccountable* land-grab — the
+  attestation is a durable, non-repudiable, historically-anchored claim a
+  later dispute-resolution process (out of scope here, same as every
+  other governance-adjacent gap this tree leaves to its consuming layer)
+  can point to and hold the controller to. It is not a substitute for a
+  real liveness-detection protocol run by disinterested third parties,
+  which does not exist in this codebase and is not proposed here.
+- **No wiring into `assess_kel_assurance`.** Same open item named by
+  D-0468/D-0471: whether/when a real verifier should *require*,
+  *reject*, or merely *flag* a recovery-path rotation versus a
+  cooperative one remains a founder-facing policy call.
+- **No sybil/collusion resistance on the attestation set itself.** All
+  attestations here are signed by the *same* controller (there is no
+  other honest signer available in this path, by construction) — the
+  "distinct witnesses" count only prevents trivially padding one witness
+  into two, not a controller fabricating claims about witnesses that were
+  in fact reachable. That is the accountability tradeoff stated above,
+  not a separate unaddressed gap.
+- **No automatic trigger.** Nothing here decides *when* a witness set
+  should be declared unavailable or invokes this path automatically —
+  it is a verification primitive a caller reaches for, consistent with
+  this module's and this tree's existing "mechanism, not automatic
+  behavior" precedent (D-0468/D-0471/D-0207/D-0460/D-0462/D-0463).
+- **No new cryptography.** `Controller::sign_message`/`Kel::
+  verify_message_at` are unchanged, existing primitives, reused exactly
+  as any other caller of them.
+
+**Constitutional impact:** none. No voice/value edge — `witness_rotation`
+lives entirely inside `did-mini`, nowhere near value/governance crates.
+No typed-domain violation: `WitnessUnavailabilityAttestation` is a
+specific, named, structured statement (not `sign(&[u8])`), and
+`verify_dead_witness_recovery` takes exactly the typed material it needs
+— a policy, the old `WitnessPolicy`, the new `Kel`, a slice of typed
+attestation/signature pairs, and an optional typed certificate — never a
+generic authority-shaped signature.
+
+**Implementation status:** shipped — `crates/did-mini/src/
+witness_rotation.rs` (new: `DeadWitnessRecoveryPolicy`,
+`WitnessUnavailabilityAttestation` with `encode`/`decode`/`sign`,
+`verify_dead_witness_recovery`; module doc's "Not yet built" note
+removed now that §17.4 is closed), `crates/did-mini/src/error.rs` (two
+new `IdentityError` variants: `RecoveryWaitingPeriodNotMet`,
+`InsufficientUnavailabilityEvidence`), `crates/did-mini/src/lib.rs`
+(re-exports). 10 new tests: sufficient evidence plus readiness succeeds;
+an under-length documented span is rejected with the exact needed/got
+epoch counts; too few distinct unreachable witnesses is rejected with
+the exact needed/got counts; naming the same witness twice does not
+count as two; a missing new-policy readiness certificate is rejected
+when a successor policy actually exists; an attestation for a witness
+outside the old policy is rejected; an attestation forged by an
+unrelated controller is rejected; full retirement succeeds with no
+readiness certificate required (mirroring D-0471's own retirement
+case); the attestation's own `encode`/`decode` round-trips; and byte-level
+truncation is rejected at every prefix length rather than partially
+parsed.
+
+**Failure point:** the accountability tradeoff named above is the
+central one — this path trusts the controller's own claim about
+witness unreachability, anchored to a real prior key state and a real
+minimum waiting period, but not independently verified by anyone who
+could contradict it. A controller willing to burn its own reputation
+(the claim is permanent and public in the KEL) can use this path to
+drop honest-but-slow witnesses; the waiting-period and distinct-witness
+thresholds raise the cost of doing so casually but do not make it
+impossible, exactly as the research report's own phrase "cannot be
+triggered casually" (not "cannot be triggered falsely") describes.
+
+**Required follow-up:** a real dispute-resolution or reputation
+consequence for a controller found to have attested falsely remains
+unbuilt and out of scope for this decision, as does the
+`assess_kel_assurance` wiring named above. This closes Phase 7 of
+`docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s committed
+plan in full (§17.2 D-0468, §17.3 D-0471, §17.4 this decision).
+
+**Supersedes / superseded by:** extends D-0468/D-0471; supersedes
+nothing.

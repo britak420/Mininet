@@ -232,6 +232,20 @@ so, everywhere, on purpose.
   `mini-chain` ever gaining a dependency on `mini-value` — the voice/value
   wall holds unchanged. Still no claim-evidence gossip protocol and no
   accountability trail for which validators actually verified.
+- unavailable-witness KEL recovery (`did_mini::witness_rotation`'s
+  `verify_dead_witness_recovery`, D-0475, closes research report §17.4 and
+  Phase 7 of the witness-receipts design doc in full): the deliberately
+  opposite case from §17.2/§17.3 — works *without* old-witness
+  cooperation, so a witness set gone permanently dark can never hold an
+  identity hostage. The controller self-signs a typed
+  `WitnessUnavailabilityAttestation` while its pre-rotation keys are
+  still current, verified against exactly that prior key state, gated by
+  a caller-set minimum distinct-witness count and waiting period
+  (`DeadWitnessRecoveryPolicy`); this is accountability, not
+  unforgeability, stated plainly rather than claimed as a stronger
+  guarantee. Still no real call site gating an authority decision on an
+  assurance level and no dispute-resolution consequence for a false
+  attestation — both founder-facing policy calls.
 - deterministic D-0074 issuance envelopes and equal-allocation genesis
   manifests (`mini-economy`, D-0413), plus a cohort-based 200-year
   calibration harness (`mini-econ-sim`) — proposal code only; no mint,
@@ -372,9 +386,10 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0474`
-   (`D-0474`, the validator-verification model for shielded-spend chain
-   validity, is the newest at the time of this edit; the Mininet Node
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0475`
+   (`D-0475`, unavailable-witness KEL recovery closing research report
+   §17.4 and Phase 7 of the witness-receipts design doc in full, is the
+   newest at the time of this edit; the Mininet Node
    Appliance deployment profile this line previously credited to
    `D-0439` is `D-0446` — `D-0439` is the identity-bound
    replica-registration decision),
