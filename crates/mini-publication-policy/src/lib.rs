@@ -1,4 +1,4 @@
-//! Protected-publishing profile, achieved-result receipt, and
+//! Protected-publishing profile, publication routing plan, and
 //! source-hiding path planning (D-0364/D-0365; founder research
 //! `docs/research/MININET_NATIVE_INTAKE_PUBLIC_COMMONS_AND_OPEN_WEB_SEARCH_20260718.md`,
 //! Track D1/D2/D3, §27).
@@ -6,10 +6,14 @@
 //! [`PublicationProfile`] turns "visibility, attribution, transport, and
 //! persistence as independent choices" (Track D1) into a typed value with
 //! no cross-field validation of its own -- see [`profile`]'s module doc
-//! for why. [`achieved_result_receipt_for`] (Track D2) routes a profile's
+//! for why. [`publication_routing_plan_for`] (Track D2) routes a profile's
 //! chosen transport tier through `mini-transport-policy`'s existing
 //! fail-closed property check and prices it through `mini-resource-
-//! pricing`'s existing quote engine, producing an [`AchievedResultReceipt`].
+//! pricing`'s existing quote engine, producing a
+//! [`PublicationRoutingPlan`] -- a plan a caller could execute, never a
+//! report that it did (F-15; this type was previously named
+//! `AchievedResultReceipt`, renamed for exactly that reason -- see
+//! [`receipt`]'s own module doc).
 //! [`source_hiding_publication_path_for`] (Track D3) plans the
 //! `mini-relay` roles a source-hidden publication needs, over the same
 //! `route` call -- see [`source_hiding`]'s module doc for why it is
@@ -35,5 +39,5 @@ mod source_hiding;
 
 pub use error::{PublicationPolicyError, Result};
 pub use profile::{Attribution, Persistence, PublicationProfile, Visibility};
-pub use receipt::{achieved_result_receipt_for, AchievedResultReceipt};
+pub use receipt::{publication_routing_plan_for, PublicationRoutingPlan};
 pub use source_hiding::{source_hiding_publication_path_for, SourceHidingPublicationPath};

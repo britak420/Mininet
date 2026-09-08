@@ -20665,3 +20665,132 @@ revocation check beyond the KEL a caller already has) — none of those
 are within this finding's scope.
 
 **Supersedes / superseded by:** none.
+
+### D-0490 — Publication routing plans renamed off "achieved"/"receipt"; `ExecutableTransport` made unforgeable outside its own gate (F-15)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-15
+(`crates/mini-publication-policy/src/receipt.rs`,
+`crates/mini-transport-security/src/gate.rs`); D-0364/D-0365 (shipped
+the publication-policy types this decision renames); D-0463 (the
+validator-channel gate this decision's `Sealed`-token pattern mirrors
+conceptually, though that gate is a different mechanism).
+
+**Decision:** two independent, proportionate fixes for the same
+category of mistake the finding names — a caller inferring a broader
+guarantee than a narrower primitive actually gives.
+
+1. `mini-publication-policy::AchievedResultReceipt` (D-0364) was a pure
+   quote/routing decision — no object stored, no bytes moved, no
+   payment executed — but its own name says "achieved" and "receipt,"
+   words that normally mean something already happened. A caller
+   reading the type signature alone (not the crate's own already-honest
+   prose docs, which correctly say "not proof that a publication
+   happened") could reasonably treat a value of this type as
+   confirmation, exactly the finding's concrete example ("A UI receives
+   a role plan and prints 'source hidden' even though sending fails").
+   Renamed to `PublicationRoutingPlan` (`achieved_result_receipt_for` →
+   `publication_routing_plan_for`); its `achieved: AchievedPrivacy`
+   field renamed to `achievable`, and `SourceHidingPublicationPath`'s
+   matching field renamed the same way for consistency (that type's own
+   name — "Path," "plan a source-hiding path," "role plan, not a live
+   path" — was already honest; only the field name needed the same
+   fix). `mini_privacy_policy::AchievedPrivacy` itself is left
+   unrenamed: it is a lower-level primitive used across 7 files in 4
+   crates, its own doc comment already states plainly "it is never
+   itself a proof of anything claimed," and a wider rename would be a
+   larger, riskier cross-crate change outside what this specific
+   finding's two cited locations call for.
+2. `mini-transport-security::ExecutableTransport` (D-0463)'s three unit
+   variants were freely constructible by any caller —
+   `ExecutableTransport::ThreeHopOnion` compiled from any crate, with no
+   need to ever call [`executable_transport`], the function that
+   actually enforces the Mixed/Burst refusal. The finding's own
+   "Mechanism and failure" names this precisely: "the Mixed/Burst
+   runtime guarantee currently comes from the absence of an executor,
+   not necessarily a mandatory call through the named gate." Each
+   variant now carries a `Sealed(pub(crate) ())` token; since `Sealed`'s
+   only field is `pub(crate)`, no crate outside `mini-transport-
+   security` can construct a `Sealed` value, and therefore none can
+   construct an `ExecutableTransport` by variant-literal syntax either —
+   [`executable_transport`] is now the *only* way to obtain one,
+   anywhere in the dependency graph. External code can still match
+   `ExecutableTransport::ThreeHopOnion(_)` normally; only construction
+   is sealed.
+
+**Reason:** the finding's own "Long-term fix" names a considerably
+larger architecture — `RequestedProfile`/`ExecutablePlan`/
+`ObservedExecutionReceipt` as three genuinely separate types, only the
+transport executor constructing "achieved" outcomes, every future tier
+dispatch routed through an enforced single gate. Building that requires
+a real, single "send at this tier" entry point this workspace does not
+have yet (confirmed: `runtime.rs`'s own `connect_authenticated_tcp`/
+`build_verified_onion_route` are reached directly today, never through
+`executable_transport`) — inventing one unilaterally here would be
+exactly the kind of unreviewed architecture decision this branch's
+other findings already decline to make without broader review (D-0478's
+declined operator-diversity mechanism, D-0487's declined `ReplayGuard`
+trait redesign). What is delivered instead closes the two concrete,
+locally-scoped defects the finding's two cited locations actually name
+— a misleading type name, and a gate a caller can silently bypass by
+constructing its own output — using the same "typed domain, unforgeable
+except through the one real constructor" discipline this workspace
+already applies elsewhere (`mini_chain::Vote`: "the signature field is
+private, so a `Vote` cannot be forged into existence").
+
+**Constitutional impact:** none. No dependency-graph change; no
+cryptography invented (`Sealed` is a private-field marker type, not a
+cryptographic primitive). Confirmed via `grep` across the workspace:
+zero crates depend on `mini-publication-policy` at all, and
+`mini-search-federation-net` (the one crate that depends on
+`mini-transport-security`) never references `ExecutableTransport`/
+`executable_transport` — both renames/signature changes had zero
+coordinated-review cost.
+
+**Implementation status:** shipped.
+- `crates/mini-publication-policy/src/receipt.rs`: `AchievedResultReceipt`
+  → `PublicationRoutingPlan`, `achieved_result_receipt_for` →
+  `publication_routing_plan_for`, field `achieved` → `achievable`;
+  module doc comment rewritten to state the rename's own reasoning
+  explicitly (F-15) rather than only the pre-existing honesty
+  disclaimer.
+- `crates/mini-publication-policy/src/source_hiding.rs`:
+  `SourceHidingPublicationPath::achieved` → `achievable`, matching doc
+  update.
+- `crates/mini-publication-policy/src/lib.rs`,
+  `crates/mini-publication-policy/src/profile.rs`: doc-comment and
+  export references updated to the new names.
+- `crates/mini-transport-security/src/gate.rs`: new `Sealed(pub(crate)
+  ())` marker type; `ExecutableTransport`'s three variants each now
+  carry one; module doc comment gains an explicit "not yet a mandatory
+  dispatch point" section stating precisely what is and is not closed.
+  New test `an_executable_transport_can_only_be_produced_by_the_gate`
+  (constructs a `Sealed` value from within the crate's own test module
+  — the only place that can — to demonstrate the equality the gate
+  function itself produces, documenting the guarantee no external-crate
+  test could exercise the failing side of).
+- 17/17 `mini-publication-policy` tests pass (renamed, not added-to,
+  since the finding's fix here is a naming/type-safety correction, not
+  new routing logic); 33/33 `mini-transport-security` tests pass (32
+  prior + 1 new); full workspace `cargo test --workspace --all-features`
+  (266 test-result blocks) and `cargo clippy --all-targets
+  --all-features --workspace -- -D warnings` both clean.
+
+**Failure point:** neither fix adds an executor, wires a mandatory
+dispatch point, or builds the `RequestedProfile`/`ExecutablePlan`/
+`ObservedExecutionReceipt` three-type separation the finding's own
+long-term fix names — those remain real, larger, not-yet-built work.
+`docs/DECISION_LOG.md`'s D-0364/D-0365/D-0463 entries themselves are
+left untouched (append-only history: they accurately described what
+was shipped at the time under the names then in use) — this decision
+is the record of the rename, not a rewrite of what came before it.
+
+**Required follow-up:** the finding's own larger architecture (typed
+separation of planned/executable/observed outcomes; a real, mandatory
+single dispatch point routing every tier through `executable_transport`
+or its equivalent) remains open, gated on a real transport-executor
+integration this workspace does not have yet — the same category of
+decision D-0463's own module doc already names as future work
+("opt-in, not wired into `TcpMesh`").
+
+**Supersedes / superseded by:** none.

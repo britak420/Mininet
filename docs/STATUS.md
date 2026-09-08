@@ -2369,7 +2369,8 @@ the top development priority.
   choices" into a typed value with no cross-field validation of its own
   — every one of the 3 × 2 × 4 × 3 = 72 combinations constructs, so no
   future edit can silently couple two dimensions without a visible type
-  change. `achieved_result_receipt_for` (Track D2) is a thin
+  change. `publication_routing_plan_for` (Track D2, renamed from
+  `achieved_result_receipt_for` by D-0490 -- see below) is a thin
   composition of `mini-transport-policy::route` (fail-closed protection-
   property check) and `mini-resource-pricing::quote` (pricing), adding
   no new routing or pricing logic of its own; `quote` is `None` exactly
@@ -2398,6 +2399,20 @@ the top development priority.
   only — no relay identity is contacted, no `DeliveryAssignment` is
   produced; turning a role list into a real, discoverable relay path
   remains not-yet-scoped follow-up.
+  **Renamed for honesty (D-0490)** — the D-0364 type above was named
+  `AchievedResultReceipt`, which a caller reading only the type name
+  (not its own prose docs) could reasonably mistake for proof a
+  publication happened; it is, and always was, a routing plan and a
+  quote, produced before any bytes move. Renamed to
+  `PublicationRoutingPlan` (its `achieved` field to `achievable`, and
+  `SourceHidingPublicationPath`'s field to match) so the type's own
+  name states what it is (F-15). `mini-transport-security::
+  ExecutableTransport` gained the same discipline from the other side:
+  its variants now carry a private `Sealed` token, so no caller outside
+  `mini-transport-security` can construct one except by calling
+  `executable_transport` itself -- the Mixed/Burst rejection that gate
+  performs can no longer be silently bypassed by manufacturing the enum
+  value directly. See `docs/DECISION_LOG.md` D-0490.
 - **shipped, prototype (D-0372, Track D5)** — new crate
   `mini-replication-policy`: closes the distribution-planning gap
   `mini-erasure`'s own docs named as unstarted. `plan_placement` assigns

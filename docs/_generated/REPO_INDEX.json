@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 935,
     "headings": 3288,
-    "rust_symbols": 9452
+    "rust_symbols": 9454
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28146,
+      "bytes": 28176,
       "group": "root",
       "headings": [
         {
@@ -1840,7 +1840,7 @@
       ],
       "lines": 449,
       "path": "README.md",
-      "sha256": "2fa9b9b62f44529cff8c4a4287325e4aa5d2827c199d3647fbb18e01ebf73568",
+      "sha256": "50d3f00bb6b6ad1adae9fc3b45e68535a1d122d222b08ddc1711c4bec36d3baa",
       "symbols": [],
       "title": "Mininet"
     },
@@ -51065,7 +51065,7 @@
       "title": "use core::fmt;"
     },
     {
-      "bytes": 1948,
+      "bytes": 2161,
       "group": "crate:mini-publication-policy",
       "headings": [],
       "keywords": [
@@ -51074,55 +51074,55 @@
         "source_hiding",
         "track",
         "transport",
+        "own",
         "error",
         "attribution",
         "its",
-        "own",
+        "see",
+        "module",
+        "doc",
+        "publication",
+        "plan",
         "research",
         "publicationprofile",
         "visibility",
         "persistence",
         "typed",
-        "see",
-        "module",
-        "doc",
         "why",
-        "achieved_result_receipt_for",
+        "publication_routing_plan_for",
         "through",
         "existing",
-        "pricing",
-        "achievedresultreceipt",
-        "source_hiding_publication_path_for"
+        "pricing"
       ],
-      "lines": 40,
+      "lines": 44,
       "path": "crates/mini-publication-policy/src/lib.rs",
-      "sha256": "e121ca7d6b94335692fff32c8ae4813ac2e5ea0141d0a9a08ed9887d408336f3",
+      "sha256": "0eec0b849705738cedd63c18a1de1cb2256051ac43a989e0c6da40720f1880b6",
       "symbols": [
         {
           "kind": "mod",
-          "line": 31,
+          "line": 35,
           "name": "error"
         },
         {
           "kind": "mod",
-          "line": 32,
+          "line": 36,
           "name": "profile"
         },
         {
           "kind": "mod",
-          "line": 33,
+          "line": 37,
           "name": "receipt"
         },
         {
           "kind": "mod",
-          "line": 34,
+          "line": 38,
           "name": "source_hiding"
         }
       ],
       "title": "mod error;"
     },
     {
-      "bytes": 6654,
+      "bytes": 6656,
       "group": "crate:mini-publication-policy",
       "headings": [],
       "keywords": [
@@ -51153,7 +51153,7 @@
       ],
       "lines": 173,
       "path": "crates/mini-publication-policy/src/profile.rs",
-      "sha256": "23b6f4317a8486532061b2801222e7b727c5f80210fb88e080935b03eed1e8d8",
+      "sha256": "a10498043ac3ec614b708e43d4071457d79a2c0643df90bd92c67507e34ca7de",
       "symbols": [
         {
           "kind": "enum",
@@ -51224,184 +51224,184 @@
       "title": "use mini_privacy_policy::PrivacyTier;"
     },
     {
-      "bytes": 6787,
+      "bytes": 7953,
       "group": "crate:mini-publication-policy",
       "headings": [],
       "keywords": [
-        "quote",
         "profile",
-        "privacytier",
-        "receipt",
-        "publicationprofile",
+        "quote",
         "transport",
-        "achieved_result_receipt_for",
-        "prices",
-        "achievedresultreceipt",
+        "publicationprofile",
+        "publicationroutingplan",
+        "own",
         "properties",
-        "tier",
         "protection",
+        "actually",
+        "privacytier",
+        "tier",
+        "prices",
+        "publication",
+        "routing",
+        "plan",
         "track",
         "existing",
-        "actually",
-        "protectionproperty",
+        "caller",
+        "its",
+        "exactly",
+        "never",
+        "route",
         "pricevector",
-        "payloadsizeclass",
-        "direct",
-        "achieved",
-        "given",
-        "mini_privacy_policy",
-        "publication",
-        "routing"
+        "what"
       ],
-      "lines": 198,
+      "lines": 217,
       "path": "crates/mini-publication-policy/src/receipt.rs",
-      "sha256": "f2f58c3bab8f7a27490f941b98e28f565d18ad269ffbdc66771ad22d3e1147bd",
+      "sha256": "edcfc5f70e8cd5856b525816408961bbcc949b28f8acd291dc896a2c7ee39308",
       "symbols": [
         {
           "kind": "struct",
-          "line": 36,
-          "name": "AchievedResultReceipt"
+          "line": 55,
+          "name": "PublicationRoutingPlan"
         },
         {
           "kind": "fn",
-          "line": 51,
-          "name": "achieved_result_receipt_for"
+          "line": 70,
+          "name": "publication_routing_plan_for"
         },
         {
           "kind": "mod",
-          "line": 81,
+          "line": 100,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 85,
+          "line": 104,
           "name": "prices"
         },
         {
           "kind": "fn",
-          "line": 92,
+          "line": 111,
           "name": "profile"
         },
         {
           "kind": "fn",
-          "line": 102,
-          "name": "direct_tier_receipt_has_no_quote"
+          "line": 121,
+          "name": "direct_tier_plan_has_no_quote"
         },
         {
           "kind": "fn",
-          "line": 117,
-          "name": "relayed_tier_receipt_has_a_quote_that_requires_payment"
-        },
-        {
-          "kind": "fn",
-          "line": 133,
-          "name": "an_unsatisfiable_property_fails_closed_rather_than_under_delivering"
+          "line": 136,
+          "name": "relayed_tier_plan_has_a_quote_that_requires_payment"
         },
         {
           "kind": "fn",
           "line": 152,
-          "name": "the_receipt_carries_the_exact_profile_it_was_built_for"
+          "name": "an_unsatisfiable_property_fails_closed_rather_than_under_delivering"
         },
         {
           "kind": "fn",
-          "line": 167,
+          "line": 171,
+          "name": "the_plan_carries_the_exact_profile_it_was_built_for"
+        },
+        {
+          "kind": "fn",
+          "line": 186,
           "name": "quote_matches_calling_mini_resource_pricing_quote_directly"
         },
         {
           "kind": "fn",
-          "line": 182,
+          "line": 201,
           "name": "an_overflowing_payload_propagates_as_a_pricing_error"
         }
       ],
       "title": "use mini_privacy_policy::{AchievedPrivacy, PrivacyRequest, PrivacyTier, ProtectionProperty};"
     },
     {
-      "bytes": 7848,
+      "bytes": 8154,
       "group": "crate:mini-publication-policy",
       "headings": [],
       "keywords": [
         "profile",
         "attribution",
         "path",
-        "roles",
         "relay",
+        "roles",
+        "route",
         "mini-relay",
         "transport",
-        "route",
         "mini_relay",
         "publicationprofile",
-        "privacytier",
         "sourcehidingpublicationpath",
         "source_hiding_publication_path_for",
+        "role",
         "publisher",
         "network",
         "would",
+        "achievable",
         "roles_for_route_decision",
         "decision",
-        "relayrole",
+        "privacytier",
         "publication",
         "track",
-        "role",
         "function",
         "mini_privacy_policy"
       ],
-      "lines": 194,
+      "lines": 199,
       "path": "crates/mini-publication-policy/src/source_hiding.rs",
-      "sha256": "6039ab3301003cd5498a8062846fd5f5c989f7958c8db6843ec31f9ac4c12397",
+      "sha256": "0b65c8d0057d3e5e3e56ef56c116477f77a00c92c15e7bde43542b34a8594049",
       "symbols": [
         {
           "kind": "struct",
-          "line": 38,
+          "line": 43,
           "name": "SourceHidingPublicationPath"
         },
         {
           "kind": "fn",
-          "line": 67,
+          "line": 72,
           "name": "source_hiding_publication_path_for"
         },
         {
           "kind": "mod",
-          "line": 87,
+          "line": 92,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 93,
+          "line": 98,
           "name": "profile"
         },
         {
           "kind": "fn",
-          "line": 103,
+          "line": 108,
           "name": "a_relayed_tier_profile_plans_entry_and_rendezvous"
         },
         {
           "kind": "fn",
-          "line": 113,
+          "line": 118,
           "name": "an_attributed_profile_still_gets_a_source_hiding_path"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 131,
           "name": "a_direct_tier_profile_fails_closed_at_the_routing_layer"
         },
         {
           "kind": "fn",
-          "line": 148,
+          "line": 153,
           "name": "a_mixed_tier_profile_fails_closed_not_yet_handled"
         },
         {
           "kind": "fn",
-          "line": 161,
+          "line": 166,
           "name": "a_burst_tier_profile_fails_closed_not_yet_handled"
         },
         {
           "kind": "fn",
-          "line": 174,
+          "line": 179,
           "name": "the_path_carries_the_exact_profile_it_was_built_for"
         },
         {
           "kind": "fn",
-          "line": 182,
+          "line": 187,
           "name": "the_achieved_privacy_names_the_onion_relay_mechanism"
         }
       ],
@@ -68746,62 +68746,72 @@
       "title": "use did_mini::IdentityError;"
     },
     {
-      "bytes": 2157,
+      "bytes": 5021,
       "group": "crate:mini-transport-security",
       "headings": [],
       "keywords": [
-        "privacytier",
         "executabletransport",
+        "sealed",
+        "privacytier",
         "executable_transport",
-        "direct",
-        "tier",
-        "assert_eq",
-        "relayed",
-        "mixed",
-        "burst",
-        "transportsecurityerror",
-        "anonymousdirect",
-        "authenticateddirect",
         "threehoponion",
+        "burst",
+        "real",
+        "mixed",
+        "gate",
+        "direct",
+        "relayed",
+        "construct",
+        "tier",
         "false",
         "unwrap",
-        "gate",
-        "implemented_tiers_map_to_real_executors",
-        "exact",
-        "result",
-        "ch1",
-        "authenticate_direct_peer",
-        "err",
-        "mixedtransportnotreviewed",
-        "mini-transport-security"
+        "point",
+        "one",
+        "does",
+        "here",
+        "cannot",
+        "type",
+        "transportsecurityerror",
+        "anonymousdirect",
+        "authenticateddirect"
       ],
-      "lines": 68,
+      "lines": 112,
       "path": "crates/mini-transport-security/src/gate.rs",
-      "sha256": "763cc725f7e0b0bc7b85d278d7b09f68f5c2413ed8b96dea7414800a36d428fd",
+      "sha256": "30ad177a0896237078ce56d8d55c2fe0446cc9e76613d2eceafc84631c38234c",
       "symbols": [
         {
+          "kind": "struct",
+          "line": 38,
+          "name": "Sealed"
+        },
+        {
           "kind": "enum",
-          "line": 12,
+          "line": 41,
           "name": "ExecutableTransport"
         },
         {
           "kind": "fn",
-          "line": 21,
+          "line": 50,
           "name": "executable_transport"
         },
         {
           "kind": "mod",
-          "line": 39,
+          "line": 68,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 43,
+          "line": 72,
           "name": "implemented_tiers_map_to_real_executors"
         },
         {
           "kind": "fn",
-          "line": 59,
+          "line": 88,
+          "name": "an_executable_transport_can_only_be_produced_by_the_gate"
+        },
+        {
+          "kind": "fn",
+          "line": 103,
           "name": "mixed_and_burst_fail_closed_until_external_review"
         }
       ],
@@ -78387,7 +78397,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1245824,
+      "bytes": 1253586,
       "group": "docs",
       "headings": [
         {
@@ -78817,9 +78827,9 @@
         "first",
         "kel"
       ],
-      "lines": 20668,
+      "lines": 20797,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "e37a7e2b05d54a98931617bb4b3f95b299ecd613a61502a43b1fa5b6aecc7bbc",
+      "sha256": "4a91d677e8391303649afd86eb923ad7894b3f0de7bcd43efd2724fd5d9d43df",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80155,7 +80165,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 187453,
+      "bytes": 188448,
       "group": "docs",
       "headings": [
         {
@@ -80230,37 +80240,37 @@
         },
         {
           "level": 2,
-          "line": 2423,
+          "line": 2438,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2514,
+          "line": 2529,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2594,
+          "line": 2609,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2660,
+          "line": 2675,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2677,
+          "line": 2692,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2713,
+          "line": 2728,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2778,
+          "line": 2793,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80290,9 +80300,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2813,
+      "lines": 2828,
       "path": "docs/STATUS.md",
-      "sha256": "490ed971ca05a4c7c8bb2d8949fae9c20c811b51385861243c6816ffb2bf5863",
+      "sha256": "5199bafee7ad32365affe548336bae84a0fabaff7650c3796ec5e082248359e5",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97159,7 +97169,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 93004,
+      "bytes": 94307,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97188,9 +97198,9 @@
         "independently",
         "both"
       ],
-      "lines": 1278,
+      "lines": 1284,
       "path": "governance/work-claims.json",
-      "sha256": "971706887731ff5afbbd206718710bb0d1c8953b25b776a915da7651d375db35",
+      "sha256": "d12fae56a0458e59ec518a81cd8203fc9ca36068641ddb1d926a9fa15589f9e3",
       "symbols": [],
       "title": "{"
     },

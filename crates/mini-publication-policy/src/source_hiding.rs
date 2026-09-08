@@ -34,10 +34,15 @@ use crate::profile::PublicationProfile;
 /// A planned set of `mini-relay` roles that would carry `profile`'s
 /// publication with the publisher's network counterparty hidden from any
 /// single relay.
+///
+/// `achievable` names what [`mini_transport_policy::route`]'s policy check
+/// says this tier is *capable* of, not a report that any relay actually
+/// carried anything -- see this module's own "role plan, not a live path"
+/// note above (F-15: matching [`crate::receipt`]'s equivalent rename).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceHidingPublicationPath {
     pub profile: PublicationProfile,
-    pub achieved: AchievedPrivacy,
+    pub achievable: AchievedPrivacy,
     pub roles: Vec<RelayRole>,
 }
 
@@ -78,7 +83,7 @@ pub fn source_hiding_publication_path_for(
     let roles = roles_for_route_decision(&decision)?;
     Ok(SourceHidingPublicationPath {
         profile,
-        achieved: decision.achieved,
+        achievable: decision.achieved,
         roles,
     })
 }
@@ -186,7 +191,7 @@ mod tests {
         )
         .unwrap();
         assert!(path
-            .achieved
+            .achievable
             .mechanisms
             .contains(&mini_privacy_policy::Mechanism::OnionRelay));
     }
