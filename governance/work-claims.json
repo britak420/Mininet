@@ -1113,20 +1113,37 @@
     },
     {
       "issue": 45,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/chunked-snapshot-transfer",
+      "pull_request": 326,
       "lease_expires": "2026-09-14",
       "paths": [
         "crates/mini-consensus/",
         "docs/DECISION_LOG.md",
-        "docs/STATUS.md",
-        "README.md"
+        "docs/STATUS.md"
       ],
       "decision_ids": [
         "D-0469"
       ],
-      "notes": "D-0469: chunked, Merkle-authenticated execution-state transfer, over real TCP -- closing D-0207's own named \"chunked Merkle state transfer\" gap (roadmap #45) end to end rather than as a types-only slice. New module mini_consensus::chunked_snapshot ships SnapshotManifest (same BlockHeader/QuorumCertificate finality binding as ConsensusSnapshot, plus a Merkle root over the encoded state split into requester-chosen fixed-size chunks), SnapshotChunker (builds the manifest, serves a chunk plus its proof), and SnapshotAssembler (verifies the manifest's QC before fetching any chunk, verifies each chunk against chunks_root as it arrives, and on finish reassembles/decodes/structurally-checks into a plain ConsensusSnapshot -- the manifest's chunks_root is deliberately not a new trust anchor, only an operational aid for early bad-chunk detection and future multi-peer sourcing). New net::chunk_sync_over_tcp/serve_chunk_sync_over_tcp carry a ManifestRequest/ManifestResponse then per-chunk ChunkRequest/ChunkResponse over one real encrypted TCP connection, the same Channel/TcpBearer construction and one-peer-one-pass-no-retry posture state_sync_over_tcp already uses, ending in the same ConsensusNode::apply_state_sync call an ordinary snapshot response already goes through -- archive persistence, history replacement and round-restart are all reused unchanged. Reimplements the RFC 6962-style leaf/node Merkle construction mini_spacetime::merkle already uses, locally, rather than adding a cross-domain mini-consensus -> mini-spacetime dependency for one generic utility whose proof type has no wire codec yet anyway. 15 unit tests plus 2 new real-TCP integration tests (a long-offline node reaching the archive's latest snapshot height end to end, and a clean no-op against a peer with no snapshot yet). Coordination evidence only, not approval or authority."
+      "notes": "D-0469: chunked, Merkle-authenticated execution-state transfer, over real TCP -- closing D-0207's own named \"chunked Merkle state transfer\" gap (roadmap #45) end to end rather than as a types-only slice. New module mini_consensus::chunked_snapshot ships SnapshotManifest (same BlockHeader/QuorumCertificate finality binding as ConsensusSnapshot, plus a Merkle root over the encoded state split into requester-chosen fixed-size chunks), SnapshotChunker (builds the manifest, serves a chunk plus its proof), and SnapshotAssembler (verifies the manifest's QC before fetching any chunk, verifies each chunk against chunks_root as it arrives, and on finish reassembles/decodes/structurally-checks into a plain ConsensusSnapshot -- the manifest's chunks_root is deliberately not a new trust anchor, only an operational aid for early bad-chunk detection and future multi-peer sourcing). New net::chunk_sync_over_tcp/serve_chunk_sync_over_tcp carry a ManifestRequest/ManifestResponse then per-chunk ChunkRequest/ChunkResponse over one real encrypted TCP connection, the same Channel/TcpBearer construction and one-peer-one-pass-no-retry posture state_sync_over_tcp already uses, ending in the same ConsensusNode::apply_state_sync call an ordinary snapshot response already goes through -- archive persistence, history replacement and round-restart are all reused unchanged. Reimplements the RFC 6962-style leaf/node Merkle construction mini_spacetime::merkle already uses, locally, rather than adding a cross-domain mini-consensus -> mini-spacetime dependency for one generic utility whose proof type has no wire codec yet anyway. 15 unit tests plus 2 new real-TCP integration tests (a long-offline node reaching the archive's latest snapshot height end to end, and a clean no-op against a peer with no snapshot yet). Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #326 merged."
+    },
+    {
+      "issue": 35,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/media-huge-file-transfer",
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/mini-crypto/",
+        "crates/mini-media/",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md"
+      ],
+      "decision_ids": [
+        "D-0470"
+      ],
+      "notes": "D-0470: bounded-memory media assembly and real want-list-driven transfer, closing both gaps D-0419's own text left open for roadmap #35 (huge-file handling). mini_crypto::HashAlgorithm gains incremental() / IncrementalHash (BLAKE3/SHA-256's own already-streaming constructions, exposed rather than reimplemented -- 4 tests proving incremental hashing matches digest() under every split). mini_media gains assemble_to_writer / assemble_superblock_to_writer, streaming an already-complete payload to a Write sink one chunk at a time instead of assemble/assemble_superblock's single up-front allocation (up to 256 MiB / 64 GiB) -- the exact bound Directive 11's weakest device cannot spare; integrity unchanged, the whole stream is hashed incrementally and checked against the recorded digest before returning Ok. New mini_media::sync module -- pull_manifest/pull_superblock/serve_missing -- composes the crate's existing missing_chunks/missing_superblock_chunks want-lists with mini_sync::request_retrieval/serve_retrieval's already-tested transport-agnostic exact-object-retrieval exchange over an already-established Bearer/Channel, the same composition mini-search-federation-net (D-0432) already proved for an unrelated object type; pull_superblock drives as many rounds as newly-arrived part manifests reveal (two, in practice). 4 tests over real mini_bearer::InProcessBearer pairs plus 8 streaming-assembly tests across the existing media.rs/superblock.rs integration suites. Coordination evidence only, not approval or authority."
     }
   ]
 }
