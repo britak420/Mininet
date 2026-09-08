@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 935,
     "headings": 3288,
-    "rust_symbols": 9438
+    "rust_symbols": 9446
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28124,
+      "bytes": 28145,
       "group": "root",
       "headings": [
         {
@@ -1808,7 +1808,7 @@
         },
         {
           "level": 2,
-          "line": 444,
+          "line": 445,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 448,
+      "lines": 449,
       "path": "README.md",
-      "sha256": "7fe34426568b98163cb04dd88aa4902a496c1684ea814eb9335cef227de862bb",
+      "sha256": "73a92712406e08ccf4387822d2b91f579f066c72cf9ce139612fea451ccb72ef",
       "symbols": [],
       "title": "Mininet"
     },
@@ -44888,38 +44888,38 @@
       "title": "use did_mini::{Controller, Did, IndexedSig, Kel};"
     },
     {
-      "bytes": 4399,
+      "bytes": 5193,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
         "presenceerror",
         "write",
         "identity",
-        "error",
+        "replay",
         "match",
+        "nonce",
+        "error",
         "result",
         "fmt",
         "kel",
         "core",
-        "identityerror",
         "presence",
         "attestation",
         "channel",
         "policy",
         "range",
+        "failure",
         "evidence",
         "device",
         "does",
         "root",
-        "replay",
-        "failure",
+        "exchange",
         "bearer",
-        "cannot",
-        "round-trip"
+        "identityerror"
       ],
-      "lines": 98,
+      "lines": 113,
       "path": "crates/mini-presence/src/error.rs",
-      "sha256": "7cd978b5454a10915b150a315b7d0f7cdec50c57d15a724fadb3c6324271ac77",
+      "sha256": "82a609467e210c836fec5b62568f6490fb4f682dcb5abbddab55eee6daaf1967",
       "symbols": [
         {
           "kind": "type",
@@ -44933,27 +44933,27 @@
         },
         {
           "kind": "impl",
-          "line": 56,
+          "line": 65,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 66,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 91,
+          "line": 106,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 93,
+          "line": 108,
           "name": "From<IdentityError>"
         },
         {
           "kind": "fn",
-          "line": 94,
+          "line": 109,
           "name": "from"
         }
       ],
@@ -45027,178 +45027,213 @@
       "title": "mod active_range;"
     },
     {
-      "bytes": 14554,
+      "bytes": 23122,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
-        "path",
-        "filereplayguard",
         "file",
-        "u64",
-        "open",
-        "sequence",
-        "line",
-        "recorded_at_ms",
-        "replayguard",
-        "device",
+        "filereplayguard",
         "hex",
-        "retention_ms",
-        "std",
-        "string",
-        "fields",
-        "key",
-        "prune",
+        "u64",
+        "replayguard",
         "durable",
+        "path",
         "process",
-        "entries",
-        "hashmap",
-        "next",
-        "lines",
-        "now_ms"
+        "itself",
+        "write",
+        "never",
+        "std",
+        "open",
+        "prune",
+        "sequence",
+        "f-12",
+        "one",
+        "line",
+        "byte",
+        "key",
+        "max_replay_guard_file_bytes",
+        "write_failures",
+        "check_and_record",
+        "own"
       ],
-      "lines": 393,
+      "lines": 562,
       "path": "crates/mini-presence/src/persisted.rs",
-      "sha256": "921fa6cc943bdb5b52ec8ce8e59a1dcafa77327d314189f96a4296154cb8c647",
+      "sha256": "d0850a5e8ff2c35543e2df4ba22b8611f65d6f4e56c86680133db71b07cd40d5",
       "symbols": [
         {
           "kind": "type",
-          "line": 44,
+          "line": 55,
           "name": "Key"
         },
         {
+          "kind": "const",
+          "line": 65,
+          "name": "MAX_REPLAY_GUARD_FILE_BYTES"
+        },
+        {
           "kind": "struct",
-          "line": 50,
+          "line": 71,
           "name": "FileReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 78,
           "name": "now_ms"
         },
         {
           "kind": "fn",
-          "line": 64,
+          "line": 85,
           "name": "encode_line"
         },
         {
           "kind": "fn",
-          "line": 72,
+          "line": 102,
           "name": "decode_line"
         },
         {
           "kind": "impl",
-          "line": 90,
+          "line": 123,
           "name": "FileReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 95,
+          "line": 128,
           "name": "open"
         },
         {
           "kind": "fn",
-          "line": 149,
+          "line": 193,
           "name": "write_failures"
         },
         {
           "kind": "fn",
-          "line": 157,
+          "line": 201,
           "name": "prune"
         },
         {
           "kind": "fn",
-          "line": 172,
+          "line": 216,
           "name": "compact"
         },
         {
           "kind": "fn",
-          "line": 183,
+          "line": 227,
           "name": "append_record"
         },
         {
           "kind": "impl",
-          "line": 199,
+          "line": 243,
           "name": "ReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 200,
+          "line": 244,
           "name": "is_seen"
         },
         {
           "kind": "fn",
-          "line": 205,
+          "line": 249,
           "name": "check_and_record"
         },
         {
           "kind": "mod",
-          "line": 223,
+          "line": 280,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 227,
+          "line": 284,
           "name": "tmp_path"
         },
         {
           "kind": "fn",
-          "line": 237,
+          "line": 294,
           "name": "did"
         },
         {
           "kind": "fn",
-          "line": 242,
+          "line": 299,
           "name": "a_fresh_sequence_value_is_recorded_and_then_reported_seen"
         },
         {
           "kind": "fn",
-          "line": 255,
+          "line": 312,
           "name": "a_record_survives_reopening_the_same_path"
         },
         {
           "kind": "fn",
-          "line": 270,
+          "line": 327,
           "name": "an_entry_older_than_retention_is_dropped_on_open"
         },
         {
           "kind": "fn",
-          "line": 283,
+          "line": 340,
           "name": "opening_compacts_away_expired_entries_from_disk"
         },
         {
           "kind": "fn",
-          "line": 307,
+          "line": 364,
           "name": "a_truncated_final_line_is_tolerated"
         },
         {
           "kind": "fn",
-          "line": 321,
+          "line": 378,
           "name": "a_malformed_non_final_line_is_reported_as_corruption"
         },
         {
           "kind": "fn",
-          "line": 335,
+          "line": 392,
           "name": "write_failures_starts_at_zero_and_stays_zero_on_success"
         },
         {
           "kind": "fn",
-          "line": 345,
+          "line": 402,
           "name": "opening_a_nonexistent_path_starts_empty"
         },
         {
           "kind": "fn",
-          "line": 353,
+          "line": 410,
           "name": "distinct_devices_with_the_same_sequence_value_are_tracked_independently"
         },
         {
           "kind": "fn",
-          "line": 365,
+          "line": 422,
           "name": "prune_removes_expired_entries_and_compacts_the_file"
         },
         {
           "kind": "fn",
-          "line": 384,
+          "line": 441,
           "name": "prune_is_a_no_op_when_nothing_has_expired"
+        },
+        {
+          "kind": "fn",
+          "line": 458,
+          "name": "a_durable_write_failure_is_refused_not_silently_accepted_in_memory"
+        },
+        {
+          "kind": "fn",
+          "line": 485,
+          "name": "a_write_failure_is_not_resurrected_by_a_simulated_restart"
+        },
+        {
+          "kind": "fn",
+          "line": 509,
+          "name": "a_non_ascii_multibyte_hex_field_is_rejected_not_a_panic"
+        },
+        {
+          "kind": "fn",
+          "line": 523,
+          "name": "a_file_with_a_non_ascii_hex_line_is_reported_as_corruption_not_a_crash"
+        },
+        {
+          "kind": "fn",
+          "line": 541,
+          "name": "non_hex_ascii_characters_are_also_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 549,
+          "name": "a_file_over_the_size_cap_is_refused_before_reading"
         }
       ],
       "title": "use std::collections::HashMap;"
@@ -45296,7 +45331,7 @@
       "title": "use crate::attestation::UwbRanging;"
     },
     {
-      "bytes": 10561,
+      "bytes": 11342,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
@@ -45325,9 +45360,9 @@
         "check_and_record",
         "inmemoryreplayguard"
       ],
-      "lines": 278,
+      "lines": 290,
       "path": "crates/mini-presence/src/verify.rs",
-      "sha256": "77c9a8e4ba9f83f4a830a23687d2d330886f9cd24736f718e85fcc821edaa099",
+      "sha256": "2d7ed60fa1f00cbff8f5dec825b9e59620deffadb07bdd6cb758e9c212193d9c",
       "symbols": [
         {
           "kind": "struct",
@@ -45416,14 +45451,14 @@
         },
         {
           "kind": "fn",
-          "line": 252,
+          "line": 264,
           "name": "check_party"
         }
       ],
       "title": "use std::collections::HashSet;"
     },
     {
-      "bytes": 20260,
+      "bytes": 22340,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
@@ -45445,16 +45480,16 @@
         "assert_eq",
         "a_root",
         "b_root",
-        "att",
-        "ctx",
         "fresh_binding",
         "valid_attestation",
         "attestation",
-        "devices"
+        "devices",
+        "verify_presence",
+        "channel_binding"
       ],
-      "lines": 547,
+      "lines": 596,
       "path": "crates/mini-presence/tests/presence.rs",
-      "sha256": "82ae73a95eb543117ad61f31616d2fe23a6bb885452b242d912e936c118a6521",
+      "sha256": "96b4d314ae9c4df8913f663cf155c4fa7f45f3e20b1fea573b85b5edd7244ddd",
       "symbols": [
         {
           "kind": "fn",
@@ -45545,6 +45580,11 @@
           "kind": "fn",
           "line": 505,
           "name": "attestations_older_than_max_age_are_refused"
+        },
+        {
+          "kind": "fn",
+          "line": 549,
+          "name": "a_replay_guards_durable_write_failure_fails_the_whole_exchange_closed"
         }
       ],
       "title": "use did_mini::{Capabilities, Controller};"
@@ -78317,7 +78357,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1224866,
+      "bytes": 1233029,
       "group": "docs",
       "headings": [
         {
@@ -78747,9 +78787,9 @@
         "first",
         "kel"
       ],
-      "lines": 20321,
+      "lines": 20452,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "c9622b9bda94320f227a164f9a571791e38b84334456b4d42f6fdc9e43ae2057",
+      "sha256": "d14c3020ca4fc5eb4ab4da2b9d151284a3bf45f2ae36ee0c414f9b5c881cf9b8",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80085,7 +80125,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 185006,
+      "bytes": 186003,
       "group": "docs",
       "headings": [
         {
@@ -80115,82 +80155,82 @@
         },
         {
           "level": 2,
-          "line": 238,
+          "line": 253,
           "text": "3. Identity & key custody"
         },
         {
           "level": 2,
-          "line": 467,
+          "line": 482,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 915,
+          "line": 930,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 962,
+          "line": 977,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1184,
+          "line": 1199,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1411,
+          "line": 1426,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1510,
+          "line": 1525,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1540,
+          "line": 1555,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1887,
+          "line": 1902,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2386,
+          "line": 2401,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2477,
+          "line": 2492,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2557,
+          "line": 2572,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2623,
+          "line": 2638,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2640,
+          "line": 2655,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2676,
+          "line": 2691,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2741,
+          "line": 2756,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80220,9 +80260,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2776,
+      "lines": 2791,
       "path": "docs/STATUS.md",
-      "sha256": "adce2c061a3e84f84f8d5127d5b7d70ef1c2168536fbfd7729e3bcf3914ee28a",
+      "sha256": "8aa5429ecee8d6abbb46046406d0d0af87e9105527ed3ad0e656e784ac3478ab",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97089,7 +97129,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 89903,
+      "bytes": 91257,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97118,9 +97158,9 @@
         "independently",
         "both"
       ],
-      "lines": 1269,
+      "lines": 1274,
       "path": "governance/work-claims.json",
-      "sha256": "355666282a46eea40a65b70e3e88a5e67b72522b1b32f7d69e829cd7225c8e21",
+      "sha256": "adb1119fa82a938f02cc175eafc5b2d6b2ddce1fa5b7ae7f082c6afc4d581412",
       "symbols": [],
       "title": "{"
     },

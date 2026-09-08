@@ -20318,3 +20318,134 @@ which findings should fail; SBOM/provenance generation; generated-file
 freshness enforcement) — this decision does not touch any of those.
 
 **Supersedes / superseded by:** extends D-0441; supersedes nothing.
+
+### D-0487 — Persistent replay guard commits durably before accepting in memory; hex parsing can no longer panic on corrupt bytes (F-12)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-12
+(`crates/mini-presence/src/persisted.rs`); D-0366 (introduced
+`FileReplayGuard`); PR #247/#248/#249.
+
+**Decision:** `FileReplayGuard::check_and_record` previously accepted a
+nonce into its in-memory `seen` map *before* attempting the durable
+append, and only recorded a failed write in a `write_failures` counter —
+never surfacing it through `ReplayGuard`'s own (infallible, by design)
+`bool` return. `verify_presence` in turn never inspected that return
+value at all. The net effect: a durable-write failure (disk full, the
+containing directory gone, any I/O error) still let the presence
+exchange verify successfully, with the acceptance living only in this
+process's memory — a crash or restart immediately after would forget it
+entirely, and the exact same nonce pair could be replayed and accepted
+again later. Separately, `decode_line`'s hex-field parser sliced the
+original `&str` by raw byte index (`&hex[i*2..i*2+2]`) after checking
+only `hex.len() != 64` (a *byte* length, not a character-boundary
+guarantee) — a corrupted or hostile line carrying a non-ASCII, multi-byte
+UTF-8 sequence in that field could land a slice boundary inside a
+character instead of on one, which `&str` indexing panics on rather than
+returning an error. Both are fixed:
+
+1. `check_and_record` now durably appends *first*; the nonce is accepted
+   into memory, and `true` returned, only if that write actually
+   succeeded. A failed write increments `write_failures` as before but
+   now also returns `false` and leaves memory untouched — no state where
+   memory is ahead of disk. `verify_presence` now inspects both parties'
+   `check_and_record` results and refuses the whole exchange
+   (`PresenceError::ReplayGuardWriteFailed`, a new variant distinct from
+   `Replay` so an operator can tell a storage failure from a genuine
+   replay attempt) if either fails to durably commit — "commit before
+   acknowledging the protected action," the finding's own long-term-fix
+   language, applied without changing `ReplayGuard`'s trait signature
+   (see Failure point on why that stayed out of scope).
+2. `decode_line` now validates every byte of the hex field is an ASCII
+   hex digit (`u8::is_ascii_hexdigit`) and converts byte-pairs directly
+   from `hex.as_bytes()`, never re-slicing the original `&str` — no path
+   through this function can panic on malformed input; anything not
+   valid ASCII hex cleanly becomes `None` (real corruption, reported as
+   an error by the caller, same as any other malformed non-final line).
+3. `FileReplayGuard::open` now refuses a file over
+   `MAX_REPLAY_GUARD_FILE_BYTES` (64 MiB) before its existing eager
+   `BufReader::lines().collect()` read, bounding that allocation against
+   an anomalously large file rather than trusting its size implicitly.
+
+**Reason:** matches this session's established discipline for the
+findings pack — fix the exact mechanism the finding names, add tests
+that reproduce the exact failure mode, and state honestly what remains
+open rather than either overclaiming or silently doing nothing. The
+`ReplayGuard` trait itself was deliberately left unchanged: it is a
+public interface (`InMemoryReplayGuard` and `FileReplayGuard` both
+implement it, and any future backend would too), and the finding's own
+"Boundary" section says explicitly that "a changed trait and all
+consumers need coordinated review" — a real signature change (e.g.
+`Result<bool, E>` so callers can distinguish "seen before" from "storage
+failure" structurally rather than through a same-crate convention) is a
+larger, riskier redesign this session declines to make unilaterally,
+consistent with this branch's prior declined-mechanism precedent (D-0478
+storage-operator diversity). What is delivered instead achieves the
+finding's core security property — a crash/restart can never resurrect
+a nonce this process itself never durably remembered — entirely within
+the existing infallible interface, by making the *return value's*
+existing, already-documented meaning ("true if fresh") something a
+caller can actually trust as "true if fresh *and durably recorded*."
+
+**Constitutional impact:** none. No dependency-graph change, no
+cryptography invented or changed. One new `PresenceError` variant
+(`#[non_exhaustive]` enum, additive) and one new, narrowly-scoped hard
+cap constant; no protocol wire format changed (the on-disk record format
+is unchanged — only when a record is trusted as accepted changed).
+
+**Implementation status:** shipped.
+- `crates/mini-presence/src/persisted.rs`: `check_and_record` reordered
+  (durable write before memory acceptance); `decode_line` rewritten to
+  operate on validated ASCII-hex bytes only; new
+  `MAX_REPLAY_GUARD_FILE_BYTES` cap in `open`. Module and
+  `write_failures` doc comments updated to state the new guarantee
+  accurately (the old text said a failed write left the in-memory
+  verdict "unaffected," which is now the opposite of true and would have
+  been dishonest to leave standing).
+- `crates/mini-presence/src/error.rs`: new
+  `PresenceError::ReplayGuardWriteFailed` variant.
+- `crates/mini-presence/src/verify.rs`: `verify_presence` now checks
+  both `check_and_record` results and fails closed on either failure.
+- 8 new unit tests in `persisted.rs` (a durable-write failure refused
+  and left out of memory; the same failure not resurrected by a
+  simulated restart, using the real directory-removal technique this
+  session's D-0481 work already established for root-user
+  permission-bit-bypass compatibility, not `chmod`; a non-ASCII
+  multi-byte hex field rejected without panicking, both at the decoder
+  level and through a real corrupt file; a plain non-hex-but-ASCII
+  field also rejected; an over-cap file refused before reading) plus 1
+  new integration test in `crates/mini-presence/tests/presence.rs`
+  (`verify_presence` itself fails closed with `ReplayGuardWriteFailed`
+  when the guard's directory is removed, and succeeds normally once
+  restored, over the real public `FileReplayGuard`/`verify_presence`
+  API, not an internal-only path). 36/36 `mini-presence` tests pass (22
+  unit + 14 integration, up from 16 + 13); full workspace `cargo test
+  --workspace --all-features` (266 test-result blocks) and
+  `cargo clippy --all-targets --all-features --workspace -- -D
+  warnings` both clean.
+
+**Failure point:** the crash window this closes is "acceptance recorded
+in memory but the durable write had not yet succeeded"; it cannot close
+a crash strictly between `fsync` completing and this function returning
+to its caller (vanishingly narrow, and the durable record is already
+correct by that point, so a restart in that exact window replays as
+"already recorded," which is safe — never as "forgotten," which was the
+actual bug). No cross-process file locking exists or is added here: two
+processes opening the same path can still race on the append — this was
+already an explicitly documented limitation before this finding, not
+newly discovered, and remains open (would need a new dependency, e.g.
+`fs4`, already used elsewhere in this workspace, and is a larger,
+separate scope decision). `PresenceError::ReplayGuardWriteFailed` and
+`PresenceError::Replay` are refused identically by any caller that does
+not specifically branch on the variant — the distinction exists for
+observability, not to grant either case different authority.
+
+**Required follow-up:** cross-process file locking, if a deployment
+ever runs two processes against the same replay-guard path
+concurrently — not currently exercised anywhere in this workspace. A
+`ReplayGuard` trait redesign to a fallible return type, if a future
+caller needs to distinguish "replay" from "storage failure"
+structurally rather than by error variant — explicitly declined here
+per the finding's own "coordinated review" boundary.
+
+**Supersedes / superseded by:** extends D-0366; supersedes nothing.

@@ -14,22 +14,33 @@
 //! ## Honest limits
 //!
 //! This is a flat append-only file with an `fsync` after each write, not a
-//! write-ahead log or database: a crash between the in-memory record and
-//! the fsync completing is a real gap this type does not paper over.
-//! [`ReplayGuard::check_and_record`]'s "fresh" verdict reflects this
-//! process's in-memory state (loaded from disk at [`FileReplayGuard::open`]
-//! plus whatever this process has recorded since); the trait itself is
-//! infallible (see its own doc comment), so a durable-write failure cannot
-//! be surfaced through it -- [`FileReplayGuard::write_failures`] exposes a
-//! running count for a caller that wants to notice degraded durability.
+//! write-ahead log or database. [`ReplayGuard::check_and_record`] (F-12,
+//! D-0487) durably writes *before* accepting a nonce into memory, and
+//! accepts it in memory only if that write actually succeeded --
+//! [`FileReplayGuard::write_failures`] still exposes a running count of
+//! failed durable writes for a caller that wants to notice degraded
+//! durability, but a failed write is no longer silently forgotten: it now
+//! also reports `false` ("not durably accepted") through the trait's own
+//! infallible return value, so a crash or restart immediately after a
+//! `check_and_record` failure can never resurrect a nonce this process
+//! itself never durably remembered. The one gap this ordering cannot
+//! close is a crash strictly *between* the `fsync` completing and this
+//! function returning to its caller -- vanishingly narrow, and the
+//! durable record itself is already correct by that point; a restart in
+//! that exact window replays as "already recorded," never as "forgotten."
 //! No cross-process file locking: two processes opening the same path
-//! concurrently can race on the append. `open` tolerates exactly one kind
-//! of corruption -- a truncated final line from a crash mid-write -- and
-//! is discarded silently; any other malformed line is treated as real
-//! corruption and returned as an error rather than silently dropped.
-//! [`FileReplayGuard::prune`] is never called automatically -- no
-//! scheduler or background thread lives in this crate; a caller that wants
-//! periodic garbage collection must invoke it itself.
+//! concurrently can race on the append -- unchanged by this fix, and a
+//! real gap this type still does not close (see D-0487's own Failure
+//! point). `open` tolerates exactly one kind of corruption -- a truncated
+//! final line from a crash mid-write -- and is discarded silently; any
+//! other malformed line is treated as real corruption and returned as an
+//! error rather than silently dropped or, as a corrupted non-ASCII hex
+//! field previously risked, panicking the process (F-12). A file over
+//! [`MAX_REPLAY_GUARD_FILE_BYTES`] is refused before the eager read that
+//! would otherwise allocate for it. [`FileReplayGuard::prune`] is never
+//! called automatically -- no scheduler or background thread lives in
+//! this crate; a caller that wants periodic garbage collection must
+//! invoke it itself.
 
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
@@ -42,6 +53,16 @@ use did_mini::Did;
 use crate::verify::ReplayGuard;
 
 type Key = (String, [u8; 32]);
+
+/// Hard cap on the durable file's size before [`FileReplayGuard::open`]
+/// will read it (F-12): each record is well under 200 bytes, so this bounds
+/// the eager `BufReader::lines().collect()` read to a sane allocation
+/// rather than trusting an arbitrarily large file (a runaway process, disk
+/// corruption merging files, or a hostile actor with write access to the
+/// path) to size that allocation for us. `retention_ms`-driven pruning
+/// keeps a healthy file far below this in ordinary operation; hitting the
+/// cap is itself a signal something is wrong, not a routine occurrence.
+const MAX_REPLAY_GUARD_FILE_BYTES: u64 = 64 * 1024 * 1024;
 
 /// A durable, file-backed [`ReplayGuard`]. Each entry remembers the time it
 /// was recorded so [`FileReplayGuard::prune`] can sweep expired entries
@@ -69,6 +90,15 @@ fn encode_line(device: &str, sequence: &[u8; 32], recorded_at_ms: u64) -> String
     format!("{device}\t{hex}\t{recorded_at_ms}\n")
 }
 
+/// Decode one `device\thex\trecorded_at_ms\n` line. Operates entirely on
+/// `hex`'s raw bytes, never re-slicing the original `&str` by byte index
+/// (F-12): a corrupted or hostile file can carry a non-ASCII, multi-byte
+/// UTF-8 sequence in the hex field, and `str` indexing panics if a slice
+/// boundary lands inside such a character instead of on one -- exactly the
+/// kind of input a malformed/truncated/corrupted line can produce. Checking
+/// every byte is an ASCII hex digit before ever converting anything closes
+/// that panic path; malformed input becomes `None` (real corruption,
+/// reported by the caller), never a crash.
 fn decode_line(line: &str) -> Option<(String, [u8; 32], u64)> {
     let mut fields = line.split('\t');
     let device = fields.next()?.to_string();
@@ -77,12 +107,15 @@ fn decode_line(line: &str) -> Option<(String, [u8; 32], u64)> {
     if fields.next().is_some() {
         return None;
     }
-    if hex.len() != 64 {
+    let hex_bytes = hex.as_bytes();
+    if hex_bytes.len() != 64 || !hex_bytes.iter().all(u8::is_ascii_hexdigit) {
         return None;
     }
     let mut sequence = [0u8; 32];
     for (i, chunk) in sequence.iter_mut().enumerate() {
-        *chunk = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).ok()?;
+        let hi = (hex_bytes[i * 2] as char).to_digit(16)?;
+        let lo = (hex_bytes[i * 2 + 1] as char).to_digit(16)?;
+        *chunk = ((hi << 4) | lo) as u8;
     }
     Some((device, sequence, recorded_at_ms))
 }
@@ -99,6 +132,16 @@ impl FileReplayGuard {
 
         if path.exists() {
             let file = File::open(&path)?;
+            let size = file.metadata()?.len();
+            if size > MAX_REPLAY_GUARD_FILE_BYTES {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "replay-guard file at {} is {size} bytes, over the {MAX_REPLAY_GUARD_FILE_BYTES}-byte cap -- refusing to read it eagerly",
+                        path.display()
+                    ),
+                ));
+            }
             let lines: Vec<String> = BufReader::new(file).lines().collect::<io::Result<_>>()?;
             let now = now_ms();
             let last_index = lines.len().checked_sub(1);
@@ -142,10 +185,11 @@ impl FileReplayGuard {
     }
 
     /// How many durable writes have failed since this guard was opened.
-    /// The in-memory freshness verdict ([`ReplayGuard::check_and_record`])
-    /// is unaffected by a failed write within the same process -- see this
-    /// module's own doc comment for why that is an honest, not a silently
-    /// papered-over, limitation.
+    /// Since F-12/D-0487, a failed durable write is *also* refused in
+    /// memory (`check_and_record` returns `false` and does not accept the
+    /// nonce) — this counter is for observability/alerting on degraded
+    /// durability, not the only signal a failure occurred; see this
+    /// module's own doc comment.
     pub fn write_failures(&self) -> u64 {
         self.write_failures
     }
@@ -208,13 +252,26 @@ impl ReplayGuard for FileReplayGuard {
             return false;
         }
         let recorded_at_ms = now_ms();
-        self.seen.insert(key.clone(), recorded_at_ms);
+        // F-12: commit durably *before* the in-memory acceptance, and only
+        // accept in memory if the durable write actually succeeded. The
+        // previous order accepted in memory unconditionally and only
+        // recorded a write failure in a counter -- a crash/restart between
+        // that acceptance and a successful durable write would forget the
+        // acceptance entirely, letting the same nonce be replayed and
+        // accepted again. Returning `false` here is not a lie about
+        // whether this nonce was "seen before" in the trait's literal
+        // sense; it reports the only fact this infallible interface can
+        // carry that a caller can safely act on: this attempt did not
+        // result in a durably remembered acceptance, so it must not be
+        // treated as one.
         if self
             .append_record(&key.0, sequence, recorded_at_ms)
             .is_err()
         {
             self.write_failures += 1;
+            return false;
         }
+        self.seen.insert(key, recorded_at_ms);
         true
     }
 }
@@ -387,6 +444,118 @@ mod tests {
         guard.check_and_record(&did(), &[2u8; 32]);
         let removed = guard.prune().unwrap();
         assert_eq!(removed, 0);
+        let _ = fs::remove_file(&path);
+    }
+
+    // F-12: a durable-write failure must never leave the in-memory verdict
+    // ahead of disk. Root runs in this sandbox ignore POSIX permission
+    // bits, so the failure is forced by removing the parent directory
+    // `append_record`'s `OpenOptions::open` needs, then restoring it --
+    // a real, privilege-independent I/O error (the same technique used for
+    // `mini-witness-service`'s equivalent D-0481 test), not a simulated one.
+
+    #[test]
+    fn a_durable_write_failure_is_refused_not_silently_accepted_in_memory() {
+        let dir = tmp_path("write-failure-dir");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("guard.log");
+        let mut guard = FileReplayGuard::open(&path, 60_000).unwrap();
+        let d = did();
+        let sequence = [11u8; 32];
+
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(guard.write_failures(), 0);
+        let accepted = guard.check_and_record(&d, &sequence);
+        assert!(!accepted, "a failed durable write must not report success");
+        assert_eq!(guard.write_failures(), 1);
+        assert!(
+            !guard.is_seen(&d, &sequence),
+            "a nonce whose durable write failed must not be remembered in memory either"
+        );
+
+        // Restore the directory and prove the exact same nonce is still
+        // genuinely fresh -- nothing about the failed attempt poisoned it.
+        fs::create_dir_all(&dir).unwrap();
+        assert!(guard.check_and_record(&d, &sequence));
+        assert!(guard.is_seen(&d, &sequence));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_write_failure_is_not_resurrected_by_a_simulated_restart() {
+        let dir = tmp_path("write-failure-restart");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("guard.log");
+        let d = did();
+        let sequence = [12u8; 32];
+        {
+            let mut guard = FileReplayGuard::open(&path, 60_000).unwrap();
+            fs::remove_dir_all(&dir).unwrap();
+            assert!(!guard.check_and_record(&d, &sequence));
+            fs::create_dir_all(&dir).unwrap();
+        }
+        // A brand new guard over the same path (a process restart) must
+        // not find this nonce recorded -- it never durably committed.
+        let guard = FileReplayGuard::open(&path, 60_000).unwrap();
+        assert!(!guard.is_seen(&d, &sequence));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // F-12: a non-ASCII byte in the hex field must never panic the decoder
+    // via a `&str` slice landing inside a multi-byte UTF-8 character --
+    // only ever a clean rejection.
+
+    #[test]
+    fn a_non_ascii_multibyte_hex_field_is_rejected_not_a_panic() {
+        let d = did();
+        // 62 ASCII bytes plus one 2-byte UTF-8 character ("é") makes 64
+        // *bytes* total (passing the old byte-length check) while landing
+        // a slice boundary inside the multi-byte character for several
+        // values of `i` -- exactly what could previously panic.
+        let hex = format!("{}\u{e9}", "a".repeat(62));
+        assert_eq!(hex.len(), 64);
+        let line = format!("{}\t{hex}\t1000\n", d.as_str());
+        // Must not panic; must cleanly report "not a record."
+        assert_eq!(decode_line(line.trim_end()), None);
+    }
+
+    #[test]
+    fn a_file_with_a_non_ascii_hex_line_is_reported_as_corruption_not_a_crash() {
+        let path = tmp_path("non-ascii-hex");
+        let d = did();
+        let hex = format!("{}\u{e9}", "b".repeat(62));
+        // Not the final line -- the malformed-tail tolerance is a separate,
+        // deliberate case (`a_truncated_final_line_is_tolerated`); this
+        // proves a non-ASCII hex field elsewhere in the file is real
+        // corruption, reported as an error, never a panic.
+        let mut contents = format!("{}\t{hex}\t1000\n", d.as_str());
+        contents.push_str(&encode_line(d.as_str(), &[13u8; 32], now_ms()));
+        fs::write(&path, contents).unwrap();
+
+        let err = FileReplayGuard::open(&path, 60_000).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn non_hex_ascii_characters_are_also_rejected() {
+        let d = did();
+        let hex = "z".repeat(64);
+        let line = format!("{}\t{hex}\t1000\n", d.as_str());
+        assert_eq!(decode_line(line.trim_end()), None);
+    }
+
+    #[test]
+    fn a_file_over_the_size_cap_is_refused_before_reading() {
+        let path = tmp_path("oversized");
+        // Cheaper than writing real records: an over-cap run of newline
+        // bytes, which `open` must reject on size alone, before ever
+        // attempting to parse a single line.
+        let contents = vec![b'\n'; (MAX_REPLAY_GUARD_FILE_BYTES + 1) as usize];
+        fs::write(&path, contents).unwrap();
+
+        let err = FileReplayGuard::open(&path, 60_000).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
         let _ = fs::remove_file(&path);
     }
 }

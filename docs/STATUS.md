@@ -220,6 +220,21 @@ given time.
   from the caller (D-0367) instead of constructing a throwaway one
   internally, so a real app can supply `FileReplayGuard` and actually get
   that durability, closing `docs/BETA_STATUS.md` item 3.
+  **Durability hardened (D-0487):** `FileReplayGuard::check_and_record`
+  previously accepted a nonce into memory *before* attempting the durable
+  append, so a write failure (disk full, directory gone) still let the
+  exchange verify, remembered only in that process's memory -- a
+  crash/restart forgot it and the same nonce could be replayed and
+  accepted again. Now durably writes first and accepts in memory only on
+  success; `verify_presence` checks both parties' results and fails
+  closed (`PresenceError::ReplayGuardWriteFailed`) on either failure.
+  Separately, `decode_line`'s hex-field parser could panic on a corrupted
+  line carrying a non-ASCII multi-byte UTF-8 sequence (byte-index slicing
+  landing inside a character); it now validates ASCII hex digits byte-
+  wise and never re-slices the original string, so malformed input is
+  always a clean rejection, never a crash. A 64 MiB file-size cap now
+  guards the eager read `open` performs. See `docs/DECISION_LOG.md`
+  D-0487.
 - **doc-only** — `docs/design/credential-taxonomy.md` (D-0089, founder
   review's `credential-separation` finding) names and separates
   `ParticipantCredential`/`HumanEvidence`/`RoleCredential`/
