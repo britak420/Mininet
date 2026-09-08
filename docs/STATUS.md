@@ -444,6 +444,25 @@ given time.
 - **not started** — device hierarchy beyond current single-tier
   delegation ([#14](../../issues/14)), on-chain pre-rotation anchoring
   (needs the chain).
+- **shipped (D-0485)** — 9 signature-bearing wire codecs across
+  `mini-chain`, `mini-consensus`, `mini-objects`, `mini-bridge`,
+  `mini-private-index`, and `mini-relay` had drifted below `did-mini`'s
+  own canonical `MAX_SIGNATURES`(64)/`MAX_SIGNATURE_BYTES`(4096, sized
+  for ML-DSA-65's real ~3.3 KiB signatures) bounds: 3 signature-count
+  caps were still hardcoded `16`, and 6 signature-byte caps were still
+  hardcoded `256` — a prior fix pass (#299/#301) caught most callers by
+  constant name but missed differently-named counterparts and never
+  caught a byte cap at all. A legitimate 17+-key threshold identity, or
+  an identity that migrates to ML-DSA-65 once `did-mini` wires that in,
+  would sign a message in memory and then fail to decode its own wire
+  encoding. All 9 now reference `did_mini::MAX_SIGNATURES`/
+  `MAX_SIGNATURE_BYTES` directly instead of restating a number. 9 new
+  regression tests prove the exact fix: 3 build genuine 17-current-key
+  `Controller`s and round-trip a real 17-signature vote/attestation/
+  proposal past the old count cap; 6 sign with a real ML-DSA-65 key
+  (`SigningKey::generate_ml_dsa_65`/`sign_ml_dsa_65`, already-shipped
+  Phase 2 above) and round-trip past the old byte cap. See
+  `docs/DECISION_LOG.md` D-0485.
 
 ## 4. Money & finality
 

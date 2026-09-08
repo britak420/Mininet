@@ -20107,3 +20107,111 @@ mechanism honest about *which* post it is recovering.
 behind `Accepted`, still not built).
 
 **Supersedes / superseded by:** extends D-0429; supersedes nothing.
+
+### D-0485 — Signature size and count caps re-synchronized to did-mini's own bounds across 9 codecs (F-10)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-10
+(`crates/mini-consensus/src/validator_channel.rs:78`,
+`crates/mini-chain/src/vote.rs:24`,
+`crates/mini-objects/src/private_object.rs:26`); PR #299/#301 (prior
+partial fixes this finding says left the drift behind).
+
+**Decision:** `did_mini::MAX_SIGNATURES` (64) and
+`did_mini::MAX_SIGNATURE_BYTES` (4096, sized for ML-DSA-65's real
+~3.3 KiB signatures) are the one canonical bound every signature-bearing
+codec in this workspace is supposed to mirror — `did-mini/src/limits.rs`'s
+own module docs already say so explicitly ("a cap *below*
+`MAX_SIGNATURES` is the dangerous direction... downstream decoders should
+reference these rather than restate them"). #299/#301 partially applied
+this: 5 of 6 signature-*count* caps and all 6 of the local
+`MAX_SIGNATURES` constants already correctly read
+`did_mini::MAX_SIGNATURES`, but every local `MAX_SIG_BYTES` constant
+across the tree was still a hardcoded `256` — below ML-DSA-65's real
+signature length — and 3 signature-*count* caps
+(`mini-chain::vote::MAX_SIGS_PER_VOTE`,
+`mini-consensus::validator_channel::MAX_SIGS`,
+`mini-consensus::wire::MAX_SIGS_PER_PROPOSAL`) were still hardcoded `16`.
+Both are the same shape of bug: a legitimate signer produces valid bytes
+in memory (a threshold identity with 17+ current keys signs via
+`Controller::sign_message`, one `IndexedSig` per key; or a future
+ML-DSA-65 signer produces a ~3.3 KiB signature) and a downstream decoder,
+using a name-based lint's blind spot rather than the actual defining
+constant, rejects its own valid wire representation. Fixed by making
+every one of these 9 locations reference `did_mini::MAX_SIGNATURES` /
+`did_mini::MAX_SIGNATURE_BYTES` directly instead of restating a number:
+`mini-chain/src/vote.rs` (`MAX_SIGS_PER_VOTE`),
+`mini-consensus/src/validator_channel.rs` (`MAX_SIGS`),
+`mini-consensus/src/wire.rs` (`MAX_SIGS_PER_PROPOSAL`),
+`mini-objects/src/object.rs`, `mini-objects/src/private_object.rs`,
+`mini-objects/src/capability.rs`, `mini-bridge/src/descriptor.rs`,
+`mini-private-index/src/record.rs`, `mini-relay/src/mailbox.rs` (all six
+`MAX_SIG_BYTES`).
+
+**Reason:** a name-based scanner (#301) can only catch constants it
+already knows to look for; it cannot catch a *correctly*-named constant
+holding the *wrong* value, nor a differently-named constant serving the
+same role (`MAX_SIGS_PER_VOTE`/`MAX_SIGS_PER_PROPOSAL` vs. `MAX_SIGS` vs.
+`MAX_SIGNATURES`). The durable fix the finding itself proposes — "own
+limits beside the defining type and reference them everywhere" — is
+what's applied here: every one of these 9 constants now derives from
+`did-mini`'s single canonical bound by direct reference, so a future
+change to `did_mini::MAX_SIGNATURES`/`MAX_SIGNATURE_BYTES` propagates
+automatically instead of requiring another manual sweep.
+
+**Constitutional impact:** none. No dependency-graph change (every one
+of these 9 crates already depended on `did-mini` directly); no
+cryptography invented or changed — this is a codec allocation-bound fix,
+never a cryptographic-primitive change, and ML-DSA-65
+signing/verification itself is unaffected (unchanged Phase 2 status,
+`mini-crypto`'s `keys.rs`/`suite.rs`).
+
+**Implementation status:** shipped. 9 constants fixed across 8 crates. 9
+new regression tests, one per fixed location, split by which failure
+mode each location actually had:
+- Real-signature count-cap tests (`mini-chain::vote`,
+  `mini-consensus::validator_channel`, `mini-consensus::wire`): each
+  builds a genuine 17-current-key `Controller` via `Controller::incept`,
+  signs with it (`Controller::sign_message` emits one real Ed25519
+  `IndexedSig` per current key), and proves the resulting 17-signature
+  vote/attestation/proposal now round-trips through the wire codec where
+  the old cap of 16 would have rejected it.
+- Byte-cap round-trip tests (`mini-objects::object`,
+  `mini-objects::private_object`, `mini-objects::capability`,
+  `mini-bridge::descriptor`, `mini-private-index::record`,
+  `mini-relay::mailbox`): each signs an object normally, then replaces
+  its signature with a genuine ML-DSA-65 signature produced by
+  `mini_crypto::SigningKey::generate_ml_dsa_65()`/`sign_ml_dsa_65()`
+  (real, production-capable signing — Phase 2, D-0095/D-0322/D-0353 —
+  not synthetic bytes) and proves the object still round-trips through
+  `to_bytes`/`from_bytes` where the old 256-byte cap would have rejected
+  the real ~3.3 KiB signature.
+
+  All 9 new tests pass; full workspace `cargo test --workspace
+  --all-features` (266 test-result blocks) and
+  `cargo clippy --all-targets --all-features --workspace -- -D warnings`
+  both clean after the change, confirming no existing caller depended on
+  the old, too-low bounds.
+
+**Failure point:** ML-DSA-65 key generation and signing are real and
+production-capable in `mini-crypto` (Phase 2) — this decision's tests
+use exactly that, not synthetic bytes — but `did-mini`'s own KEL/
+`Controller` layer still never generates or accepts an `MlDsa65` key for
+an actual identity (`DEFAULT` stays `Ed25519`, per `docs/STATUS.md`'s
+existing post-quantum-migration entry); no identity in this workspace
+can migrate to ML-DSA-65 yet, so no *identity's* signature currently hits
+this codec path with a suite other than Ed25519. This decision closes a
+latent interoperability blocker in the codecs themselves — the day a
+`did-mini` identity does sign with ML-DSA-65, these 9 decoders will
+already carry its signature correctly instead of rejecting their own
+valid encoding — matching the finding's own stated "Boundary" ("a
+concrete latent interoperability blocker, not proof that production PQ
+identities currently exist").
+
+**Required follow-up:** none beyond the existing, separately-tracked
+post-quantum migration research report's own phased plan (`docs/research/
+PQ15_POST_QUANTUM_MIGRATION_RESEARCH_20260715.md`) — this decision does
+not accelerate or change that plan, it only removes a codec bug that
+plan would otherwise have hit at Phase 2 (production ML-DSA-65 signing).
+
+**Supersedes / superseded by:** none.

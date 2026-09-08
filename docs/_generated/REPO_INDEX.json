@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 933,
     "headings": 3282,
-    "rust_symbols": 9428
+    "rust_symbols": 9438
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28116,
+      "bytes": 28122,
       "group": "root",
       "headings": [
         {
@@ -1840,7 +1840,7 @@
       ],
       "lines": 448,
       "path": "README.md",
-      "sha256": "bb573b15eb6ac25ded3b87c5d44312e1dacacfb66a099382700ab67332164e87",
+      "sha256": "59f051a1649ead5b7f64f258d7f957199cd5c93aa78fad930ccc8d01c7721454",
       "symbols": [],
       "title": "Mininet"
     },
@@ -10757,7 +10757,7 @@
       "title": "use crate::error::{BridgeError, Result};"
     },
     {
-      "bytes": 15517,
+      "bytes": 16802,
       "group": "crate:mini-bridge",
       "headings": [],
       "keywords": [
@@ -10770,25 +10770,25 @@
         "vec",
         "opaqueendpoint",
         "new",
-        "distributorscope",
-        "bridgeerror",
         "as_bytes",
-        "u64",
+        "distributorscope",
+        "own",
+        "bridgeerror",
         "usize",
         "opaque",
         "bridgedescriptor",
-        "result",
+        "did_mini",
         "max_signatures",
-        "own",
-        "expires_at_ms",
+        "u64",
+        "result",
         "transportid",
         "transport-specific",
         "never",
         "derive"
       ],
-      "lines": 445,
+      "lines": 469,
       "path": "crates/mini-bridge/src/descriptor.rs",
-      "sha256": "68110752175a60eab010f1ead1e2cd3f788be13adce5d984561bce215afe6781",
+      "sha256": "f413fb1e7d81d9b084190423e2bf10fdb83c7d53f7166586fdffd47d9133822f",
       "symbols": [
         {
           "kind": "const",
@@ -10812,197 +10812,202 @@
         },
         {
           "kind": "const",
-          "line": 34,
+          "line": 37,
           "name": "MAX_SIG_BYTES"
         },
         {
           "kind": "const",
-          "line": 40,
+          "line": 43,
           "name": "MAX_ENDPOINT_BYTES"
         },
         {
           "kind": "const",
-          "line": 44,
+          "line": 47,
           "name": "MAX_TRANSPORT_PARAMETERS_BYTES"
         },
         {
           "kind": "const",
-          "line": 50,
+          "line": 53,
           "name": "MAX_DISTRIBUTOR_SCOPE_BYTES"
         },
         {
           "kind": "struct",
-          "line": 54,
+          "line": 57,
           "name": "OpaqueEndpoint"
         },
         {
           "kind": "impl",
-          "line": 56,
+          "line": 59,
           "name": "OpaqueEndpoint"
         },
         {
           "kind": "fn",
-          "line": 57,
+          "line": 60,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 64,
+          "line": 67,
           "name": "as_bytes"
         },
         {
           "kind": "struct",
-          "line": 71,
+          "line": 74,
           "name": "TransportParameters"
         },
         {
           "kind": "impl",
-          "line": 73,
+          "line": 76,
           "name": "TransportParameters"
         },
         {
           "kind": "fn",
-          "line": 74,
+          "line": 77,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 81,
+          "line": 84,
           "name": "empty"
         },
         {
           "kind": "fn",
-          "line": 85,
+          "line": 88,
           "name": "as_bytes"
         },
         {
           "kind": "struct",
-          "line": 93,
+          "line": 96,
           "name": "DistributorScope"
         },
         {
           "kind": "impl",
-          "line": 95,
+          "line": 98,
           "name": "DistributorScope"
         },
         {
           "kind": "fn",
-          "line": 96,
+          "line": 99,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 103,
+          "line": 106,
           "name": "as_bytes"
         },
         {
           "kind": "struct",
-          "line": 110,
+          "line": 113,
           "name": "BridgeDescriptor"
         },
         {
           "kind": "impl",
-          "line": 122,
+          "line": 125,
           "name": "BridgeDescriptor"
         },
         {
           "kind": "fn",
-          "line": 128,
+          "line": 131,
           "name": "issue"
         },
         {
           "kind": "fn",
-          "line": 156,
+          "line": 159,
           "name": "signing_bytes"
         },
         {
           "kind": "fn",
-          "line": 179,
+          "line": 182,
           "name": "verify"
         },
         {
           "kind": "fn",
-          "line": 196,
+          "line": 199,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 226,
+          "line": 229,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 287,
+          "line": 290,
           "name": "parse_did"
         },
         {
           "kind": "mod",
-          "line": 293,
+          "line": 296,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 296,
+          "line": 299,
           "name": "sample_descriptor"
         },
         {
           "kind": "fn",
-          "line": 310,
+          "line": 313,
           "name": "a_descriptor_verifies_against_its_own_issuer_kel_within_its_window"
         },
         {
           "kind": "fn",
-          "line": 317,
+          "line": 320,
           "name": "a_descriptor_is_rejected_before_its_valid_from_time"
         },
         {
           "kind": "fn",
-          "line": 327,
+          "line": 330,
           "name": "a_descriptor_is_rejected_at_or_after_its_expiry"
         },
         {
           "kind": "fn",
-          "line": 341,
+          "line": 344,
           "name": "a_descriptor_signed_by_one_bridge_does_not_verify_under_another_bridges_kel"
         },
         {
           "kind": "fn",
-          "line": 352,
+          "line": 355,
           "name": "tampering_with_the_endpoint_after_signing_breaks_verification"
         },
         {
           "kind": "fn",
-          "line": 363,
+          "line": 366,
           "name": "tampering_with_the_expiry_after_signing_breaks_verification"
         },
         {
           "kind": "fn",
-          "line": 374,
+          "line": 377,
           "name": "a_descriptor_round_trips_through_bytes"
         },
         {
           "kind": "fn",
-          "line": 384,
-          "name": "an_unsupported_version_is_rejected"
-        },
-        {
-          "kind": "fn",
-          "line": 396,
-          "name": "trailing_bytes_after_a_complete_decode_are_rejected"
+          "line": 387,
+          "name": "a_full_length_ml_dsa_65_signature_round_trips_through_bytes"
         },
         {
           "kind": "fn",
           "line": 408,
+          "name": "an_unsupported_version_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 420,
+          "name": "trailing_bytes_after_a_complete_decode_are_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 432,
           "name": "an_oversized_endpoint_is_rejected_before_signing"
         },
         {
           "kind": "fn",
-          "line": 417,
+          "line": 441,
           "name": "an_oversized_transport_parameters_field_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 426,
+          "line": 450,
           "name": "a_distributor_scope_round_trips_when_present"
         }
       ],
@@ -13415,24 +13420,26 @@
       "title": "use std::collections::HashSet;"
     },
     {
-      "bytes": 16530,
+      "bytes": 17960,
       "group": "crate:mini-chain",
       "headings": [],
       "keywords": [
         "vote",
-        "device",
         "votekind",
+        "device",
         "signature",
-        "signed",
         "height",
         "transcript",
+        "signed",
         "round",
         "one",
         "same",
-        "did",
         "own",
         "vote_sign_domain",
         "block",
+        "did_mini",
+        "did",
+        "its",
         "wire",
         "domain",
         "tag",
@@ -13440,167 +13447,170 @@
         "kind",
         "block_hash",
         "self",
-        "extend_from_slice",
-        "mini-chain",
-        "u32"
+        "extend_from_slice"
       ],
-      "lines": 421,
+      "lines": 447,
       "path": "crates/mini-chain/src/vote.rs",
-      "sha256": "3f2387a14fa29f4a02a932893afebe112e503585ab2c7c6c74dce11707b0d0cd",
+      "sha256": "f4d802cc13e1387882263e7243710870c37d3a93d9f815f93ef87f3629bb5c85",
       "symbols": [
         {
           "kind": "const",
-          "line": 24,
+          "line": 28,
           "name": "MAX_SIGS_PER_VOTE"
         },
         {
           "kind": "const",
-          "line": 28,
+          "line": 32,
           "name": "MAX_DID_BYTES"
         },
         {
           "kind": "const",
-          "line": 44,
+          "line": 48,
           "name": "VOTE_SIGN_DOMAIN"
         },
         {
           "kind": "enum",
-          "line": 52,
+          "line": 56,
           "name": "VoteKind"
         },
         {
           "kind": "impl",
-          "line": 60,
+          "line": 64,
           "name": "VoteKind"
         },
         {
           "kind": "struct",
-          "line": 71,
+          "line": 75,
           "name": "Vote"
         },
         {
           "kind": "impl",
-          "line": 87,
+          "line": 91,
           "name": "Vote"
         },
         {
           "kind": "fn",
-          "line": 91,
+          "line": 95,
           "name": "transcript"
         },
         {
           "kind": "fn",
-          "line": 102,
+          "line": 106,
           "name": "signature"
         },
         {
           "kind": "fn",
-          "line": 119,
+          "line": 123,
           "name": "to_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 146,
           "name": "from_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 191,
+          "line": 195,
           "name": "put_str"
         },
         {
           "kind": "fn",
-          "line": 197,
+          "line": 201,
           "name": "take_did"
         },
         {
           "kind": "struct",
-          "line": 209,
+          "line": 213,
           "name": "SliceReader"
         },
         {
           "kind": "impl",
-          "line": 214,
+          "line": 218,
           "name": "SliceReader<'a>"
         },
         {
           "kind": "fn",
-          "line": 215,
+          "line": 219,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 219,
+          "line": 223,
           "name": "take"
         },
         {
           "kind": "fn",
-          "line": 226,
+          "line": 230,
           "name": "u8"
         },
         {
           "kind": "fn",
-          "line": 230,
+          "line": 234,
           "name": "u32"
         },
         {
           "kind": "fn",
-          "line": 236,
+          "line": 240,
           "name": "u64"
         },
         {
           "kind": "fn",
-          "line": 242,
+          "line": 246,
           "name": "finished"
         },
         {
           "kind": "fn",
-          "line": 251,
+          "line": 255,
           "name": "sign_vote"
         },
         {
           "kind": "fn",
-          "line": 276,
+          "line": 280,
           "name": "verify_vote"
         },
         {
           "kind": "mod",
-          "line": 293,
+          "line": 297,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 297,
+          "line": 301,
           "name": "voter"
         },
         {
           "kind": "fn",
-          "line": 308,
+          "line": 312,
           "name": "a_signed_vote_survives_a_wire_round_trip_byte_for_byte"
         },
         {
           "kind": "fn",
-          "line": 327,
+          "line": 331,
+          "name": "a_17_key_threshold_devices_vote_round_trips_past_the_old_16_signature_cap"
+        },
+        {
+          "kind": "fn",
+          "line": 353,
           "name": "prevote_and_precommit_both_round_trip"
         },
         {
           "kind": "fn",
-          "line": 336,
+          "line": 362,
           "name": "a_truncated_frame_is_rejected_not_panicked"
         },
         {
           "kind": "fn",
-          "line": 349,
+          "line": 375,
           "name": "trailing_garbage_after_a_valid_vote_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 361,
+          "line": 387,
           "name": "a_signature_over_the_undomained_legacy_layout_does_not_verify_as_a_vote"
         },
         {
           "kind": "fn",
-          "line": 402,
+          "line": 428,
           "name": "an_absurd_signature_count_is_rejected_before_allocating"
         }
       ],
@@ -20745,38 +20755,38 @@
       "title": "use std::fs::{self, File, OpenOptions};"
     },
     {
-      "bytes": 22972,
+      "bytes": 24459,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
         "channel",
         "validator",
+        "own",
         "same",
         "handshake",
-        "own",
         "device",
         "mini-consensus",
+        "identity",
         "other",
         "already",
         "attestation",
         "const",
-        "validatorhandshakeattestation",
         "signature",
         "kel",
         "binding",
-        "identity",
         "anonymous",
         "vote",
         "mini_chain",
         "one",
+        "its",
         "signed",
         "wire",
-        "transcript",
-        "mini_bearer"
+        "validatorhandshakeattestation",
+        "transcript"
       ],
-      "lines": 546,
+      "lines": 573,
       "path": "crates/mini-consensus/src/validator_channel.rs",
-      "sha256": "55fc0dc9084e98460c2d26f7e3d70c80eab4cf99a5a10ee2dff439c9cd76dbdc",
+      "sha256": "0c4e8f2c0ebb70b0bb4a22e971eee8a9186840f87873ca83011d4a2bfbd0371f",
       "symbols": [
         {
           "kind": "const",
@@ -20795,230 +20805,235 @@
         },
         {
           "kind": "const",
-          "line": 78,
+          "line": 82,
           "name": "MAX_SIGS"
         },
         {
           "kind": "const",
-          "line": 82,
+          "line": 86,
           "name": "MAX_DID_BYTES"
         },
         {
           "kind": "struct",
-          "line": 87,
+          "line": 91,
           "name": "ValidatorHandshakeAttestation"
         },
         {
           "kind": "impl",
-          "line": 98,
+          "line": 102,
           "name": "ValidatorHandshakeAttestation"
         },
         {
           "kind": "fn",
-          "line": 99,
+          "line": 103,
           "name": "transcript"
         },
         {
           "kind": "fn",
-          "line": 107,
+          "line": 111,
           "name": "signature"
         },
         {
           "kind": "fn",
-          "line": 115,
+          "line": 119,
           "name": "to_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 138,
           "name": "from_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 177,
+          "line": 181,
           "name": "sign_validator_handshake"
         },
         {
           "kind": "fn",
-          "line": 199,
+          "line": 203,
           "name": "verify_validator_handshake"
         },
         {
           "kind": "fn",
-          "line": 227,
+          "line": 231,
           "name": "send_validator_handshake"
         },
         {
           "kind": "fn",
-          "line": 242,
+          "line": 246,
           "name": "recv_validator_handshake"
         },
         {
           "kind": "fn",
-          "line": 264,
+          "line": 268,
           "name": "put_str"
         },
         {
           "kind": "fn",
-          "line": 269,
+          "line": 273,
           "name": "take_did"
         },
         {
           "kind": "struct",
-          "line": 282,
+          "line": 286,
           "name": "SliceReader"
         },
         {
           "kind": "impl",
-          "line": 287,
+          "line": 291,
           "name": "SliceReader<'a>"
         },
         {
           "kind": "fn",
-          "line": 288,
+          "line": 292,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 292,
+          "line": 296,
           "name": "take"
         },
         {
           "kind": "fn",
-          "line": 302,
+          "line": 306,
           "name": "u8"
         },
         {
           "kind": "fn",
-          "line": 306,
+          "line": 310,
           "name": "u32"
         },
         {
           "kind": "fn",
-          "line": 312,
+          "line": 316,
           "name": "finished"
         },
         {
           "kind": "mod",
-          "line": 318,
+          "line": 322,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 322,
+          "line": 326,
           "name": "validator"
         },
         {
           "kind": "fn",
-          "line": 333,
+          "line": 337,
           "name": "a_signed_attestation_survives_a_wire_round_trip_byte_for_byte"
         },
         {
           "kind": "fn",
-          "line": 346,
+          "line": 350,
+          "name": "a_17_key_threshold_devices_attestation_round_trips_past_the_old_16_signature_cap"
+        },
+        {
+          "kind": "fn",
+          "line": 373,
           "name": "an_attestation_from_unappointed_or_uncapable_devices_does_not_verify"
         },
         {
           "kind": "fn",
-          "line": 370,
+          "line": 397,
           "name": "an_attestation_cannot_be_transplanted_onto_a_different_channel"
         },
         {
           "kind": "fn",
-          "line": 383,
+          "line": 410,
           "name": "a_device_without_vote_capability_cannot_authenticate_as_a_validator"
         },
         {
           "kind": "fn",
-          "line": 399,
+          "line": 426,
           "name": "a_truncated_frame_is_rejected_not_panicked"
         },
         {
           "kind": "fn",
-          "line": 411,
+          "line": 438,
           "name": "trailing_garbage_after_a_valid_attestation_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 422,
+          "line": 449,
           "name": "an_absurd_signature_count_is_rejected_before_allocating"
         },
         {
           "kind": "fn",
-          "line": 435,
+          "line": 462,
           "name": "a_signature_over_the_undomained_channel_binding_does_not_verify"
         },
         {
           "kind": "struct",
-          "line": 464,
+          "line": 491,
           "name": "Directory"
         },
         {
           "kind": "impl",
-          "line": 465,
+          "line": 492,
           "name": "Directory"
         },
         {
           "kind": "fn",
-          "line": 466,
+          "line": 493,
           "name": "insert"
         },
         {
           "kind": "impl",
-          "line": 470,
+          "line": 497,
           "name": "ValidatorOracle"
         },
         {
           "kind": "fn",
-          "line": 471,
+          "line": 498,
           "name": "kel"
         },
         {
           "kind": "fn",
-          "line": 477,
+          "line": 504,
           "name": "a_validator_authenticates_itself_over_a_real_socket"
         },
         {
           "kind": "fn",
-          "line": 509,
+          "line": 536,
           "name": "a_validator_handshake_crosses_the_wire_as_ciphertext_never_plaintext"
         }
       ],
       "title": "use did_mini::{verify_delegation, Capabilities, Controller, Did, IndexedSig, Kel};"
     },
     {
-      "bytes": 26527,
+      "bytes": 28003,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
-        "round",
         "proposal",
+        "round",
         "proposer",
         "signature",
         "message",
         "value",
         "header",
+        "cap",
         "one",
         "const",
         "block",
         "signed",
         "consensus",
         "hard",
-        "cap",
-        "did",
         "wire",
         "domain",
         "transcript",
         "body",
+        "did_mini",
         "every",
         "field",
         "never",
-        "usize",
-        "height"
+        "did",
+        "usize"
       ],
-      "lines": 677,
+      "lines": 703,
       "path": "crates/mini-consensus/src/wire.rs",
-      "sha256": "6389b83a8195a072a7e4e716adc51ce143d03e94bb9e91270d5466bdae344fd4",
+      "sha256": "38cb849859f6c6c78402b136632ace547aa20d2291bdc4d01b5e0d7cf2c99235",
       "symbols": [
         {
           "kind": "const",
@@ -21032,177 +21047,182 @@
         },
         {
           "kind": "const",
-          "line": 38,
+          "line": 41,
           "name": "MAX_SIGS_PER_PROPOSAL"
         },
         {
           "kind": "const",
-          "line": 44,
+          "line": 47,
           "name": "MAX_MESSAGE_BYTES"
         },
         {
           "kind": "const",
-          "line": 49,
+          "line": 52,
           "name": "MAX_OPAQUE_FIELD_BYTES"
         },
         {
           "kind": "const",
-          "line": 52,
+          "line": 55,
           "name": "MAX_DID_BYTES"
         },
         {
           "kind": "struct",
-          "line": 71,
+          "line": 74,
           "name": "Proposal"
         },
         {
           "kind": "impl",
-          "line": 88,
+          "line": 91,
           "name": "Proposal"
         },
         {
           "kind": "fn",
-          "line": 94,
+          "line": 97,
           "name": "transcript"
         },
         {
           "kind": "fn",
-          "line": 116,
+          "line": 119,
           "name": "signature"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 129,
           "name": "sign_proposal"
         },
         {
           "kind": "fn",
-          "line": 162,
+          "line": 165,
           "name": "verify_proposal"
         },
         {
           "kind": "enum",
-          "line": 191,
+          "line": 194,
           "name": "ConsensusMessage"
         },
         {
           "kind": "const",
-          "line": 198,
+          "line": 201,
           "name": "TAG_PROPOSAL"
         },
         {
           "kind": "const",
-          "line": 199,
+          "line": 202,
           "name": "TAG_VOTE"
         },
         {
           "kind": "impl",
-          "line": 201,
+          "line": 204,
           "name": "ConsensusMessage"
         },
         {
           "kind": "fn",
-          "line": 203,
+          "line": 206,
           "name": "to_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 228,
+          "line": 231,
           "name": "from_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 372,
+          "line": 375,
           "name": "encode_indexed_sigs"
         },
         {
           "kind": "fn",
-          "line": 381,
+          "line": 384,
           "name": "decode_indexed_sigs"
         },
         {
           "kind": "impl",
-          "line": 410,
+          "line": 413,
           "name": "Reader<'a>"
         },
         {
           "kind": "fn",
-          "line": 441,
+          "line": 444,
           "name": "i64"
         },
         {
           "kind": "mod",
-          "line": 463,
+          "line": 466,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 470,
+          "line": 473,
           "name": "monetary_plan"
         },
         {
           "kind": "fn",
-          "line": 491,
+          "line": 494,
           "name": "header"
         },
         {
           "kind": "fn",
-          "line": 503,
+          "line": 506,
           "name": "body"
         },
         {
           "kind": "fn",
-          "line": 511,
+          "line": 514,
           "name": "proposer"
         },
         {
           "kind": "fn",
-          "line": 522,
+          "line": 525,
           "name": "signed"
         },
         {
           "kind": "fn",
-          "line": 533,
+          "line": 536,
           "name": "a_proposal_round_trips_and_preserves_the_block_hash"
         },
         {
           "kind": "fn",
-          "line": 551,
+          "line": 554,
+          "name": "a_17_key_threshold_proposers_proposal_round_trips_past_the_old_16_signature_cap"
+        },
+        {
+          "kind": "fn",
+          "line": 577,
           "name": "an_empty_body_proposal_round_trips"
         },
         {
           "kind": "fn",
-          "line": 562,
+          "line": 588,
           "name": "a_monetary_epoch_round_trips_without_losing_any_issuance_field"
         },
         {
           "kind": "fn",
-          "line": 579,
+          "line": 605,
           "name": "a_signed_proposal_verifies_and_a_tampered_one_does_not"
         },
         {
           "kind": "fn",
-          "line": 611,
+          "line": 637,
           "name": "a_vote_message_round_trips"
         },
         {
           "kind": "fn",
-          "line": 628,
+          "line": 654,
           "name": "truncation_at_every_length_is_rejected_never_panics"
         },
         {
           "kind": "fn",
-          "line": 636,
+          "line": 662,
           "name": "trailing_bytes_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 648,
+          "line": 674,
           "name": "pre_body_commitment_message_version_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 660,
+          "line": 686,
           "name": "an_absurd_claim_count_is_rejected_on_the_bound"
         }
       ],
@@ -40549,38 +40569,38 @@
       "title": "mini-objects"
     },
     {
-      "bytes": 27620,
+      "bytes": 28877,
       "group": "crate:mini-objects",
       "headings": [],
       "keywords": [
         "capabilityright",
         "self",
         "capabilityscope",
-        "scope",
         "never",
         "const",
         "capabilitytoken",
+        "scope",
         "right",
-        "tag",
+        "did_mini",
         "objecterror",
         "object",
         "match",
         "mini-objects",
         "capability",
         "max_signatures",
+        "tag",
+        "decode",
         "capabilitygrant",
         "grants",
         "token",
         "result",
+        "grant",
         "administer",
-        "read",
-        "moderate",
-        "append",
-        "bytes"
+        "read"
       ],
-      "lines": 828,
+      "lines": 852,
       "path": "crates/mini-objects/src/capability.rs",
-      "sha256": "9049091dce162613355563773e75251b43775982926e9c7729ba158c02b157ad",
+      "sha256": "d53d03adf108d99b88e93a230cd5a5ebd72937d32cb5f0d54819d1016c40f1fa",
       "symbols": [
         {
           "kind": "const",
@@ -40614,267 +40634,272 @@
         },
         {
           "kind": "const",
-          "line": 27,
+          "line": 30,
           "name": "MAX_SIG_BYTES"
         },
         {
           "kind": "enum",
-          "line": 35,
+          "line": 38,
           "name": "CapabilityRight"
         },
         {
           "kind": "impl",
-          "line": 43,
+          "line": 46,
           "name": "CapabilityRight"
         },
         {
           "kind": "fn",
-          "line": 44,
+          "line": 47,
           "name": "tag"
         },
         {
           "kind": "fn",
-          "line": 54,
+          "line": 57,
           "name": "from_tag"
         },
         {
           "kind": "enum",
-          "line": 74,
+          "line": 77,
           "name": "CapabilityScope"
         },
         {
           "kind": "impl",
-          "line": 78,
+          "line": 81,
           "name": "CapabilityScope"
         },
         {
           "kind": "fn",
-          "line": 79,
+          "line": 82,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 88,
+          "line": 91,
           "name": "decode"
         },
         {
           "kind": "struct",
-          "line": 105,
+          "line": 108,
           "name": "CapabilityToken"
         },
         {
           "kind": "impl",
-          "line": 107,
+          "line": 110,
           "name": "CapabilityToken"
         },
         {
           "kind": "fn",
-          "line": 109,
+          "line": 112,
           "name": "generate"
         },
         {
           "kind": "fn",
-          "line": 117,
+          "line": 120,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 125,
+          "line": 128,
           "name": "commit"
         },
         {
           "kind": "impl",
-          "line": 139,
+          "line": 142,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 143,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 145,
+          "line": 148,
           "name": "Drop"
         },
         {
           "kind": "fn",
-          "line": 146,
+          "line": 149,
           "name": "drop"
         },
         {
           "kind": "struct",
-          "line": 155,
+          "line": 158,
           "name": "CapabilityTokenCommitment"
         },
         {
           "kind": "struct",
-          "line": 162,
+          "line": 165,
           "name": "CapabilityGrant"
         },
         {
           "kind": "impl",
-          "line": 174,
+          "line": 177,
           "name": "CapabilityGrant"
         },
         {
           "kind": "fn",
-          "line": 178,
+          "line": 181,
           "name": "issue"
         },
         {
           "kind": "fn",
-          "line": 207,
+          "line": 210,
           "name": "signing_bytes"
         },
         {
           "kind": "fn",
-          "line": 229,
+          "line": 232,
           "name": "holder_proof_message"
         },
         {
           "kind": "fn",
-          "line": 241,
+          "line": 244,
           "name": "prove_holder"
         },
         {
           "kind": "fn",
-          "line": 249,
+          "line": 252,
           "name": "validate"
         },
         {
           "kind": "fn",
-          "line": 294,
+          "line": 297,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 320,
+          "line": 323,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 388,
+          "line": 391,
           "name": "parse_did"
         },
         {
           "kind": "mod",
-          "line": 394,
+          "line": 397,
           "name": "tests"
         },
         {
           "kind": "struct",
-          "line": 397,
+          "line": 400,
           "name": "Fixture"
         },
         {
           "kind": "fn",
-          "line": 404,
+          "line": 407,
           "name": "fixture"
         },
         {
           "kind": "fn",
-          "line": 413,
+          "line": 416,
           "name": "issue_and_prove"
         },
         {
           "kind": "fn",
-          "line": 429,
+          "line": 432,
           "name": "every_right_round_trips_through_its_tag"
         },
         {
           "kind": "fn",
-          "line": 442,
+          "line": 445,
           "name": "an_unknown_right_tag_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 447,
+          "line": 450,
           "name": "a_valid_grant_and_proof_validate_successfully"
         },
         {
           "kind": "fn",
-          "line": 464,
+          "line": 467,
           "name": "a_read_grant_does_not_validate_as_append"
         },
         {
           "kind": "fn",
-          "line": 482,
+          "line": 485,
           "name": "an_administer_grant_does_not_implicitly_validate_as_another_right"
         },
         {
           "kind": "fn",
-          "line": 500,
+          "line": 503,
           "name": "a_grant_for_scope_a_fails_against_scope_b"
         },
         {
           "kind": "fn",
-          "line": 519,
+          "line": 522,
           "name": "an_incorrect_token_fails"
         },
         {
           "kind": "fn",
-          "line": 538,
+          "line": 541,
           "name": "a_token_commitment_copied_into_a_different_scope_grant_does_not_validate"
         },
         {
           "kind": "fn",
-          "line": 570,
+          "line": 573,
           "name": "a_valid_token_without_grantee_proof_fails"
         },
         {
           "kind": "fn",
-          "line": 589,
+          "line": 592,
           "name": "proof_from_another_pseudonym_fails"
         },
         {
           "kind": "fn",
-          "line": 617,
+          "line": 620,
           "name": "an_expired_grant_fails"
         },
         {
           "kind": "fn",
-          "line": 645,
+          "line": 648,
           "name": "a_not_yet_valid_grant_fails"
         },
         {
           "kind": "fn",
-          "line": 673,
+          "line": 676,
           "name": "a_grant_signed_by_one_issuer_does_not_validate_against_another"
         },
         {
           "kind": "fn",
-          "line": 692,
+          "line": 695,
           "name": "a_grant_round_trips_through_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 700,
+          "line": 703,
+          "name": "a_full_length_ml_dsa_65_signature_round_trips_through_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 724,
           "name": "a_grant_with_a_validity_window_round_trips_and_still_enforces_it"
         },
         {
           "kind": "fn",
-          "line": 758,
+          "line": 782,
           "name": "a_decoded_grant_still_validates"
         },
         {
           "kind": "fn",
-          "line": 776,
+          "line": 800,
           "name": "an_unknown_capability_version_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 786,
+          "line": 810,
           "name": "a_truncated_grant_is_rejected_at_every_length"
         },
         {
           "kind": "fn",
-          "line": 799,
+          "line": 823,
           "name": "trailing_bytes_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 811,
+          "line": 835,
           "name": "an_empty_or_default_token_is_still_a_valid_32_byte_secret"
         }
       ],
@@ -41339,7 +41364,7 @@
       "title": "mod capability;"
     },
     {
-      "bytes": 16111,
+      "bytes": 18013,
       "group": "crate:mini-objects",
       "headings": [],
       "keywords": [
@@ -41347,30 +41372,30 @@
         "const",
         "wellknown",
         "object",
+        "encoding",
         "usize",
         "objectid",
-        "encoding",
         "bytes",
         "multihash",
         "base58btc",
         "wall",
         "payload",
+        "did_mini",
         "did",
-        "derive",
+        "decode",
         "max_signatures",
         "profile",
-        "link",
         "objecterror",
-        "decode",
-        "debug",
-        "clone",
-        "partialeq",
+        "derive",
         "parse",
-        "post"
+        "post",
+        "comment",
+        "follow",
+        "reaction"
       ],
-      "lines": 441,
+      "lines": 481,
       "path": "crates/mini-objects/src/object.rs",
-      "sha256": "6c003a5edd82c063926865ede15ca650f96356afd43d9740e157f34472dc901b",
+      "sha256": "5753a247004e6a70e7cbaafce0946688352cb0b816de5bec79838c89010c0d56",
       "symbols": [
         {
           "kind": "const",
@@ -41409,265 +41434,275 @@
         },
         {
           "kind": "const",
-          "line": 22,
+          "line": 25,
           "name": "MAX_SIG_BYTES"
         },
         {
           "kind": "struct",
-          "line": 27,
+          "line": 30,
           "name": "ObjectId"
         },
         {
           "kind": "impl",
-          "line": 29,
+          "line": 32,
           "name": "ObjectId"
         },
         {
           "kind": "fn",
-          "line": 32,
+          "line": 35,
           "name": "parse"
         },
         {
           "kind": "fn",
-          "line": 42,
+          "line": 45,
           "name": "as_str"
         },
         {
           "kind": "enum",
-          "line": 60,
+          "line": 63,
           "name": "ObjectType"
         },
         {
           "kind": "impl",
-          "line": 67,
+          "line": 70,
           "name": "ObjectType"
         },
         {
           "kind": "const",
-          "line": 69,
+          "line": 72,
           "name": "POST"
         },
         {
           "kind": "const",
-          "line": 71,
+          "line": 74,
           "name": "COMMENT"
         },
         {
           "kind": "const",
-          "line": 73,
+          "line": 76,
           "name": "PROFILE"
         },
         {
           "kind": "const",
-          "line": 75,
+          "line": 78,
           "name": "FOLLOW"
         },
         {
           "kind": "const",
-          "line": 77,
+          "line": 80,
           "name": "REACTION"
         },
         {
           "kind": "const",
-          "line": 79,
+          "line": 82,
           "name": "MEDIA_MANIFEST"
         },
         {
           "kind": "const",
-          "line": 81,
+          "line": 84,
           "name": "COMMUNITY"
         },
         {
           "kind": "const",
-          "line": 83,
+          "line": 86,
           "name": "CRDT_OP"
         },
         {
           "kind": "const",
-          "line": 85,
+          "line": 88,
           "name": "FILTER_LABEL"
         },
         {
           "kind": "const",
-          "line": 87,
+          "line": 90,
           "name": "COMMIT"
         },
         {
           "kind": "const",
-          "line": 89,
+          "line": 92,
           "name": "RELEASE"
         },
         {
           "kind": "const",
-          "line": 92,
+          "line": 95,
           "name": "HEAD"
         },
         {
           "kind": "const",
-          "line": 97,
+          "line": 100,
           "name": "WALL"
         },
         {
           "kind": "const",
-          "line": 101,
+          "line": 104,
           "name": "WALL_LINKAGE"
         },
         {
           "kind": "enum",
-          "line": 107,
+          "line": 110,
           "name": "Payload"
         },
         {
           "kind": "struct",
-          "line": 116,
+          "line": 119,
           "name": "Link"
         },
         {
           "kind": "struct",
-          "line": 126,
+          "line": 129,
           "name": "Object"
         },
         {
           "kind": "impl",
-          "line": 149,
+          "line": 152,
           "name": "Object"
         },
         {
           "kind": "fn",
-          "line": 151,
+          "line": 154,
           "name": "id"
         },
         {
           "kind": "fn",
-          "line": 156,
+          "line": 159,
           "name": "signatures"
         },
         {
           "kind": "fn",
-          "line": 161,
+          "line": 164,
           "name": "signing_bytes"
         },
         {
           "kind": "fn",
-          "line": 166,
+          "line": 169,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 170,
+          "line": 173,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 216,
+          "line": 219,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 302,
+          "line": 305,
           "name": "verify_integrity"
         },
         {
           "kind": "fn",
-          "line": 312,
+          "line": 315,
           "name": "verify_signature"
         },
         {
           "kind": "enum",
-          "line": 323,
+          "line": 326,
           "name": "EncodeMode"
         },
         {
           "kind": "fn",
-          "line": 328,
+          "line": 331,
           "name": "parse_did"
         },
         {
           "kind": "fn",
-          "line": 337,
+          "line": 340,
           "name": "verify_provenance"
         },
         {
           "kind": "fn",
-          "line": 351,
+          "line": 354,
           "name": "required_capability"
         },
         {
           "kind": "struct",
-          "line": 364,
+          "line": 367,
           "name": "ObjectBuilder"
         },
         {
           "kind": "impl",
-          "line": 372,
+          "line": 375,
           "name": "ObjectBuilder"
         },
         {
           "kind": "fn",
-          "line": 374,
+          "line": 377,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 385,
+          "line": 388,
           "name": "timestamp_ms"
         },
         {
           "kind": "fn",
-          "line": 391,
+          "line": 394,
           "name": "sequence"
         },
         {
           "kind": "fn",
-          "line": 397,
+          "line": 400,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 406,
+          "line": 409,
           "name": "payload"
         },
         {
           "kind": "fn",
-          "line": 414,
+          "line": 417,
           "name": "sign"
+        },
+        {
+          "kind": "mod",
+          "line": 446,
+          "name": "tests"
+        },
+        {
+          "kind": "fn",
+          "line": 450,
+          "name": "a_full_length_ml_dsa_65_signature_round_trips_through_bytes"
         }
       ],
       "title": "use did_mini::{verify_delegation, Capabilities, Controller, Did, IndexedSig, Kel};"
     },
     {
-      "bytes": 12369,
+      "bytes": 13735,
       "group": "crate:mini-objects",
       "headings": [],
       "keywords": [
         "self",
         "signatures",
-        "bytes",
         "const",
+        "bytes",
         "vec",
         "usize",
         "privateobject",
-        "new",
-        "links",
         "own",
-        "u64",
+        "new",
         "object",
-        "sequence",
         "its",
+        "links",
+        "did_mini",
         "did",
         "objecttype",
-        "u32",
         "mini-objects",
         "max_signatures",
         "signing_bytes",
         "encode_fields",
+        "sequence",
         "never",
         "writer",
-        "envelope"
+        "envelope",
+        "object_type"
       ],
-      "lines": 348,
+      "lines": 373,
       "path": "crates/mini-objects/src/private_object.rs",
-      "sha256": "74c64fd4ca1d21d3fcdda8a260ed75a80e26613076f630b245da45b0ed3ee83a",
+      "sha256": "f81f8ce0c2c8ec19cfe2ea91285fe5e028efa3999aea1a432521dd9f339fd008",
       "symbols": [
         {
           "kind": "const",
@@ -41711,122 +41746,127 @@
         },
         {
           "kind": "const",
-          "line": 26,
+          "line": 29,
           "name": "MAX_SIG_BYTES"
         },
         {
           "kind": "const",
-          "line": 33,
+          "line": 36,
           "name": "SIGNING_DOMAIN"
         },
         {
           "kind": "struct",
-          "line": 39,
+          "line": 42,
           "name": "PrivateObject"
         },
         {
           "kind": "impl",
-          "line": 55,
+          "line": 58,
           "name": "PrivateObject"
         },
         {
           "kind": "fn",
-          "line": 59,
+          "line": 62,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 83,
+          "line": 86,
           "name": "signatures"
         },
         {
           "kind": "fn",
-          "line": 91,
+          "line": 94,
           "name": "sign_with"
         },
         {
           "kind": "fn",
-          "line": 97,
+          "line": 100,
           "name": "signing_bytes"
         },
         {
           "kind": "fn",
-          "line": 106,
+          "line": 109,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 121,
           "name": "encode_fields"
         },
         {
           "kind": "fn",
-          "line": 143,
+          "line": 146,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 220,
+          "line": 223,
           "name": "verify_signature"
         },
         {
           "kind": "fn",
-          "line": 230,
+          "line": 233,
           "name": "parse_did"
         },
         {
           "kind": "mod",
-          "line": 236,
+          "line": 239,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 240,
+          "line": 243,
           "name": "sample"
         },
         {
           "kind": "fn",
-          "line": 259,
+          "line": 262,
           "name": "a_signed_private_object_round_trips_through_bytes"
         },
         {
           "kind": "fn",
-          "line": 267,
+          "line": 270,
           "name": "a_valid_signature_verifies_against_the_devices_kel"
         },
         {
           "kind": "fn",
-          "line": 274,
+          "line": 277,
+          "name": "a_full_length_ml_dsa_65_signature_round_trips_through_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 299,
           "name": "a_tampered_field_after_signing_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 282,
+          "line": 307,
           "name": "verification_fails_against_the_wrong_devices_kel"
         },
         {
           "kind": "fn",
-          "line": 290,
+          "line": 315,
           "name": "a_truncated_encoding_is_rejected_at_every_length"
         },
         {
           "kind": "fn",
-          "line": 302,
+          "line": 327,
           "name": "trailing_bytes_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 313,
+          "line": 338,
           "name": "an_over_cap_link_count_is_rejected_before_allocating"
         },
         {
           "kind": "fn",
-          "line": 331,
+          "line": 356,
           "name": "an_unsigned_private_object_has_no_signatures"
         },
         {
           "kind": "fn",
-          "line": 337,
+          "line": 362,
           "name": "custom_object_types_round_trip"
         }
       ],
@@ -46663,13 +46703,13 @@
       "title": "pub enum LookupPrivacyClass {"
     },
     {
-      "bytes": 11791,
+      "bytes": 13050,
       "group": "crate:mini-private-index",
       "headings": [],
       "keywords": [
         "self",
-        "recordsizeclass",
         "record",
+        "recordsizeclass",
         "writer",
         "encrypted_descriptor",
         "u64",
@@ -46677,24 +46717,24 @@
         "privateindexrecord",
         "indexerror",
         "size_class",
-        "vec",
-        "signature",
         "tag",
         "lookuplabel",
-        "bytes",
-        "epoch",
+        "did_mini",
+        "vec",
         "expires_at_ms",
         "sequence",
-        "record_version",
+        "signature",
         "max_signatures",
         "signing_bytes",
+        "verify",
         "did",
         "result",
-        "usize"
+        "usize",
+        "small"
       ],
-      "lines": 354,
+      "lines": 378,
       "path": "crates/mini-private-index/src/record.rs",
-      "sha256": "15b99ee64a68af49c7ac9fdc4b0cec6475e95dfcc0a8ad933aad5185433aa5b4",
+      "sha256": "f7743d6f5eaf979d2459f93bf11e90ae305bf3cac8606a43b1ee9acc16eb0a4c",
       "symbols": [
         {
           "kind": "const",
@@ -46718,142 +46758,147 @@
         },
         {
           "kind": "const",
-          "line": 24,
+          "line": 27,
           "name": "MAX_SIG_BYTES"
         },
         {
           "kind": "enum",
-          "line": 32,
+          "line": 35,
           "name": "RecordSizeClass"
         },
         {
           "kind": "impl",
-          "line": 38,
+          "line": 41,
           "name": "RecordSizeClass"
         },
         {
           "kind": "fn",
-          "line": 39,
+          "line": 42,
           "name": "max_bytes"
         },
         {
           "kind": "fn",
-          "line": 47,
+          "line": 50,
           "name": "tag"
         },
         {
           "kind": "fn",
-          "line": 55,
+          "line": 58,
           "name": "from_tag"
         },
         {
           "kind": "struct",
-          "line": 67,
+          "line": 70,
           "name": "PrivateIndexRecord"
         },
         {
           "kind": "impl",
-          "line": 78,
+          "line": 81,
           "name": "PrivateIndexRecord"
         },
         {
           "kind": "fn",
-          "line": 81,
+          "line": 84,
           "name": "issue"
         },
         {
           "kind": "fn",
-          "line": 107,
+          "line": 110,
           "name": "signing_bytes"
         },
         {
           "kind": "fn",
-          "line": 122,
+          "line": 125,
           "name": "encrypted_descriptor"
         },
         {
           "kind": "fn",
-          "line": 130,
+          "line": 133,
           "name": "verify"
         },
         {
           "kind": "fn",
-          "line": 144,
+          "line": 147,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 168,
+          "line": 171,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 221,
+          "line": 224,
           "name": "parse_did"
         },
         {
           "kind": "mod",
-          "line": 227,
+          "line": 230,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 230,
+          "line": 233,
           "name": "sample_label"
         },
         {
           "kind": "fn",
-          "line": 234,
+          "line": 237,
           "name": "sample_record"
         },
         {
           "kind": "fn",
-          "line": 248,
+          "line": 251,
           "name": "a_record_verifies_against_its_own_writer_kel_before_expiry"
         },
         {
           "kind": "fn",
-          "line": 255,
+          "line": 258,
           "name": "a_record_is_rejected_at_or_after_its_expiry"
         },
         {
           "kind": "fn",
-          "line": 265,
+          "line": 268,
           "name": "a_record_signed_by_one_writer_does_not_verify_under_another_writers_kel"
         },
         {
           "kind": "fn",
-          "line": 276,
+          "line": 279,
           "name": "tampering_with_the_sequence_after_signing_breaks_verification"
         },
         {
           "kind": "fn",
-          "line": 287,
+          "line": 290,
           "name": "issuing_a_descriptor_larger_than_its_size_class_is_rejected_before_signing"
         },
         {
           "kind": "fn",
-          "line": 305,
+          "line": 308,
           "name": "a_record_round_trips_through_bytes"
         },
         {
           "kind": "fn",
-          "line": 314,
-          "name": "an_unsupported_version_is_rejected"
-        },
-        {
-          "kind": "fn",
-          "line": 326,
-          "name": "trailing_bytes_after_a_complete_decode_are_rejected"
+          "line": 317,
+          "name": "a_full_length_ml_dsa_65_signature_round_trips_through_bytes"
         },
         {
           "kind": "fn",
           "line": 338,
+          "name": "an_unsupported_version_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 350,
+          "name": "trailing_bytes_after_a_complete_decode_are_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 362,
           "name": "size_class_byte_budgets_are_distinct_and_increasing"
         },
         {
           "kind": "fn",
-          "line": 344,
+          "line": 368,
           "name": "every_size_class_round_trips_through_its_tag"
         }
       ],
@@ -53186,26 +53231,24 @@
       "title": "mod codec;"
     },
     {
-      "bytes": 23552,
+      "bytes": 24787,
       "group": "crate:mini-relay",
       "headings": [],
       "keywords": [
         "mailbox",
         "self",
-        "mailboxid",
         "mailboxtoken",
+        "mailboxid",
         "mailboxgrant",
         "token",
-        "grant",
         "const",
         "fmt",
+        "grant",
         "from_bytes",
         "debug",
         "mailboxtokencommitment",
-        "never",
-        "did",
+        "did_mini",
         "bytes",
-        "grantee",
         "mini-relay",
         "max_signatures",
         "generate",
@@ -53213,11 +53256,13 @@
         "core",
         "drop",
         "capability",
-        "object"
+        "object",
+        "never",
+        "new"
       ],
-      "lines": 726,
+      "lines": 750,
       "path": "crates/mini-relay/src/mailbox.rs",
-      "sha256": "46d39de66b23614e0a335205366dd61fb7e490c8acfc821ba8e66842d3a08c6b",
+      "sha256": "4ccd5864572a44ac6896605cb942ec0bb716131390d16b085563c6d726d894bd",
       "symbols": [
         {
           "kind": "const",
@@ -53251,232 +53296,237 @@
         },
         {
           "kind": "const",
-          "line": 33,
+          "line": 36,
           "name": "MAX_SIG_BYTES"
         },
         {
           "kind": "struct",
-          "line": 39,
+          "line": 42,
           "name": "MailboxId"
         },
         {
           "kind": "impl",
-          "line": 41,
+          "line": 44,
           "name": "MailboxId"
         },
         {
           "kind": "fn",
-          "line": 43,
+          "line": 46,
           "name": "generate"
         },
         {
           "kind": "fn",
-          "line": 49,
+          "line": 52,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 53,
+          "line": 56,
           "name": "from_bytes"
         },
         {
           "kind": "struct",
-          "line": 64,
+          "line": 67,
           "name": "MailboxToken"
         },
         {
           "kind": "impl",
-          "line": 66,
+          "line": 69,
           "name": "MailboxToken"
         },
         {
           "kind": "fn",
-          "line": 68,
+          "line": 71,
           "name": "generate"
         },
         {
           "kind": "fn",
-          "line": 76,
+          "line": 79,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 83,
+          "line": 86,
           "name": "commit"
         },
         {
           "kind": "impl",
-          "line": 92,
+          "line": 95,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 93,
+          "line": 96,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 98,
+          "line": 101,
           "name": "Drop"
         },
         {
           "kind": "fn",
-          "line": 99,
+          "line": 102,
           "name": "drop"
         },
         {
           "kind": "struct",
-          "line": 108,
+          "line": 111,
           "name": "MailboxTokenCommitment"
         },
         {
           "kind": "struct",
-          "line": 115,
+          "line": 118,
           "name": "MailboxGrant"
         },
         {
           "kind": "impl",
-          "line": 126,
+          "line": 129,
           "name": "MailboxGrant"
         },
         {
           "kind": "fn",
-          "line": 129,
+          "line": 132,
           "name": "issue"
         },
         {
           "kind": "fn",
-          "line": 156,
+          "line": 159,
           "name": "signing_bytes"
         },
         {
           "kind": "fn",
-          "line": 177,
+          "line": 180,
           "name": "holder_proof_message"
         },
         {
           "kind": "fn",
-          "line": 189,
+          "line": 192,
           "name": "prove_holder"
         },
         {
           "kind": "fn",
-          "line": 197,
+          "line": 200,
           "name": "validate"
         },
         {
           "kind": "fn",
-          "line": 238,
+          "line": 241,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 263,
+          "line": 266,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 333,
+          "line": 336,
           "name": "parse_did"
         },
         {
           "kind": "mod",
-          "line": 339,
+          "line": 342,
           "name": "tests"
         },
         {
           "kind": "struct",
-          "line": 342,
+          "line": 345,
           "name": "Fixture"
         },
         {
           "kind": "fn",
-          "line": 349,
+          "line": 352,
           "name": "fixture"
         },
         {
           "kind": "fn",
-          "line": 358,
+          "line": 361,
           "name": "issue_and_prove"
         },
         {
           "kind": "fn",
-          "line": 367,
+          "line": 370,
           "name": "a_valid_grant_and_proof_validate_successfully"
         },
         {
           "kind": "fn",
-          "line": 383,
+          "line": 386,
           "name": "a_grant_for_mailbox_a_fails_against_mailbox_b"
         },
         {
           "kind": "fn",
-          "line": 401,
+          "line": 404,
           "name": "an_incorrect_token_fails"
         },
         {
           "kind": "fn",
-          "line": 419,
+          "line": 422,
           "name": "a_token_commitment_copied_into_a_different_mailbox_grant_does_not_validate"
         },
         {
           "kind": "fn",
-          "line": 447,
+          "line": 450,
           "name": "a_valid_token_without_grantee_proof_fails"
         },
         {
           "kind": "fn",
-          "line": 465,
+          "line": 468,
           "name": "proof_from_another_pseudonym_fails"
         },
         {
           "kind": "fn",
-          "line": 487,
+          "line": 490,
           "name": "an_expired_grant_fails"
         },
         {
           "kind": "fn",
-          "line": 513,
+          "line": 516,
           "name": "a_not_yet_valid_grant_fails"
         },
         {
           "kind": "fn",
-          "line": 539,
+          "line": 542,
           "name": "a_grant_signed_by_one_issuer_does_not_validate_against_another"
         },
         {
           "kind": "fn",
-          "line": 557,
+          "line": 560,
           "name": "a_grant_round_trips_through_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 565,
+          "line": 568,
+          "name": "a_full_length_ml_dsa_65_signature_round_trips_through_wire_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 589,
           "name": "a_grant_with_a_validity_window_round_trips_and_still_enforces_it"
         },
         {
           "kind": "fn",
-          "line": 619,
+          "line": 643,
           "name": "a_decoded_grant_still_validates"
         },
         {
           "kind": "fn",
-          "line": 636,
+          "line": 660,
           "name": "an_unknown_grant_version_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 646,
+          "line": 670,
           "name": "a_truncated_grant_is_rejected_at_every_length"
         },
         {
           "kind": "fn",
-          "line": 659,
+          "line": 683,
           "name": "trailing_bytes_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 671,
+          "line": 695,
           "name": "rotating_to_a_fresh_mailbox_and_token_invalidates_the_old_pair"
         }
       ],
@@ -78267,7 +78317,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1212337,
+      "bytes": 1218624,
       "group": "docs",
       "headings": [
         {
@@ -78697,9 +78747,9 @@
         "first",
         "kel"
       ],
-      "lines": 20110,
+      "lines": 20218,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "3ac6d39309be97492274ac36f3b86cf45c5a1c2aba67b7d84fd76395ae2e3603",
+      "sha256": "fc859aa1028a643915d2e435bb3f07c21d1d58bb4176ed6a6a69db4b76bf6170",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80035,7 +80085,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 182390,
+      "bytes": 183661,
       "group": "docs",
       "headings": [
         {
@@ -80070,77 +80120,77 @@
         },
         {
           "level": 2,
-          "line": 448,
+          "line": 467,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 896,
+          "line": 915,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 943,
+          "line": 962,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1165,
+          "line": 1184,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1392,
+          "line": 1411,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1491,
+          "line": 1510,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1521,
+          "line": 1540,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1848,
+          "line": 1867,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2347,
+          "line": 2366,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2438,
+          "line": 2457,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2518,
+          "line": 2537,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2584,
+          "line": 2603,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2601,
+          "line": 2620,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2637,
+          "line": 2656,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2702,
+          "line": 2721,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80170,9 +80220,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2737,
+      "lines": 2756,
       "path": "docs/STATUS.md",
-      "sha256": "30ab71aea1f0b1de7eb26123a458b402a0b4b6e224805e3c46119652649f08b4",
+      "sha256": "c0beef2b94181021b6648a85607e9fdd50c04cb5b6779fe0f32411ecda740dea",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97039,7 +97089,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 87643,
+      "bytes": 88936,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97068,9 +97118,9 @@
         "independently",
         "both"
       ],
-      "lines": 1256,
+      "lines": 1265,
       "path": "governance/work-claims.json",
-      "sha256": "7bdaeeeccf79db88ef1d4abc05e5f72f0591a0d093cbd767f6818a112d9a0a60",
+      "sha256": "823e9919f381021aa0c950ed715d5b2b8582d2314e05420132bea22b85e3dd07",
       "symbols": [],
       "title": "{"
     },

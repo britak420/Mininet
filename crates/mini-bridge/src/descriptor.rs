@@ -31,7 +31,10 @@ const MAX_DID_BYTES: usize = 256;
 /// number: a cap below did-mini's own would let a legitimate threshold
 /// identity sign an object it could not then decode.
 const MAX_SIGNATURES: usize = did_mini::MAX_SIGNATURES;
-const MAX_SIG_BYTES: usize = 256;
+/// Mirrors `did_mini::MAX_SIGNATURE_BYTES` (F-10): a cap below did-mini's
+/// own would let an ML-DSA-65-signed descriptor verify in memory and then
+/// fail to decode its own encoding.
+const MAX_SIG_BYTES: usize = did_mini::MAX_SIGNATURE_BYTES;
 
 /// An opaque, transport-specific dial target — e.g. an IP:port pair for
 /// [`TransportId::DirectTlsV1`], or a bridge line for a future obfs4
@@ -378,6 +381,27 @@ mod tests {
         let decoded = BridgeDescriptor::from_bytes(&bytes).unwrap();
         assert_eq!(decoded, descriptor);
         decoded.verify(&bridge.kel(), 1_500).unwrap();
+    }
+
+    #[test]
+    fn a_full_length_ml_dsa_65_signature_round_trips_through_bytes() {
+        // F-10: MAX_SIG_BYTES was hardcoded to 256, below ML-DSA-65's real
+        // wire length -- a genuinely ML-DSA-65-signed descriptor
+        // (`mini_crypto::SigningKey::sign_ml_dsa_65`, Phase 2, real and
+        // production-capable) would verify in memory and then fail to
+        // decode its own encoding. A real ML-DSA-65 signature must now
+        // survive the round trip where the old 256-byte cap would have
+        // rejected it.
+        let bridge = Controller::incept_single().unwrap();
+        let mut descriptor = sample_descriptor(&bridge);
+        let pq_key = mini_crypto::SigningKey::generate_ml_dsa_65().unwrap();
+        let real_signature = pq_key.sign_ml_dsa_65(b"F-10 codec regression").unwrap();
+        descriptor.signature = vec![IndexedSig {
+            index: 0,
+            signature: real_signature,
+        }];
+        let decoded = BridgeDescriptor::from_bytes(&descriptor.to_bytes()).unwrap();
+        assert_eq!(decoded, descriptor);
     }
 
     #[test]

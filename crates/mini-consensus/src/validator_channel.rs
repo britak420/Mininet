@@ -73,9 +73,13 @@ const HANDSHAKE_SIGN_DOMAIN: &[u8] = b"mini-consensus/validator-handshake-sign/v
 /// framing.
 const WIRE_DOMAIN: &[u8] = b"mini-consensus/validator-handshake/v1";
 
-/// Hard cap on device signatures accepted in one wire-encoded attestation, matching
-/// [`mini_chain::Vote`]'s own bound on the same untrusted field.
-const MAX_SIGS: usize = 16;
+/// Hard cap on device signatures accepted in one wire-encoded attestation.
+/// Mirrors `did_mini::MAX_SIGNATURES` (F-10) rather than restating a
+/// smaller number, matching [`mini_chain::Vote`]'s own bound on the same
+/// untrusted field: a cap below did-mini's own would let a legitimate
+/// threshold identity's attestation verify in memory and then fail to
+/// decode its own encoding.
+const MAX_SIGS: usize = did_mini::MAX_SIGNATURES;
 
 /// Hard cap on the length of a `did:mini` string accepted from the wire —
 /// far above any real SCID, purely an allocation bound on untrusted input.
@@ -340,6 +344,29 @@ mod tests {
             verify_validator_handshake(&back, [7u8; 32], &root.kel(), &device.kel()).unwrap(),
             root.did()
         );
+    }
+
+    #[test]
+    fn a_17_key_threshold_devices_attestation_round_trips_past_the_old_16_signature_cap() {
+        // F-10: MAX_SIGS was hardcoded to 16, below did-mini's own
+        // MAX_SIGNATURES (64) -- a legitimate threshold device with more
+        // than 16 current keys could sign an attestation in memory
+        // (`Controller::sign_message` emits one `IndexedSig` per current
+        // key) and then fail to decode its own wire encoding. 17 is the
+        // smallest count that exercises the old cap's exact off-by-one.
+        let keys: Vec<_> = (0..17)
+            .map(|_| mini_crypto::SigningKey::generate().unwrap())
+            .collect();
+        let next_keys: Vec<_> = (0..17)
+            .map(|_| mini_crypto::SigningKey::generate().unwrap())
+            .collect();
+        let device = Controller::incept(keys, 17, next_keys, 17).unwrap();
+        let root = Controller::incept_single().unwrap();
+        let attestation = sign_validator_handshake([7u8; 32], &root.did(), &device);
+        assert_eq!(attestation.signature.len(), 17);
+        let back =
+            ValidatorHandshakeAttestation::from_wire_bytes(&attestation.to_wire_bytes()).unwrap();
+        assert_eq!(attestation, back);
     }
 
     #[test]
