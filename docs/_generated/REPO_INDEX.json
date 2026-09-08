@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 936,
     "headings": 3344,
-    "rust_symbols": 9471
+    "rust_symbols": 9473
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28291,
+      "bytes": 28374,
       "group": "root",
       "headings": [
         {
@@ -1808,7 +1808,7 @@
         },
         {
           "level": 2,
-          "line": 447,
+          "line": 448,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 451,
+      "lines": 452,
       "path": "README.md",
-      "sha256": "b023d0ff773af95f29e09e94d7763da8eb08e64764cf42144d208e2410312803",
+      "sha256": "c79ea8bbe98cd6285502d446edb277c36105654b986eb99c078ebdf735eefda5",
       "symbols": [],
       "title": "Mininet"
     },
@@ -17959,7 +17959,7 @@
       "title": "use mini_chain::{BlockHeader, QuorumCertificate, Vote, MAX_VOTES_PER_CERTIFICATE};"
     },
     {
-      "bytes": 40180,
+      "bytes": 44841,
       "group": "crate:mini-consensus",
       "headings": [],
       "keywords": [
@@ -17988,9 +17988,9 @@
         "min_chunk_bytes",
         "snapshotmanifest"
       ],
-      "lines": 1013,
+      "lines": 1110,
       "path": "crates/mini-consensus/src/chunked_snapshot.rs",
-      "sha256": "f9910f429b693da2545ce0a6ea01a059e72cb417c3046e2b7b05111e4cca2880",
+      "sha256": "6acc629f4f6a6399cbb7ca500caec0ea038975088672758c2db2ded7f7cbff39",
       "symbols": [
         {
           "kind": "const",
@@ -18289,77 +18289,87 @@
         },
         {
           "kind": "fn",
-          "line": 778,
+          "line": 784,
+          "name": "differently_keyed_snapshot"
+        },
+        {
+          "kind": "fn",
+          "line": 816,
           "name": "a_manifest_round_trips_over_the_wire"
         },
         {
           "kind": "fn",
-          "line": 788,
+          "line": 826,
           "name": "full_chunk_by_chunk_transfer_reassembles_into_the_same_chain"
         },
         {
           "kind": "fn",
-          "line": 818,
-          "name": "chunks_may_arrive_out_of_order_and_re_delivery_is_harmless"
-        },
-        {
-          "kind": "fn",
-          "line": 846,
-          "name": "missing_indices_reports_exactly_what_is_still_needed"
-        },
-        {
-          "kind": "fn",
-          "line": 861,
-          "name": "a_tampered_chunk_fails_its_own_proof"
-        },
-        {
-          "kind": "fn",
-          "line": 881,
-          "name": "a_proof_from_the_wrong_index_does_not_verify"
-        },
-        {
-          "kind": "fn",
-          "line": 903,
-          "name": "a_short_final_chunk_is_the_exact_remainder_not_padded_or_truncated"
+          "line": 856,
+          "name": "a_genuinely_finalized_header_paired_with_a_different_self_consistent_chunk_tree_is_rejected_at_finish"
         },
         {
           "kind": "fn",
           "line": 915,
+          "name": "chunks_may_arrive_out_of_order_and_re_delivery_is_harmless"
+        },
+        {
+          "kind": "fn",
+          "line": 943,
+          "name": "missing_indices_reports_exactly_what_is_still_needed"
+        },
+        {
+          "kind": "fn",
+          "line": 958,
+          "name": "a_tampered_chunk_fails_its_own_proof"
+        },
+        {
+          "kind": "fn",
+          "line": 978,
+          "name": "a_proof_from_the_wrong_index_does_not_verify"
+        },
+        {
+          "kind": "fn",
+          "line": 1000,
+          "name": "a_short_final_chunk_is_the_exact_remainder_not_padded_or_truncated"
+        },
+        {
+          "kind": "fn",
+          "line": 1012,
           "name": "finish_before_every_chunk_is_accepted_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 927,
+          "line": 1024,
           "name": "a_manifest_with_a_non_quorate_qc_is_rejected_before_any_chunk_is_fetched"
         },
         {
           "kind": "fn",
-          "line": 936,
+          "line": 1033,
           "name": "a_chunk_index_out_of_range_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 955,
+          "line": 1052,
           "name": "a_manifest_whose_declared_chunk_count_disagrees_with_its_own_math_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 967,
+          "line": 1064,
           "name": "chunk_size_outside_the_allowed_range_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 974,
+          "line": 1071,
           "name": "a_chunk_request_round_trips_and_rejects_trailing_bytes"
         },
         {
           "kind": "fn",
-          "line": 988,
+          "line": 1085,
           "name": "truncation_of_a_chunk_response_at_every_length_is_rejected_never_panics"
         },
         {
           "kind": "fn",
-          "line": 998,
+          "line": 1095,
           "name": "a_single_chunk_snapshot_still_produces_a_valid_zero_depth_proof"
         }
       ],
@@ -78749,7 +78759,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1298773,
+      "bytes": 1305523,
       "group": "docs",
       "headings": [
         {
@@ -79177,11 +79187,11 @@
         "local",
         "release",
         "first",
-        "kel"
+        "new"
       ],
-      "lines": 21541,
+      "lines": 21657,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "b24ccf1de596b3f16251046e3a22731a942a87592d02cfdc0a8a83f3d9e5f580",
+      "sha256": "7d7c4de5cc75e05a636d795af1e8df3b77e39128be21124eafc4b3ea919fffe9",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80517,7 +80527,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 193175,
+      "bytes": 194086,
       "group": "docs",
       "headings": [
         {
@@ -80542,87 +80552,87 @@
         },
         {
           "level": 2,
-          "line": 182,
+          "line": 195,
           "text": "2. Personhood"
         },
         {
           "level": 2,
-          "line": 253,
+          "line": 266,
           "text": "3. Identity & key custody"
         },
         {
           "level": 2,
-          "line": 482,
+          "line": 495,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 941,
+          "line": 954,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 988,
+          "line": 1001,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1221,
+          "line": 1234,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1448,
+          "line": 1461,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1547,
+          "line": 1560,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1577,
+          "line": 1590,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1924,
+          "line": 1937,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2459,
+          "line": 2472,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2550,
+          "line": 2563,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2630,
+          "line": 2643,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2730,
+          "line": 2743,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2747,
+          "line": 2760,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2783,
+          "line": 2796,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2864,
+          "line": 2877,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80652,9 +80662,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2899,
+      "lines": 2912,
       "path": "docs/STATUS.md",
-      "sha256": "92a81a483a3dddd758da135a8fc6ac15cdb0c39a683a40747b0ca423b6a634ae",
+      "sha256": "9ce3197a7fcfd11edc6659db2b0baa3c276829c80fdb60fe754452586980ba86",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97521,7 +97531,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 100807,
+      "bytes": 101761,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97550,9 +97560,9 @@
         "independently",
         "both"
       ],
-      "lines": 1305,
+      "lines": 1307,
       "path": "governance/work-claims.json",
-      "sha256": "31c1ba6d568b2e8df4ff681c891f78a9aa7f246ef9a5a7ad16780218d741983e",
+      "sha256": "f43b9f4de66f7f96e6aa79d3fccbcab9c8d216ca17f155f7b80043ea8f88b1e3",
       "symbols": [],
       "title": "{"
     },

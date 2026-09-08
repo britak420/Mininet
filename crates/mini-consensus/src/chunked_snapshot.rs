@@ -774,6 +774,44 @@ mod tests {
         )
     }
 
+    /// A second, self-consistent `(header, qc, state)` triple over
+    /// completely different account data. Its own QC carries no votes and
+    /// is never independently finalized by any real validator set --
+    /// nothing below ever calls [`SnapshotAssembler::new`] against this
+    /// snapshot's own header/QC. It exists purely as a source of
+    /// genuinely different, still-decodable state bytes and a real
+    /// `chunks_root` over them, for the attack test below.
+    fn differently_keyed_snapshot() -> ConsensusSnapshot {
+        let mut allocations = Vec::new();
+        let mut total = Amount::ZERO;
+        for i in 0u8..100 {
+            let account = SigningKey::from_seed(&[200u8.wrapping_add(i); 32])
+                .verifying_key()
+                .to_bytes();
+            let amount = Amount::from_micro(2_000 + i as u128);
+            total = total.checked_add(amount).unwrap();
+            allocations.push((account, amount));
+        }
+        let state = LedgerState::with_genesis_balances(total, allocations).unwrap();
+        let header = BlockHeader {
+            height: 1,
+            prev_hash: [0; 32],
+            state_root: state.commitment(),
+            body_root: mini_execution::SettlementBlockBody::new(Vec::new()).hash(),
+            timestamp_ms: 1,
+            proposer: Controller::incept_single_from_seeds(&[192; 32], &[193; 32])
+                .unwrap()
+                .did(),
+        };
+        let qc = QuorumCertificate {
+            height: 1,
+            round: 0,
+            block_hash: header.hash(),
+            votes: Vec::new(),
+        };
+        ConsensusSnapshot::new(header, qc, state).unwrap()
+    }
+
     #[test]
     fn a_manifest_round_trips_over_the_wire() {
         let (snapshot, _, _) = snapshot_and_validators();
@@ -812,6 +850,65 @@ mod tests {
             .unwrap();
         assert_eq!(chain.height(), 1);
         assert_eq!(chain.state().commitment(), expected_commitment);
+    }
+
+    #[test]
+    fn a_genuinely_finalized_header_paired_with_a_different_self_consistent_chunk_tree_is_rejected_at_finish(
+    ) {
+        // PR #327 finding F-22's own named concrete example: a peer
+        // supplies a valid finalized header with a different, internally
+        // consistent chunk tree. Every individual chunk membership check
+        // passes -- each chunk genuinely verifies against the manifest's
+        // own declared chunks_root -- but the assembled state does not
+        // match the genuinely finalized header's state_root, and finish()
+        // must be the check that catches it, not any earlier per-chunk
+        // check (the module's own doc comment already claims this; this
+        // test is what confirms the claim rather than just asserting it).
+        let (real_snapshot, validators, directory) = snapshot_and_validators();
+        let decoy_snapshot = differently_keyed_snapshot();
+        assert_ne!(
+            real_snapshot.state.commitment(),
+            decoy_snapshot.state.commitment(),
+            "fixture must use genuinely different state"
+        );
+
+        let decoy_chunker = SnapshotChunker::new(&decoy_snapshot, MIN_CHUNK_BYTES).unwrap();
+        // The attack manifest: real_snapshot's genuinely finalized
+        // header/QC, paired with a chunk tree over decoy_snapshot's
+        // completely different state. A dishonest or compromised peer
+        // needs no cryptographic break to construct this -- every
+        // `SnapshotManifest` field is independently peer-supplied on the
+        // wire, not cross-checked against anything until `finish()`.
+        let attack_manifest = SnapshotManifest {
+            header: real_snapshot.header.clone(),
+            qc: real_snapshot.qc.clone(),
+            ..decoy_chunker.manifest().clone()
+        };
+
+        // Assembly begins successfully: the manifest's header/QC really
+        // are finalized under `validators`, and internally consistent
+        // with each other -- the attack is only detectable once the
+        // state itself is reassembled and compared.
+        let mut assembler =
+            SnapshotAssembler::new(attack_manifest, &validators, &directory).unwrap();
+        let mut complete = false;
+        for index in 0..decoy_chunker.manifest().chunk_count {
+            // Every chunk genuinely verifies against the manifest's own
+            // declared chunks_root -- this is not a tampered-chunk attack,
+            // it is a wholly self-consistent, differently-rooted one.
+            complete = assembler
+                .accept_chunk(&decoy_chunker.chunk(index).unwrap())
+                .unwrap();
+        }
+        assert!(complete);
+        assert!(assembler.is_complete());
+
+        assert_eq!(
+            assembler.finish().unwrap_err(),
+            ConsensusError::SnapshotProofMismatch,
+            "header.state_root == state.commitment() must reject this at finish(), \
+             not any per-chunk proof check"
+        );
     }
 
     #[test]

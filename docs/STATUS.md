@@ -165,7 +165,20 @@ given time.
   block suffix after it (a receiver may still need an ordinary
   `state_sync_over_tcp` call to close that last gap); no multi-peer
   sourcing, discovery/eclipse policy, external audit, or physical
-  weakest-device measurements. State-sync sockets have local I/O deadlines, but
+  weakest-device measurements. **(D-0497, PR #327 finding F-22)** the
+  finding's own concrete example -- a valid finalized header paired with a
+  different, internally self-consistent chunk tree -- is now covered by a
+  real adversarial test proving `finish()`'s final
+  `header.state_root == state.commitment()` check rejects it, not any
+  per-chunk proof. Snapshot-plus-suffix composition (closing the gap named
+  just above) was investigated and explicitly declined for now: the
+  chunked and un-chunked serving loops authenticate every message against
+  a fixed, protocol-specific AEAD domain from the first message on, so a
+  second ordinary `state_sync_over_tcp` call against a peer address
+  currently serving chunk-sync fails authentication outright rather than
+  composing -- closing this needs a real protocol-dispatch decision
+  (multiplexing, a combined wire message, or a documented two-address
+  convention), not a narrow fix. State-sync sockets have local I/O deadlines, but
   peer choice and retry remain host policy. The equivocation evidence is no longer silently dropped by
   the network driver (D-0088: `mini_consensus::EquivocatorRegistry`
   independently re-verifies and records every flagged root instead of

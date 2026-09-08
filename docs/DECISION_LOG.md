@@ -21538,3 +21538,119 @@ provider-honesty/cross-rotation-continuity gaps D-0436 already named
 remain exactly as open as before this entry.
 
 **Supersedes / superseded by:** none.
+
+### D-0497 — F-22: the valid-QC/wrong-chunk-tree attack the finding names is confirmed rejected by a new adversarial test; snapshot-plus-suffix composition investigated and honestly declined  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-22
+(`crates/mini-consensus/src/chunked_snapshot.rs:228`); D-0207 (this
+module's own "Required follow-up," still open); D-0469 (this session,
+the chunked-transfer feature this finding reviews).
+
+**Decision:** re-verified this module's own already-honest doc comment
+against the finding's mechanism directly: "`chunks_root` adds nothing to
+[the] trust boundary: a dishonest peer can hand out a perfectly
+self-consistent root over garbage bytes just as it could hand out a
+dishonest un-chunked snapshot today, and the final commitment check
+catches both identically." The finding's Boundary note agrees this is
+the correct existing protection ("No current canonical-state forgery is
+asserted: the inspected final comparison is the protection that must
+remain") -- but neither the doc comment nor the finding's boundary claim
+had ever been exercised by a test that actually builds the attack. One
+now does.
+
+New test `a_genuinely_finalized_header_paired_with_a_different_self_
+consistent_chunk_tree_is_rejected_at_finish` builds exactly the finding's
+own concrete example: a real, validly finalized `(header, qc)` pair (so
+`SnapshotAssembler::new`'s finality check passes) paired with a
+`chunks_root` and full chunk set over a *completely different*,
+independently-decodable `LedgerState` (so every individual
+`accept_chunk` call genuinely verifies -- this is not a tampered-chunk
+attack, the chunk tree really is internally self-consistent). Confirms
+`finish()` -- specifically `header.state_root != state.commitment()`
+inside `ConsensusSnapshot::new` -- is what rejects it
+(`ConsensusError::SnapshotProofMismatch`), not any earlier per-chunk
+check, exactly as claimed.
+
+Cross-checked the finding's remaining named acceptance-test items
+against this module's existing test suite: **duplicates**
+(`chunks_may_arrive_out_of_order_and_re_delivery_is_harmless`),
+**substituted index** (`a_proof_from_the_wrong_index_does_not_verify`,
+which splices one chunk's data under another's proof/index and confirms
+rejection), **truncation**
+(`truncation_of_a_chunk_response_at_every_length_is_rejected_never_
+panics`), and **short final chunk**
+(`a_short_final_chunk_is_the_exact_remainder_not_padded_or_truncated`)
+were all already covered, predating this finding.
+
+**Investigated and declined**: snapshot-plus-suffix composition, the
+finding's Long-term fix item "reuse the same exact-body and suffix
+checks when catching up after snapshot installation." The un-chunked
+path (`state_sync_over_tcp`/`serve_state_sync_over_tcp`) already
+combines a snapshot with a bounded block suffix in one response
+(`StateSyncPayload::Snapshot { snapshot, blocks }`,
+`ConsensusArchive::response_locked`'s `use_snapshot` branch); the
+chunked path's own test (`a_long_offline_node_reaches_the_exact_tip_
+via_chunked_transfer_over_real_tcp`) already documents, honestly, that
+it "only ever transfers that snapshot, never the ordinary block suffix
+after it." The obvious-looking fix -- after `chunk_sync_over_tcp`
+finishes, call the existing `state_sync_over_tcp` against the same
+`peer_addr` for the suffix -- does not actually compose safely: both
+`open_state_sync_client`/`accept_state_sync_server` share one generic
+handshake, but `serve_chunk_sync_over_tcp`'s accept loop opens every
+received message only against `CHUNK_SYNC_AAD` and
+`serve_state_sync_over_tcp`'s only against `STATE_SYNC_AAD` -- a second,
+ordinary state-sync connection to the identical address a chunk-sync
+peer is serving would fail AEAD authentication outright, not degrade
+gracefully. Making the two protocols coexist on one address needs a real
+dispatch decision (protocol multiplexing on first message, a combined
+manifest+suffix wire message, or a documented two-address deployment
+convention) -- a genuine design choice this entry declines to invent
+unilaterally, the same category of decision F-18's economic-mechanism
+redesign and F-21's cross-remote-provider arbitration were declined for
+in this same pass.
+
+**Reason:** the finding's own framing distinguishes what's actually
+broken (nothing -- the Boundary note concedes this) from what remains
+unbuilt and honestly disclaimed (multi-peer sourcing, retry/backoff,
+authenticated resume cursors, snapshot-plus-suffix composition, weak-
+hardware resource measurement -- all already named in this module's own
+doc comment and D-0207's still-open "Required follow-up" before this
+finding existed). Writing a real adversarial test for the one concrete
+attack the finding actually describes is the correctly-scoped response;
+inventing a cross-protocol dispatch mechanism to satisfy a "long-term
+fix" bullet, without the review such a wire-format/deployment decision
+deserves, would be the over-reach this session's own established
+discipline (D-0479, D-0493, D-0496) consistently declines.
+
+**Constitutional impact:** none. No cryptography invented (reuses this
+module's existing Merkle/finality checks); no dependency-graph change;
+one new test, no production code changed.
+
+**Implementation status:** partially addressed.
+- `crates/mini-consensus/src/chunked_snapshot.rs`: new helper
+  `differently_keyed_snapshot` and new test
+  `a_genuinely_finalized_header_paired_with_a_different_self_consistent_
+  chunk_tree_is_rejected_at_finish`, passing.
+- No production code changed -- the finding's Boundary note already
+  correctly described current behavior; this entry adds proof, not a
+  fix, for the one concrete attack, and explicitly declines the larger
+  unbuilt items rather than rushing an unreviewed protocol change.
+
+**Failure point:** identical to the finding's own boundary and this
+module's own pre-existing doc: no resumable multi-peer chunk sourcing,
+no retry/backoff policy, no authenticated resume cursor, and (newly
+specific, from this entry's own investigation) no safe way today to
+combine chunked-snapshot transfer with ordinary block-suffix catch-up
+against one peer address without a real protocol-dispatch design
+decision. No weak-hardware peak memory/disk/work measurement exists for
+this path.
+
+**Required follow-up:** a deliberate protocol decision for snapshot-
+plus-suffix composition (protocol multiplexing vs. a combined wire
+message vs. a documented two-address convention), multi-peer chunk
+sourcing with retry/backoff, authenticated resume cursors, and weak-
+hardware resource measurement -- all pre-existing, all still open,
+unchanged by this entry.
+
+**Supersedes / superseded by:** none.

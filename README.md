@@ -407,15 +407,16 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0496`
-   (`D-0496`, PR #327 findings pack finding F-21 — the federated search
-   merge no longer lets a remote peer's self-asserted score silently
-   outrank this process's own locally-verified result, via an unforgeable
-   `ResultOrigin` only `federate_query` itself can mark `LocallyComputed`
-   — is the newest at the time of this edit; the Mininet Node Appliance
-   deployment profile this line previously credited to `D-0439` is
-   `D-0446` — `D-0439` is the identity-bound replica-registration
-   decision),
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0497`
+   (`D-0497`, PR #327 findings pack finding F-22 — a new adversarial test
+   confirms the chunked-snapshot reassembly's final `state_root ==
+   commitment()` check rejects a valid finalized header paired with a
+   different self-consistent chunk tree, and snapshot-plus-suffix
+   composition is investigated and honestly declined pending a real
+   protocol-dispatch decision — is the newest at the time of this edit;
+   the Mininet Node Appliance deployment profile this line previously
+   credited to `D-0439` is `D-0446` — `D-0439` is the identity-bound
+   replica-registration decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
    privacy/cost-doctrine track's `D-0300`–, and the edge/provider-layer
    track's `D-0400`– — see the log's "Decision-number allocation across
