@@ -21045,3 +21045,98 @@ governance work; no future PR titled "close F-17" should be accepted
 without exactly that evidence attached.
 
 **Supersedes / superseded by:** none.
+
+### D-0493 — F-18 re-verified: F5's deliberate FAILs remain deliberate and correct, the one real bug it named is already fixed by D-0476  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-18
+(`tools/fixtures/f5_phase2_report.jsonl`, `tools/f5_phase2_model.py`);
+D-0476 (this same branch, `max_retained_keys` 100,000 → 80,000); D-0428
+(F5 anti-collusion design), D-0478/D-0479 (this same branch, declined a
+broader mechanism redesign as out of scope).
+
+**Decision:** re-ran the exact checked-in model against its own
+fixed-vector fixture (`python3 tools/f5_phase2_model.py --check
+tools/fixtures/f5_phase2_report.jsonl` — deterministic, byte-for-byte
+match, exit 0) and the model's 30-test unit suite (all pass). Confirms,
+line by line, that the finding's three named symptoms are exactly what
+the checked-in fixture shows today:
+
+1. **`maximum-colluding-extraction` gate: FAIL**, `observed: 10000`
+   basis points against a `1000` (10%) threshold — the
+   `real-delivery-collusion-drains-the-bounded-program` vector, modeling
+   the finding's own concrete example (one operator controls requester
+   and provider, delivers to itself, collects every permitted subsidy).
+   Still FAIL, correctly.
+2. **`audit-randomness-grinding-resistance` gate: FAIL**, `observed: 0`
+   against a `9500` (95%) floor — the
+   `known-audit-randomness-can-be-ground-away` vector, an adaptive
+   campaign that submits claim ids chosen after the audit seed is known,
+   avoiding every sampled target. Still FAIL, correctly.
+3. **`retained-state-per-policy-epoch` gate: now PASS**, `observed:
+   7,680,000` bytes against the `8,388,608` (8 MiB) ceiling. This is the
+   one item D-0476, already shipped on this branch, actually fixed
+   (`max_retained_keys` 100,000 → 80,000 in `tools/f5_phase2_model.py`'s
+   default policy) — the finding's "configured replay-state estimates
+   above the 8 MiB ceiling" symptom is gone, verified by re-running the
+   model rather than assumed from the earlier commit message.
+
+`phase3_authorized: false` remains, with `reason: "blocked: at least one
+gate failed or remains unmeasured"` — unchanged and correct.
+
+The finding's "Acceptance tests to implement" section asks for exactly
+three additions: adaptive audit-grinding, multi-policy overlap, and a
+genuine-colluder campaign. All three already exist as real, exercised
+vectors in the checked-in model — `known-audit-randomness-can-be-
+ground-away` (adaptive grinding), `distinct-policies-do-not-create-a-
+global-event-registry` (multi-policy overlap, status `PARTIAL` by
+design — see its own `detail`), and `real-delivery-collusion-drains-
+the-bounded-program` (genuine colluder campaign) — predating this
+finding, not added by it. Nothing was missing here to add.
+
+**Reason:** the finding's title says it plainly: these are *deliberately*
+failed gates, not accidentally broken ones. Its own "Boundary of the
+finding" note states the model check's actual scope precisely: "Passing
+tests can correctly reproduce a FAIL result. A model check is not
+external economic sign-off." That is exactly this model's job and
+exactly what it does — the two remaining FAILs represent a genuine,
+unsolved subsidy-antibody mechanism-design problem (a sponsor-funded
+budget cannot yet distinguish a real self-dealing operator from a
+population of honest independent participants), not a bug with a small
+code-level fix. D-0479 already assessed the broader redesign this
+finding's "Long-term fix" calls for (narrowing the funded objective under
+a new precommitted threat model, immutable claims before audit-entropy
+reveal, privacy-preserving overlap limits) and declined to attempt it
+without the external mechanism-design review the finding itself demands
+("An independent mechanism reviewer must validate assumptions... before
+any real budget is enabled") — that decision stands unchanged here.
+Silently flipping either FAIL to PASS, loosening a threshold, or marking
+`phase3_authorized: true` without that external review would be the
+exact failure mode this finding warns against, and this entry does
+neither.
+
+**Constitutional impact:** none. No code changed by this entry; it
+re-verifies existing, already-decided state.
+
+**Implementation status:** confirmed, no new code. The one code-shaped
+gap the finding named (the 8 MiB ceiling) was already fixed by D-0476
+on this same branch, now independently re-verified via a fresh model
+run rather than taken on faith from that commit's own message. The two
+economically-unsolved gates remain honestly FAIL. No new tests added —
+the finding's requested acceptance-test coverage (adaptive grinding,
+multi-policy overlap, genuine collusion) already exists in the checked-in
+model and fixture.
+
+**Failure point:** identical to the finding's own stated boundary and to
+D-0479's — this is model-level, self-consistency verification, not an
+external economic/mechanism-design sign-off, and does not become one by
+being re-run. `phase3_authorized` staying `false` is the correct,
+honest state until that external review happens; nothing about this
+entry moves that forward.
+
+**Required follow-up:** unchanged from D-0479/D-0428 — an independent
+mechanism-design reviewer must evaluate a redesigned, narrower funded
+objective before any real subsidized budget is enabled. No new follow-up
+is created by this entry.
+
+**Supersedes / superseded by:** none.

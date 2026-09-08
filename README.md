@@ -407,14 +407,14 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0492`
-   (`D-0492`, assessing PR #327 findings pack finding F-17 — founder-guarded
-   governance is a genuine, undischarged structural fact, not a code defect,
-   with a narrow silent-staleness gap in its own operating-state record now
-   closed — is the newest at the time of this edit; the Mininet Node
-   Appliance deployment profile this line previously credited to `D-0439`
-   is `D-0446` — `D-0439` is the identity-bound replica-registration
-   decision),
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0493`
+   (`D-0493`, re-verifying PR #327 findings pack finding F-18 — F5's two
+   deliberately-failed economic gates remain correctly FAIL, and the one
+   real bug the finding named (the 8 MiB replay-state ceiling) was already
+   fixed by D-0476 — is the newest at the time of this edit; the Mininet
+   Node Appliance deployment profile this line previously credited to
+   `D-0439` is `D-0446` — `D-0439` is the identity-bound replica-
+   registration decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
    privacy/cost-doctrine track's `D-0300`–, and the edge/provider-layer
    track's `D-0400`– — see the log's "Decision-number allocation across
