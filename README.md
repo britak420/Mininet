@@ -407,9 +407,9 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0485`
-   (`D-0485`, signature size/count codec caps re-synchronized to
-   did-mini's own bounds from the PR #327 findings pack (F-10), is the
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0486`
+   (`D-0486`, the dependency-audit CI gate reconciling exit status
+   against report schema from the PR #327 findings pack (F-11), is the
    newest at the time of this edit; the Mininet Node Appliance deployment
    profile this line previously credited to `D-0439` is `D-0446` —
    `D-0439` is the identity-bound replica-registration decision),

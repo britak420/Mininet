@@ -20215,3 +20215,106 @@ not accelerate or change that plan, it only removes a codec bug that
 plan would otherwise have hit at Phase 2 (production ML-DSA-65 signing).
 
 **Supersedes / superseded by:** none.
+
+### D-0486 — Dependency-scan CI gate reconciles exit status with report schema, not report parseability alone (F-11)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-11
+(`.github/workflows/ci.yml:119`); D-0441 (established this job's own
+gate-vs-advisory-warning contract); PR #299/#307/#317 (the job's prior
+revisions this finding says still left the gap).
+
+**Decision:** the `dependency-audit` job's "Scan dependencies for
+advisories" step previously checked only that `cargo-audit`'s captured
+stdout (`audit-report.json`) was non-empty and parseable JSON, then read
+`report.get("vulnerabilities", {}).get("count", 0)` — defaulting a
+*missing* `vulnerabilities` object to a *zero* count. It captured
+`cargo-audit`'s own exit status into `$status` but only ever used it in
+log messages, never as a decision input. A `cargo-audit` invocation that
+fails operationally (network down, advisory database unreachable, a
+future flag change) but still prints well-formed, unrelated JSON to
+stdout (`{"error": "database unavailable"}`) would pass both checks:
+the file is non-empty, the JSON parses, the missing count defaults to
+0, and the step printed "No advisories... Scanner ran successfully."
+This is F-11's exact concrete example, reproduced directly (see
+Implementation status). The fix extracts the reconciliation logic into
+a standalone module, `tools/dependency_scan_gate.py`, whose `evaluate`
+treats `cargo-audit`'s exit status as load-bearing: only exit `0`
+(clean) or `1` (advisories found, `cargo-audit`'s own documented
+convention) are accepted at all; any other exit status is an
+operational failure regardless of stdout content. Within those two
+codes, the report's `vulnerabilities` object must actually have the
+right shape (`count`/`list` both present, `count == len(list)`) and
+must *agree* with the exit status (exit 0 but count > 0, or exit 1 but
+count == 0, are both refused as an internal inconsistency) before a
+verdict is trusted. `.github/workflows/ci.yml`'s step now calls this
+script instead of an inline `python3 - <<'REPORT'` heredoc.
+
+**Reason:** an inline heredoc embedded in YAML can only be exercised by
+a real GitHub Actions run — exactly why this exact class of bug (a
+captured value read into a variable and then never actually checked)
+survived three prior revisions (#299/#307/#317) each aimed at this same
+job. Moving the decision logic into an importable, argv-driven module
+makes it unit-testable the same way every other CI-adjacent policy
+script in `tools/` already is (`check_decisions.py`,
+`check_governance.py`, `check_roadmap.py`), and the finding's own
+"Acceptance tests to implement" list (clean report, genuine advisories,
+empty output, malformed JSON, valid-JSON error, inconsistent count/list,
+unexpected exit codes) is exactly what `test_dependency_scan_gate.py`
+now runs on every `cargo fmt`/`clippy`/`test` pass a human or agent
+does locally, not only in CI.
+
+**Constitutional impact:** none. CI/tooling only — no protocol surface,
+no dependency-graph change, no frozen invariant touched. The job's own
+D-0441 contract (scanner failure gates; advisory findings warn, do not
+yet fail) is unchanged, only made actually enforced against the exact
+gap F-11 names.
+
+**Implementation status:** shipped.
+- `tools/dependency_scan_gate.py`: new — `evaluate(report_text,
+  exit_status) -> GateResult` (verdict, exit code, annotated log lines)
+  plus a `main()` CLI entry point matching the CI step's invocation
+  (`--report-file`, `--exit-status`).
+- `tools/test_dependency_scan_gate.py`: new — 17 tests covering every
+  fixture the finding names (clean, advisories, empty output, malformed
+  JSON, the exact valid-JSON-error concrete example at multiple exit
+  codes, inconsistent count/list in both directions, undocumented and
+  negative exit codes, a missing `vulnerabilities` key entirely, and the
+  CLI entry point itself). All 17 pass.
+- `.github/workflows/ci.yml`: the "Scan dependencies for advisories"
+  step's inline heredoc replaced with a call to the new script, keeping
+  the existing `set +e`/`set -uo pipefail` wrapper and `cargo-audit`
+  invocation exactly as before (F-11's own "Preserve the separate deny
+  gate" plus this session's own added constraint: run under the actual
+  wrapper, not a rewritten one).
+- Manually reproduced the finding's exact concrete example locally
+  under the real `bash -eo pipefail` wrapper with a stub `cargo-audit`
+  on `PATH` that prints `{"error":"database unavailable"}` and exits 2:
+  the step now fails (`::error::cargo-audit exited 2, which is not a
+  documented clean-scan (0) or advisories-found (1) outcome...`) where
+  the old logic printed "Scanner ran successfully." Also reproduced a
+  genuine clean scan (exit 0, empty list) and a genuine advisories-found
+  scan (exit 1, one real entry) both still passing/warning correctly —
+  the fix narrows exactly the false-success gap without narrowing the
+  job's legitimate outcomes.
+- `dependency-deny` (the separate `cargo-deny` job `EmbarkStudios/
+  cargo-deny-action` already gates on) is untouched, per the finding's
+  own "Preserve the separate deny gate."
+
+**Failure point:** this closes the exit-status/report-schema
+reconciliation gap specifically. It does not add SBOM/provenance
+generation, an advisory triage process, or make advisory findings fail
+the build — those remain D-0441's own named, still-open "Required
+follow-up," unaffected by this decision. `cargo-audit`'s exit-code
+convention (0/1) is documented upstream behavior this module relies on
+without re-verifying against the tool's actual source; a future
+`cargo-audit` release that changes its exit-code contract would need a
+corresponding update here, the same maintenance burden every version-
+pinned external tool integration in this workspace already carries.
+
+**Required follow-up:** none beyond D-0441's own existing "Required
+follow-up" (advisory triage process with named owners and expiry, after
+which findings should fail; SBOM/provenance generation; generated-file
+freshness enforcement) — this decision does not touch any of those.
+
+**Supersedes / superseded by:** extends D-0441; supersedes nothing.

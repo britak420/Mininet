@@ -1,8 +1,8 @@
 {
   "counts": {
     "crates": 75,
-    "files": 933,
-    "headings": 3282,
+    "files": 935,
+    "headings": 3288,
     "rust_symbols": 9438
   },
   "crates": {
@@ -974,7 +974,7 @@
       "title": "Android beta slice 9 (issue #205, hub #196): SPEC-11's verified-"
     },
     {
-      "bytes": 7558,
+      "bytes": 6891,
       "group": "ci",
       "headings": [
         {
@@ -991,15 +991,14 @@
       "keywords": [
         "run",
         "name",
-        "cargo-audit",
         "install",
-        "cargo",
-        "scanner",
-        "json",
         "check",
+        "cargo",
+        "cargo-audit",
+        "never",
         "toolchain",
         "job",
-        "never",
+        "scanner",
         "needs",
         "advisories",
         "d-0441",
@@ -1009,14 +1008,15 @@
         "rustup",
         "target",
         "own",
+        "because",
         "repository",
         "pin",
-        "failure",
-        "set"
+        "set",
+        "json"
       ],
-      "lines": 165,
+      "lines": 148,
       "path": ".github/workflows/ci.yml",
-      "sha256": "9b9fa16f82e88cae89e6bd8c72174dcbb45c6fec6adc53d52e475097e423a5ff",
+      "sha256": "84555b588a38725d7ceb6d85cdc4910d57d1acbada022d312d2dc764aac6a0f1",
       "symbols": [],
       "title": "Least-privilege default: this workflow only reads and checks the repo, it"
     },
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28122,
+      "bytes": 28124,
       "group": "root",
       "headings": [
         {
@@ -1840,7 +1840,7 @@
       ],
       "lines": 448,
       "path": "README.md",
-      "sha256": "59f051a1649ead5b7f64f258d7f957199cd5c93aa78fad930ccc8d01c7721454",
+      "sha256": "7fe34426568b98163cb04dd88aa4902a496c1684ea814eb9335cef227de862bb",
       "symbols": [],
       "title": "Mininet"
     },
@@ -78317,7 +78317,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1218624,
+      "bytes": 1224866,
       "group": "docs",
       "headings": [
         {
@@ -78747,9 +78747,9 @@
         "first",
         "kel"
       ],
-      "lines": 20218,
+      "lines": 20321,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "fc859aa1028a643915d2e435bb3f07c21d1d58bb4176ed6a6a69db4b76bf6170",
+      "sha256": "c9622b9bda94320f227a164f9a571791e38b84334456b4d42f6fdc9e43ae2057",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80085,7 +80085,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 183661,
+      "bytes": 185006,
       "group": "docs",
       "headings": [
         {
@@ -80155,42 +80155,42 @@
         },
         {
           "level": 2,
-          "line": 1867,
+          "line": 1887,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2366,
+          "line": 2386,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2457,
+          "line": 2477,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2537,
+          "line": 2557,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2603,
+          "line": 2623,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2620,
+          "line": 2640,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2656,
+          "line": 2676,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2721,
+          "line": 2741,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80220,9 +80220,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2756,
+      "lines": 2776,
       "path": "docs/STATUS.md",
-      "sha256": "c0beef2b94181021b6648a85607e9fdd50c04cb5b6779fe0f32411ecda740dea",
+      "sha256": "adce2c061a3e84f84f8d5127d5b7d70ef1c2168536fbfd7729e3bcf3914ee28a",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97089,7 +97089,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 88936,
+      "bytes": 89903,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97118,9 +97118,9 @@
         "independently",
         "both"
       ],
-      "lines": 1265,
+      "lines": 1269,
       "path": "governance/work-claims.json",
-      "sha256": "823e9919f381021aa0c950ed715d5b2b8582d2314e05420132bea22b85e3dd07",
+      "sha256": "355666282a46eea40a65b70e3e88a5e67b72522b1b32f7d69e829cd7225c8e21",
       "symbols": [],
       "title": "{"
     },
@@ -97716,6 +97716,73 @@
       "title": "One-line, faithful distillations of each directive's own text below \u2014"
     },
     {
+      "bytes": 7654,
+      "group": "tools",
+      "headings": [
+        {
+          "level": 1,
+          "line": 35,
+          "text": "cargo-audit's documented exit-code contract: 0 = ran to completion, no"
+        },
+        {
+          "level": 1,
+          "line": 36,
+          "text": "vulnerabilities; 1 = ran to completion, vulnerabilities found (the report"
+        },
+        {
+          "level": 1,
+          "line": 37,
+          "text": "carries a real `vulnerabilities` object with a non-empty list). Any other"
+        },
+        {
+          "level": 1,
+          "line": 38,
+          "text": "code means the tool did not complete a real scan -- database fetch"
+        },
+        {
+          "level": 1,
+          "line": 39,
+          "text": "failure, argument error, panic -- regardless of what its stdout happens"
+        },
+        {
+          "level": 1,
+          "line": 40,
+          "text": "to contain."
+        }
+      ],
+      "keywords": [
+        "vulnerabilities",
+        "cargo-audit",
+        "report",
+        "error",
+        "list",
+        "failure",
+        "json",
+        "exit",
+        "gateresult",
+        "exit_status",
+        "real",
+        "ran",
+        "object",
+        "its",
+        "scanner",
+        "count",
+        "import",
+        "malformed_report",
+        "return",
+        "get",
+        "completion",
+        "status",
+        "job",
+        "outcome"
+      ],
+      "lines": 219,
+      "path": "tools/dependency_scan_gate.py",
+      "sha256": "e57f7e2f2fcb0e24cd2eec248d54de3125d9dd2929f7b0ce8f083a629422041a",
+      "symbols": [],
+      "title": "cargo-audit's documented exit-code contract: 0 = ran to completion, no"
+    },
+    {
       "bytes": 81021,
       "group": "tools",
       "headings": [],
@@ -98129,6 +98196,42 @@
       "sha256": "f2f8ae3642ac7de37de20771a16516b2cd056be0ab1f24e965684a4eadaec7ad",
       "symbols": [],
       "title": "R1 \u2014 First thing \u00b7 `active`"
+    },
+    {
+      "bytes": 6436,
+      "group": "tools",
+      "headings": [],
+      "keywords": [
+        "self",
+        "result",
+        "gate",
+        "assertequal",
+        "def",
+        "evaluate",
+        "verdict",
+        "exit_code",
+        "report",
+        "unittest",
+        "class",
+        "testcase",
+        "joined",
+        "malformed_report",
+        "json",
+        "count",
+        "vulnerabilities",
+        "advisories",
+        "error",
+        "list",
+        "entries",
+        "text",
+        "clean",
+        "example"
+      ],
+      "lines": 172,
+      "path": "tools/test_dependency_scan_gate.py",
+      "sha256": "5d58822926a839e25972a083c1f518bb22f1cde368343a3769ee916da1c3f2d4",
+      "symbols": [],
+      "title": "\"\"\"Tests for dependency_scan_gate.py (PR #327 finding F-11)."
     },
     {
       "bytes": 31827,

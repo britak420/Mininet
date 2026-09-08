@@ -103,36 +103,19 @@ jobs:
           # subcommand lookup cannot drag the pinned toolchain back in.
           cargo-audit audit --json > audit-report.json
           status=$?
-          if [ ! -s audit-report.json ]; then
-            echo "::error::cargo-audit produced no report (exit ${status}). This is a"
-            echo "::error::scanner failure, not an advisory finding -- failing the build."
-            exit 1
-          fi
-          if ! python3 -c "import json; json.load(open('audit-report.json'))" 2>/dev/null; then
-            echo "::error::cargo-audit produced an unparseable report (exit ${status})."
-            echo "::error::Treating a scanner malfunction as a hard failure."
-            exit 1
-          fi
-          python3 - <<'REPORT'
-          import json
-          report = json.load(open("audit-report.json"))
-          counts = report.get("vulnerabilities", {})
-          found = counts.get("count", 0)
-          if found:
-              print(f"::warning::cargo-audit reported {found} advisory finding(s).")
-              for entry in counts.get("list", []):
-                  advisory = entry.get("advisory", {})
-                  package = entry.get("package", {})
-                  print(
-                      f"::warning::{advisory.get('id')} in "
-                      f"{package.get('name')} {package.get('version')}: "
-                      f"{advisory.get('title')}"
-                  )
-              print("Advisories do not fail this job yet -- see D-0441.")
-          else:
-              print("No advisories against the current Cargo.lock.")
-          REPORT
-          echo "Scanner ran successfully; that is what this job gates on."
+          # tools/dependency_scan_gate.py (D-0486, PR #327 finding F-11)
+          # owns the actual pass/fail reconciliation: a nonzero exit that
+          # still produces parseable-but-wrong-shaped JSON (e.g. a bare
+          # `{"error": "database unavailable"}`) must never read as a
+          # clean scan just because a JSON parser accepted it -- this is
+          # what the previous inline check (parseable => trust a
+          # `.get(..., {})`-defaulted zero count) got wrong. Reconciling
+          # `status` against the report's own declared schema is exercised
+          # by tools/test_dependency_scan_gate.py outside of any real CI
+          # run, unlike the heredoc it replaces.
+          python3 tools/dependency_scan_gate.py \
+            --report-file audit-report.json \
+            --exit-status "${status}"
 
   # License/advisory/source policy for the whole resolved dependency
   # graph (D-0069 dependency-governance requirement, first exercised by

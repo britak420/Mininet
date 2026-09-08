@@ -1656,6 +1656,26 @@ horizontal roadmap breadth — is a founder priority call, not decided here.
   unchanged**: advisory findings still do not fail `dependency-audit` —
   `dependency-deny` is the job that blocks a vulnerable dependency, and
   it is the one that caught this.
+- **shipped (D-0486)** — `dependency-audit`'s scan step had a second,
+  narrower gap D-0450 above did not close: it checked only that
+  `cargo-audit`'s captured stdout was non-empty, parseable JSON, then
+  defaulted a *missing* `vulnerabilities` object to a zero count — never
+  actually using the exit status it captured into `$status`. A
+  `cargo-audit` operational failure (network/database down) that still
+  prints unrelated, well-formed JSON to stdout (`{"error": "database
+  unavailable"}`) passed both checks and read as "No advisories...
+  Scanner ran successfully." New `tools/dependency_scan_gate.py`
+  (`evaluate(report_text, exit_status)`) makes the exit status
+  load-bearing: only `cargo-audit`'s own documented exit codes (`0`
+  clean, `1` advisories found) are accepted, the report's
+  `vulnerabilities` object must have the right shape, and the two must
+  agree, or the job fails as an operational failure rather than a clean
+  scan. 17 tests in `tools/test_dependency_scan_gate.py` cover every
+  fixture named for this finding, including the exact
+  `{"error":...}`-at-a-nonzero-exit case. `.github/workflows/ci.yml`'s
+  step now calls this tested script instead of an untestable inline
+  heredoc. `dependency-deny` (the job that actually blocks a vulnerable
+  dependency) is unchanged. See `docs/DECISION_LOG.md` D-0486.
   The same run also exposed a **time bomb in the validator test suite**:
   four baseline tests copy the live repository and assert zero errors,
   and work-claim leases expire on a calendar, so once an open claim's
