@@ -3,7 +3,7 @@
     "crates": 75,
     "files": 935,
     "headings": 3288,
-    "rust_symbols": 9446
+    "rust_symbols": 9449
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28145,
+      "bytes": 28120,
       "group": "root",
       "headings": [
         {
@@ -1808,7 +1808,7 @@
         },
         {
           "level": 2,
-          "line": 445,
+          "line": 444,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 449,
+      "lines": 448,
       "path": "README.md",
-      "sha256": "73a92712406e08ccf4387822d2b91f579f066c72cf9ce139612fea451ccb72ef",
+      "sha256": "3d4ee2f9b8eb442c49226491b9450f50c0422e1bc389d2383c73a58ccfa7372c",
       "symbols": [],
       "title": "Mininet"
     },
@@ -40569,7 +40569,7 @@
       "title": "mini-objects"
     },
     {
-      "bytes": 28877,
+      "bytes": 35163,
       "group": "crate:mini-objects",
       "headings": [],
       "keywords": [
@@ -40598,9 +40598,9 @@
         "administer",
         "read"
       ],
-      "lines": 852,
+      "lines": 1004,
       "path": "crates/mini-objects/src/capability.rs",
-      "sha256": "d53d03adf108d99b88e93a230cd5a5ebd72937d32cb5f0d54819d1016c40f1fa",
+      "sha256": "b2ec4a6c64694b69e776aa9e5430dc9da18b543fe45853b2729f13cea2e6efb9",
       "symbols": [
         {
           "kind": "const",
@@ -40759,147 +40759,162 @@
         },
         {
           "kind": "fn",
-          "line": 252,
+          "line": 268,
           "name": "validate"
         },
         {
           "kind": "fn",
-          "line": 297,
+          "line": 317,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 323,
+          "line": 343,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 391,
+          "line": 411,
           "name": "parse_did"
         },
         {
           "kind": "mod",
-          "line": 397,
+          "line": 417,
           "name": "tests"
         },
         {
           "kind": "struct",
-          "line": 400,
+          "line": 420,
           "name": "Fixture"
         },
         {
           "kind": "fn",
-          "line": 407,
+          "line": 427,
           "name": "fixture"
         },
         {
           "kind": "fn",
-          "line": 416,
+          "line": 436,
           "name": "issue_and_prove"
         },
         {
           "kind": "fn",
-          "line": 432,
+          "line": 452,
           "name": "every_right_round_trips_through_its_tag"
         },
         {
           "kind": "fn",
-          "line": 445,
+          "line": 465,
           "name": "an_unknown_right_tag_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 450,
+          "line": 470,
           "name": "a_valid_grant_and_proof_validate_successfully"
         },
         {
           "kind": "fn",
-          "line": 467,
+          "line": 488,
           "name": "a_read_grant_does_not_validate_as_append"
         },
         {
           "kind": "fn",
-          "line": 485,
+          "line": 507,
           "name": "an_administer_grant_does_not_implicitly_validate_as_another_right"
         },
         {
           "kind": "fn",
-          "line": 503,
+          "line": 526,
           "name": "a_grant_for_scope_a_fails_against_scope_b"
         },
         {
           "kind": "fn",
-          "line": 522,
+          "line": 546,
           "name": "an_incorrect_token_fails"
         },
         {
           "kind": "fn",
-          "line": 541,
+          "line": 566,
           "name": "a_token_commitment_copied_into_a_different_scope_grant_does_not_validate"
         },
         {
           "kind": "fn",
-          "line": 573,
+          "line": 599,
           "name": "a_valid_token_without_grantee_proof_fails"
         },
         {
           "kind": "fn",
-          "line": 592,
+          "line": 619,
           "name": "proof_from_another_pseudonym_fails"
         },
         {
           "kind": "fn",
-          "line": 620,
+          "line": 648,
           "name": "an_expired_grant_fails"
         },
         {
           "kind": "fn",
-          "line": 648,
+          "line": 677,
           "name": "a_not_yet_valid_grant_fails"
         },
         {
           "kind": "fn",
-          "line": 676,
+          "line": 706,
           "name": "a_grant_signed_by_one_issuer_does_not_validate_against_another"
         },
         {
           "kind": "fn",
-          "line": 695,
+          "line": 734,
+          "name": "an_attacker_issued_grant_over_another_owners_resource_is_refused"
+        },
+        {
+          "kind": "fn",
+          "line": 791,
+          "name": "a_valid_alice_issued_grant_remains_usable_by_its_intended_holder"
+        },
+        {
+          "kind": "fn",
+          "line": 812,
+          "name": "a_caller_that_supplies_no_trusted_owner_cannot_treat_validate_as_authorization"
+        },
+        {
+          "kind": "fn",
+          "line": 843,
           "name": "a_grant_round_trips_through_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 703,
+          "line": 851,
           "name": "a_full_length_ml_dsa_65_signature_round_trips_through_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 724,
+          "line": 872,
           "name": "a_grant_with_a_validity_window_round_trips_and_still_enforces_it"
         },
         {
           "kind": "fn",
-          "line": 782,
+          "line": 933,
           "name": "a_decoded_grant_still_validates"
         },
         {
           "kind": "fn",
-          "line": 800,
+          "line": 952,
           "name": "an_unknown_capability_version_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 810,
+          "line": 962,
           "name": "a_truncated_grant_is_rejected_at_every_length"
         },
         {
           "kind": "fn",
-          "line": 823,
+          "line": 975,
           "name": "trailing_bytes_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 835,
+          "line": 987,
           "name": "an_empty_or_default_token_is_still_a_valid_32_byte_secret"
         }
       ],
@@ -41210,38 +41225,38 @@
       "title": "use mini_crypto::{AeadKey, AeadNonce, AeadSuite};"
     },
     {
-      "bytes": 4534,
+      "bytes": 5344,
       "group": "crate:mini-objects",
       "headings": [],
       "keywords": [
         "objecterror",
-        "write",
         "grant",
-        "object",
+        "write",
         "capability",
+        "object",
         "does",
-        "error",
         "match",
         "result",
         "fmt",
         "bytes",
         "identity",
         "core",
-        "identityerror",
-        "cryptoerror",
+        "resource",
+        "error",
         "decode",
+        "signature",
         "one",
+        "valid",
         "device",
         "version",
-        "crypto",
-        "self",
+        "identityerror",
+        "cryptoerror",
         "type",
-        "truncated",
-        "signature"
+        "truncated"
       ],
-      "lines": 109,
+      "lines": 124,
       "path": "crates/mini-objects/src/error.rs",
-      "sha256": "e53a035e4b2f02f6638ae34c98499abc8b5738f0891c87e8ded6b400ef2b8560",
+      "sha256": "7ae116b6f48e8df25d3f055be8d2ba9165baecf5a5d2f2aae539711d2de4f46c",
       "symbols": [
         {
           "kind": "type",
@@ -41255,37 +41270,37 @@
         },
         {
           "kind": "impl",
-          "line": 54,
+          "line": 63,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 55,
+          "line": 64,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 97,
+          "line": 112,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 99,
+          "line": 114,
           "name": "From<IdentityError>"
         },
         {
           "kind": "fn",
-          "line": 100,
+          "line": 115,
           "name": "from"
         },
         {
           "kind": "impl",
-          "line": 104,
+          "line": 119,
           "name": "From<CryptoError>"
         },
         {
           "kind": "fn",
-          "line": 105,
+          "line": 120,
           "name": "from"
         }
       ],
@@ -78357,7 +78372,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1233029,
+      "bytes": 1239571,
       "group": "docs",
       "headings": [
         {
@@ -78787,9 +78802,9 @@
         "first",
         "kel"
       ],
-      "lines": 20452,
+      "lines": 20562,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "d14c3020ca4fc5eb4ab4da2b9d151284a3bf45f2ae36ee0c414f9b5c881cf9b8",
+      "sha256": "e58053399d2610fc653bbc1c384dab09a65cc3ad4454c261770577da9bc810d4",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -80125,7 +80140,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 186003,
+      "bytes": 186751,
       "group": "docs",
       "headings": [
         {
@@ -80175,62 +80190,62 @@
         },
         {
           "level": 2,
-          "line": 1199,
+          "line": 1210,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1426,
+          "line": 1437,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1525,
+          "line": 1536,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1555,
+          "line": 1566,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1902,
+          "line": 1913,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2401,
+          "line": 2412,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2492,
+          "line": 2503,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2572,
+          "line": 2583,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2638,
+          "line": 2649,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2655,
+          "line": 2666,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2691,
+          "line": 2702,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2756,
+          "line": 2767,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -80260,9 +80275,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2791,
+      "lines": 2802,
       "path": "docs/STATUS.md",
-      "sha256": "8aa5429ecee8d6abbb46046406d0d0af87e9105527ed3ad0e656e784ac3478ab",
+      "sha256": "caf88d9fb3d9a07b20f947126da9d4455c3128faf404fea9cfed1b403c854ff5",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -97129,7 +97144,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 91257,
+      "bytes": 92112,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -97158,9 +97173,9 @@
         "independently",
         "both"
       ],
-      "lines": 1274,
+      "lines": 1276,
       "path": "governance/work-claims.json",
-      "sha256": "adb1119fa82a938f02cc175eafc5b2d6b2ddce1fa5b7ae7f082c6afc4d581412",
+      "sha256": "e349f3f33b451fd3131e4893c393c1b662f0b9710d2d3104a507a12640ea124f",
       "symbols": [],
       "title": "{"
     },

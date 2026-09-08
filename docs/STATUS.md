@@ -1011,6 +1011,17 @@ given time.
   already-established key), traffic-analysis resistance, deterministic
   route-tag lookup, capability revocation — see D-0304's Required
   follow-up.
+  **Owner binding added (D-0488):** `CapabilityGrant::validate` checked
+  a grant's signature/scope/right/token/holder-proof but never that its
+  issuer actually owned the named resource -- any signer could produce a
+  perfectly valid grant naming someone else's object (F-13). `validate`
+  now requires a caller-supplied `resource_owner: &Did`, established
+  through the caller's own trusted channel, and refuses any grant whose
+  issuer does not match it (new `ObjectError::
+  CapabilityIssuerNotResourceOwner`). Confirmed zero real callers exist
+  in this workspace today (`mini-provider::EngagementGrant` is a
+  separate, still-unwired typed domain), so the signature change had no
+  coordinated-review cost. See `docs/DECISION_LOG.md` D-0488.
 - **design-only** — `docs/design/mixnet-sphinx-protocol.md` (D-0305,
   lane L3, `MN-204`): a Sphinx (Danezis & Goldberg 2009) + Loopix-style
   candidate specification for `mini_privacy_policy::Mechanism::

@@ -245,13 +245,30 @@ impl CapabilityGrant {
         grantee.sign_message(&self.holder_proof_message())
     }
 
-    /// Full validation: issuer signature, exact scope/right match, token
-    /// possession, validity window, and holder proof. Fails closed on any
-    /// mismatch — never partially authorizes.
+    /// Full validation: issuer signature, resource-owner authorization,
+    /// exact scope/right match, token possession, validity window, and
+    /// holder proof. Fails closed on any mismatch — never partially
+    /// authorizes.
+    ///
+    /// `resource_owner` must be the *actual* owner of the resource named
+    /// by `requested_scope`, established by the caller through its own
+    /// trusted channel (e.g. an `Object`'s `author_human`, a directory
+    /// record, or a chain-anchored ownership fact) — never derived from
+    /// anything inside this grant (F-13). A valid grant signature alone
+    /// is not authorization: any signer can produce a perfectly
+    /// well-formed, validly-signed grant naming somebody else's resource,
+    /// and without this check `validate` returning `Ok` would look
+    /// indistinguishable from a grant the resource's real owner actually
+    /// issued. This check makes that specific confusion impossible to
+    /// reach through this function — a caller that cannot establish a
+    /// trusted owner has no way to call `validate` at all, rather than a
+    /// caller that forgets to check ownership separately after a
+    /// signature-only success.
     #[allow(clippy::too_many_arguments)]
     pub fn validate(
         &self,
         issuer_kel: &Kel,
+        resource_owner: &Did,
         requested_scope: &CapabilityScope,
         requested_right: CapabilityRight,
         token: &CapabilityToken,
@@ -261,6 +278,9 @@ impl CapabilityGrant {
     ) -> Result<()> {
         if issuer_kel.did().as_str() != self.issuer.as_str() {
             return Err(ObjectError::DeviceMismatch);
+        }
+        if resource_owner.as_str() != self.issuer.as_str() {
+            return Err(ObjectError::CapabilityIssuerNotResourceOwner);
         }
         issuer_kel
             .verify_message(&self.signing_bytes(), &self.signature)
@@ -453,6 +473,7 @@ mod tests {
         grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -470,6 +491,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Append,
                 &f.token,
@@ -488,6 +510,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -507,6 +530,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &other_scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -526,6 +550,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &wrong_token,
@@ -558,6 +583,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -577,6 +603,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -597,6 +624,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -633,6 +661,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -661,6 +690,7 @@ mod tests {
         let err = grant
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -680,6 +710,7 @@ mod tests {
         let err = grant
             .validate(
                 &other_issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -689,6 +720,123 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(err, ObjectError::DeviceMismatch);
+    }
+
+    // F-13: a valid grant signature is not, by itself, authorization over
+    // the resource it names. These tests reproduce the finding's own
+    // concrete example directly: Mallory issues a perfectly well-formed,
+    // validly-signed grant over Alice's resource, and a caller that
+    // correctly supplies Alice as the resource owner must still be
+    // refused -- Mallory's own signature over her own grant proves
+    // nothing about who owns the resource it names.
+
+    #[test]
+    fn an_attacker_issued_grant_over_another_owners_resource_is_refused() {
+        let alice = Controller::incept_single().unwrap();
+        let mallory = Controller::incept_single().unwrap();
+        let grantee = Controller::incept_single().unwrap();
+        let scope = CapabilityScope::Object(ObjectId::of(b"alices-object"));
+        let token = CapabilityToken::generate().unwrap();
+
+        // Mallory issues a grant naming Alice's object -- structurally
+        // perfect, correctly signed by its actual issuer (herself).
+        let grant = CapabilityGrant::issue(
+            &mallory,
+            grantee.did(),
+            scope.clone(),
+            CapabilityRight::Read,
+            &token,
+            None,
+            None,
+        )
+        .unwrap();
+        let proof = grant.prove_holder(&grantee);
+
+        // A caller that has independently established Alice as the
+        // object's real owner (its own trusted channel -- not anything
+        // inside this grant) must refuse it, even though every other
+        // check (signature, scope, right, token, holder proof) passes.
+        let err = grant
+            .validate(
+                &mallory.kel(),
+                &alice.did(),
+                &scope,
+                CapabilityRight::Read,
+                &token,
+                &grantee.kel(),
+                &proof,
+                0,
+            )
+            .unwrap_err();
+        assert_eq!(err, ObjectError::CapabilityIssuerNotResourceOwner);
+
+        // The exact same grant, against its real issuer as the resource
+        // owner, validates normally -- refusing the impostor case above
+        // did not also break the legitimate one.
+        grant
+            .validate(
+                &mallory.kel(),
+                &mallory.did(),
+                &scope,
+                CapabilityRight::Read,
+                &token,
+                &grantee.kel(),
+                &proof,
+                0,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn a_valid_alice_issued_grant_remains_usable_by_its_intended_holder() {
+        // The finding's own acceptance criterion, stated directly: fixing
+        // the impostor case above must not also break the legitimate
+        // owner-issued path.
+        let f = fixture();
+        let (grant, proof) = issue_and_prove(&f, CapabilityRight::Read);
+        grant
+            .validate(
+                &f.issuer.kel(),
+                &f.issuer.did(),
+                &f.scope,
+                CapabilityRight::Read,
+                &f.token,
+                &f.grantee.kel(),
+                &proof,
+                0,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn a_caller_that_supplies_no_trusted_owner_cannot_treat_validate_as_authorization() {
+        // A caller that has not established a resource owner at all --
+        // e.g. it only just decoded the grant off the wire and has not
+        // yet looked up who owns the named object -- must not be able to
+        // pass the grant's own issuer as the "owner" and trivially pass:
+        // that is exactly circular ("the grant says its issuer is
+        // authorized, therefore the issuer is authorized"). This test
+        // documents that `validate` refuses to help with that shortcut:
+        // it only ever confirms `resource_owner == issuer`, never
+        // discovers or vouches for `resource_owner` itself. A completely
+        // unrelated party is naturally refused the same way an attacker
+        // naming someone else's resource is.
+        let f = fixture();
+        let (grant, proof) = issue_and_prove(&f, CapabilityRight::Read);
+        let unrelated_party = Controller::incept_single().unwrap();
+        let err = grant
+            .validate(
+                &f.issuer.kel(),
+                &unrelated_party.did(),
+                &f.scope,
+                CapabilityRight::Read,
+                &f.token,
+                &f.grantee.kel(),
+                &proof,
+                0,
+            )
+            .unwrap_err();
+        assert_eq!(err, ObjectError::CapabilityIssuerNotResourceOwner);
     }
 
     #[test]
@@ -741,6 +889,7 @@ mod tests {
             decoded
                 .validate(
                     &f.issuer.kel(),
+                    &f.issuer.did(),
                     &f.scope,
                     CapabilityRight::Read,
                     &f.token,
@@ -754,6 +903,7 @@ mod tests {
         decoded
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Read,
                 &f.token,
@@ -766,6 +916,7 @@ mod tests {
             decoded
                 .validate(
                     &f.issuer.kel(),
+                    &f.issuer.did(),
                     &f.scope,
                     CapabilityRight::Read,
                     &f.token,
@@ -786,6 +937,7 @@ mod tests {
         decoded
             .validate(
                 &f.issuer.kel(),
+                &f.issuer.did(),
                 &f.scope,
                 CapabilityRight::Reply,
                 &f.token,

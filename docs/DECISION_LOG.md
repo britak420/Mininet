@@ -20449,3 +20449,113 @@ structurally rather than by error variant — explicitly declined here
 per the finding's own "coordinated review" boundary.
 
 **Supersedes / superseded by:** extends D-0366; supersedes nothing.
+
+### D-0488 — `CapabilityGrant::validate` now requires the caller to supply an authenticated resource owner (F-13)  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-13
+(`crates/mini-objects/src/capability.rs:249`); PR #141/#143/#170
+(introduced the capability grant model).
+
+**Decision:** `CapabilityGrant::validate` checked a grant's issuer
+signature, exact scope/right match, token possession, validity window,
+and holder proof — but never that the grant's issuer was actually
+authorized over the resource named by its scope. Any signer can produce
+a perfectly well-formed, validly-signed grant naming *any* `ObjectId`,
+including one it does not own; `validate` returning `Ok` looked
+identical whether the resource's real owner issued the grant or an
+attacker did. `validate` now takes a new required parameter,
+`resource_owner: &Did`, and checks `resource_owner == self.issuer`
+before anything else — a new `ObjectError::CapabilityIssuerNotResourceOwner`
+on mismatch. The caller must establish `resource_owner` through its own
+trusted channel (an `Object`'s `author_human`, a directory record, a
+chain-anchored ownership fact — whatever this integration's actual
+ownership source is); `validate` never derives it from the grant itself,
+so there is no path by which a grant's own issuer field can stand in for
+proof of ownership.
+
+Confirmed via `grep` across every crate in this workspace: the only
+caller of `CapabilityGrant::validate` anywhere is this crate's own test
+module. `mini-provider::EngagementGrant` — the one other
+capability-shaped type in this tree — is a deliberately separate typed
+domain (its own doc comment: "never interchangeable with either", real
+verification "deferred past this Wave 1 vocabulary crate") and does not
+call this function at all. This matches the finding's own "Boundary of
+the finding" almost exactly: "Confirmed integration obligation; no
+inspected deployed caller exploit is asserted where the caller may
+already enforce ownership" — there is currently no deployed caller to
+exploit, because there is no deployed caller, period. The fix closes the
+gap for whichever integration wires this up first, rather than after one
+ships without it.
+
+**Reason:** of the finding's two suggested long-term fixes (require an
+authenticated owner binding as a validation input, or split the return
+into a separate `VerifiedGrantSignature` type plus an explicit
+authorization step), the first is the smaller, more direct change and
+was chosen per Directive 14 (prefer the smaller, well-trodden
+construction). A signature-only `validate` that returns a
+signature-verified-but-not-authorized value would still let a future
+caller make exactly the same mistake the finding describes — treating a
+type-checked success as authorization — just one type further removed;
+requiring the input up front makes the mistake impossible to reach
+through this function at all, rather than merely possible to avoid.
+Changing `validate`'s signature was zero-risk here specifically because
+there are zero real callers today (confirmed above) — unlike F-12's
+`ReplayGuard` trait, which has a real, already-shipped consumer and so
+was left alone per that finding's own "coordinated review" boundary; the
+same discipline applied here reaches the opposite, more direct fix
+precisely because the facts differ.
+
+**Constitutional impact:** none. No dependency-graph change, no
+cryptography invented. One new `ObjectError` variant
+(`#[non_exhaustive]` enum, additive); `CapabilityGrant::validate`'s
+signature change has no real call sites outside this crate's own tests
+to break (confirmed above), so no coordinated cross-crate review was
+needed.
+
+**Implementation status:** shipped.
+- `crates/mini-objects/src/capability.rs`: `validate` gains
+  `resource_owner: &Did`, checked before the issuer signature itself
+  (fail fast, cheapest check first — matching the file's existing
+  fail-closed-on-any-mismatch discipline). All 15 existing call sites in
+  this file's own test module updated to pass `&f.issuer.did()` (the
+  correct owner in every existing fixture).
+- `crates/mini-objects/src/error.rs`: new
+  `ObjectError::CapabilityIssuerNotResourceOwner` variant.
+- 3 new tests: `an_attacker_issued_grant_over_another_owners_resource_is_refused`
+  reproduces the finding's own concrete example verbatim (Mallory issues
+  a structurally perfect grant naming Alice's object; a caller that
+  correctly supplies Alice as the owner is refused; the same grant
+  against its real issuer, Mallory, as the owner still validates
+  normally — proving the fix does not also break the legitimate path);
+  `a_valid_alice_issued_grant_remains_usable_by_its_intended_holder`
+  restates the finding's own acceptance criterion directly; `a_caller_
+  that_supplies_no_trusted_owner_cannot_treat_validate_as_authorization`
+  covers the circular-shortcut case (passing the grant's own issuer back
+  in as "the owner" without an independent source is refused the same as
+  an unrelated party, since `validate` never treats the issuer field as
+  self-certifying proof of ownership). 24/24 `capability` tests pass (up
+  from 21); full workspace `cargo test --workspace --all-features` (266
+  test-result blocks) and `cargo clippy --all-targets --all-features
+  --workspace -- -D warnings` both clean.
+
+**Failure point:** this makes ownership-blind authorization impossible
+to reach *through `validate` itself*; it cannot make a future caller
+supply the *correct* `resource_owner` — a caller that passes the wrong
+Did (its own bug, or a compromised lookup) still gets a wrong answer,
+same as any authorization check whose input is itself untrusted. Static
+proof material (the holder-proof nonce/token-commitment scheme) still
+needs the "careful request/session replay treatment" the finding
+separately names; this decision does not touch holder-proof replay
+semantics, which were already covered by the existing nonce-bound
+`holder_proof_message` domain separation and are out of this finding's
+own scope (F-13's concrete example and long-term fix are entirely about
+the owner-binding gap, not holder-proof replay).
+
+**Required follow-up:** none identified. `mini-provider::EngagementGrant`
+eventually wiring real verification against `mini_objects::
+CapabilityGrant`/`CapabilityToken` (its own doc comment's named,
+deferred Wave 1 gap) is pre-existing, separately tracked work this
+decision does not accelerate.
+
+**Supersedes / superseded by:** none.

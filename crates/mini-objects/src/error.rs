@@ -45,6 +45,15 @@ pub enum ObjectError {
     CapabilityExpired,
     /// The grant's validity window has not started yet.
     CapabilityNotYetValid,
+    /// A valid signature over a grant is not, by itself, authorization
+    /// over the requested resource (F-13): the grant's issuer does not
+    /// match the resource owner the caller supplied. Any signer can
+    /// produce a perfectly valid, well-formed grant naming any resource
+    /// -- [`crate::capability::CapabilityGrant::validate`] refuses to
+    /// treat that as authorization unless the caller establishes, through
+    /// its own trusted channel, who actually owns the resource and
+    /// supplies that identity for this check.
+    CapabilityIssuerNotResourceOwner,
     /// An identity/delegation/signature failure.
     Identity(IdentityError),
     /// A cryptographic primitive failure.
@@ -87,6 +96,12 @@ impl core::fmt::Display for ObjectError {
             ObjectError::CapabilityExpired => write!(f, "capability grant has expired"),
             ObjectError::CapabilityNotYetValid => {
                 write!(f, "capability grant is not valid yet")
+            }
+            ObjectError::CapabilityIssuerNotResourceOwner => {
+                write!(
+                    f,
+                    "capability grant's issuer is not the resource's actual owner"
+                )
             }
             ObjectError::Identity(e) => write!(f, "identity error: {e}"),
             ObjectError::Crypto(e) => write!(f, "crypto error: {e}"),
