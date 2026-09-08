@@ -21140,3 +21140,116 @@ objective before any real subsidized budget is enabled. No new follow-up
 is created by this entry.
 
 **Supersedes / superseded by:** none.
+
+### D-0494 — F-19 re-verified: personhood/operator independence is already this project's most-repeated honest disclaimer; no overclaim found anywhere checked  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-19
+(`docs/INVARIANTS.md`, `docs/design/frontier-personhood-governance-and-
+consensus-proposals.md`); D-0086 (`FullHuman` renamed for exactly this
+reason); D-0034/D-0035 (whitepaper §5's three-signal design).
+
+**Decision:** F-19's mechanism — root uniqueness, valid signatures,
+physical-proximity evidence, and replica possession each prove a
+different, narrower predicate than "distinct independent person/operator,"
+and zero-knowledge hides a proved predicate without making an
+untrustworthy issuer or sensor truthful — is not a defect this pass
+discovered. It is the single most prominently and repeatedly disclaimed
+property in this entire codebase, and every location checked already
+states it at least as strongly as the finding does:
+
+- `docs/INVARIANTS.md`'s very first section, placed **before the Tier-F
+  table itself** specifically "so they can never be missed by only
+  skimming a table," states: "Nothing currently prevents one human from
+  controlling multiple roots except cost." The matching storage-side
+  limitation states the parallel fact for replica possession: "A single
+  well-resourced server can answer every challenge for many claimed
+  identities from one copy of the data."
+- `crates/mini-uniqueness/src/status.rs`'s `HumanStatus` doc comment:
+  "this crate cannot yet distinguish one human from several colluding
+  roots... so no variant here is named `Full`/`Verified`-anything that
+  would overclaim certainty the mechanism doesn't have" — and its default
+  `PromotionPolicy` already requires the seed-anchored vouching-graph
+  signal specifically because issue #18's own review found the fused
+  score could otherwise be saturated entirely by signals "a Sybil farm
+  can self-attest between its own colluding devices," with a passing
+  adversarial test
+  (`a_farm_cannot_reach_evidence_qualified_human_without_the_seed_anchored_vouch_signal`)
+  reproducing exactly that attack.
+- `crates/mini-attest/src/lib.rs` (Tier-0 engagement review, the one
+  piece of the design doc's §3 that is actually implemented): "Nothing in
+  this crate is anonymous, unlinkable, zero knowledge, or a personhood
+  proof... creates no `HumanEvidence`, human status, unique-human
+  credential."
+- `docs/design/frontier-personhood-governance-and-consensus-proposals.md`
+  §1.7 ("Residual unsolved problem") states the finding's own mechanism
+  almost verbatim, already: "It cannot prove that issuers are
+  organizationally independent merely because they use different keys...
+  The correct shipped statement would be 'credential satisfied policy P
+  in epoch E,' never 'this is certainly one unique human.'" This document
+  is explicitly research/proposal-stage (§1.4 "What not to build" bars
+  any governance activation "while the only evidence is a prototype
+  signal"); nothing in it is implemented as `UniqueHumanCredentialV1`
+  or any binding production primitive.
+- `README.md` (lines 9, 37, 349-350) and `docs/STATUS.md` (its
+  "HARD LIMITATION, not partial" bullet) both state the same fact in the
+  project's two most-read summary documents, not buried in crate-level
+  detail alone.
+
+A targeted search for an actual overclaim — grepping README.md,
+STATUS.md, and the `mini-uniqueness`/`mini-presence`/`mini-attest` crate
+sources for "unique human," "verified human," "independently operated,"
+and "organizationally independent" — found no location asserting more
+than the disclaimed, risk-bounded signal each component actually
+provides.
+
+**Reason:** the finding's own "Boundary" note concedes precisely this:
+"This is not a claim that research cannot improve the problem. The
+submitted evidence does not yet establish the required production
+property." That is exactly the state the codebase already documents,
+not a gap between claim and reality this session found. The finding's
+"Long-term fix" — measurable false-acceptance/rejection/coercion/
+exclusion/collusion/recovery/concentration bounds, multiple independently
+operated pilots — is precisely the research program already specified in
+`frontier-personhood-governance-and-consensus-proposals.md` §1.5 (R0
+through R5: synthetic-attack datasets, attack economics, two independent
+prototype implementations, weakest-device tests, a non-governance pilot,
+then external audits) and §1.6's numbered falsification gates. That
+program has not been executed — it is genuinely unstarted real-world
+research and pilot work (funded experiments, multiple independently
+operated issuer pilots, external audits), not something a source-code
+change in this PR can manufacture or shortcut. Writing synthetic
+"pilot" code in this repository to make F-19 look closed would itself be
+exactly the overclaiming failure mode both this finding and D-0086's own
+precedent (renaming `FullHuman` for reading as a guarantee it didn't
+have) exist to prevent.
+
+**Constitutional impact:** none. No code changed by this entry, no
+Tier-F invariant touched; it re-verifies already-decided, already-
+disclaimed state.
+
+**Implementation status:** confirmed, no code changes. No overclaim
+found to correct; no narrowly-scoped, zero-coordination-cost gap found
+of the kind D-0492 closed for F-17's staleness check — this finding's
+substance is genuinely research/pilot-program work, not a small
+code-level omission hiding behind otherwise-correct disclaimers.
+
+**Failure point:** this confirmation is a documentation/code grep sweep,
+not an independent security or accessibility audit of `mini-uniqueness`,
+`mini-presence`, or `mini-attest`; it can state that no *overclaiming
+language* was found in the locations checked, not that every adversarial
+scenario in F-19's threat model (nation-state-scale colluding issuers,
+exclusion of undocumented/unbanked/unhoused people, coercion) has been
+tested or mitigated. Those remain exactly as open as the design doc's
+own §1.2 threat model and §1.6 falsification gates already say.
+
+**Required follow-up:** unchanged from the design doc's own §1.5/§1.6 —
+R0 (synthetic attack datasets and simulator), R1 (attack-economics
+comparison and protocol spec), R2 (two independent prototypes plus
+weakest-device tests), R3 (a non-governance pilot measuring exclusion),
+and R4 (cryptography/protocol/mobile/privacy/accessibility audits) all
+remain unstarted. No governance, vote, money, or scarce-resource
+allocation may ever bind to `UniqueHumanCredentialV1` or any successor
+before that program, and its stated falsification gates, actually run.
+
+**Supersedes / superseded by:** none.
