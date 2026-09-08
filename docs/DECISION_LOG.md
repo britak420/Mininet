@@ -21654,3 +21654,114 @@ hardware resource measurement -- all pre-existing, all still open,
 unchanged by this entry.
 
 **Supersedes / superseded by:** none.
+
+### D-0498 — F-23 re-verified: every closeable item (nonpanic rejection, cross-suite wire tests, codec sizing) already shipped; persistent-anchor/migration architecture remains honestly Phase 3, unstarted, gated  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
+pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md` finding F-23
+(`crates/mini-crypto/src/keys.rs`, `crates/mini-pq-anchor/src/lib.rs`);
+D-0485 (this branch, F-10, the signature-codec-sizing half of this
+finding); `docs/design/post-quantum-identity-migration.md` (D-0095/
+D-0322).
+
+**Decision:** F-23 names three mechanisms and checked each directly
+against current source:
+
+1. **"Legacy convenience APIs may panic when called with a suite they
+   do not support."** True and exactly as documented:
+   `SigningKey::sign`/`SigningKey::to_seed_bytes` panic on an
+   `MlDsa65` key, by deliberate, loudly-documented design ("`# Panics`"
+   sections naming the exact reason) -- these are the pre-Phase-2,
+   Ed25519-only historical contract every existing call site already
+   assumes. The genuinely relevant, never-panicking alternative already
+   exists: `SigningKey::sign_ml_dsa_65` returns
+   `Result<_, CryptoError::SignatureSuiteMismatch>`, and
+   `VerifyingKey::verify` unconditionally checks `signature.suite !=
+   self.suite` before touching any key material, returning
+   `Err(BadSignature)`, never panicking, for any suite mismatch.
+   Searched every real (non-test) call site across the workspace that
+   could hold either suite: `mini-settlement::claim::
+   sign_claim_for_network` checks `payer.suite() != SignatureSuite::
+   DEFAULT` and returns `Err(SettlementError::UnsupportedSignatureSuite)`
+   *before* ever calling `.sign()` -- with its own test,
+   `unsupported_signing_suite_returns_an_error_instead_of_panicking`,
+   constructing an ML-DSA-65 key specifically to prove this. `mini-pq-
+   anchor` only ever produces/consumes ML-DSA-65 keys through the
+   fallible `sign_ml_dsa_65`/`generate_ml_dsa_65` path, never the legacy
+   Ed25519-only methods. No reachable panic found.
+2. **"Cross-suite wire tests."** Already present:
+   `a_signature_suite_mismatch_between_key_and_signature_is_rejected`
+   builds a genuine ML-DSA-65 signature and confirms an Ed25519
+   `VerifyingKey` rejects it (`Err(BadSignature)`, not a panic or a
+   silent false accept); `from_suite_bytes` for both suites returns
+   `Err(BadLength)`/`Err(InvalidPublicKey)` on malformed input, also
+   tested.
+3. **"Codecs large enough for their signatures."** Already fixed on
+   this same branch: D-0485 (F-10) re-synced 9 signature-bearing wire
+   codecs across `mini-chain`/`mini-consensus`/`mini-objects`/
+   `mini-bridge`/`mini-private-index`/`mini-relay` to `did_mini::
+   MAX_SIGNATURES`/`MAX_SIGNATURE_BYTES`, closing exactly this gap;
+   `mini-pq-anchor::PqAnchorRecord` itself has no wire codec at all (it
+   is an in-memory, wallet-local type by its own explicit design --
+   "never gossiped, never attested" -- so no codec-sizing question
+   applies to it).
+
+The finding's fourth mechanism item and its "restart/backup/restore,"
+"compromised-classical-key migration," "unavailable witnesses," and
+"no-prebreak-anchor refusal" acceptance-test items all name the same
+genuinely unbuilt thing: persistent PQ anchors, pre-break KEL
+commitment, and treasury/validator recovery. `mini-pq-anchor/src/lib.rs`
+already states this as plainly as the finding does, predating it: "It
+does not persist an `MlDsa65` secret key across process restarts... a
+real wallet must solve on-device secret persistence separately, and this
+crate does not paper over that gap," and "It does not make an unanchored
+identity recoverable. PQ recovery Class C... remains exactly as unsolved
+as before this crate existed." `docs/design/post-quantum-identity-
+migration.md` names the KEL hybrid migration protocol "Phase 3... not
+started" and states a "Hard rule: no production migration before
+external review" section. The finding's own concrete example (a device's
+in-memory-only anchor is worthless after a restart during a break) is
+precisely what these documents already, honestly, concede.
+
+**Reason:** the finding's own Boundary note states "This report does not
+claim a future cryptanalytic break has occurred or that standards alone
+certify Mininet's implementation" -- consistent with treating this as an
+architecture-honesty check, not a claim of a live defect. Every
+concretely fixable item this finding names (nonpanic rejection,
+cross-suite wire tests, codec sizing) was independently verifiable as
+already shipped, most of it predating this finding and one piece
+(codec sizing) shipped earlier on this same branch as D-0485. The
+remaining items are a real persistence/backup/checkpoint-archival/
+KEL-recovery architecture -- exactly the kind of unreviewed mechanism
+design this branch has consistently declined to invent unilaterally
+(D-0479's F5 redesign, D-0496's cross-remote-provider arbitration,
+D-0497's snapshot-plus-suffix protocol dispatch), doubly so here since
+`mini-pq-anchor`'s own docs and CLAUDE.md's D-0047 gate already require
+external cryptographic review before any of it reaches production
+identity use.
+
+**Constitutional impact:** none. No code changed; re-verifies
+already-decided, already-disclaimed state. No cryptography invented.
+
+**Implementation status:** confirmed, no code changes. Every closeable
+item was already shipped (most pre-existing, codec sizing via this
+branch's own D-0485); the unbuilt items remain unbuilt and are not
+attempted here.
+
+**Failure point:** this confirmation searched real (non-test) call sites
+across the workspace for a suite-mismatch panic reachable without a
+prior defensive check; it is not an exhaustive audit of every possible
+future caller. No persistent PQ anchor, pre-break KEL commitment,
+treasury/validator PQ recovery, or migration-class definition exists
+anywhere in this tree, exactly as `mini-pq-anchor`'s own docs and the
+Phase 3 design doc already state.
+
+**Required follow-up:** unchanged from `docs/design/post-quantum-
+identity-migration.md`'s own Phase 3 scope: the KEL hybrid migration
+protocol, real on-device PQ secret persistence with owner-controlled
+backup, pre-break anchor commitment, and independently archived
+last-safe checkpoints -- all `did-mini`'s work, not started, gated on
+external cryptographic review (D-0047) before any production identity
+use. No new follow-up is created by this entry.
+
+**Supersedes / superseded by:** none.
