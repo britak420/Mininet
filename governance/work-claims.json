@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-08T13:00:00Z",
+  "updated_at": "2026-09-08T14:00:00Z",
   "claims": [
     {
       "issue": 122,
@@ -1196,13 +1196,23 @@
         "docs/STATUS.md",
         "crates/did-mini/src/witness_rotation.rs",
         "crates/did-mini/src/error.rs",
-        "crates/did-mini/src/lib.rs"
+        "crates/did-mini/src/lib.rs",
+        "crates/mini-storage-fraud/src/lifecycle.rs",
+        "crates/mini-storage-fraud/tests/lifecycle.rs",
+        "tools/f5_phase2_model.py",
+        "tools/test_f5_phase2_model.py",
+        "tools/fixtures/f5_phase2_report.jsonl",
+        "docs/FAILURE_BOOK.md"
       ],
       "decision_ids": [
         "D-0474",
-        "D-0475"
+        "D-0475",
+        "D-0476",
+        "D-0477",
+        "D-0478",
+        "D-0479"
       ],
-      "notes": "Go-live punch list (founder-requested audit response, PR #321's EXTERNAL_AUDIT_MASTER_REPORT.md/AUDIT_EVIDENCE_INDEX.md/REAL_VALUE_RELEASE_CHECKLIST.md): a single PR closing multiple engineering-closeable gaps the audit pack named. D-0474 (shipped): mini_execution::ClaimVerifier -- a caller-injected trait letting a validator's own process refuse to prevote/build/commit a block whose shielded spends it cannot verify, closing roadmap R8's last remaining item (the audit pack's most-cited gap) without mini-execution/mini-consensus/mini-chain ever gaining a dependency on mini-value (voice/value wall, P1/Directive 16). New sibling functions apply_block_with_verifier/apply_finalized_block_with_verifier (existing apply_block/apply_finalized_block unchanged, now None-forwarding wrappers). New crate mini-shielded-verify composes the trait with mini_private_payment::verify. Proven at state/chain/consensus layers plus a real cryptographic round-trip (genuine stealth derivation, MLSAG spend proof, Bulletproof range proof) in mini-shielded-verify's own tests. More decision_ids will be appended here as further pieces of this same PR land (R9 SS17.4, storage-fraud follow-ups, storage-operator diversity, F5 anti-collusion, shared correctness infrastructure) -- this remains one PR per explicit user direction, not sliced into several. Coordination evidence only, not approval or authority. D-0475 (shipped): did_mini::witness_rotation::verify_dead_witness_recovery -- research report SS17.4, the last piece of Phase 7 of the witness-receipts design doc. Deliberately the opposite assumption from SS17.2/SS17.3 (D-0468/D-0471): works without old-witness cooperation, via a controller-self-signed WitnessUnavailabilityAttestation verified against the pre-rotation key state, gated by a caller-supplied DeadWitnessRecoveryPolicy (minimum distinct witnesses, minimum waiting period). Explicitly accountability, not unforgeability -- stated plainly in the D-0475 log entry rather than claimed as a stronger guarantee. 10 new tests, all passing; no new crate, no dependency changes."
+      "notes": "Go-live punch list (founder-requested audit response, PR #321's EXTERNAL_AUDIT_MASTER_REPORT.md/AUDIT_EVIDENCE_INDEX.md/REAL_VALUE_RELEASE_CHECKLIST.md): a single PR closing multiple engineering-closeable gaps the audit pack named. D-0474 (shipped): mini_execution::ClaimVerifier -- a caller-injected trait letting a validator's own process refuse to prevote/build/commit a block whose shielded spends it cannot verify, closing roadmap R8's last remaining item (the audit pack's most-cited gap) without mini-execution/mini-consensus/mini-chain ever gaining a dependency on mini-value (voice/value wall, P1/Directive 16). New sibling functions apply_block_with_verifier/apply_finalized_block_with_verifier (existing apply_block/apply_finalized_block unchanged, now None-forwarding wrappers). New crate mini-shielded-verify composes the trait with mini_private_payment::verify. Proven at state/chain/consensus layers plus a real cryptographic round-trip (genuine stealth derivation, MLSAG spend proof, Bulletproof range proof) in mini-shielded-verify's own tests. More decision_ids will be appended here as further pieces of this same PR land (R9 SS17.4, storage-fraud follow-ups, storage-operator diversity, F5 anti-collusion, shared correctness infrastructure) -- this remains one PR per explicit user direction, not sliced into several. Coordination evidence only, not approval or authority. D-0475 (shipped): did_mini::witness_rotation::verify_dead_witness_recovery -- research report SS17.4, the last piece of Phase 7 of the witness-receipts design doc. Deliberately the opposite assumption from SS17.2/SS17.3 (D-0468/D-0471): works without old-witness cooperation, via a controller-self-signed WitnessUnavailabilityAttestation verified against the pre-rotation key state, gated by a caller-supplied DeadWitnessRecoveryPolicy (minimum distinct witnesses, minimum waiting period). Explicitly accountability, not unforgeability -- stated plainly in the D-0475 log entry rather than claimed as a stronger guarantee. 10 new tests, all passing; no new crate, no dependency changes. D-0476 (shipped): tools/f5_phase2_model.py default max_retained_keys 100_000->80_000, fixing a real configuration bug (over its own 8 MiB ceiling) while explicitly declining a broader F5 anti-collusion mechanism redesign per D-0428 own Required follow-up (external mechanism-design review required, same category as roadmap R16). D-0477 (shipped): ProviderStanding::block_production_weight in mini-storage-fraud, closing the one-layer-up gap after D-0448 -- proposer_weight only accepts ProvenCapacity, but ProvenCapacity::from_commitment is unconditional over any caller-built StorageCommitment; the new wrapper only ever accepts &self, which can only hold audited replicas. D-0478 (declined, documented): investigated a self-reported network/operator diversity mitigation for storage-operator independence, concluded it would be security theater (no real resistance vs a deliberate colluding operator), recorded in docs/FAILURE_BOOK.md. D-0479 (assessed, no code): shared correctness infrastructure backlog -- dependency-audit CI already existed, codec unification and real fuzzing both correctly deferred as out of this PR's safe scope."
     }
   ]
 }

@@ -825,10 +825,16 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(gates["maximum-budget-overrun"]["status"], "PASS")
         self.assertEqual(gates["maximum-colluding-extraction"]["status"], "FAIL")
         self.assertEqual(gates["audit-randomness-grinding-resistance"]["status"], "FAIL")
-        self.assertEqual(gates["retained-state-per-policy-epoch"]["status"], "FAIL")
+        # Unlike the two gates above, this one carries no "FAIL is expected"
+        # caveat in its own detail text -- it was a configuration bug (the
+        # un-annotated `make_policy` default put every policy built without
+        # an explicit override over its own declared ceiling), not a
+        # deliberately open research question. See `make_policy`'s
+        # `max_retained_keys` default.
+        self.assertEqual(gates["retained-state-per-policy-epoch"]["status"], "PASS")
         self.assertEqual(
             gates["retained-state-per-policy-epoch"]["observed"],
-            9_600_000,
+            7_680_000,
         )
         self.assertEqual(gates["claim-plus-proof-wire-size"]["observed"], 16_384)
         self.assertEqual(gates["abstract-verification-work"]["observed"], 10_000)

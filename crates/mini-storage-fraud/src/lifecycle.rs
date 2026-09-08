@@ -29,6 +29,32 @@
 //! closed the hole only for callers who opted in, which for an
 //! authority-bearing function is the same as leaving it open.
 //!
+//! **A narrower claim than it first reads (D-0477):** that guarantee is
+//! about `proposer_weight`'s own signature, not about the whole path a real
+//! caller takes to reach it. `ProvenCapacity::from_commitment` is
+//! unconditional arithmetic over whatever `StorageCommitment` it is handed
+//! — it does not itself require that commitment to have ever been
+//! challenged. A caller that constructs its own `StorageCommitment`
+//! (a plain, fully public-fields struct) and feeds it straight to
+//! `mini_spacetime::proposer_weight`, skipping this crate's registration and
+//! lifecycle machinery entirely, hits no compile-time or run-time check
+//! that stops it. `mini-spacetime` is deliberately the lower, generic layer
+//! and correctly does not know this crate exists, so this is not a defect
+//! in it — but it means "the derived path is now the only path" was true of
+//! `proposer_weight`'s type signature and not, by itself, a guarantee that
+//! a real weight computation actually ran through an audited replica.
+//! [`ProviderStanding::block_production_weight`] is the integration point
+//! that closes the remaining gap: its only capacity-bearing input is
+//! `&self`, so a caller reaching for *that* function cannot substitute
+//! anything which did not pass through [`crate::claim::RegisteredReplicaClaim::verify`],
+//! [`ReplicaLifecycle::begin`], and [`ProviderStanding::track`] first. It
+//! remains opt-in — nothing in this workspace calls `proposer_weight` for
+//! real block-production selection yet (there is no networked consensus
+//! caller to wire it into), so this is a real, tested primitive a future
+//! caller reaches for, not a capability enforced automatically, the same
+//! honest limit named for `mini_execution::ClaimVerifier` (D-0474) and
+//! every other opt-in extension point in this tree.
+//!
 //! # What is still not proven here
 //!
 //! - **Not a clock.** Windows are computed from caller-supplied milliseconds.
@@ -38,8 +64,11 @@
 //! - **Not liveness.** A missed window means "this verifier saw no proof",
 //!   which is indistinguishable from a network partition. That is why lapse
 //!   degrades gradually and reversibly rather than punishing on first miss.
-//! - **Not a reward.** Nothing here pays anyone, and no crate consumes
-//!   [`ProvenCapacity`] to do so. It is a measurement, not an entitlement.
+//! - **Not a reward.** Nothing here pays anyone. [`ProviderStanding::
+//!   block_production_weight`] is a real consumer of [`ProvenCapacity`] now,
+//!   but weight is block-production *selection*, not a payment — no crate
+//!   moves value in response to it. It is a measurement, not an
+//!   entitlement.
 
 use std::collections::BTreeMap;
 
@@ -375,5 +404,27 @@ impl ProviderStanding {
             .values()
             .map(|lifecycle| lifecycle.proven_capacity(units))
             .fold(ProvenCapacity::none(), ProvenCapacity::saturating_add)
+    }
+
+    /// This provider's block-production selection weight (D-0477),
+    /// derived entirely from its own tracked, audited, lifecycle-checked
+    /// replicas.
+    ///
+    /// The only capacity-bearing parameter is `&self`. Unlike calling
+    /// [`mini_spacetime::proposer_weight`] directly with a
+    /// caller-constructed [`ProvenCapacity`] (always possible, since
+    /// `ProvenCapacity::from_commitment` is unconditional — see this
+    /// module's own doc), a caller reaching for *this* function cannot
+    /// substitute a figure that skipped registration, audit, or lifecycle
+    /// tracking: `ProviderStanding` only ever holds [`ReplicaLifecycle`]
+    /// values built from a [`crate::claim::VerifiedReplicaClaim`], which
+    /// is itself only obtainable by passing a real auditor quorum.
+    pub fn block_production_weight(
+        &self,
+        units: &StorageUnitPolicy,
+        distinct_regions: u32,
+        params: &mini_spacetime::ProposerParams,
+    ) -> u64 {
+        mini_spacetime::proposer_weight(self.proven_capacity(units), distinct_regions, params)
     }
 }

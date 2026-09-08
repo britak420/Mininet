@@ -246,6 +246,27 @@ so, everywhere, on purpose.
   guarantee. Still no real call site gating an authority decision on an
   assurance level and no dispute-resolution consequence for a false
   attestation — both founder-facing policy calls.
+- go-live punch-list closure (D-0476–D-0479): `tools/f5_phase2_model.py`'s
+  F5 retained-state gate (a plain configuration default over its own 8 MiB
+  ceiling, no adversarial content) is fixed (D-0476), while the two
+  genuine collusion/grinding gates stay `FAIL` on purpose — D-0428's own
+  Required follow-up forbids a production anti-collusion redesign without
+  external mechanism-design review, the same category as roadmap R16.
+  `ProviderStanding::block_production_weight` (D-0477) closes the
+  one-layer-up gap left after D-0448: `proposer_weight` only ever accepts
+  a `ProvenCapacity`, but nothing stopped a caller from building one from
+  a locally-fabricated `StorageCommitment` and skipping
+  `mini-storage-fraud`'s audit entirely — this wrapper's only
+  capacity-bearing input is `&self`, so a caller reaching for it cannot
+  substitute anything that skipped registration. A proposed self-reported
+  "operator diversity" mitigation for the audit's storage-independence
+  finding was investigated and explicitly declined (D-0478) as
+  unable to add real resistance against a deliberate colluding operator —
+  recorded in `docs/FAILURE_BOOK.md` so it is not re-proposed. A
+  "shared correctness infrastructure" backlog item was assessed
+  (D-0479): dependency-audit CI already existed; a 14-crate codec
+  unification is real but too large/risky for this PR; a real fuzzing
+  harness needs a toolchain this environment does not have.
 - deterministic D-0074 issuance envelopes and equal-allocation genesis
   manifests (`mini-economy`, D-0413), plus a cohort-based 200-year
   calibration harness (`mini-econ-sim`) — proposal code only; no mint,
@@ -386,10 +407,9 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0475`
-   (`D-0475`, unavailable-witness KEL recovery closing research report
-   §17.4 and Phase 7 of the witness-receipts design doc in full, is the
-   newest at the time of this edit; the Mininet Node
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0479`
+   (`D-0479`, the shared-correctness-infrastructure backlog scope
+   assessment, is the newest at the time of this edit; the Mininet Node
    Appliance deployment profile this line previously credited to
    `D-0439` is `D-0446` — `D-0439` is the identity-bound
    replica-registration decision),

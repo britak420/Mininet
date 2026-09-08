@@ -2,8 +2,8 @@
   "counts": {
     "crates": 75,
     "files": 933,
-    "headings": 3281,
-    "rust_symbols": 9377
+    "headings": 3282,
+    "rust_symbols": 9381
   },
   "crates": {
     "did-mini": {
@@ -1768,7 +1768,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 26679,
+      "bytes": 28074,
       "group": "root",
       "headings": [
         {
@@ -1788,27 +1788,27 @@
         },
         {
           "level": 2,
-          "line": 297,
+          "line": 318,
           "text": "The road to release"
         },
         {
           "level": 2,
-          "line": 339,
+          "line": 360,
           "text": "Start here"
         },
         {
           "level": 2,
-          "line": 351,
+          "line": 372,
           "text": "Beta testing and contributing"
         },
         {
           "level": 2,
-          "line": 375,
+          "line": 396,
           "text": "The canonical documents"
         },
         {
           "level": 2,
-          "line": 424,
+          "line": 444,
           "text": "License"
         }
       ],
@@ -1838,9 +1838,9 @@
         "path",
         "switch"
       ],
-      "lines": 428,
+      "lines": 448,
       "path": "README.md",
-      "sha256": "218de99b47825be6fc0fef56d4a3152b7104d9e93a96eeec24d1fbe53c2679fd",
+      "sha256": "27c783c6e3d8da02726551aacfbfe38857e73c3e5849e289c5dddbbc95d43505",
       "symbols": [],
       "title": "Mininet"
     },
@@ -62535,218 +62535,223 @@
       "title": "mod claim;"
     },
     {
-      "bytes": 14551,
+      "bytes": 17636,
       "group": "crate:mini-storage-fraud",
       "headings": [],
       "keywords": [
-        "mini_spacetime",
-        "provencapacity",
-        "challenges_per_window",
-        "claim",
-        "window_ms",
+        "caller",
         "nothing",
-        "seal",
-        "one",
-        "same",
-        "u32",
-        "windowpolicy",
-        "new",
-        "grace_windows",
-        "what",
-        "replica",
+        "proposer_weight",
+        "claim",
+        "providerstanding",
+        "mini_spacetime",
+        "path",
+        "real",
         "about",
         "provider",
-        "how",
         "number",
+        "its",
+        "new",
+        "replicalifecycle",
+        "block_production_weight",
+        "what",
+        "replica",
+        "both",
         "rather",
         "proven",
-        "caller",
-        "windows",
-        "max_challenges_per_window"
+        "seal",
+        "now",
+        "but",
+        "provencapacity"
       ],
-      "lines": 380,
+      "lines": 431,
       "path": "crates/mini-storage-fraud/src/lifecycle.rs",
-      "sha256": "53a3f58e2b54fac432ae00cfcdc8c56914307d2489e576ca525f9842fdec0976",
+      "sha256": "ae088bf87cae123ffceacafb5fb0fdd80de2a67c156bad9ea7fa166e532848b5",
       "symbols": [
         {
           "kind": "const",
-          "line": 55,
+          "line": 84,
           "name": "WINDOW_CHALLENGE_DOMAIN"
         },
         {
           "kind": "const",
-          "line": 59,
+          "line": 88,
           "name": "MAX_CHALLENGES_PER_WINDOW"
         },
         {
           "kind": "fn",
-          "line": 79,
+          "line": 108,
           "name": "capacity_units_of"
         },
         {
           "kind": "struct",
-          "line": 88,
+          "line": 117,
           "name": "WindowPolicy"
         },
         {
           "kind": "impl",
-          "line": 94,
+          "line": 123,
           "name": "WindowPolicy"
         },
         {
           "kind": "fn",
-          "line": 95,
+          "line": 124,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 113,
+          "line": 142,
           "name": "daily"
         },
         {
           "kind": "fn",
-          "line": 121,
+          "line": 150,
           "name": "window_ms"
         },
         {
           "kind": "fn",
-          "line": 125,
+          "line": 154,
           "name": "challenges_per_window"
         },
         {
           "kind": "fn",
-          "line": 129,
+          "line": 158,
           "name": "grace_windows"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 163,
           "name": "window_at"
         },
         {
           "kind": "enum",
-          "line": 142,
+          "line": 171,
           "name": "ReplicaState"
         },
         {
           "kind": "impl",
-          "line": 157,
+          "line": 186,
           "name": "ReplicaState"
         },
         {
           "kind": "fn",
-          "line": 159,
+          "line": 188,
           "name": "counts_capacity"
         },
         {
           "kind": "struct",
-          "line": 166,
+          "line": 195,
           "name": "ReplicaLifecycle"
         },
         {
           "kind": "impl",
-          "line": 177,
+          "line": 206,
           "name": "ReplicaLifecycle"
         },
         {
           "kind": "fn",
-          "line": 183,
+          "line": 212,
           "name": "begin"
         },
         {
           "kind": "fn",
-          "line": 200,
+          "line": 229,
           "name": "claim"
         },
         {
           "kind": "fn",
-          "line": 204,
+          "line": 233,
           "name": "state"
         },
         {
           "kind": "fn",
-          "line": 208,
+          "line": 237,
           "name": "last_proven_window"
         },
         {
           "kind": "fn",
-          "line": 221,
+          "line": 250,
           "name": "challenges_for"
         },
         {
           "kind": "fn",
-          "line": 253,
+          "line": 282,
           "name": "record_proven_window"
         },
         {
           "kind": "fn",
-          "line": 277,
+          "line": 306,
           "name": "advance_to"
         },
         {
           "kind": "fn",
-          "line": 308,
+          "line": 337,
           "name": "retire"
         },
         {
           "kind": "fn",
-          "line": 314,
+          "line": 343,
           "name": "proven_capacity"
         },
         {
           "kind": "fn",
-          "line": 322,
+          "line": 351,
           "name": "genesis_ms"
         },
         {
           "kind": "struct",
-          "line": 329,
+          "line": 358,
           "name": "ProviderStanding"
         },
         {
           "kind": "impl",
-          "line": 333,
+          "line": 362,
           "name": "ProviderStanding"
         },
         {
           "kind": "fn",
-          "line": 334,
+          "line": 363,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 339,
+          "line": 368,
           "name": "track"
         },
         {
           "kind": "fn",
-          "line": 344,
+          "line": 373,
           "name": "get_mut"
         },
         {
           "kind": "fn",
-          "line": 348,
+          "line": 377,
           "name": "get"
         },
         {
           "kind": "fn",
-          "line": 352,
+          "line": 381,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 356,
+          "line": 385,
           "name": "is_empty"
         },
         {
           "kind": "fn",
-          "line": 361,
+          "line": 390,
           "name": "advance_to"
         },
         {
           "kind": "fn",
-          "line": 373,
+          "line": 402,
           "name": "proven_capacity"
+        },
+        {
+          "kind": "fn",
+          "line": 422,
+          "name": "block_production_weight"
         }
       ],
       "title": "use std::collections::BTreeMap;"
@@ -63355,7 +63360,7 @@
       "title": "mod support;"
     },
     {
-      "bytes": 14012,
+      "bytes": 17913,
       "group": "crate:mini-storage-fraud",
       "headings": [],
       "keywords": [
@@ -63384,9 +63389,9 @@
         "new",
         "unwrap"
       ],
-      "lines": 384,
+      "lines": 489,
       "path": "crates/mini-storage-fraud/tests/lifecycle.rs",
-      "sha256": "8f02cb08cfb83eac095eead06c0d5cb2d88fdf51a90809b17610d7bca170daba",
+      "sha256": "9be43143c8d2db7ce27816dee5d7e84a668d5da4ff24f137385d4befc986fb47",
       "symbols": [
         {
           "kind": "mod",
@@ -63500,7 +63505,22 @@
         },
         {
           "kind": "fn",
-          "line": 366,
+          "line": 370,
+          "name": "block_production_weight_matches_the_underlying_formula"
+        },
+        {
+          "kind": "fn",
+          "line": 397,
+          "name": "block_production_weight_is_zero_before_anything_is_proven"
+        },
+        {
+          "kind": "fn",
+          "line": 410,
+          "name": "block_production_weight_only_ever_sees_audited_capacity"
+        },
+        {
+          "kind": "fn",
+          "line": 471,
           "name": "three_ordinals_under_one_provider_are_three_distinct_replicas"
         }
       ],
@@ -78012,7 +78032,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1160497,
+      "bytes": 1180540,
       "group": "docs",
       "headings": [
         {
@@ -78442,9 +78462,9 @@
         "first",
         "kel"
       ],
-      "lines": 19233,
+      "lines": 19571,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "c6a9a254f011aaa75e829f20331f5a402e8dcdc7af95c58c36b74c7fc0acabce",
+      "sha256": "d6696fe882abae0cf6e5bfe51d9125718d959f07172613bf475ab91b0eb411f0",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -78526,7 +78546,7 @@
       "title": "Start here \u2014 for a developer"
     },
     {
-      "bytes": 10126,
+      "bytes": 12784,
       "group": "docs",
       "headings": [
         {
@@ -78590,33 +78610,38 @@
           "text": "Fixed three-signal personhood fusion as the permanent design"
         },
         {
-          "level": 2,
+          "level": 3,
           "line": 124,
+          "text": "Self-reported network/operator-diversity tags as a storage-operator independence mechanism"
+        },
+        {
+          "level": 2,
+          "line": 165,
           "text": "Value & economics"
         },
         {
           "level": 3,
-          "line": 126,
+          "line": 167,
           "text": "Protocol-native issuance, exchange, or custody of legacy currency"
         },
         {
           "level": 2,
-          "line": 152,
+          "line": 193,
           "text": "Implementation-level corrections"
         },
         {
           "level": 3,
-          "line": 154,
+          "line": 195,
           "text": "`ConfidentialAmountScheme`'s original trait shape"
         },
         {
           "level": 3,
-          "line": 171,
+          "line": 212,
           "text": "GitHub teams as contributor authority"
         },
         {
           "level": 2,
-          "line": 190,
+          "line": 231,
           "text": "Open item"
         }
       ],
@@ -78646,9 +78671,9 @@
         "one",
         "closed"
       ],
-      "lines": 197,
+      "lines": 238,
       "path": "docs/FAILURE_BOOK.md",
-      "sha256": "bc6078274ec4a3e0f65713f314bb83aee05a1fca9473c809d215bce4235449f6",
+      "sha256": "e881478b5e8cf81bf06262ad8a1a45c0c8f480eca4dafd050449fc87fafd19be",
       "symbols": [],
       "title": "The Mininet Failure Book"
     },
@@ -79775,7 +79800,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 176673,
+      "bytes": 178575,
       "group": "docs",
       "headings": [
         {
@@ -79830,57 +79855,57 @@
         },
         {
           "level": 2,
-          "line": 1349,
+          "line": 1366,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1426,
+          "line": 1443,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1456,
+          "line": 1473,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1783,
+          "line": 1800,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2261,
+          "line": 2289,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2352,
+          "line": 2380,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2432,
+          "line": 2460,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2498,
+          "line": 2526,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2515,
+          "line": 2543,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2551,
+          "line": 2579,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2616,
+          "line": 2644,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -79910,9 +79935,9 @@
         "account",
         "shipped"
       ],
-      "lines": 2651,
+      "lines": 2679,
       "path": "docs/STATUS.md",
-      "sha256": "6ed9587b0c8044f05d20df238fe717e1c506c69905ee59098f4cb2bd31d9562e",
+      "sha256": "e371efe2da859c5c72d9926f60b2a3298f26a8b1b97d3158251f5db1f2d71620",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -96779,7 +96804,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 82354,
+      "bytes": 83834,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -96808,9 +96833,9 @@
         "independently",
         "both"
       ],
-      "lines": 1209,
+      "lines": 1219,
       "path": "governance/work-claims.json",
-      "sha256": "48699f075f9674dc1335ac1fedd969dfc2722577faa380a3dff3af31f63b7077",
+      "sha256": "b8fabb32c980d6269130e0c1f68d90a701dc3e85af17c8d9a6bcbd027c872475",
       "symbols": [],
       "title": "{"
     },
@@ -97406,7 +97431,7 @@
       "title": "One-line, faithful distillations of each directive's own text below \u2014"
     },
     {
-      "bytes": 80213,
+      "bytes": 81021,
       "group": "tools",
       "headings": [],
       "keywords": [
@@ -97435,9 +97460,9 @@
         "coordinator",
         "ledger"
       ],
-      "lines": 2233,
+      "lines": 2245,
       "path": "tools/f5_phase2_model.py",
-      "sha256": "38c4cce9c61015c67f80213468305142af80bcf92cb13f3e79d86acca7f44cdd",
+      "sha256": "cb2f8a974f656eca59cdfbc2242480b74a2ad8c6b3f51a45fc0c0cc0102af2ff",
       "symbols": [],
       "title": "\"\"\"Deterministic, valueless Track F5 Phase-2 settlement model."
     },
@@ -97473,7 +97498,7 @@
       ],
       "lines": 34,
       "path": "tools/fixtures/f5_phase2_report.jsonl",
-      "sha256": "39dfb267fb1ed1b7324d5345f8fe17db7bf0db4a811a10e36b3862a2bbd67932",
+      "sha256": "b9301111817e31c7af17c25cd8f6e99e9d6fdee5ac9a3d2a70f9bb0e2a80f1b1",
       "symbols": [],
       "title": "{\"kind\":\"f5-phase2-model\",\"model_version\":1,\"thresholds\":{\"audit_attack_claim_count\":60,\"max_abstract_verification_ops\":"
     },
@@ -97821,7 +97846,7 @@
       "title": "R1 \u2014 First thing \u00b7 `active`"
     },
     {
-      "bytes": 31424,
+      "bytes": 31827,
       "group": "tools",
       "headings": [],
       "keywords": [
@@ -97850,9 +97875,9 @@
         "service_class",
         "authority"
       ],
-      "lines": 848,
+      "lines": 854,
       "path": "tools/test_f5_phase2_model.py",
-      "sha256": "7a97a7a6a086bcd0bc2c3d5a654b714596925963bdfdf12abd3bfda0b23b95bd",
+      "sha256": "bc8edd8a4eaec05609fa8b81b5d072faa8cce83a51c5a855ec4dea4cac47bee7",
       "symbols": [],
       "title": "from __future__ import annotations"
     },

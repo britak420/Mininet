@@ -2012,7 +2012,19 @@ def make_policy(
     budget: int,
     max_claim: int | None = None,
     epoch: int = 7,
-    max_retained_keys: int = 100_000,
+    # 80_000 * SettlementModel.RETAINED_KEY_ESTIMATE_BYTES (96) = 7_680_000
+    # bytes, comfortably under PolicyThresholds.max_retained_state_bytes's
+    # 8 MiB (8_388_608 bytes) ceiling. The prior default of 100_000 put every
+    # policy this helper builds without an explicit override (requester,
+    # sponsor, protocol -- three of the eight policies the model reports
+    # against) at 9_600_000 bytes, silently failing the
+    # `retained-state-per-policy-epoch` gate on every run regardless of
+    # anything the vectors below actually exercise. That gate's own detail
+    # string carries no "FAIL is expected" caveat (unlike
+    # `maximum-colluding-extraction`/`audit-randomness-grinding-resistance`,
+    # which do): this was a configuration bug, not a deliberately open
+    # research question.
+    max_retained_keys: int = 80_000,
 ) -> SettlementPolicy:
     requester = settlement_class is SettlementClass.REQUESTER_FUNDED
     return SettlementPolicy(

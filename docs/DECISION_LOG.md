@@ -19230,3 +19230,341 @@ plan in full (§17.2 D-0468, §17.3 D-0471, §17.4 this decision).
 
 **Supersedes / superseded by:** extends D-0468/D-0471; supersedes
 nothing.
+
+### D-0476 — F5 Phase-2 retained-state default fixed; anti-collusion mechanism redesign explicitly declined  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** D-0427, D-0428 (the decision this narrows
+one finding of, without amending its text), `docs/audits/
+EXTERNAL_AUDIT_MASTER_REPORT.md`/`AUDIT_EVIDENCE_INDEX.md` ("Provider
+anti-collusion — FAIL"), `tools/f5_phase2_model.py`.
+
+**Decision:** two parts, deliberately asymmetric.
+
+1. **Fixed:** `tools/f5_phase2_model.py`'s `make_policy` helper's
+   `max_retained_keys` default changes from `100_000` to `80_000`.
+   `SettlementModel.RETAINED_KEY_ESTIMATE_BYTES` is `96`, and
+   `PolicyThresholds.max_retained_state_bytes` is `8 * 1024 * 1024`
+   (8 MiB) — `100_000 * 96 = 9_600_000` bytes, which is what D-0428's own
+   text recorded as exceeding that ceiling; `80_000 * 96 = 7_680_000`
+   bytes stays under it with headroom. Three of the eight policies
+   `render_report` builds (`requester_policy`, `sponsor_policy`,
+   `protocol_policy`) call `make_policy` without overriding this
+   parameter, so all three were silently over budget on every run
+   regardless of anything the adversarial vectors actually exercised.
+   The `retained-state-per-policy-epoch` gate now reports `PASS` (observed
+   `7_680_000` against the same `8_388_608` threshold);
+   `tools/test_f5_phase2_model.py`'s exact-vector test and
+   `tools/fixtures/f5_phase2_report.jsonl` are updated to match — every
+   vector's `state_digest` changes (the digest commits to the full policy,
+   which includes `max_retained_keys`) but every vector's `status`/
+   `accepted`/`rejected`/`spent_units`/`extraction_units` are byte-for-byte
+   unchanged, confirming this is a pure configuration correction with no
+   semantic effect on any of the model's actual findings.
+2. **Declined, explicitly:** the giant-PR punch list this decision is
+   part of originally scoped a task as "F5 provider anti-collusion
+   mechanism redesign," following the audit pack's "Provider
+   anti-collusion — FAIL" row. Investigation (a dedicated research pass
+   over `docs/design/f5-phase2-settlement-model.md`,
+   `docs/design/anti-collusion-content-settlement-preparation.md`, and
+   D-0428 itself) found that redesigning the mechanism is not this
+   decision's call to make. D-0428's own Required follow-up already says
+   so in terms that leave no ambiguity: *"Any sponsor/protocol
+   anti-collusion or activation proposal must first define and externally
+   review an explicit scarcity assumption, policy-family overlap rule,
+   and decentralized delayed-randomness construction... meet D-0047,
+   demonstrate operational independence rather than key count... "* — a
+   precondition this decision cannot satisfy by itself, the same way no
+   single engineering session can satisfy roadmap R16's (Tokenomics
+   validation, `outside`) precondition of a mechanism-design specialist's
+   calibration. The two adversarial findings D-0428 actually set out to
+   demonstrate — colluding genuine-delivery drain consuming 100% of a
+   bounded budget against a 10% gate, and adaptive audit-seed grinding
+   evading every sampled claim — remain `FAIL`, unchanged, exactly as
+   D-0428 intended them to stay until that external review happens.
+   `phase3_authorized` remains `false`.
+
+**Reason:** honesty over polish (this tree's own rule) cuts both ways.
+Leaving a bug-caused gate FAIL uncorrected because "the model already
+fails two other gates anyway" would be sloppy; but "fixing" the two
+*intentional* FAILs by inventing an untested economic mechanism in this
+session — the thing D-0428's Required follow-up explicitly forbids
+without external review — would be worse: exactly the "appears
+mechanically correct" failure mode D-0428's own Failure point warns
+against. The retained-state default was a real, narrow, engineering-only
+mistake with no adversarial content (its own gate detail string carries
+none of the "FAIL is expected" framing the two genuine attack gates
+state explicitly); fixing it is ordinary bug-fixing. Redesigning
+collusion resistance is not.
+
+**Constitutional impact:** none. No frozen invariant touched, no
+authority granted, no production crate changed — `tools/
+f5_phase2_model.py` remains the same deterministic, valueless Python
+falsification model D-0428 adopted; nothing here moves it toward Phase 3.
+
+**Implementation status:** shipped — `tools/f5_phase2_model.py`
+(`make_policy`'s `max_retained_keys` default, with a comment explaining
+the arithmetic and why the prior default was a bug rather than a
+deliberate finding), `tools/test_f5_phase2_model.py` (exact-vector
+assertions updated to `PASS`/`7_680_000`, with a comment distinguishing
+this gate from the two that legitimately stay `FAIL`),
+`tools/fixtures/f5_phase2_report.jsonl` (regenerated; full test suite —
+32 tests across both F5 test modules — passes).
+
+**Failure point:** unchanged from D-0428 for the two real findings:
+colluding-extraction and audit-grinding remain open research questions,
+not engineering tasks, and this decision does not move them. A reader
+skimming only this entry's headline could mistake "F5 gate fixed" for
+"F5 is closer to production" — it is not; two of three original gate
+failures are exactly as far from authorized as before.
+
+**Required follow-up:** identical to D-0428's, verbatim: no production
+anti-collusion or sponsor/protocol activation proposal is accepted while
+the D-0428 authorization result remains false and its scarcity-assumption
+precondition is unmet.
+
+**Supersedes / superseded by:** narrows one specific finding recorded in
+D-0428 (the retained-state gate) without amending D-0428's own text, per
+this tree's append-only-history rule; supersedes nothing.
+
+### D-0477 — `ProviderStanding::block_production_weight`: the audited-only path to storage weight  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** D-0448 (`mini_spacetime::proposer_weight`
+takes only `ProvenCapacity`, no numeric constructor), D-0445
+(`mini_storage_fraud::lifecycle::ReplicaLifecycle`/`ProviderStanding`),
+`crates/mini-storage-fraud/src/lifecycle.rs`,
+`crates/mini-spacetime/src/{weight,storage_proof}.rs`.
+
+**Decision:** add `ProviderStanding::block_production_weight(&self,
+units: &StorageUnitPolicy, distinct_regions: u32, params:
+&mini_spacetime::ProposerParams) -> u64`, a thin wrapper whose only
+capacity-bearing input is `&self`, calling `mini_spacetime::
+proposer_weight(self.proven_capacity(units), distinct_regions, params)`
+internally. Also corrects an overclaim in `lifecycle.rs`'s own module
+doc: D-0448's "the derived path is now the only path" is true of
+`proposer_weight`'s type signature (it accepts nothing but a
+`ProvenCapacity`, which has no numeric constructor) but is not, by
+itself, a guarantee that a real weight computation ran through an
+audited replica — `ProvenCapacity::from_commitment` is unconditional
+arithmetic over whatever `StorageCommitment` (a plain, fully
+public-fields struct) it is handed, so a caller could always construct
+one locally and feed it straight to `proposer_weight`, bypassing this
+crate's registration/audit/lifecycle machinery entirely.
+`mini-spacetime` is deliberately the lower, generic layer and correctly
+does not know this crate exists, so that gap is not a defect in it — the
+fix belongs at the integration point, not in `mini-spacetime`.
+`block_production_weight` is that point: `ProviderStanding` can only
+ever hold `ReplicaLifecycle` values built from a `VerifiedReplicaClaim`,
+itself only obtainable via `RegisteredReplicaClaim::verify`'s real
+auditor-quorum check, so a caller reaching for this function specifically
+cannot substitute a fabricated commitment the way it always could when
+calling `proposer_weight` directly.
+
+**Reason:** giant go-live punch-list item, following a dedicated research
+pass over `mini-storage-fraud`/`mini-spacetime` prompted by the audit
+reconstruction's storage-related findings. The research confirmed D-0448
+closed the literal "bare `u64`" hole but left the one-layer-up gap open;
+this decision closes it the same way `mini_execution::ClaimVerifier`
+(D-0474) closes an analogous gap — not by changing the lower/generic
+layer's trust model, but by giving the caller that actually holds the
+real audited data a narrow, harder-to-misuse function to reach for
+instead of the more general one. Zero non-test callers of
+`proposer_weight` or of `ReplicaLifecycle`/`ProviderStanding::
+proven_capacity` exist anywhere in the workspace today, so this is
+preventive typed-domain hygiene ahead of a real caller arriving, not a
+fix to an active exploit.
+
+**Constitutional impact:** none. No frozen invariant touched. Reinforces
+the typed-domain rule (CLAUDE.md): `block_production_weight`'s signature
+fixes the set of things reaching real block-production weight can come
+from at compile time, the same discipline already applied to
+`ProvenCapacity`, `sign_release_attestation`, and `ClaimVerifier`.
+
+**Implementation status:** shipped —
+`crates/mini-storage-fraud/src/lifecycle.rs`
+(`ProviderStanding::block_production_weight`; module doc corrected and
+expanded to state the overclaim precisely rather than repeat it),
+3 new tests in `crates/mini-storage-fraud/tests/lifecycle.rs`
+(the wrapper agrees exactly with calling `proposer_weight` directly on
+the same proven capacity; weight is zero before anything is proven,
+matching `proven_capacity`'s own guarantee; two independently-audited
+providers with identical real sealed byte counts get independently
+correct, identical weights — never a number either could have typed).
+20/20 tests in that file pass; crate builds and clippies clean.
+
+**Failure point:** this remains, as stated above, an opt-in extension
+point with no real caller yet — there is no networked consensus
+integration in this workspace that selects block producers by storage
+weight at all. A future caller that reaches for `mini_spacetime::
+proposer_weight` directly instead of `block_production_weight` reopens
+exactly the gap this decision closes; nothing prevents that call site
+choice, the same honest limit already stated for `mini_execution::
+ClaimVerifier` and every other opt-in primitive in this tree. The
+underlying registration quorum still cannot distinguish `n` distinct DID
+roots from one operator (roadmap #18) — this decision narrows *how*
+capacity reaches a weighting formula, not *whether* the capacity behind
+it represents an independent operator.
+
+**Required follow-up:** wiring `block_production_weight` (or an
+equivalent audited-only entry point) into whatever future networked
+consensus block-producer selection is built, once one exists; the
+operator-independence question named in the Failure point is tracked
+separately (see D-0478).
+
+**Supersedes / superseded by:** extends D-0445/D-0448; supersedes
+nothing.
+
+### D-0478 — Storage-operator independence mechanism: investigated, declined as security theater  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** `docs/audits/AUDIT_EVIDENCE_INDEX.md`
+("Independent replicas/operators — FAIL"), `docs/FAILURE_BOOK.md`'s new
+"Self-reported network/operator-diversity tags" entry (the same
+investigation, recorded there per this tree's convention of separating
+paths-not-taken from decisions-made), `crates/mini-storage-fraud/src/
+registration.rs`, `crates/mini-transport-security/src/selection.rs`,
+`crates/mini-spacetime/src/weight.rs`.
+
+**Decision:** no code change. The giant go-live punch-list originally
+scoped a task as "independent storage-operator diversity mechanism,"
+following the audit's FAIL verdict on replica-placement independence.
+Investigation (a dedicated research pass, then direct verification of
+its findings) considered extending `mini-storage-fraud::registration`'s
+`RegistrationPolicy`/`AuditAttestation` to require pairwise-distinct
+self-reported network prefixes or operator tags among an auditor quorum,
+modeled on `mini-transport-security::selection`'s `NetworkPrefix` peer-
+dial diversity and `mini_spacetime::weight`'s `distinct_regions` bonus.
+This decision declines to build it, for a reason stated precisely rather
+than merely asserted: those two precedents are honest specifically
+because their diversity signal is bound to something real (a live TCP
+dial's actual source IP; an openly-labeled self-report used only as a
+soft bonus, never a threshold). `mini-storage-fraud`'s audit attestations
+have no live network session behind them, so any comparable field added
+there would be self-reported by the auditor with nothing checking it —
+exactly as fabricable as minting one more DID, which the registration
+quorum already requires and which the audit finding says is
+insufficient. Shipping it would present as a fix while adding
+approximately no real resistance against a deliberate colluding
+operator, which is the "appears mechanically correct" failure mode this
+tree's own F5 doctrine (D-0428) explicitly warns against — the same
+category of trap D-0476 (this same punch list) navigated for F5's
+retained-state gate versus its two genuine collusion FAILs.
+
+**Reason:** honesty over polish, applied consistently across this whole
+punch list. `docs/design/storage-fraud-detection.md` and this crate's
+own module docs already say plainly that a quorum of `n` roots may be
+one operator and that this crate "must never be cited as evidence that
+Sybil resistance exists." That is roadmap issue #18 — the master
+dependency both this codebase and the audit reconstruction independently
+name as the sharpest open question — not an engineering gap solvable by
+adding a field that cannot actually be checked.
+
+**Constitutional impact:** none. No code changes; no invariant, crate,
+or dependency touched.
+
+**Implementation status:** not implemented, by design. Investigation
+recorded in `docs/FAILURE_BOOK.md` (new entry under "Personhood &
+identity") so this exact task is not re-proposed without first
+re-deriving why it was declined.
+
+**Failure point:** N/A — nothing shipped to fail. The audit's
+"Independent replicas/operators — FAIL" verdict remains exactly FAIL;
+this decision does not move it and explicitly should not be read as
+having addressed it.
+
+**Required follow-up:** unchanged from what this crate and the roadmap
+already state — a real unique-operator signal requires solving
+personhood/Sybil resistance (#18) first. Once one exists, auditor
+identity in `mini-storage-fraud::registration` can bind to it the same
+way replica ids already bind to delegated device identity (D-0439); no
+interim self-reported version should be built as a stepping stone, per
+the Failure Book entry's own "would it become viable again" answer.
+
+**Supersedes / superseded by:** supersedes nothing; declines to extend
+D-0439/D-0445.
+
+### D-0479 — Shared correctness infrastructure backlog: assessed, one item real and deferred  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** `.github/workflows/ci.yml`
+(`dependency-audit`/`dependency-deny` jobs, D-0341), the 14 independent
+`codec.rs` modules across `crates/*/src/`, the `for cut in 0..full.len()`
+truncation-adversarial-decode pattern already present ad hoc in 20+ files
+including `crates/did-mini/src/witness_rotation.rs` (this same punch
+list's D-0475).
+
+**Decision:** no code change; an honest scope assessment of the giant
+punch list's "shared correctness infrastructure backlog" item, following
+the same discipline D-0478 applied to storage-operator diversity —
+verify what is claimed to be missing before building anything, and defer
+rather than half-build what does not fit safely in this PR.
+
+1. **Dependency-audit CI: already real, not a gap.** `.github/workflows/
+   ci.yml`'s `dependency-audit` (`cargo-audit`) and `dependency-deny`
+   (`cargo-deny` against `deny.toml`) jobs already exist, per D-0341. The
+   punch list's premise that this was missing was wrong; nothing to build.
+2. **A canonical codec/transcript crate: real duplication, correctly not
+   attempted here.** 14 crates (`mini-bridge`, `mini-relay`,
+   `mini-extract-protocol`, `mini-search-federation`,
+   `mini-transport-security`, `mini-lexical-index`, `did-mini`,
+   `mini-attest`, `mini-private-payment`, `mini-pipeline-protocol`,
+   `mini-intake-types`, `mini-storage-fraud`, `mini-private-index`,
+   `mini-objects`) each independently implement their own
+   length-prefixed `Reader`/`Writer` pair, totaling roughly 1,850 lines,
+   with real API drift between them — this session's own D-0475 work hit
+   exactly that drift, momentarily writing `did-mini`'s codec calls
+   against `mini-private-payment`'s different codec API from memory.
+   Unifying 14 independently-evolved codecs, each embedded in
+   already-shipped wire formats other code and tests depend on, is a
+   real, valuable, but large and risk-bearing migration — it needs its
+   own dedicated PR with per-crate wire-compatibility verification, not a
+   slice of an already-large punch list. Declining to attempt it here is
+   the same judgment D-0478 already applied to a different backlog item:
+   real work correctly does not fit inside this PR's blast radius.
+3. **Fuzzing/mutation testing: genuinely absent, and not buildable in
+   this session's environment.** No `cargo-fuzz` target, no nightly
+   toolchain, and no `proptest`/`quickcheck` dependency exists anywhere
+   in the workspace; this session's sandboxed environment has only a
+   stable toolchain installed, so a real `cargo-fuzz` harness could not
+   be built *and verified* here even if written — and writing untested
+   fuzz targets would itself violate this tree's own "test before
+   claiming done" discipline. What already exists, independently
+   reinvented per-crate rather than shared, is the weaker but real
+   stable-Rust adversarial-decode pattern: iterating every truncation
+   prefix of a valid encoding and asserting decode fails cleanly rather
+   than panics or partially parses (at least 20 files do this today,
+   `did-mini::witness_rotation`'s own new D-0475 test among them). A
+   shared, dev-only helper crate generalizing that one pattern is real,
+   safe (test-only, zero production risk, stable Rust), and small — but
+   this decision explicitly does not build it either: with 100+ files
+   using some variant of adversarial-decode testing already, retrofitting
+   even a handful to a new shared helper inside this same PR risks the
+   scope creep this tree's own engineering discipline (CLAUDE.md: "don't
+   add features... beyond what the task requires") warns against, for a
+   task that was never more than a backlog note.
+
+**Reason:** the giant PR this decision closes out already carries five
+other decisions (D-0474 through D-0478) touching consensus, execution,
+identity, and two economic-model corrections. Adding a sixth,
+lower-confidence, larger-blast-radius item (a multi-crate codec
+migration) or an environment-blocked one (real fuzzing) would trade a
+clean, reviewable PR for a murkier one, for marginal-at-best benefit
+this late in scope. Recording the honest assessment plainly is worth
+more to a future engineer than a rushed unification would be.
+
+**Constitutional impact:** none. No code, crate, or dependency changed.
+
+**Implementation status:** not implemented — this is a scope assessment,
+recorded so the punch list's original framing (implying dependency-audit
+CI was missing) is not repeated, and so the codec-unification and
+fuzzing-harness ideas are findable with their real scope stated rather
+than re-investigated from zero.
+
+**Failure point:** N/A — nothing shipped to fail.
+
+**Required follow-up:** a dedicated codec/transcript-crate migration PR,
+scoped to verify wire-format compatibility per consuming crate before
+merge; a real `cargo-fuzz` harness once an environment with a nightly
+toolchain is available, targeting the highest-risk boundary parsers
+first (did-mini's KEL/event decode, mini-private-payment's claim decode,
+mini-storage-fraud's codec); optionally, a shared adversarial-decode
+test helper crate, adopted incrementally rather than as a mass retrofit.
+
+**Supersedes / superseded by:** supersedes nothing.

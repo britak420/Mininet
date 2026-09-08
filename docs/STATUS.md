@@ -1298,19 +1298,36 @@ given time.
   and `ProvenCapacity` has **no constructor taking a number**, closing a
   hole where a provider could seal one 32-byte node and declare a million
   units into `mini_spacetime::proposer_weight`, which documents that it
-  "trusts its input completely".
+  "trusts its input completely" (D-0448 narrowed `proposer_weight`'s own
+  signature to accept nothing else). **D-0477 closes the layer above
+  that:** `ProvenCapacity::from_commitment` is still unconditional
+  arithmetic over whatever `StorageCommitment` it is handed, so a caller
+  could always construct one locally and call `proposer_weight` directly,
+  bypassing this crate entirely — `ProviderStanding::
+  block_production_weight` is the integration point that closes that gap
+  for real: its only capacity-bearing input is `&self`, and
+  `ProviderStanding` can only ever hold `ReplicaLifecycle` values built
+  from a claim that passed a real auditor quorum.
   **What it does not do:** it is not a clock (windows come from
   caller-supplied milliseconds), not a liveness signal (a missed window
   and a partition are the same observation, which is why lapse is
-  gradual and reversible), and not a reward — nothing consumes
-  `ProvenCapacity`, and `proposer_weight` still *accepts* a
-  caller-supplied figure, so the derived path is available rather than
-  mandatory. Window length, challenge count, grace allowance, and the
+  gradual and reversible), and not a reward — `block_production_weight`
+  is a real consumer of `ProvenCapacity` now, but weight is
+  block-production *selection*, not a payment, and nothing in this
+  workspace calls it yet: there is no networked consensus caller that
+  selects block producers by storage weight to wire it into, so this
+  remains an opt-in primitive a future caller reaches for, the same
+  honest limit already stated for `mini_execution::ClaimVerifier`
+  (D-0474). Window length, challenge count, grace allowance, and the
   beacon source are all open protocol questions, not derived figures.
-  17 integration tests, every possession proof running through the real
-  `mini_porep::respond` / `mini_spacetime::verify_storage_challenge`
-  primitives rather than simulated. Unaudited prototype cryptography
-  under the D-0047/#72 gate.
+  20 integration tests (17 plus D-0477's 3), every possession proof
+  running through the real `mini_porep::respond` /
+  `mini_spacetime::verify_storage_challenge` primitives rather than
+  simulated. Unaudited prototype cryptography under the D-0047/#72 gate.
+  Independent operator control behind a registration quorum remains
+  unsolved (roadmap #18) — see D-0478, which investigated and explicitly
+  declined a self-reported "diversity" mitigation as unable to close
+  that gap honestly.
 - **fixed (D-0445)** — `mini_spacetime::verify_storage_challenge` did not
   take the challenge it was verifying: it checked that a response's
   Merkle proof was internally consistent and correctly rooted, but never
@@ -1954,9 +1971,20 @@ the top development priority.
   of a bounded protocol budget against a precommitted 10% ceiling. A
   second gate **fails**: when the realized audit seed is known while claim
   inputs remain variable, all 60 submitted IDs grind outside the 5% sample.
-  A third gate **fails** after measuring configured rather than friendly
-  observed capacity: 100,000 replay keys estimate to 9,600,000 bytes,
-  above the 8 MiB ceiling. A separate vector remains **partial** by design: two independently committed
+  A third gate, retained-state capacity (measuring configured rather than
+  friendly observed capacity), **was failing** — 100,000 replay keys
+  estimate to 9,600,000 bytes, above the 8 MiB ceiling — but that
+  specific gate carried no adversarial content (unlike the two above, its
+  own detail string named no attack) and was a plain configuration
+  default left over budget rather than a deliberate finding;
+  **D-0476 fixes it** (`make_policy`'s default drops to 80,000 keys,
+  7,680,000 bytes, under the ceiling) without touching the two genuine
+  collusion/grinding gates, which remain **fail** exactly as before —
+  `phase3_authorized` stays `false`. D-0476 also explicitly declines a
+  broader anti-collusion mechanism redesign: D-0428's own Required
+  follow-up requires external mechanism-design review before any such
+  proposal, the same category as roadmap R16 (Tokenomics, `outside`). A
+  separate vector remains **partial** by design: two independently committed
   policies can pay the same event because Mininet has no global activity
   registry; preventing unwanted overlap needs an explicit privacy-
   preserving policy-family rule. Issuer/auditor operational independence,

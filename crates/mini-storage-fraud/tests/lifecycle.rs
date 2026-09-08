@@ -362,6 +362,111 @@ fn provider_capacity_is_the_sum_of_actively_proving_replicas() {
     assert_eq!(standing.proven_capacity(&units()).units(), 4);
 }
 
+// ---------------------------------------------------------------------------
+// D-0477: block-production weight, but only through the audited path
+// ---------------------------------------------------------------------------
+
+#[test]
+fn block_production_weight_matches_the_underlying_formula() {
+    // The integration point is a thin wrapper -- it must agree exactly with
+    // calling mini_spacetime::proposer_weight directly on the same proven
+    // capacity, never a different number.
+    let (mut lifecycle, replica) = tracked();
+    assert!(prove_window(
+        &mut lifecycle,
+        &replica,
+        1,
+        b"beacon-1",
+        &windows()
+    ));
+
+    let mut standing = ProviderStanding::new();
+    standing.track(lifecycle);
+
+    let params = mini_spacetime::ProposerParams::default_params();
+    let direct = mini_spacetime::proposer_weight(standing.proven_capacity(&units()), 1, &params);
+    let wrapped = standing.block_production_weight(&units(), 1, &params);
+    assert_eq!(wrapped, direct);
+    assert!(
+        wrapped > 0,
+        "an actively proving replica must weigh something"
+    );
+}
+
+#[test]
+fn block_production_weight_is_zero_before_anything_is_proven() {
+    // Registration alone must not weigh anything -- the same guarantee
+    // proven_capacity already gives, now checked through the weight path a
+    // real caller would actually use.
+    let (lifecycle, _replica) = tracked();
+    let mut standing = ProviderStanding::new();
+    standing.track(lifecycle);
+
+    let params = mini_spacetime::ProposerParams::default_params();
+    assert_eq!(standing.block_production_weight(&units(), 1, &params), 0);
+}
+
+#[test]
+fn block_production_weight_only_ever_sees_audited_capacity() {
+    // There is no argument to block_production_weight through which a
+    // caller could substitute a fabricated StorageCommitment -- its only
+    // capacity-bearing input is &self, and ProviderStanding can only ever
+    // hold ReplicaLifecycle values built from a verified claim. This test
+    // documents that structurally: two providers with identical sealed byte
+    // counts but different real audited registrations get independently
+    // correct weights, not a number either one could have typed in.
+    let provider_a = Party::provider(180);
+    let provider_b = Party::provider(181);
+    let (first, second) = (Party::auditor(182), Party::auditor(183));
+    let directory = directory_of(&[&provider_a, &provider_b, &first, &second]);
+
+    let (claim_a, replica_a) =
+        registered_claim(&provider_a, &[&first, &second], &context(70), &data(70));
+    let (claim_b, replica_b) =
+        registered_claim(&provider_b, &[&first, &second], &context(71), &data(70));
+
+    let mut lifecycle_a = ReplicaLifecycle::begin(
+        claim_a.verify(&directory, &policy()).unwrap(),
+        GENESIS,
+        GENESIS,
+        &windows(),
+    );
+    let mut lifecycle_b = ReplicaLifecycle::begin(
+        claim_b.verify(&directory, &policy()).unwrap(),
+        GENESIS,
+        GENESIS,
+        &windows(),
+    );
+    assert!(prove_window(
+        &mut lifecycle_a,
+        &replica_a,
+        1,
+        b"beacon-a",
+        &windows()
+    ));
+    assert!(prove_window(
+        &mut lifecycle_b,
+        &replica_b,
+        1,
+        b"beacon-b",
+        &windows()
+    ));
+
+    let mut standing_a = ProviderStanding::new();
+    standing_a.track(lifecycle_a);
+    let mut standing_b = ProviderStanding::new();
+    standing_b.track(lifecycle_b);
+
+    let params = mini_spacetime::ProposerParams::default_params();
+    // Same sealed byte count (data(70) both times) -> same real weight, each
+    // independently derived from its own audited registration rather than
+    // from any number either provider asserted.
+    assert_eq!(
+        standing_a.block_production_weight(&units(), 1, &params),
+        standing_b.block_production_weight(&units(), 1, &params),
+    );
+}
+
 #[test]
 fn three_ordinals_under_one_provider_are_three_distinct_replicas() {
     // The replica ordinal exists so a provider keeping several independent
