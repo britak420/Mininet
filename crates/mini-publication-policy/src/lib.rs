@@ -21,7 +21,7 @@
 //!
 //! ## What this crate is not
 //!
-//! It is pure policy vocabulary plus typed crossing points into
+//! It provides policy vocabulary, checked transport submission, and crossing points into
 //! already-existing privacy/transport/pricing/relay vocabulary -- still
 //! no object store, live relay connection, mixnet, or payment mechanism
 //! of its own. Tracks D4-D6 (mixed transport, suppression-resistant

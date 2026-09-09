@@ -247,6 +247,7 @@ fn challenges_depend_on_the_verifiers_beacon_and_the_window() {
     // and a beacon the verifier supplies; the provider contributes nothing.
     let (lifecycle, _) = tracked();
     let policy = WindowPolicy::new(1_000, 16, 2).unwrap();
+    let lifecycle = ReplicaLifecycle::begin(lifecycle.claim().clone(), GENESIS, GENESIS, &policy);
 
     let a = lifecycle.challenges_for(1, b"beacon-a", &policy);
     let b = lifecycle.challenges_for(1, b"beacon-b", &policy);
@@ -266,7 +267,10 @@ fn challenges_depend_on_the_verifiers_beacon_and_the_window() {
 fn every_drawn_challenge_is_in_range_and_answerable() {
     let (lifecycle, replica) = tracked();
     let policy = WindowPolicy::new(1_000, 64, 2).unwrap();
-    for challenge in lifecycle.challenges_for(7, b"beacon", &policy) {
+    let lifecycle = ReplicaLifecycle::begin(lifecycle.claim().clone(), GENESIS, GENESIS, &policy);
+    let challenges = lifecycle.challenges_for(7, b"beacon", &policy);
+    assert_eq!(challenges.len(), 64);
+    for challenge in challenges {
         assert!(challenge.leaf_index < replica.node_count());
         assert!(mini_porep::respond(&replica, &challenge).is_some());
     }
@@ -544,4 +548,25 @@ fn tracking_the_same_replica_twice_does_not_double_its_capacity() {
         standing.block_production_weight(&units(), 1, &params),
         mini_spacetime::isqrt(standing.proven_capacity(&units()).units()),
     );
+}
+
+#[test]
+fn changing_the_registered_window_policy_cannot_grant_or_preserve_capacity() {
+    let (mut lifecycle, replica) = tracked();
+    let weakened = WindowPolicy::new(1_000, 1, u32::MAX).unwrap();
+    assert!(lifecycle.challenges_for(1, b"beacon", &weakened).is_empty());
+    assert!(lifecycle
+        .record_proven_window(1, b"beacon", &[], &weakened)
+        .is_err());
+    assert_eq!(lifecycle.proven_capacity(&units()).units(), 0);
+    assert!(prove_window(
+        &mut lifecycle,
+        &replica,
+        1,
+        b"beacon",
+        &windows()
+    ));
+    lifecycle.advance_to(5, &weakened);
+    assert_eq!(lifecycle.state(), ReplicaState::Suspended);
+    assert_eq!(lifecycle.proven_capacity(&units()).units(), 0);
 }

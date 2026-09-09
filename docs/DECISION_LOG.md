@@ -22054,3 +22054,24 @@ speculating about "whole-tree misattribution" before a human supplied
 the real alert list).
 
 **Supersedes / superseded by:** none.
+
+
+## Engineering evidence correction — PR #332, 2026-09-09
+
+This dated implementation-status correction is not a new governance Decision,
+external approval, or amendment to the historical records above. The living
+[PR #332 evidence matrix](audits/PR332_REMEDIATION_STATUS.md) and
+[implementation status](STATUS.md) record the audit as PARTIAL and production
+with real value / real people as NO-GO. D-0474–D-0501 statements that findings
+were closed do not establish the original acceptance criteria. F-17 and F-18
+remain failed production gates; other incomplete engineering and external gates
+are recorded individually in the matrix.
+
+The actual original remaining CodeQL annotation identified the SHA-256 temporary
+buffer in `mini-crypto/src/hash.rs`, rather than proving the test-nonce hypothesis
+in D-0501. After checkpoint `f2acb2b`, CodeQL reports 42 high findings concerning
+`trusted_head` flowing to CLI output. The follow-up removes secret-bearing
+identity capture from that sequence callback. Only a new scan can establish
+whether the reported flow is resolved; code shape changes and earlier green
+workflows cannot substitute for that result. Historical entries are preserved
+as evidence of the mistaken inference.

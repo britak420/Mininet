@@ -4,14 +4,16 @@ use std::thread;
 use did_mini::{Capabilities, Controller, FreshnessPins, Kel};
 use mini_bearer::{Bearer, Responder, TcpBearer};
 use mini_crypto::AgreementSecretKey;
+use mini_privacy_policy::{PrivacyRequest, PrivacyTier, ProtectionProperty};
 use mini_relay::{
     open_onion_destination, ConnectionId, OnionForward, OnionPacket, OnionReplayCache, RelayRole,
 };
-use mini_transport_policy::PayloadSizeClass;
+use mini_transport_policy::{PayloadSizeClass, TransportRequest};
 use mini_transport_security::{
-    authenticate_established_responder, build_verified_onion_route, connect_authenticated_tcp,
+    authenticate_established_responder, connect_authenticated_tcp, dispatch_transport,
     AuthenticatedConnection, AuthenticatedDialTarget, LocalSessionIdentity, PeerAdvertisement,
-    PeerExpectation, ReplayCache, TransportPurpose, VerifiedPeerAdvertisement, VerifiedRelay,
+    PeerExpectation, ReplayCache, TransportPurpose, TransportTarget, VerifiedPeerAdvertisement,
+    VerifiedRelay,
 };
 
 const NETWORK_ID: [u8; 32] = [17; 32];
@@ -188,20 +190,13 @@ fn every_onion_socket_uses_the_same_authenticated_runtime_seam() {
     let rendezvous_token = rendezvous.address.to_string().into_bytes();
     let delivery_token = delivery.address.to_string().into_bytes();
     let destination_token = destination.address.to_string().into_bytes();
-    let packet = build_verified_onion_route(
-        [
-            VerifiedRelay::new(&entry_ad, &rendezvous_token),
-            VerifiedRelay::new(&rendezvous_ad, &delivery_token),
-            VerifiedRelay::new(&delivery_ad, &destination_token),
-        ],
-        ConnectionId::from_bytes([23; 16]),
-        PayloadSizeClass::Small,
-        destination.identity.routing_secret.public_key(),
-        PLAINTEXT,
-        NOW_MS,
-        EXPIRES_AT_MS,
-    )
-    .unwrap();
+    let destination_key = destination.identity.routing_secret.public_key();
+    let route_ads = [entry_ad.clone(), rendezvous_ad.clone(), delivery_ad.clone()];
+    let route_tokens = [
+        rendezvous_token.clone(),
+        delivery_token.clone(),
+        destination_token.clone(),
+    ];
 
     let destination_thread = thread::spawn(move || {
         let mut incoming = accept_relay(
@@ -312,8 +307,6 @@ fn every_onion_socket_uses_the_same_authenticated_runtime_seam() {
         outgoing.send(&next, ONION_AAD).unwrap();
     });
 
-    let outer = packet.to_bytes().unwrap();
-    assert!(!contains(&outer, PLAINTEXT));
     let mut entry_connection = connect_relay(
         &client,
         &entry_ad,
@@ -321,7 +314,48 @@ fn every_onion_socket_uses_the_same_authenticated_runtime_seam() {
         &entry_device_for_client,
     );
     assert_eq!(entry_connection.peer().endpoint_id, entry_ad.endpoint_id());
-    entry_connection.send(&outer, ONION_AAD).unwrap();
+    let request = TransportRequest {
+        privacy: PrivacyRequest {
+            tier: PrivacyTier::Relayed,
+            properties: vec![
+                ProtectionProperty::ContentSecrecy,
+                ProtectionProperty::CounterpartyIpHiding,
+            ],
+        },
+        payload_size_class: PayloadSizeClass::Small,
+    };
+    // A partial route cannot be downgraded to sending application plaintext
+    // directly to the entry. The next successfully received frame is an onion.
+    assert!(dispatch_transport(
+        &request,
+        &mut entry_connection,
+        TransportTarget::Direct {
+            endpoint: entry_ad.endpoint_id()
+        },
+        PLAINTEXT,
+        ONION_AAD
+    )
+    .is_err());
+    let receipt = dispatch_transport(
+        &request,
+        &mut entry_connection,
+        TransportTarget::Onion {
+            relays: [
+                VerifiedRelay::new(&route_ads[0], &route_tokens[0]),
+                VerifiedRelay::new(&route_ads[1], &route_tokens[1]),
+                VerifiedRelay::new(&route_ads[2], &route_tokens[2]),
+            ],
+            destination_connection_id: ConnectionId::from_bytes([23; 16]),
+            destination_key,
+            now_ms: NOW_MS,
+            expires_at_ms: EXPIRES_AT_MS,
+        },
+        PLAINTEXT,
+        ONION_AAD,
+    )
+    .unwrap();
+    assert_eq!(receipt.tier(), PrivacyTier::Relayed);
+    assert_eq!(receipt.peer(), entry_ad.endpoint_id());
 
     entry_thread.join().unwrap();
     rendezvous_thread.join().unwrap();

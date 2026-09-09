@@ -33,7 +33,7 @@ fn a_real_claim_and_its_nullifier_group() -> (
         let decoy = StealthKeypair::generate().unwrap();
         let blinding = [0; 32];
         let commitment = mini_value::pedersen_commitment(1_000, &blinding).unwrap();
-        outputs.push(decoy.spend_public_bytes().to_vec(), commitment.clone());
+        outputs.push(decoy.spend_public_bytes().to_vec(), commitment);
         genesis.push(mini_execution::ShieldedGenesisAllocation {
             output: mini_execution::ShieldedOutput {
                 public_key: decoy.spend_public_bytes().to_vec(),
@@ -44,10 +44,7 @@ fn a_real_claim_and_its_nullifier_group() -> (
     }
     let spend_blinding = [0; 32];
     let spend_commitment = mini_value::pedersen_commitment(500, &spend_blinding).unwrap();
-    outputs.push(
-        spend_key.spend_public_bytes().to_vec(),
-        spend_commitment.clone(),
-    );
+    outputs.push(spend_key.spend_public_bytes().to_vec(), spend_commitment);
     genesis.push(mini_execution::ShieldedGenesisAllocation {
         output: mini_execution::ShieldedOutput {
             public_key: spend_key.spend_public_bytes().to_vec(),
@@ -146,9 +143,9 @@ fn a_tampered_claim_is_rejected_even_though_it_was_stored() {
     let verifier = ShieldedClaimVerifier::new(NETWORK, evidence);
     let group = [NullifierRecord::new(vec![0u8; 32], stored_digest)];
     assert!(
-        !verifier
+        verifier
             .verify_claim(&NETWORK, &stored_digest, &group)
-            .is_some(),
+            .is_none(),
         "a tampered claim must never verify, even under its own resulting digest"
     );
 }
@@ -160,5 +157,5 @@ fn wrong_network_id_is_rejected() {
     evidence.insert(claim_bytes).unwrap();
 
     let verifier = ShieldedClaimVerifier::new([0xee; 32], evidence);
-    assert!(!verifier.verify_claim(&NETWORK, &digest, &group).is_some());
+    assert!(verifier.verify_claim(&NETWORK, &digest, &group).is_none());
 }

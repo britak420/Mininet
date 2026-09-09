@@ -16,6 +16,10 @@ for part of the claim, gap documented) · **prototype** (real code, but
 explicitly founder-reviewed only, pending external audit) · **design-only**
 (written design exists, no code yet) · **not started**.
 
+## PR #332 audit correction (2026-09-09)
+
+The original F-01–F-24 audit remains **PARTIAL**, and real value / real people remain **NO-GO**. Historical statements that all findings are closed are superseded as implementation status by the [current claim-to-executor evidence matrix](audits/PR332_REMEDIATION_STATUS.md). Passing structural checks does not establish semantic audit closure or external approval.
+
 ## The road to release (D-0453)
 
 What stands between today and a public release is now written down in one

@@ -17,6 +17,13 @@ use crate::object::{verify_provenance, Object, ObjectId};
 /// Construction checks canonical bytes, device signature and root delegation.
 /// This proves authorship of this exact object; mutable ownership/chain policy
 /// requires its own authenticated state and is deliberately not accepted here.
+///
+/// ```compile_fail
+/// use mini_objects::{AuthenticatedObjectOwner, CapabilityScope};
+/// fn forge(scope: CapabilityScope, owner: did_mini::Did) -> AuthenticatedObjectOwner {
+///     AuthenticatedObjectOwner { scope, owner }
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthenticatedObjectOwner {
     scope: CapabilityScope,
@@ -42,7 +49,7 @@ pub const CAPABILITY_VERSION: u8 = 1;
 
 const GRANT_SIGNING_DOMAIN: &[u8] = b"mininet/mini-objects/capability-grant/v1";
 const TOKEN_COMMITMENT_DOMAIN: &[u8] = b"mininet/mini-objects/capability-token-commitment/v1";
-const HOLDER_PROOF_DOMAIN: &[u8] = b"mininet/mini-objects/capability-holder-proof/v1";
+const HOLDER_PROOF_DOMAIN: &[u8] = b"mininet/mini-objects/capability-holder-proof/v2";
 
 /// One verifier-issued, single-use request challenge. `context` should commit
 /// to the audience/session and exact operation bytes (including write content).
@@ -712,7 +719,8 @@ mod tests {
         let f = fixture();
         let (grant, _proof) = issue_and_prove(&f, CapabilityRight::Read);
         let impostor = Controller::incept_single().unwrap();
-        let impostor_proof = impostor.sign_message(&grant.holder_proof_message());
+        let impostor_proof =
+            impostor.sign_message(&grant.holder_proof_message(&f.request.borrow().challenge()));
         let err = grant
             .validate(
                 &f.issuer.kel(),

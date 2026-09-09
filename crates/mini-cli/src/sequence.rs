@@ -29,22 +29,23 @@ fn io(error: std::io::Error) -> CliError {
 /// The durable checkpoint also preserves reservations not yet inserted.
 pub fn next(home: &Path, store_path: &Path) -> Result<u64> {
     let identity = crate::identity::load(home)?;
-    allocate(home, identity.human_did().as_str(), || {
+    // The reconciliation callback needs public provenance only. Do not capture
+    // the controller (and its signing keys) in a value passed through the
+    // allocator and ultimately into public command output.
+    let author = identity.human_did();
+    let human_kel = identity.human.kel();
+    let device_kel = identity.device.kel();
+    drop(identity);
+    allocate(home, author.as_str(), || {
         let store = crate::store::open_store(store_path)?;
         let mut floor = 0;
         for id in store
-            .by_author(&identity.human_did())
+            .by_author(&author)
             .map_err(|e| CliError::Store(e.to_string()))?
         {
             let object = store.get(&id).map_err(|e| CliError::Store(e.to_string()))?;
             // Unauthenticated inserted content cannot raise the counter.
-            if mini_objects::verify_provenance(
-                &object,
-                &identity.human.kel(),
-                &identity.device.kel(),
-            )
-            .is_ok()
-            {
+            if mini_objects::verify_provenance(&object, &human_kel, &device_kel).is_ok() {
                 floor = floor.max(object.sequence);
             }
         }

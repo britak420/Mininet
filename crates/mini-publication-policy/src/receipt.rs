@@ -15,9 +15,10 @@
 //! `mini-commons-policy` to the same pricing engine.
 //!
 //! **This is a quote and a routing decision, never proof that a
-//! publication happened (F-15).** No object is stored, no bytes move, no
-//! payment executes, and nothing here ever calls a real transport
-//! executor -- see [`mini_transport_policy::route`] and
+//! publication happened (F-15).** Planning stores no object, moves no bytes,
+//! and executes no payment. `PublicationRoutingPlan::dispatch` is a separate
+//! step that invokes the checked transport executor. Its receipt proves only
+//! local bearer submission, not publication or remote delivery. See [`mini_transport_policy::route`] and
 //! [`mini_resource_pricing::quote`]'s own module docs for the same
 //! honesty boundary this crate inherits. [`PublicationRoutingPlan`] was
 //! previously named `AchievedResultReceipt`; that name is exactly the

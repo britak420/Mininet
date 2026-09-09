@@ -7,7 +7,7 @@ use mini_airdrop::ClaimOutcome;
 use mini_crypto::hash::blake3_256;
 use mini_execution::LedgerChain;
 use mini_settlement::{claim_digest, verify_claim_signature, CanonicalLedgerView, PaymentClaim};
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
@@ -17,6 +17,180 @@ pub enum PayoutPhase {
     Authorized,
     Submitted,
     Finalized,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use did_mini::{Capabilities, Controller, Did, Kel};
+    use mini_chain::{
+        sign_vote, BlockHeader, QuorumCertificate, ValidatorOracle, ValidatorSet, VoteKind,
+    };
+    use mini_crypto::SigningKey;
+    use mini_execution::SettlementBlockBody;
+    use mini_settlement::{sign_claim, MININET_NETWORK_ID};
+    use mini_treasury::TreasurySignerSet;
+    use std::collections::BTreeMap;
+
+    struct Directory(BTreeMap<String, Kel>);
+    impl ValidatorOracle for Directory {
+        fn kel(&self, did: &Did) -> Option<&Kel> {
+            self.0.get(did.scid())
+        }
+    }
+
+    fn finalize(chain: &mut LedgerChain, claim: PaymentClaim) {
+        let mut directory = Directory(BTreeMap::new());
+        let signers: Vec<_> = (0..4)
+            .map(|_| {
+                let mut root = Controller::incept_single().unwrap();
+                let device = Controller::incept_device_single_from_seeds(
+                    &root.did(),
+                    &mini_crypto::random::random_32().unwrap(),
+                    &mini_crypto::random::random_32().unwrap(),
+                )
+                .unwrap();
+                root.delegate_device(&device.did(), Capabilities::primary())
+                    .unwrap();
+                directory.0.insert(root.did().scid().into(), root.kel());
+                directory.0.insert(device.did().scid().into(), device.kel());
+                (root, device)
+            })
+            .collect();
+        let validators = ValidatorSet::new(signers.iter().map(|(r, _)| r.did()).collect()).unwrap();
+        let body = SettlementBlockBody::new(vec![claim]);
+        let next = mini_execution::apply_block(chain.state(), &body).unwrap();
+        let height = chain.height() + 1;
+        let header = BlockHeader {
+            height,
+            prev_hash: chain.tip_hash(),
+            state_root: next.commitment(),
+            body_root: body.hash(),
+            timestamp_ms: height,
+            proposer: signers[0].0.did(),
+        };
+        let hash = header.hash();
+        let qc = QuorumCertificate {
+            height,
+            round: 0,
+            block_hash: hash,
+            votes: signers[..3]
+                .iter()
+                .map(|(r, d)| sign_vote(VoteKind::Precommit, height, 0, hash, &r.did(), d))
+                .collect(),
+        };
+        chain
+            .apply_finalized_block(&header, &body, &qc, &validators, &directory)
+            .unwrap();
+    }
+
+    fn approved(campaign: &[u8], outcome: &ClaimOutcome) -> TreasuryApprovedPayout {
+        let signer = Controller::incept_single().unwrap();
+        let signer_set = TreasurySignerSet::new(vec![signer.did()], 1).unwrap();
+        let kel = signer.kel();
+        let signatures = signer.sign_message(&payout_message(campaign, outcome));
+        crate::verify_payout_approvals(campaign, outcome, &signer_set, &[(&kel, &signatures)])
+            .unwrap()
+    }
+    fn fixture() -> (PathBuf, SigningKey, ClaimOutcome) {
+        let root = std::env::temp_dir().join(format!(
+            "payout-journal-{}-{}",
+            std::process::id(),
+            mini_crypto::random::random_32()
+                .unwrap()
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        ));
+        let payer = SigningKey::generate().unwrap();
+        let recipient = SigningKey::generate().unwrap();
+        let outcome = ClaimOutcome {
+            identity_root: Controller::incept_single().unwrap().did(),
+            amount_micro: 100,
+            recipient: recipient.verifying_key().to_bytes().to_vec(),
+        };
+        (root, payer, outcome)
+    }
+
+    #[test]
+    fn failed_submission_reopens_and_finalizes_exact_payment_with_real_quorum() {
+        let (root, payer, outcome) = fixture();
+        let address = payer.verifying_key().to_bytes().to_vec();
+        let approval = approved(b"campaign", &outcome);
+        let claim = sign_claim(&payer, &outcome.recipient, 100, 0, 10_000, b"", 0).unwrap();
+        let mut chain = LedgerChain::genesis_with_balances(
+            100u64.into(),
+            vec![(address.clone(), 100u64.into())],
+        )
+        .unwrap();
+        let mut journal = PayoutJournal::open(
+            &root,
+            b"campaign",
+            outcome.clone(),
+            MININET_NETWORK_ID,
+            address.clone(),
+        )
+        .unwrap();
+        assert!(journal
+            .submit(&approval, &claim, |_| panic!(
+                "must not dispatch before authorization"
+            ))
+            .is_err());
+        journal.authorize(&approval).unwrap();
+        assert!(journal
+            .submit(&approval, &claim, |_| Err(io::Error::other(
+                "connection lost"
+            )))
+            .is_err());
+        assert_eq!(journal.phase().unwrap(), PayoutPhase::Submitted);
+        assert!(!journal.reconcile(&chain).unwrap());
+        drop(journal);
+        let mut journal =
+            PayoutJournal::open(&root, b"campaign", outcome, MININET_NETWORK_ID, address).unwrap();
+        assert_eq!(journal.pending_claim().unwrap(), Some(claim.clone()));
+        journal
+            .submit(&approval, &claim, |actual| {
+                finalize(&mut chain, actual.clone());
+                Ok(())
+            })
+            .unwrap();
+        assert!(journal.reconcile(&chain).unwrap());
+        assert_eq!(journal.phase().unwrap(), PayoutPhase::Finalized);
+        journal
+            .submit(&approval, &claim, |_| {
+                panic!("must not re-dispatch finalized payout")
+            })
+            .unwrap();
+        drop(journal);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cross_campaign_approval_and_changed_submitted_claim_are_refused() {
+        let (root, payer, outcome) = fixture();
+        let mut journal = PayoutJournal::open(
+            &root,
+            b"campaign",
+            outcome.clone(),
+            MININET_NETWORK_ID,
+            payer.verifying_key().to_bytes().to_vec(),
+        )
+        .unwrap();
+        assert!(journal.authorize(&approved(b"other", &outcome)).is_err());
+        let approval = approved(b"campaign", &outcome);
+        journal.authorize(&approval).unwrap();
+        let first = sign_claim(&payer, &outcome.recipient, 100, 0, 10_000, b"", 0).unwrap();
+        journal.submit(&approval, &first, |_| Ok(())).unwrap();
+        let second = sign_claim(&payer, &outcome.recipient, 100, 1, 10_000, b"", 0).unwrap();
+        assert!(journal
+            .submit(&approval, &second, |_| panic!(
+                "second payment must not escape"
+            ))
+            .is_err());
+        assert_eq!(journal.pending_claim().unwrap(), Some(first));
+        drop(journal);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
 
 #[derive(Debug)]

@@ -1,6 +1,6 @@
 //! Federated merge with explicit score provenance. Local computation wins
-//! over remote assertions; remote self-scores never choose a URL's displayed
-//! representative or its position. Every distinct remote claim for a retained
+//! over remote assertions; remote self-scores confer no positive ranking
+//! authority. Remote-only URLs sort by URL and representatives by provider. Every distinct remote claim for a retained
 //! URL survives in `remote_claims`, including profile and observation links.
 //! Locally computed scores still depend on source-supplied metadata: recomputing
 //! a formula is not verification of the metadata's factual truth.
@@ -57,6 +57,12 @@ pub enum ResultOrigin {
 /// actually ran `mini_query::search` itself (PR #327 finding F-21; the
 /// same unforgeable-typed-domain discipline D-0490/D-0495 already apply
 /// elsewhere in this workspace).
+/// ```compile_fail
+/// use mini_search_federation::FederatedResult;
+/// fn relabel(local: &mut FederatedResult, remote: FederatedResult) {
+///     local.result = remote.result().clone();
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FederatedResult {
     pub(crate) result: ResultProvenance,

@@ -2388,6 +2388,7 @@ version = "0.0.1"
 dependencies = [
  "did-mini",
  "mini-airdrop",
+ "mini-chain",
  "mini-crypto",
  "mini-durable",
  "mini-execution",
@@ -2876,7 +2877,9 @@ dependencies = [
 name = "mini-publication-policy"
 version = "0.0.1"
 dependencies = [
+ "did-mini",
  "mini-bearer",
+ "mini-crypto",
  "mini-privacy-policy",
  "mini-relay",
  "mini-resource-pricing",

@@ -118,110 +118,351 @@ pub fn round1_commit(index: u16) -> Result<(SigningNonces, NonceCommitment)> {
     Ok((SigningNonces { hiding, binding }, commitment))
 }
 
-/// A process-locked, crash-safe signer service for the existing FROST prototype.
+/// A process-locked nonce journal for the existing FROST prototype.
 /// Commitments are reserved before publication and burned durably before any
-/// response is computed. Secret nonces are never serialized: restart abandons
-/// unfinished rounds. Retain this journal with the signer; restoring both memory
-/// and disk from a prior snapshot requires an independent anti-rollback anchor.
-/// This service does not grant custody authorization or replace external audit.
-#[derive(Debug)]
+/// response is computed. Secret nonces are never serialized; restart burns
+/// unfinished rounds. Handles from an earlier service instance are rejected.
+///
+/// Keep the journal with the signer. Full memory/disk snapshots, rollback of
+/// every journal copy, and hardware that ignores flushes require independent
+/// controls. This service does not authorize custody or replace external audit.
 pub struct DurableFrostSigner {
     directory: std::path::PathBuf,
     key: KeyPackage,
-    binding: Vec<u8>,
+    binding: [u8; 32],
+    instance: [u8; 32],
+    record_count: usize,
+    poisoned: bool,
     _lock: std::fs::File,
+    #[cfg(test)]
+    fail_after_burn: bool,
 }
 
-/// Private nonce material reserved by one durable signer. Cannot be cloned,
-/// decoded, or passed to the low-level prototype signing function.
+impl core::fmt::Debug for DurableFrostSigner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("DurableFrostSigner")
+            .field("index", &self.key.index)
+            .field("record_count", &self.record_count)
+            .field("poisoned", &self.poisoned)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Private nonce material reserved by one durable signer. It is neither
+/// cloneable nor deserializable and cannot enter the raw signing path.
+///
+/// ```compile_fail
+/// use mini_treasury::DurableSigningNonces;
+/// fn duplicate(nonces: &DurableSigningNonces) -> DurableSigningNonces {
+///     nonces.clone()
+/// }
+/// ```
+///
+/// ```compile_fail
+/// use mini_treasury::{DurableFrostSigner, DurableSigningNonces, SigningPackage};
+/// fn reuse(signer: &mut DurableFrostSigner, nonces: DurableSigningNonces, package: &SigningPackage) {
+///     let _ = signer.sign(nonces, package);
+///     let _ = signer.sign(nonces, package);
+/// }
+/// ```
+///
+/// ```compile_fail
+/// use mini_treasury::{round2_sign, DurableSigningNonces, KeyPackage, SigningPackage};
+/// fn bypass(key: &KeyPackage, nonces: DurableSigningNonces, package: &SigningPackage) {
+///     let _ = round2_sign(key, nonces, package);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct DurableSigningNonces {
     nonces: SigningNonces,
-    record_name: String,
-    signer_binding: Vec<u8>,
+    record: NonceRecord,
 }
 
+const SIGNER_DOMAIN: &[u8] = b"mini-treasury/durable-signer/v2\0";
+const NONCE_DOMAIN: &[u8] = b"mini-treasury/nonce-record/v2\0";
+const NONCE_RECORD_BYTES: usize = NONCE_DOMAIN.len() + 6 * 32 + 1;
+/// Retention is conservative: never delete commitments to regain capacity.
+/// Exhaustion requires an explicitly reviewed signer/journal migration.
+pub const MAX_DURABLE_NONCE_RECORDS: usize = 100_000;
+
+#[derive(Debug)]
+struct NonceRecord {
+    signer: [u8; 32],
+    instance: [u8; 32],
+    hiding: [u8; 32],
+    binding: [u8; 32],
+    burned: bool,
+    transcript: [u8; 32],
+}
+impl NonceRecord {
+    fn encode(&self) -> Vec<u8> {
+        let mut bytes = NONCE_DOMAIN.to_vec();
+        bytes.extend_from_slice(&self.signer);
+        bytes.extend_from_slice(&self.instance);
+        bytes.extend_from_slice(&self.hiding);
+        bytes.extend_from_slice(&self.binding);
+        bytes.push(u8::from(self.burned));
+        bytes.extend_from_slice(&self.transcript);
+        let checksum = blake3::hash(&bytes);
+        bytes.extend_from_slice(checksum.as_bytes());
+        bytes
+    }
+    fn decode(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() != NONCE_RECORD_BYTES || !bytes.starts_with(NONCE_DOMAIN) {
+            return Err(journal_error("invalid nonce journal record length/version"));
+        }
+        let (content, checksum) = bytes.split_at(bytes.len() - 32);
+        if blake3::hash(content).as_bytes() != checksum {
+            return Err(journal_error("nonce journal checksum mismatch"));
+        }
+        let mut cursor = NONCE_DOMAIN.len();
+        let mut field = || {
+            let mut value = [0; 32];
+            value.copy_from_slice(&bytes[cursor..cursor + 32]);
+            cursor += 32;
+            value
+        };
+        let signer = field();
+        let instance = field();
+        let hiding = field();
+        let binding = field();
+        let burned = match bytes[cursor] {
+            0 => false,
+            1 => true,
+            _ => return Err(journal_error("invalid nonce record status")),
+        };
+        cursor += 1;
+        let mut transcript = [0; 32];
+        transcript.copy_from_slice(&bytes[cursor..cursor + 32]);
+        if (!burned && transcript != [0; 32])
+            || CompressedRistretto(hiding).decompress().is_none()
+            || CompressedRistretto(binding).decompress().is_none()
+        {
+            return Err(journal_error("invalid nonce record fields"));
+        }
+        Ok(Self {
+            signer,
+            instance,
+            hiding,
+            binding,
+            burned,
+            transcript,
+        })
+    }
+    fn name(&self) -> String {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"mini-treasury/nonce-name/v2\0");
+        hasher.update(&self.signer);
+        hasher.update(&self.hiding);
+        hasher.update(&self.binding);
+        format!("{}.nonce", hasher.finalize().to_hex())
+    }
+}
 fn journal_error(error: impl std::fmt::Display) -> TreasuryError {
     TreasuryError::SigningJournal(error.to_string())
+}
+
+fn read_journal_file(path: &std::path::Path, limit: usize) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let metadata = std::fs::symlink_metadata(path).map_err(journal_error)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > limit as u64 {
+        return Err(journal_error("journal must be a bounded regular file"));
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .map_err(journal_error)?
+        .take(limit as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(journal_error)?;
+    if bytes.len() > limit {
+        return Err(journal_error("journal exceeds read bound"));
+    }
+    Ok(bytes)
 }
 
 impl DurableFrostSigner {
     pub fn open(directory: impl Into<std::path::PathBuf>, key: KeyPackage) -> Result<Self> {
         let directory = directory.into();
+        if key.index == 0
+            || key.index > crate::frost_keygen::MAX_PARTICIPANTS
+            || key.group_public_key == RistrettoPoint::identity()
+            || key.secret_share == Scalar::ZERO
+        {
+            return Err(TreasuryError::InvalidFrostParticipant);
+        }
         mini_durable::create_dir_all(&directory).map_err(journal_error)?;
         let lock = mini_durable::try_lock_exclusive(&directory.join("signer.lock"))
             .map_err(journal_error)?;
-        let mut binding = b"mini-treasury/durable-signer/v1".to_vec();
-        binding.extend_from_slice(&key.index.to_be_bytes());
-        binding.extend_from_slice(key.group_public_key.compress().as_bytes());
-        let manifest = directory.join("signer.binding");
-        match std::fs::read(&manifest) {
-            Ok(bytes) if bytes == binding => {}
-            Ok(_) => return Err(journal_error("signer identity does not match journal")),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // Never treat a deleted manifest in a used journal as first use.
-                if std::fs::read_dir(&directory)
-                    .map_err(journal_error)?
-                    .count()
-                    != 1
-                {
+        // Include the verification share: resharing can preserve the group key
+        // and participant index while replacing this participant's secret.
+        let mut manifest = SIGNER_DOMAIN.to_vec();
+        manifest.extend_from_slice(&key.index.to_be_bytes());
+        manifest.extend_from_slice(key.group_public_key.compress().as_bytes());
+        manifest.extend_from_slice((basepoint() * key.secret_share).compress().as_bytes());
+        let binding = *blake3::hash(&manifest).as_bytes();
+        let manifest_path = directory.join("signer.binding");
+        let mut record_count = 0usize;
+        let mut records = Vec::new();
+        let mut directory_entries = 0usize;
+        for entry in std::fs::read_dir(&directory).map_err(journal_error)? {
+            let entry = entry.map_err(journal_error)?;
+            directory_entries += 1;
+            if directory_entries > MAX_DURABLE_NONCE_RECORDS + 2 {
+                return Err(journal_error("signer journal capacity exceeded"));
+            }
+            let path = entry.path();
+            if path == manifest_path || path == directory.join("signer.lock") {
+                continue;
+            }
+            if path.extension().is_some_and(|extension| extension == "tmp") {
+                continue;
+            }
+            if path
+                .extension()
+                .is_none_or(|extension| extension != "nonce")
+            {
+                return Err(journal_error("unexpected signer journal entry"));
+            }
+            let record = NonceRecord::decode(&read_journal_file(&path, NONCE_RECORD_BYTES)?)?;
+            if record.signer != binding
+                || path.file_name().and_then(|name| name.to_str()) != Some(record.name().as_str())
+            {
+                return Err(journal_error(
+                    "nonce record does not bind this signer/commitment",
+                ));
+            }
+            records.push(record);
+            record_count += 1;
+        }
+        match read_journal_file(&manifest_path, manifest.len()) {
+            Ok(bytes) if bytes == manifest => {}
+            Ok(_) => {
+                return Err(journal_error(
+                    "signer identity/share does not match journal",
+                ))
+            }
+            Err(_) if !manifest_path.try_exists().map_err(journal_error)? => {
+                if directory_entries != 1 {
                     return Err(journal_error("missing binding in nonempty signer journal"));
                 }
-                mini_durable::atomic_replace(&manifest, &binding).map_err(journal_error)?;
+                mini_durable::atomic_replace(&manifest_path, &manifest).map_err(journal_error)?;
             }
-            Err(e) => return Err(journal_error(e)),
+            Err(error) => return Err(error),
         }
+        // Re-establish barriers in case a previous manifest rename returned an
+        // uncertain error. This runs before any new commitment is released.
+        mini_durable::atomic_replace(&manifest_path, &manifest).map_err(journal_error)?;
+        for mut record in records {
+            if !record.burned {
+                record.burned = true;
+                mini_durable::atomic_replace(&directory.join(record.name()), &record.encode())
+                    .map_err(journal_error)?;
+            }
+        }
+        let instance = mini_crypto::random_32().map_err(|_| TreasuryError::Entropy)?;
         Ok(Self {
             directory,
             key,
             binding,
+            instance,
+            record_count,
+            poisoned: false,
             _lock: lock,
+            #[cfg(test)]
+            fail_after_burn: false,
         })
     }
 
-    pub fn commit(&mut self) -> Result<(DurableSigningNonces, NonceCommitment)> {
-        let (nonces, commitment) = round1_commit(self.key.index)?;
-        let mut input = self.binding.clone();
-        input.extend_from_slice(commitment.hiding.compress().as_bytes());
-        input.extend_from_slice(commitment.binding.compress().as_bytes());
-        let record_name = format!("{}.nonce", blake3::hash(&input).to_hex());
-        let path = self.directory.join(&record_name);
-        if path.try_exists().map_err(journal_error)? {
-            return Err(journal_error("nonce commitment already reserved"));
+    fn ready(&mut self) -> Result<()> {
+        if self.poisoned {
+            return Err(journal_error(
+                "storage outcome uncertain; signer must reopen",
+            ));
         }
-        mini_durable::atomic_replace(&path, &self.record(b"reserved")).map_err(journal_error)?;
-        Ok((
-            DurableSigningNonces {
-                nonces,
-                record_name,
-                signer_binding: self.binding.clone(),
-            },
-            commitment,
-        ))
+        match read_journal_file(
+            &self.directory.join("signer.binding"),
+            SIGNER_DOMAIN.len() + 66,
+        ) {
+            Ok(bytes) if *blake3::hash(&bytes).as_bytes() == self.binding => Ok(()),
+            _ => {
+                self.poisoned = true;
+                Err(journal_error(
+                    "signer manifest disappeared or changed; refusing publication",
+                ))
+            }
+        }
+    }
+    fn persist(&mut self, record: &NonceRecord) -> Result<()> {
+        if let Err(error) =
+            mini_durable::atomic_replace(&self.directory.join(record.name()), &record.encode())
+        {
+            self.poisoned = true;
+            return Err(journal_error(error));
+        }
+        Ok(())
+    }
+    pub fn commit(&mut self) -> Result<(DurableSigningNonces, NonceCommitment)> {
+        self.ready()?;
+        if self.record_count >= MAX_DURABLE_NONCE_RECORDS {
+            return Err(journal_error("signer journal capacity exceeded"));
+        }
+        let (nonces, commitment) = round1_commit(self.key.index)?;
+        let record = NonceRecord {
+            signer: self.binding,
+            instance: self.instance,
+            hiding: commitment.hiding.compress().to_bytes(),
+            binding: commitment.binding.compress().to_bytes(),
+            burned: false,
+            transcript: [0; 32],
+        };
+        if self
+            .directory
+            .join(record.name())
+            .try_exists()
+            .map_err(journal_error)?
+        {
+            return Err(journal_error("nonce commitment already reserved or burned"));
+        }
+        self.persist(&record)?;
+        self.record_count += 1;
+        Ok((DurableSigningNonces { nonces, record }, commitment))
     }
 
-    /// Burns even on an invalid signing package. A crash after this barrier may
-    /// lose a response, but cannot justify signing another transcript with it.
+    /// Burns even on an invalid package. A crash after the barrier may lose
+    /// the response; neither it nor an application retry permits nonce reuse.
     pub fn sign(
         &mut self,
         nonces: DurableSigningNonces,
         package: &SigningPackage,
     ) -> Result<Scalar> {
-        if nonces.signer_binding != self.binding {
-            return Err(journal_error("nonce belongs to a different signer"));
+        self.ready()?;
+        if nonces.record.signer != self.binding || nonces.record.instance != self.instance {
+            return Err(journal_error(
+                "nonce belongs to a different signer instance",
+            ));
         }
-        let path = self.directory.join(&nonces.record_name);
-        if std::fs::read(&path).map_err(journal_error)? != self.record(b"reserved") {
-            return Err(journal_error("nonce not reserved or already burned"));
+        let path = self.directory.join(nonces.record.name());
+        match read_journal_file(&path, NONCE_RECORD_BYTES) {
+            Ok(bytes) if bytes == nonces.record.encode() => {}
+            _ => {
+                self.poisoned = true;
+                return Err(journal_error(
+                    "nonce reservation is corrupt, missing, or burned",
+                ));
+            }
         }
-        mini_durable::atomic_replace(&path, &self.record(b"burned")).map_err(journal_error)?;
+        let mut record = nonces.record;
+        record.burned = true;
+        record.transcript = package.transcript_digest();
+        self.persist(&record)?;
+        #[cfg(test)]
+        if self.fail_after_burn {
+            self.poisoned = true;
+            return Err(journal_error(
+                "injected interruption after burn, before response",
+            ));
+        }
         round2_sign(&self.key, nonces.nonces, package)
-    }
-
-    fn record(&self, status: &[u8]) -> Vec<u8> {
-        let mut bytes = self.binding.clone();
-        bytes.extend_from_slice(status);
-        bytes
     }
 }
 
@@ -258,6 +499,19 @@ impl SigningPackage {
             message,
             commitments: map,
         })
+    }
+
+    fn transcript_digest(&self) -> [u8; 32] {
+        let mut hash = blake3::Hasher::new();
+        hash.update(b"mini-treasury/signing-transcript/v1\0");
+        hash.update(&(self.message.len() as u64).to_be_bytes());
+        hash.update(&self.message);
+        for (index, commitment) in &self.commitments {
+            hash.update(&index.to_be_bytes());
+            hash.update(commitment.hiding.compress().as_bytes());
+            hash.update(commitment.binding.compress().as_bytes());
+        }
+        *hash.finalize().as_bytes()
     }
 
     fn indices(&self) -> Vec<Scalar> {
@@ -914,5 +1168,199 @@ mod tests {
         // Index 999 is not a member of the group at all.
         let err = verify_signature_share(999, Scalar::ZERO, &signing_package, &public).unwrap_err();
         assert_eq!(err, TreasuryError::InvalidFrostParticipant);
+    }
+
+    fn journal_dir(tag: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "mini-frost-journal-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+    fn disk_record(root: &std::path::Path, name: &str) -> NonceRecord {
+        NonceRecord::decode(&std::fs::read(root.join(name)).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn durable_signers_burn_bound_transcripts_before_returning_valid_shares() {
+        let (keys, public) = trusted_dealer_keygen(3, 2, ack()).unwrap();
+        let roots = [journal_dir("round-a"), journal_dir("round-b")];
+        let mut a = DurableFrostSigner::open(&roots[0], keys[0].clone()).unwrap();
+        let mut b = DurableFrostSigner::open(&roots[1], keys[1].clone()).unwrap();
+        let (na, ca) = a.commit().unwrap();
+        let (nb, cb) = b.commit().unwrap();
+        let names = [na.record.name(), nb.record.name()];
+        assert!(!disk_record(&roots[0], &names[0]).burned);
+        let package =
+            SigningPackage::new(2, b"durable signing transcript".to_vec(), vec![ca, cb]).unwrap();
+        let mut responses = BTreeMap::new();
+        responses.insert(keys[0].index, a.sign(na, &package).unwrap());
+        responses.insert(keys[1].index, b.sign(nb, &package).unwrap());
+        let signature = aggregate(&package, &responses, &public).unwrap();
+        assert!(verify(
+            &signature,
+            &package.message,
+            public.group_public_key
+        ));
+        for (root, name) in roots.iter().zip(&names) {
+            let record = disk_record(root, name);
+            assert!(record.burned);
+            assert_eq!(record.transcript, package.transcript_digest());
+        }
+        drop(a);
+        drop(b);
+        for (root, key) in roots.iter().zip(&keys) {
+            drop(DurableFrostSigner::open(root, key.clone()).unwrap());
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn reopen_burns_abandoned_round_and_refuses_prior_instance_handle() {
+        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+        let root = journal_dir("restart");
+        let mut signer = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+        let (nonces, commitment) = signer.commit().unwrap();
+        let name = nonces.record.name();
+        drop(signer);
+        let mut reopened = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+        assert!(disk_record(&root, &name).burned);
+        let package =
+            SigningPackage::new(1, b"attempt after restart".to_vec(), vec![commitment]).unwrap();
+        assert!(reopened.sign(nonces, &package).is_err());
+        let (next, _) = reopened.commit().unwrap();
+        assert_ne!(next.record.name(), name);
+        drop(next);
+        drop(reopened);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_package_and_interruption_after_burn_never_leave_reusable_reservation() {
+        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+        for after_burn in [false, true] {
+            let root = journal_dir("burn-errors");
+            let mut signer = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+            let (nonces, commitment) = signer.commit().unwrap();
+            let name = nonces.record.name();
+            let (_, foreign_commitment) = round1_commit(1).unwrap();
+            let package = SigningPackage::new(
+                1,
+                b"burn despite failure".to_vec(),
+                vec![if after_burn {
+                    commitment
+                } else {
+                    foreign_commitment
+                }],
+            )
+            .unwrap();
+            signer.fail_after_burn = after_burn;
+            assert!(signer.sign(nonces, &package).is_err());
+            assert!(disk_record(&root, &name).burned);
+            if after_burn {
+                assert!(signer.commit().is_err());
+            }
+            drop(signer);
+            drop(DurableFrostSigner::open(&root, keys[0].clone()).unwrap());
+            assert!(disk_record(&root, &name).burned);
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn failed_reservation_or_burn_poison_the_service_until_recovery() {
+        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+        let root = journal_dir("failed-write");
+        let mut signer = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+        let (nonces, commitment) = signer.commit().unwrap();
+        let path = root.join(nonces.record.name());
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        let package =
+            SigningPackage::new(1, b"storage failure".to_vec(), vec![commitment]).unwrap();
+        assert!(signer.sign(nonces, &package).is_err());
+        assert!(signer.commit().is_err());
+        drop(signer);
+        assert!(DurableFrostSigner::open(&root, keys[0].clone()).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn manifest_binds_verification_share_and_all_reads_are_bounded() {
+        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+        let root = journal_dir("manifest-binding");
+        drop(DurableFrostSigner::open(&root, keys[0].clone()).unwrap());
+        let mut changed = keys[0].clone();
+        changed.secret_share += Scalar::ONE;
+        assert!(DurableFrostSigner::open(&root, changed).is_err());
+        std::fs::File::create(root.join("signer.binding"))
+            .unwrap()
+            .set_len(1024 * 1024)
+            .unwrap();
+        assert!(DurableFrostSigner::open(&root, keys[0].clone()).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn modified_complete_record_and_runtime_deleted_manifest_fail_closed() {
+        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+        let root = journal_dir("corruption");
+        let mut signer = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+        let (nonces, _) = signer.commit().unwrap();
+        let path = root.join(nonces.record.name());
+        let mut bytes = std::fs::read(&path).unwrap();
+        bytes[NONCE_DOMAIN.len() + 32] ^= 1;
+        std::fs::write(&path, bytes).unwrap();
+        drop(nonces);
+        drop(signer);
+        assert!(DurableFrostSigner::open(&root, keys[0].clone()).is_err());
+        std::fs::remove_dir_all(&root).unwrap();
+        let mut signer = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+        std::fs::remove_file(root.join("signer.binding")).unwrap();
+        assert!(signer.commit().is_err());
+        drop(signer);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn signer_and_key_debug_never_print_the_secret_share() {
+        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+        let secret = format!("{:?}", keys[0].secret_share);
+        assert!(!format!("{:?}", keys[0]).contains(&secret));
+        let root = journal_dir("debug");
+        let signer = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+        assert!(!format!("{signer:?}").contains(&secret));
+        drop(signer);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn separate_process_cannot_open_an_active_signer() {
+        const ENV: &str = "MINI_FROST_LOCK_CHILD";
+        if let Some(root) = std::env::var_os(ENV) {
+            let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+            let error = DurableFrostSigner::open(std::path::PathBuf::from(root), keys[0].clone())
+                .unwrap_err();
+            // A key mismatch would mean the child got past the exclusive lock.
+            assert!(!error.to_string().contains("identity/share"));
+            return;
+        }
+        let root = journal_dir("process-lock");
+        let (keys, _) = trusted_dealer_keygen(1, 1, ack()).unwrap();
+        let signer = DurableFrostSigner::open(&root, keys[0].clone()).unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "frost_sign::tests::separate_process_cannot_open_an_active_signer",
+            ])
+            .env(ENV, &root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        drop(signer);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

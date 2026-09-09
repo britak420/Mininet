@@ -165,6 +165,7 @@ impl ReplicaState {
 pub struct ReplicaLifecycle {
     claim: VerifiedReplicaClaim,
     genesis_ms: u64,
+    window_policy: WindowPolicy,
     state: ReplicaState,
     /// The window this replica became obligated to prove in. Misses are
     /// counted from here until the first successful window replaces it.
@@ -189,6 +190,7 @@ impl ReplicaLifecycle {
         Self {
             claim,
             genesis_ms,
+            window_policy: *policy,
             state: ReplicaState::Degraded { missed_windows: 0 },
             obligated_from: window,
             last_proven_window: None,
@@ -208,7 +210,8 @@ impl ReplicaLifecycle {
         self.last_proven_window
     }
 
-    /// The challenges this replica must answer for `window`.
+    /// The challenges this replica must answer for `window`. Returns no
+    /// challenges when the supplied policy differs from the pinned policy.
     ///
     /// Leaf indices are derived from the seal digest, the window index, and a
     /// `beacon` the **verifier** supplies. The provider contributes nothing to
@@ -223,6 +226,9 @@ impl ReplicaLifecycle {
         beacon: &[u8],
         policy: &WindowPolicy,
     ) -> Vec<StorageChallenge> {
+        if policy != &self.window_policy {
+            return Vec::new();
+        }
         let node_count = self.claim.seal().node_count as u64;
         let digest = seal_commitment_digest(self.claim.seal());
         (0..policy.challenges_per_window)
@@ -251,6 +257,9 @@ impl ReplicaLifecycle {
         responses: &[mini_spacetime::StorageChallengeResponse],
         policy: &WindowPolicy,
     ) -> Result<()> {
+        if policy != &self.window_policy {
+            return Err(FraudError::InvalidPolicy);
+        }
         if window < self.highest_window_seen {
             return Err(FraudError::WindowAlreadyProven);
         }
@@ -290,9 +299,14 @@ impl ReplicaLifecycle {
 
     /// Move the clock forward without a proof, crediting nothing.
     ///
+    /// Uses the policy pinned at registration; the legacy policy argument
+    /// cannot change the grace allowance.
+    ///
     /// Idempotent for windows already accounted for, so a verifier polling
     /// repeatedly inside one window does not accumulate phantom misses.
-    pub fn advance_to(&mut self, window: u64, policy: &WindowPolicy) {
+    pub fn advance_to(&mut self, window: u64, _policy: &WindowPolicy) {
+        // A caller cannot extend grace by substituting a weaker policy.
+        let policy = self.window_policy;
         if window <= self.highest_window_seen {
             return;
         }

@@ -249,9 +249,9 @@ mod tests {
         let evidence = Arc::new(ClaimEvidencePool::new());
         let verifier = ShieldedClaimVerifier::new([7u8; 32], evidence);
         let group = [NullifierRecord::new(vec![1u8; 32], [9u8; 32])];
-        assert!(!verifier
+        assert!(verifier
             .verify_claim(&[7; 32], &[9u8; 32], &group)
-            .is_some());
+            .is_none());
     }
 
     #[test]
@@ -262,8 +262,8 @@ mod tests {
         let evidence = Arc::new(ClaimEvidencePool::new());
         let verifier = ShieldedClaimVerifier::new([7u8; 32], evidence);
         let mismatched_group = [NullifierRecord::new(vec![1u8; 32], [1u8; 32])];
-        assert!(!verifier
+        assert!(verifier
             .verify_claim(&[7; 32], &[9u8; 32], &mismatched_group)
-            .is_some());
+            .is_none());
     }
 }

@@ -220,33 +220,19 @@ capabilities the mesh performs on its own. Turning any of them into the
 mesh's default behavior (identity-gated admission, dynamic topology,
 automatic catch-up on startup, automatic exclusion adoption) is separate,
 later, host/deployment-level work — named here rather than hidden.
-**All four originally named gaps now have a shipped, tested answer** — the
-tests each of D-0207/D-0460/D-0462/D-0463 shipped with, each failing without
-its fix. **The shielded-spend validity gap named by D-0457 is now closed by
-D-0474.** Today's chain finalized a key image on a proposer's say-so with no
-check that a valid claim produced it — that check is the cryptography
-`mini-chain`/`mini-execution` deliberately cannot see (see
-`mini_execution::nullifier`'s module docs). D-0457 named two directions: a
-succinct proof, or a validator set that verifies claims and is measured for
-it. D-0474 built the second: `mini_execution::ClaimVerifier`, a caller-
-injected trait threaded through `apply_block_with_verifier`/
-`apply_finalized_block_with_verifier` and `mini_consensus::ConsensusNode`'s
-new `with_claim_verifier`, gating a validator's own live proposal
-validation, proposal building, and commit — `None` reproduces the pre-
-D-0474 trust-the-proposer behavior exactly, so every existing caller is
-unaffected. New crate `mini-shielded-verify` composes it with
-`mini_private_payment::verify` without `mini-execution`/`mini-consensus`/
-`mini-chain` ever gaining a dependency on `mini-value` — the wall in
-`docs/design/private-payment-path.md` §13's own diagram holds unchanged.
-**What that did not close, stated plainly:** no claim-evidence gossip
-protocol (how full claim bytes reach a validator is a separate, unbuilt
-piece), no accountability trail recording *which* validators actually ran
-verification (the "measured for it" half of D-0457's own phrase — an
-evidence trail analogous to `mini-consensus::evidence`'s equivocation
-proofs), and the succinct-proof alternative direction remains entirely
-unbuilt. **Closed by:** those three remaining pieces, none of which is this
-row's last blocker any longer — the validity rule itself, which was the
-row's own stated last-open item, now exists and is tested.
+**R8 remains active.** These primitives do not close deployed admission,
+freshness, recovery and accountability requirements. PR #332 follow-up makes
+shielded verification fail closed: a missing verifier rejects a shielded body.
+Verification checks canonical key/commitment membership and applies outputs,
+nullifiers and fees atomically. Quorum-backed tests exercise a funded payment,
+recipient re-spend and Byzantine invented/rebound inputs. Snapshot replay binds
+the configured genesis and independently supplied claim evidence.
+
+Evidence gossip, bounded retention, audited issuance/withdrawal, approved state
+migration and external cryptographic review remain open. Validator admission
+and weak-device/partition evidence must be assessed separately. The
+[current audit matrix](audits/PR332_REMEDIATION_STATUS.md) records the actual
+PARTIAL findings; the existence of helpers is not their closure.
 
 ### R9 — KEL freshness and witnesses (M3) · `active`
 The stale-KEL revocation gap, audit #12 finding F4. A device whose delegation

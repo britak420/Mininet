@@ -644,4 +644,30 @@ mod tests {
         accepted.links.push(IntakeLink::Issue(1));
         assert!(IntakeEnvelope::from_bytes(&accepted.to_bytes()).is_err());
     }
+    #[test]
+    fn decoded_representation_requires_its_matching_generator_provenance() {
+        let generator = GeneratorIdentity {
+            extractor_id: "text".into(),
+            extractor_version: "1".into(),
+        };
+        let mut envelope = IntakeEnvelope::new(sample_id(), sample_source());
+        envelope.add_representation(
+            DerivedRepresentation {
+                kind: RepresentationKind::ExtractedText,
+                digest: Multihash::of(HashAlgorithm::Blake3, b"derived"),
+                byte_length: 7,
+                generator: generator.clone(),
+                deterministic: true,
+            },
+            DerivationRecord {
+                representation: RepresentationKind::ExtractedText,
+                generator,
+                produced_at_ms: 1,
+            },
+        );
+        envelope.provenance[0].generator.extractor_id = "substituted generator".into();
+        assert!(IntakeEnvelope::from_bytes(&envelope.to_bytes()).is_err());
+        envelope.provenance.clear();
+        assert!(IntakeEnvelope::from_bytes(&envelope.to_bytes()).is_err());
+    }
 }
