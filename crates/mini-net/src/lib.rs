@@ -46,7 +46,10 @@ mod pex;
 mod routing;
 
 pub use error::{NetError, Result};
-pub use gossip::{fanout_peers, GossipRouter};
+pub use gossip::{
+    dialable_fanout, fanout_peers, randomized_dialable_fanout, randomized_fanout_peers,
+    GossipRouter,
+};
 pub use peer::PeerId;
 pub use pex::{
     absorb_response, build_response, AddressBook, PeerRecord, PexMessage, MAX_PEX_RECORDS,

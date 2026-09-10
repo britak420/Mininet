@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-05",
+  "updated_at": "2026-09-08T09:00:00Z",
   "claims": [
     {
       "issue": 122,
@@ -1074,9 +1074,10 @@
     },
     {
       "issue": 92,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/kel-gossip-sync-carrier",
+      "pull_request": 324,
       "lease_expires": "2026-09-14",
       "paths": [
         "crates/mini-sync/",
@@ -1088,7 +1089,114 @@
       "decision_ids": [
         "D-0467"
       ],
-      "notes": "D-0467: KEL head gossip summaries ride ordinary sync traffic, closing design doc Phase 5 (both halves). New module mini_sync::gossip ships gossip_summary_carrier (wraps a KelHeadSummary as an ordinary mini-objects Object, GOSSIP_SUMMARY_CARRIER, mirroring kel_carrier's own KEL-wrapping pattern) and compare_gossip_carrier (decodes an ingested carrier and compares it against the receiver's own KelCache -- the same locally-cached state mini_sync::Ingest already maintains). Rides the existing MINI/SYNC1 reconciliation protocol with zero new wire messages; not self-certifying like a KEL carrier, so it gets no special Ingest::check branch -- it flows through the same ordinary author-provenance path every object already uses. No new evidence-retrieval request type (reuses D-0464's protocol / mini_sync::request_retrieval); turning a Disagreement/Ahead outcome into an automatic fetch is left as a host policy choice, matching mini_consensus::discovery::pex_over_tcp's own never-auto-wired precedent. 11 tests. Coordination evidence only, not approval or authority."
+      "notes": "D-0467: KEL head gossip summaries ride ordinary sync traffic, closing design doc Phase 5 (both halves). New module mini_sync::gossip ships gossip_summary_carrier (wraps a KelHeadSummary as an ordinary mini-objects Object, GOSSIP_SUMMARY_CARRIER, mirroring kel_carrier's own KEL-wrapping pattern) and compare_gossip_carrier (decodes an ingested carrier and compares it against the receiver's own KelCache -- the same locally-cached state mini_sync::Ingest already maintains). Rides the existing MINI/SYNC1 reconciliation protocol with zero new wire messages; not self-certifying like a KEL carrier, so it gets no special Ingest::check branch -- it flows through the same ordinary author-provenance path every object already uses. No new evidence-retrieval request type (reuses D-0464's protocol / mini_sync::request_retrieval); turning a Disagreement/Ahead outcome into an automatic fetch is left as a host policy choice, matching mini_consensus::discovery::pex_over_tcp's own never-auto-wired precedent. 11 tests. Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #324 merged."
+    },
+    {
+      "issue": 92,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/witness-rotation-old-policy-cert",
+      "pull_request": 325,
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/did-mini/",
+        "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0468"
+      ],
+      "notes": "D-0468: old-policy authorization for witness-set rotation, design doc Phase 7's first slice (research report SS17.2). New module did_mini::witness_rotation ships WitnessJournal::certify_policy_transition -- a witness that already holds accepted state for an identity certifies, under its own old retained policy generation, that a specific chain-valid direct-successor establishment event legitimately changes that identity's witness policy -- and verify_policy_transition, which checks a threshold of such receipts against the old policy (reusing Phase 1's WitnessedEventCertificate::verify unchanged) and independently confirms the presented event really is a policy change before trusting the certificate. No new receipt/certificate type: a certification is an ordinary WitnessReceiptStatement naming the retiring generation. WitnessIdentityState gained a new accepted_policy field (the whole old WitnessPolicy, not just its generation number) so a witness can know which policy/witnesses it is certifying a transition away from -- purely additive, no public constructor outside WitnessJournal::observe exists to break. Closes the hole where a compromised controller could drop every honest witness in one unwitnessed, self-signed rotation. Not built: SS17.3 (new-witness readiness threshold) and SS17.4 (unavailable-witness recovery, which must work without old-witness cooperation -- the opposite assumption this slice makes); no wiring into assess_kel_assurance. 12 tests. Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #325 merged."
+    },
+    {
+      "issue": 45,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/chunked-snapshot-transfer",
+      "pull_request": 326,
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/mini-consensus/",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md"
+      ],
+      "decision_ids": [
+        "D-0469"
+      ],
+      "notes": "D-0469: chunked, Merkle-authenticated execution-state transfer, over real TCP -- closing D-0207's own named \"chunked Merkle state transfer\" gap (roadmap #45) end to end rather than as a types-only slice. New module mini_consensus::chunked_snapshot ships SnapshotManifest (same BlockHeader/QuorumCertificate finality binding as ConsensusSnapshot, plus a Merkle root over the encoded state split into requester-chosen fixed-size chunks), SnapshotChunker (builds the manifest, serves a chunk plus its proof), and SnapshotAssembler (verifies the manifest's QC before fetching any chunk, verifies each chunk against chunks_root as it arrives, and on finish reassembles/decodes/structurally-checks into a plain ConsensusSnapshot -- the manifest's chunks_root is deliberately not a new trust anchor, only an operational aid for early bad-chunk detection and future multi-peer sourcing). New net::chunk_sync_over_tcp/serve_chunk_sync_over_tcp carry a ManifestRequest/ManifestResponse then per-chunk ChunkRequest/ChunkResponse over one real encrypted TCP connection, the same Channel/TcpBearer construction and one-peer-one-pass-no-retry posture state_sync_over_tcp already uses, ending in the same ConsensusNode::apply_state_sync call an ordinary snapshot response already goes through -- archive persistence, history replacement and round-restart are all reused unchanged. Reimplements the RFC 6962-style leaf/node Merkle construction mini_spacetime::merkle already uses, locally, rather than adding a cross-domain mini-consensus -> mini-spacetime dependency for one generic utility whose proof type has no wire codec yet anyway. 15 unit tests plus 2 new real-TCP integration tests (a long-offline node reaching the archive's latest snapshot height end to end, and a clean no-op against a peer with no snapshot yet). Coordination evidence only, not approval or authority. Closed 2026-09-07: PR #326 merged."
+    },
+    {
+      "issue": 35,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/media-huge-file-transfer",
+      "pull_request": 328,
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/mini-crypto/",
+        "crates/mini-media/",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md"
+      ],
+      "decision_ids": [
+        "D-0470"
+      ],
+      "notes": "D-0470: bounded-memory media assembly and real want-list-driven transfer, closing both gaps D-0419's own text left open for roadmap #35 (huge-file handling). mini_crypto::HashAlgorithm gains incremental() / IncrementalHash (BLAKE3/SHA-256's own already-streaming constructions, exposed rather than reimplemented -- 4 tests proving incremental hashing matches digest() under every split). mini_media gains assemble_to_writer / assemble_superblock_to_writer, streaming an already-complete payload to a Write sink one chunk at a time instead of assemble/assemble_superblock's single up-front allocation (up to 256 MiB / 64 GiB) -- the exact bound Directive 11's weakest device cannot spare; integrity unchanged, the whole stream is hashed incrementally and checked against the recorded digest before returning Ok. New mini_media::sync module -- pull_manifest/pull_superblock/serve_missing -- composes the crate's existing missing_chunks/missing_superblock_chunks want-lists with mini_sync::request_retrieval/serve_retrieval's already-tested transport-agnostic exact-object-retrieval exchange over an already-established Bearer/Channel, the same composition mini-search-federation-net (D-0432) already proved for an unrelated object type; pull_superblock drives as many rounds as newly-arrived part manifests reveal (two, in practice). 4 tests over real mini_bearer::InProcessBearer pairs plus 8 streaming-assembly tests across the existing media.rs/superblock.rs integration suites. Coordination evidence only, not approval or authority. Closed 2026-09-08: PR #328 merged."
+    },
+    {
+      "issue": 92,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/witness-rotation-new-policy-readiness",
+      "pull_request": 329,
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/did-mini/",
+        "docs/design/kel-witness-receipts-and-duplicity-gossip.md",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md"
+      ],
+      "decision_ids": [
+        "D-0471"
+      ],
+      "notes": "D-0471: new-witness readiness threshold for witness-set rotation (research report SS17.3), closing Phase 7's second slice after D-0468's old-policy authorization (SS17.2). New did_mini::verify_witness_rotation AND-composes D-0468's existing verify_policy_transition (old-policy threshold, unchanged) with a new-policy threshold check -- enough new witnesses' own ordinary first observe/observe_declared receipts for the same rotation event, checked via Phase 1's existing WitnessedEventCertificate::verify against the policy the rotation event itself declares. No new receipt or certificate type: a new witness's first observation already signs under the new generation (D-0459's policy-from-KEL discipline), so existing Phase 1-4 machinery already produces exactly the statement SS17.3 asks for -- the only new code is the composition, plus treating a full witness-policy retirement (no new witness set to prove readiness for) as vacuously satisfying the new-policy half via new_policy_certificate: Option<&WitnessedEventCertificate> = None. 6 new tests. Coordination evidence only, not approval or authority. Closed 2026-09-08: PR #329 merged."
+    },
+    {
+      "issue": 24,
+      "status": "closed",
+      "contributor": "claude-agent",
+      "branch": "claude/pex-driven-gossip-fanout",
+      "lease_expires": "2026-09-14",
+      "paths": [
+        "crates/mini-net/",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0472"
+      ],
+      "notes": "D-0472: mini_net::dialable_fanout composes RoutingTable::closest_peers, AddressBook::get and fanout_peers into the one query a gossiping node needs -- nearest peers to a target it can both route to and dial, skipping address-less routing-known peers and skipping a caller-named exclude (the sender). Closes the gap D-0092's own STATUS.md entry named: PEX-discovered peers now drive real gossip fanout, proven over real TCP in crates/mini-net/tests/pex_driven_gossip_mesh.rs -- a node that knows only one peer discovers a second purely through one PEX round, selects it via dialable_fanout (never a hardcoded address), dials a fresh connection, and gossips a message the receiver accepts exactly once. Pure, transport-agnostic function -- no new mini-bearer dependency added to the library, matching this crate's own documented D-0042 stance. Roadmap #24 (partial). Coordination evidence only, not approval or authority. Closed 2026-09-08: PR #330 merged.",
+      "pull_request": 330
+    },
+    {
+      "issue": 24,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/mini-net-randomized-fanout",
+      "lease_expires": "2026-09-15",
+      "paths": [
+        "crates/mini-net/",
+        "docs/THREAT_MODEL.md",
+        "docs/STATUS.md",
+        "docs/DECISION_LOG.md"
+      ],
+      "decision_ids": [
+        "D-0473"
+      ],
+      "notes": "D-0473: mini_net::randomized_fanout_peers/randomized_dialable_fanout close gossip.rs's own named honest limit -- fanout selection was deterministic closest-first, letting an attacker who occupies a victim's nearest routing positions guarantee it always gets selected. Selection now sorts candidates by a domain-separated BLAKE3(seed || id) key instead of caller order, the same seeded-derivation shape mini_porep::sample_challenges (D-0064) already uses for auditor challenge sampling. randomized_dialable_fanout is the address-aware counterpart over the same dialable-candidate pool dialable_fanout (D-0472) already gathers, factored into a shared private dialable_candidates helper. Raises the cost of a partial eclipse (some but not all of a victim's nearby routing positions attacker-controlled) -- does not defend a fully eclipsed candidate pool, and seed freshness (so selection is actually unpredictable, not just a different fixed answer) is the caller's responsibility. docs/THREAT_MODEL.md's Routing attacks row updated to cite this as partial mitigation. 7 new tests. Coordination evidence only, not approval or authority."
     }
   ]
 }

@@ -162,6 +162,15 @@ pub enum IdentityError {
     /// [`crate::KelHeadSummary`]s naming different identities — they are
     /// not comparable, and the caller has a bug.
     MismatchedGossipIdentity,
+    /// A witness was asked to certify a policy transition for an identity
+    /// it has never observed before — it cannot certify leaving a policy
+    /// it was never actually part of.
+    NoRetainedWitnessState,
+    /// The presented establishment event does not actually change the
+    /// witness set or threshold relative to the policy being certified —
+    /// old-policy certification (research report §17.2) exists for real
+    /// witness-set transitions, not ordinary rotations.
+    NotAWitnessPolicyChange,
 }
 
 impl fmt::Display for IdentityError {
@@ -301,6 +310,14 @@ impl fmt::Display for IdentityError {
             IdentityError::MismatchedGossipIdentity => write!(
                 f,
                 "cannot compare KEL head summaries for two different identities"
+            ),
+            IdentityError::NoRetainedWitnessState => write!(
+                f,
+                "cannot certify a policy transition for an identity this witness has never observed"
+            ),
+            IdentityError::NotAWitnessPolicyChange => write!(
+                f,
+                "the presented event does not change the witness set or threshold"
             ),
         }
     }

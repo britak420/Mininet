@@ -264,10 +264,25 @@ fetch type. **D-0467 closes Phase 5's second half and the phase itself:**
 ordinary object riding the existing MINI/SYNC1 sync protocol — zero new
 wire messages — and `compare_gossip_carrier` compares an ingested one
 against the receiver's own `KelCache`.
-**Closed by:** the remaining phases — witness rotation (7) — plus a real
-call site that *gates* an authority decision on an assurance level. That
-last one is a founder-facing policy call: which governance action
-requires which minimum level is not an engineering choice.
+**D-0468** ships Phase 7's first slice: `did-mini::witness_rotation`'s
+`WitnessJournal::certify_policy_transition` lets a witness certify, under
+its own *old* retained policy generation, that a witness-set-changing
+rotation is legitimate — closing the hole where a compromised controller
+could otherwise drop every honest witness in one unwitnessed, self-signed
+rotation. `verify_policy_transition` checks a threshold of such receipts
+against the old policy, reusing Phase 1's `WitnessedEventCertificate`
+unchanged.
+**D-0471 closes Phase 7's second slice (§17.3):** `verify_witness_rotation`
+AND-composes that same old-policy check with a new-policy readiness
+threshold — enough new witnesses' own ordinary first receipts for the
+same rotation event, checked the same unchanged way. No new receipt type:
+a new witness's first observation already signs under the new generation,
+so existing Phase 1-4 machinery already produces what §17.3 needs.
+**Closed by:** the one remaining Phase 7 piece — unavailable-witness
+recovery (§17.4) — plus a real call site that *gates* an authority
+decision on an assurance level. That last one is a founder-facing policy
+call: which governance action requires which minimum level is not an
+engineering choice.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap

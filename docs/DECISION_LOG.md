@@ -18368,3 +18368,657 @@ gossip-summary objects, and Phase 7 (witness rotation) remain open. Phase
 **Supersedes / superseded by:** completes D-0466; supersedes nothing.
 Closes Phase 5 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
 committed plan.
+
+### D-0470 — `mini-media`: bounded-memory assembly and real want-list-driven transfer  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0026, D-0419, roadmap #35 (huge-file
+handling design), Directive 11, D-0432 (`mini-search-federation-net`, the
+precedent this reuses).
+
+**Decision:** two additions to `mini-media`, both closing gaps D-0419's own
+text named as open. First, `mini_crypto::HashAlgorithm::incremental` (a new
+`IncrementalHash` type wrapping BLAKE3/SHA-256's already-streaming
+constructions) plus `assemble_to_writer`/`assemble_superblock_to_writer`:
+stream an already-complete manifest's or superblock's payload straight to a
+caller-supplied `Write` sink, one chunk (≤1 MiB) at a time, instead of
+`assemble`/`assemble_superblock`'s single up-front `Vec::with_capacity`
+allocation (up to 256 MiB for a manifest, 64 GiB for a superblock) — the
+exact bound Directive 11 (the weakest device matters most) rules out.
+Integrity is unchanged: the whole written stream is hashed incrementally
+and checked against the manifest's/superblock's own recorded digest before
+either function returns `Ok`. Second, a new `sync` module —
+`pull_manifest`/`pull_superblock`/`serve_missing` — composes this crate's
+already-existing want-lists (`missing_chunks`/`missing_superblock_chunks`)
+with `mini_sync::request_retrieval`/`serve_retrieval`'s already-tested,
+transport-agnostic exact-object-retrieval exchange, over an
+already-established `mini_bearer::Bearer`/`Channel` — the same composition
+`mini-search-federation-net` (D-0432) already proved for an unrelated
+object type, reused unmodified. `pull_superblock` drives as many retrieval
+rounds as newly-arrived part manifests reveal (two, in practice: every
+missing part manifest, then every chunk those manifests turned out to
+need); `pull_manifest`'s flat want-list needs exactly one.
+
+**Reason:** D-0419's own "Failure point"/"Required follow-up" named both
+"no wiring into `mini-sync`'s want-list logic" and, implicitly through its
+64 GiB in-memory `assemble_superblock` buffer, the sharpest form of the
+weak-device problem roadmap #35 exists to solve — a device too small to
+hold the file it is trying to receive cannot use `assemble_superblock` at
+all, chunked transport notwithstanding. Both are closed here together
+rather than as separate follow-up PRs. `mini_sync::request_retrieval`
+already implements everything the network half needs; what was missing was
+purely the composition and a real end-to-end proof of it, exactly the
+"no production caller uses this yet" gap D-0419 named.
+
+**Why `mini_crypto` gained an incremental hasher instead of `mini-media`
+rolling its own:** `HashAlgorithm::digest` was already the one canonical
+place in this tree that computes a BLAKE3/SHA-256 digest; a second,
+crate-local streaming implementation would create exactly the situation
+`mini-consensus::chunked_snapshot` (D-0469) explicitly reasoned against for
+a *different* primitive — two places doing the same cryptographic
+operation is how one of them ends up subtly wrong. BLAKE3 and SHA-256 are
+already streaming constructions internally (`Hasher`/`Digest`'s own
+`update`), so exposing that is composition of the same primitive already
+in use, not new cryptography.
+
+**Why `pull_superblock` needs rounds but `serve_missing` does not:** the
+*want*-list is asymmetric — a client genuinely cannot know a part's chunk
+ids before that part's manifest arrives, so it must ask again once it
+knows more. A *server* only ever answers exactly what one already-received
+request names, so `serve_missing` is a plain loop over
+`receive_retrieval_request`/`serve_retrieval` pairs, ending the same way
+`mini-consensus::chunk_sync_over_tcp`'s peer-serving loop (D-0469) does: a
+clean transport close is normal completion, any other transport error
+still propagates.
+
+**Constitutional impact:** none. No new cryptography (composition of
+existing streaming hash constructions, stated above). No voice/value edge:
+`mini-media` gained `mini-sync`/`mini-bearer` dependencies — both already
+depended on by other content/object crates in this tree, neither a
+value crate (`mini-value`/`mini-bounty`/`mini-treasury`) nor a
+governance/review crate (`mini-forge`, `mini-chain` voting), so the P1/
+Directive 16 wall is untouched. Purely additive: no existing `mini-media`
+or `mini-crypto` function signature changed.
+
+**Implementation status:** shipped — `crates/mini-crypto/src/hash.rs`
+(new: `HashAlgorithm::incremental`, `IncrementalHash`, 4 tests proving
+incremental hashing matches `digest` under every split); `crates/
+mini-media/src/lib.rs` (new: `assemble_to_writer`; `MediaError` gained
+`Io`/`Sync` variants, both `#[non_exhaustive]`-additive); `crates/
+mini-media/src/superblock.rs` (new: `assemble_superblock_to_writer`, a
+private `HashingWriter` adapter composing per-part `assemble_to_writer`
+calls under one running whole-payload hash); `crates/mini-media/src/
+sync.rs` (new module: `pull_manifest`, `pull_superblock`, `serve_missing`,
+`MediaSyncReport`, 4 tests over real `mini_bearer::InProcessBearer` pairs —
+a flat manifest fetched and reassembled byte-identical, an
+already-complete manifest touching the channel not at all, a superblock
+resolved across multiple rounds and reassembled byte-identical, and a
+peer missing a part failing the pull outright rather than hanging or
+silently returning a partial result); 4 new streaming-assembly tests each
+in `crates/mini-media/tests/media.rs` and `tests/superblock.rs` (streamed
+output matches the existing in-memory `assemble`/`assemble_superblock`
+byte-for-byte, an incomplete store refuses to write anything, and a forged
+manifest is caught by `assemble_to_writer` exactly as `assemble` already
+catches it).
+
+**Failure point:** transport-agnostic by design, matching
+`mini_sync::request_retrieval` itself — no TCP dial/listen wrapper, no peer
+selection, and no retry across peers or rounds; a round a peer cannot fully
+satisfy fails the whole pull immediately (`mini_sync::request_retrieval`'s
+own protocol requires a response to cover every id requested), which a
+caller must retry itself, against this or another peer. No player/UI
+progressive-playback support — `assemble_to_writer` still requires every
+chunk present before writing anything, so "stream to disk without holding
+everything in RAM" is solved, "start rendering before the last chunk
+arrives" is not. `chunks_per_part`/chunk-count choices for weak-device
+transport granularity remain a caller decision, same as D-0419 already
+left open. No production caller (`mini-forge` release artifacts, a real
+media player) wired to any of this yet.
+
+**Required follow-up:** a production caller; multi-peer sourcing/retry
+policy; player/UI progressive-playback support; only if 64 GiB ever proves
+insufficient, deeper superblock nesting, per D-0419's own already-stated
+condition for that.
+
+**Supersedes / superseded by:** extends and does not supersede D-0026 or
+D-0419.
+### D-0469 — Chunked, Merkle-authenticated execution-state transfer, over real TCP (`mini_consensus::chunked_snapshot` + `net::chunk_sync_over_tcp`) · *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0207, roadmap #45, Directive 11, `docs/
+ROADMAP_TO_RELEASE.md` R8.
+
+**Decision:** add `mini_consensus::chunked_snapshot`: a `SnapshotManifest`
+carrying the same `BlockHeader`/`QuorumCertificate` finality binding as
+`ConsensusSnapshot`, plus a Merkle root over the encoded execution state
+split into requester-chosen fixed-size chunks (1 KiB–1 MiB). `SnapshotChunker`
+builds the manifest and serves any chunk plus its membership proof;
+`SnapshotAssembler` verifies the manifest's QC immediately (before fetching
+any chunk), verifies each chunk against `chunks_root` as it arrives, and on
+`finish` reassembles, decodes, and structurally checks the result — the same
+`header.state_root == state.commitment()` check `ConsensusSnapshot::
+from_wire_bytes` already does for the single-frame case — returning a plain
+`ConsensusSnapshot` rather than re-deciding trust. A `ManifestRequest`/
+`ManifestResponse` pair (peer's current snapshot, chunked at the size the
+*requester* asks for) and a `ChunkRequest`/`ChunkResponse` pair are carried
+over one real, freshly-handshaken, encrypted TCP connection by new
+`net::chunk_sync_over_tcp` (client)/`net::serve_chunk_sync_over_tcp` (server)
+— the exact same `Channel`/`TcpBearer` construction, connect/handshake/
+timeout discipline, and one-peer-one-pass-no-retry posture
+`state_sync_over_tcp`/`serve_state_sync_over_tcp` already use. The client
+hands its fully reassembled `ConsensusSnapshot` to `ConsensusNode::
+apply_state_sync` (wrapped as an ordinary `StateSyncResponse::Snapshot`), so
+archive persistence, history replacement, and round-restart all run through
+the exact same, already-tested code path an un-chunked snapshot response
+uses — chunking changes nothing about how a verified snapshot gets adopted,
+only how its bytes cross the wire. `ConsensusArchive::latest_snapshot` and
+`ConsensusNode::validators` are two small new public accessors this needed
+that didn't exist yet.
+
+**Reason:** D-0207's own "Required follow-up" and this crate's own module
+docs named "chunked Merkle state transfer" as the one piece of roadmap #45
+still missing — `ConsensusSnapshot::to_wire_bytes` caps a snapshot to one
+~16 MiB bearer frame by design, with no partial-download story, which is
+exactly the weak/lossy-link case Directive 11 asks the whole state-sync path
+to cover. Chunking with per-chunk Merkle authentication lets a receiver
+detect and re-fetch a single bad or missing chunk instead of discarding an
+entire multi-megabyte transfer, and gives a future multi-peer fetch a common
+reference every source's chunks are checked against. The manifest's
+`chunks_root` is deliberately not a new trust anchor: the receiver's actual
+authority is unchanged (the header/QC-bound state commitment), so a
+dishonest peer is caught exactly as it always was, just without forcing an
+honest receiver to download everything first to find out. Shipping the
+types alone without wiring them onto real transport — the shape this PR
+started in — would have left exactly the same "still too library-internal"
+gap named against the pre-D-0077 forge spine and against R9's earlier phases
+before their own transport slices landed; this PR closes both the data-
+structure gap and the transport gap together rather than opening a second,
+later PR for the second half.
+
+**Why a local Merkle tree instead of depending on `mini-spacetime`:**
+`mini_spacetime::merkle::MerkleTree`/`MerkleProof` already implement the
+identical construction, but that crate is proof-of-space-time-specific
+(`mini-porep`/`mini-storage-fraud` are its only consumers), its
+`MerkleProof` has no wire codec ("proofs travel only in-process today," by
+its own doc comment), and depending on it here would wire this crate's
+chain-transport layer to an unrelated storage-proof crate to avoid roughly
+eighty lines of a standard, already-reviewed construction this tree already
+uses elsewhere. Composition of prior art already used in this repository,
+not new cryptography (project convention; Directive 14).
+
+**Why `finish` returns a `ConsensusSnapshot`, not a `LedgerChain`:**
+`SnapshotAssembler::new` already re-verifies the manifest's QC via
+`mini_chain::verify_finality` before any chunk is requested (fail fast, so a
+receiver never spends bandwidth on a snapshot whose finality proof was never
+going to hold up); by the time `finish` runs, finality is already known.
+Deciding *what to do* with a verified snapshot — turn it into a standalone
+`LedgerChain` via `ConsensusSnapshot::into_chain`, or install it into a
+running `ConsensusNode` via `apply_state_sync` — is the caller's call, not
+this module's; both are one unchanged existing public call away.
+
+**Constitutional impact:** none. No new cryptography — BLAKE3 leaf/node
+hashing via `mini_crypto::HashAlgorithm::Blake3`, the same RFC 6962-style
+domain separation `mini-spacetime::merkle` already uses; finality trust is
+delegated to `mini_chain::verify_finality`/`ConsensusSnapshot::into_chain`/
+`ConsensusNode::apply_state_sync` unchanged; the transport is the same
+`Channel` (ephemeral X25519 + HKDF-SHA256 + ChaCha20-Poly1305) every other
+consensus link in this crate already uses. No voice/value edge:
+`mini-consensus` already depended on `mini-chain`/`mini-execution`/
+`mini-crypto`/`mini-bearer`; no new crate dependency added (the module
+deliberately does *not* add a dependency on `mini-spacetime`, per the
+reasoning above).
+
+**Implementation status:** shipped —
+`crates/mini-consensus/src/chunked_snapshot.rs` (new: `SnapshotManifest`,
+`ChunkProof`, `ChunkResponse`, `ChunkRequest`, `ManifestRequest`,
+`ManifestResponse`, `SnapshotChunker`, `SnapshotAssembler`, 15 unit tests
+covering wire round-trips for every message type, full chunk-by-chunk
+reassembly into a working `LedgerChain` via `into_chain`, out-of-order and
+duplicate chunk delivery, a tampered chunk failing its own proof, a proof
+spliced onto the wrong index, exact short-final-chunk length, `finish`
+before every chunk arrives, a non-quorate QC rejected before any chunk is
+fetched, an out-of-range index, an internally-inconsistent manifest,
+out-of-range chunk sizes, and truncation-never-panics);
+`crates/mini-consensus/src/net.rs` (new: `chunk_sync_over_tcp`,
+`serve_chunk_sync_over_tcp`, a dedicated `CHUNK_SYNC_AAD` domain);
+`crates/mini-consensus/src/store.rs` (new: `ConsensusArchive::
+latest_snapshot`); `crates/mini-consensus/src/node.rs` (new:
+`ConsensusNode::validators`); `crates/mini-consensus/src/
+snapshot_sync_tests.rs` (2 new real-TCP integration tests: a long-offline
+node reaching the archive's latest snapshot height via the chunked path end
+to end, and a clean `None`/no-op result against a peer with no snapshot
+yet); `crates/mini-consensus/src/lib.rs` (module wiring, re-exports,
+"Honest limits" doc updated to describe the shipped chunked-and-wired path
+instead of listing chunking as missing).
+
+**Failure point:** one peer, one pass, no retry — a single bad or missing
+chunk, or a dropped connection mid-transfer, fails the whole
+`chunk_sync_over_tcp` call; a caller wanting resilience retries against this
+or another peer itself, exactly the same posture `state_sync_over_tcp`
+already has. No multi-peer chunk sourcing, retry/backoff policy, or
+eclipse-resistant peer selection. The chunked path only ever transfers the
+archive's latest persisted *snapshot*, never the ordinary block suffix after
+it — a receiver may land short of the archive's true tip and still need an
+ordinary `state_sync_over_tcp`/`catch_up_over_tcp` call to close the gap.
+Everything else D-0207 already named as open (dynamic validator-set
+transitions, long-range/weak-subjectivity rules, physical weakest-device
+benchmarks) remains open, unchanged by this PR.
+
+**Required follow-up:** multi-peer chunk sourcing and retry policy; folding
+the chunked path's trailing-suffix gap into one combined call so a caller
+does not have to sequence two separate helpers by hand; the rest of
+D-0207's still-open list.
+
+**Supersedes / superseded by:** extends and does not supersede D-0207.
+### D-0468 — Old-policy authorization for witness-set rotation, so a compromised controller cannot silently drop honest witnesses — design doc Phase 7's first slice  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** research report §17.2/§17.3 (old-policy
+authorization / new-policy acknowledgement), D-0326 (`WitnessJournal`,
+`WitnessIdentityState`), D-0321 (`WitnessReceiptStatement`/`WitnessReceipt`/
+`WitnessedEventCertificate`, reused unchanged), D-0459 (the KEL-derived-
+policy discipline this extends to the rotation side), roadmap R9,
+[#92](../../issues/92).
+
+**Decision:** new module `did_mini::witness_rotation` closes the research
+report's §17.2: "The witness-policy-changing event should require
+certification under the old active policy. Otherwise, a compromised
+controller could remove honest witnesses before presenting a fork."
+Before this, `Controller::appoint_witnesses`/`retire_witnesses` could
+replace an identity's entire witness set with one self-signed rotation
+event — ordinary `Kel::verify` says nothing about witnesses, so nothing
+required the *old* witnesses to ever see, let alone agree to, their own
+removal. `WitnessJournal::certify_policy_transition` lets a witness that
+already holds accepted state for an identity certify, under its own *old*
+retained policy generation, that a specific chain-valid direct-successor
+establishment event legitimately changes that identity's witness policy.
+`verify_policy_transition` checks enough such receipts — bundled via
+Phase 1's existing `WitnessedEventCertificate::assemble`, unchanged — meet
+the *old* policy's threshold, and independently confirms the presented
+event really is a policy change before trusting the certificate at all.
+
+**Why no new receipt or certificate type:** a certification is not a new
+kind of statement — it is an ordinary `WitnessReceiptStatement` whose
+`witness_policy_generation` names the policy the signer is *retiring
+from*, over the event that retires it. Reusing the exact Phase 1 types
+means `WitnessedEventCertificate::verify` already does the threshold/
+membership/signature checking this needs, unchanged; `verify_policy_
+transition` only adds the one check that function cannot perform on its
+own — confirming the certificate is actually about a real policy
+transition, not an ordinary rotation that happens to carry a valid
+generation number.
+
+**Why `WitnessIdentityState` gained a new field:** the existing
+`witness_policy_generation: u64` field records only a *number* — it
+cannot say which witnesses or threshold that generation actually named.
+Certifying a transition away from a policy, and later verifying a
+certificate against it, both need the *whole* old `WitnessPolicy`. Rather
+than have callers separately retain policy history themselves (a hazard —
+a caller could easily retain the wrong or stale policy), `WitnessIdentityState`
+now also stores `accepted_policy: WitnessPolicy` (private field, new
+`accepted_policy()` accessor), populated the one place `WitnessIdentityState`
+is ever constructed (`WitnessJournal::observe`'s `Decision::Accept` arm).
+Purely additive: the existing public fields, `PartialEq`, and every
+existing call site are unchanged, since `WitnessIdentityState` has no
+public constructor outside `observe` itself.
+
+**Why "is this actually a policy change" compares witness sets, not
+generations:** every establishment event's generation is that event's own
+sequence number, so it strictly increases across *any* rotation — a
+policy-change check based on generation alone would be true for every
+rotation, defeating the entire point of distinguishing an ordinary
+rotation from a witness-set change. `is_policy_change` instead compares
+the old and new `WitnessPolicy`'s threshold and witness *set* (sorted
+before comparison, so re-declaring the same witnesses in a different list
+order is correctly not a change).
+
+**Why certifying a transition never mutates the journal's own state:**
+certifying is a distinct act from accepting the new head as this witness's
+own ongoing tracked state — a witness the new policy drops entirely still
+gets to certify its own removal, which would be impossible if certifying
+first required (or caused) adopting the new policy as this witness's own.
+
+**What this does not do, stated plainly:**
+
+- **No "new witness readiness threshold" (§17.3).** Only old-policy
+  certification is implemented. A high-assurance transition combining both
+  ("old witness threshold AND new witness readiness threshold") needs a
+  second, structurally identical operation signed under the *new*
+  generation instead — not built here.
+- **No unavailable-witness recovery path (§17.4).** Deliberately the
+  opposite assumption from this module: recovery exists precisely for
+  when old witnesses are *unavailable* to cooperate, so it cannot be built
+  by extending a mechanism that requires their cooperation.
+- **No wiring into `assess_kel_assurance` or any real authority decision.**
+  Whether/when a real verifier should *require* old-policy certification
+  before trusting a witness-set rotation is a founder-facing policy call,
+  the same kind of decision D-0328/D-0332's own predecessor phases left
+  open for their consuming call sites.
+
+**Constitutional impact:** none. No new cryptography — composes
+`sign_witness_receipt`/`WitnessedEventCertificate::verify` unchanged, the
+same Ed25519 signing every other receipt in this tree already uses. No
+voice/value edge: `witness_rotation` lives entirely inside `did-mini`,
+touching no value or governance-quorum crate.
+
+**Implementation status:** shipped — `crates/did-mini/src/witness_rotation.rs`
+(new: `WitnessJournal::certify_policy_transition`, `verify_policy_transition`,
+`is_policy_change`/`same_witness_set` private helpers, 12 tests covering a
+genuine transition producing a valid old-policy receipt, non-mutation of
+journal state, deterministic re-certification, rejecting an identity never
+previously observed, a gapped (non-direct-successor) rotation, a witness
+outside the old policy, an ordinary non-policy rotation, order-insensitive
+witness-set comparison, a threshold-only change counting as a policy
+change, full policy retirement counting as a policy change, a certificate
+checked against the wrong KEL, and old-policy threshold enforcement),
+`crates/did-mini/src/witness_state.rs` (`WitnessIdentityState::
+accepted_policy` field + accessor), `crates/did-mini/src/error.rs`
+(`IdentityError::NoRetainedWitnessState`, `NotAWitnessPolicyChange`),
+`crates/did-mini/src/lib.rs` (module wiring, `verify_policy_transition`
+re-export).
+
+**Failure point:** this only helps identities whose old witnesses are
+actually reachable and cooperative — the exact case §17.4 exists to
+handle differently. A compromised controller that also controls (or
+coerces) a threshold of the *old* witnesses can still certify an
+illegitimate transition; old-policy certification raises the cost of a
+silent witness-eviction attack from "one self-signed rotation" to
+"compromise a threshold of witnesses who were specifically chosen to be
+independent," not to zero.
+
+**Required follow-up:** §17.3 (new-witness readiness), §17.4
+(unavailable-witness recovery), and a real call site that decides when
+this certification is required, remain open — the same three items named
+in Phase 7's own remaining scope.
+
+**Supersedes / superseded by:** extends D-0321/D-0326; supersedes nothing.
+Advances Phase 7 of `docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s
+committed plan.
+
+### D-0472 — PEX-discovered peers drive real gossip fanout, over real TCP  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0092 (`mini_net::pex`, `AddressBook`,
+`PexMessage`), roadmap [#24](../../issues/24) (peer discovery, overlay
+routing & NAT traversal), roadmap [#45](../../issues/45)/R8 (this crate's
+own PEX-over-TCP precedent reused by `mini_consensus::discovery`),
+Directive 11, [#92](../../issues/92).
+
+**Decision:** `mini-net`'s own `STATUS.md` entry for D-0092 named the
+gap directly: "`mini-net`'s gossip logic is still proven live over real
+sockets separately from [PEX]; the two aren't wired together yet (that
+integration — routing PEX-discovered peers into gossip fanout — is
+follow-up, not done here)." `mini_net::gossip::dialable_fanout(routing,
+book, target, fanout, exclude)` closes it: it composes
+`RoutingTable::closest_peers`, `AddressBook::get` and the existing
+`fanout_peers` into the one query a gossiping node actually needs — the
+nearest peers to `target` this node can both route to *and* dial,
+skipping any peer that is routing-known but still address-less (e.g. a
+PEX hint nobody has followed up on yet) and skipping a caller-named
+`exclude` (typically the peer a message just arrived from, so gossip
+never bounces straight back to its own sender).
+
+**Why this was a real gap, not just an untested one:** `RoutingTable`
+alone names ids, never addresses (`PeerId`'s own docs: "not a
+cryptographic key and not an identity — purely a position in the routing
+overlay"). Before this, a caller wanting to gossip to "my closest peers"
+had no library function that cross-referenced `AddressBook` for them —
+either every caller reimplemented the same filter/take composition
+itself (D-0026's "two places doing the same operation is how one ends up
+subtly wrong" reasoning, previously applied to hashing in D-0470), or
+skipped the check and risked handing a socket-dialing caller a `PeerId`
+it cannot actually connect to.
+
+**Why this stays a pure function, not a new `mini-bearer` dependency for
+the library:** this crate's own docs already commit to "this crate's own
+library code stays transport-agnostic (D-0042); the live demo is what
+actually puts gossip frames on a real socket" (`Cargo.toml`'s own
+comment on why `mini-bearer` is a dev-dependency only, used by
+`examples/gossip_live_demo.rs`). Reversing that into a normal dependency
+was not this slice's call to make unilaterally. `dialable_fanout` keeps
+the crate's public API exactly as transport-agnostic as `build_response`/
+`absorb_response` already are; the real-socket proof lives in a test,
+composing already-public functions over a real `mini_bearer::TcpBearer`,
+the same way `tests/pex_over_tcp.rs` already proved PEX itself without
+adding any transport dependency to the library.
+
+**What ships:**
+
+- `mini_net::gossip::dialable_fanout` (new, re-exported from the crate
+  root): pure, deterministic (matching this module's own already-stated
+  "closest-first, not randomized" honest limit), four new unit tests in
+  `tests/net.rs` (skips an address-less routing-known peer, excludes a
+  named sender even though it is dialable, caps at the requested size
+  nearest-first, returns empty when nothing is dialable).
+- `crates/mini-net/tests/pex_driven_gossip_mesh.rs` (new, 2 tests): the
+  end-to-end proof over real sockets.
+  `a_node_gossips_to_a_peer_it_only_ever_learned_about_through_pex_over_real_tcp`
+  runs the same PEX round `tests/pex_over_tcp.rs` already proves (A knows
+  only B; B already knows C), then goes one step further than that test
+  does: A selects C as a fanout target purely through `dialable_fanout`
+  (never a hardcoded address), dials a connection A never had before the
+  test ran, and gossips a message that C's own `GossipRouter` accepts
+  exactly once. `a_message_already_seen_is_never_forwarded_back_to_its_own_sender`
+  isolates the exclusion guarantee alone, closing the loop a naive
+  "fan out to my closest peers" implementation would otherwise create.
+
+**What this does not do, stated plainly:**
+
+- **Not a running mesh.** `dialable_fanout` is a selection function for
+  one node's one fanout decision — a caller still assembles the loop that
+  actually runs a live multi-hop mesh (many nodes, PEX rounds refreshing
+  routing state over time, messages actually crossing more than one
+  relay), the same way `mini_consensus::discovery::pex_over_tcp` wires
+  this crate's PEX logic specifically for the consensus mesh rather than
+  this crate doing it generically. `examples/gossip_live_demo.rs`'s own
+  "hub-and-spoke, not a mesh" / "no peer discovery" honest limits are
+  unchanged by this — that example still doesn't build one; the new test
+  proves the composition exists in library-callable form instead.
+- **No bucket-refresh-by-liveness-ping.** `routing.rs`'s own stated
+  honest limit — a full bucket still simply refuses new candidates rather
+  than evicting a stale one — is untouched.
+- **No randomized fanout.** `gossip.rs`'s own stated honest limit —
+  deterministic closest-first selection, not the randomized/weighted
+  selection real gossip networks use to resist eclipse attacks — is
+  untouched; `dialable_fanout` inherits `fanout_peers`'s exact ordering.
+- **No wire-format or transport changes.** Reuses `PexMessage`,
+  `AddressBook`, and `TcpBearer` entirely unchanged.
+
+**Constitutional impact:** none. No new cryptography — `dialable_fanout`
+touches no cryptographic material at all. No voice/value edge: `mini-net`
+has, and gains, no dependency on any value or governance-quorum crate;
+this PR adds no new crate dependency to `mini-net` at all (the test-only
+socket wiring uses the pre-existing `mini-bearer` dev-dependency).
+
+**Implementation status:** shipped — `crates/mini-net/src/gossip.rs`
+(new `dialable_fanout` function), `crates/mini-net/src/lib.rs`
+(re-export), `crates/mini-net/tests/net.rs` (4 new unit tests),
+`crates/mini-net/tests/pex_driven_gossip_mesh.rs` (new file, 2
+real-socket integration tests).
+
+**Failure point:** `dialable_fanout` trusts its `AddressBook` exactly as
+much as `pex.rs`'s own trust model already documents — a `PexMessage::
+Response` is an unauthenticated hint, and dialing anything it names still
+goes through the same untrusted-until-proven bearer/channel path every
+other connection in this tree does. This function adds no new trust
+decision; it only makes an existing one (which peers are worth trying to
+reach) actually reachable from real routing/address state instead of a
+caller-assembled list.
+
+**Required follow-up:** wiring `dialable_fanout` into an actual running
+multi-node mesh (refreshing routing/address state from ongoing PEX
+rounds over time, not just one round) remains open, as do the two honest
+limits named above (liveness-ping bucket refresh, randomized fanout).
+None of the three are this slice's scope — each is independently
+tracked in `routing.rs`/`gossip.rs`'s own module docs and roadmap #24.
+
+**Supersedes / superseded by:** extends D-0092; supersedes nothing.
+### D-0471 — New-witness readiness threshold for witness-set rotation (research report §17.3)  ·  *Proposed*
+
+**Date:** 2026-09-07 · **Refs:** D-0468, D-0321/D-0326, roadmap R9,
+`docs/design/kel-witness-receipts-and-duplicity-gossip.md`'s committed
+phased plan.
+
+**Decision:** add `did_mini::verify_witness_rotation` to
+`witness_rotation.rs`: given a rotation event, verify **both** the
+retiring policy's threshold (via D-0468's existing
+`verify_policy_transition`, unchanged) **and** the incoming policy's own
+threshold — enough new witnesses' *ordinary* first receipts for the same
+event, checked via Phase 1's existing `WitnessedEventCertificate::verify`
+against the new `WitnessPolicy` `new_kel` declares. No new receipt type,
+no new certificate type, no new signing code: a new witness's first
+`observe`/`observe_declared` call already signs under
+`witness_policy_generation = event.sn` (the new generation, per D-0459's
+existing policy-from-KEL discipline), so Phase 1-4's existing machinery
+already produces exactly the statement §17.3 asks for. This module only
+adds the composition — checking both thresholds hold for the *same*
+event — plus the one new honest case D-0468 did not need: a rotation that
+retires the witness policy entirely has no new witness set to prove
+readiness for, so `new_policy_certificate: Option<&WitnessedEventCertificate>`
+being `None` there is not an error.
+
+**Reason:** D-0468's own "Required follow-up" named §17.3 explicitly as
+"structurally identical once built, just signed under the new generation
+instead of the old one" — this PR confirms and closes exactly that
+prediction. The research report's own text (§17.3): "For high-assurance
+transitions, also require receipts from enough new witnesses to prove
+they accepted responsibility... yields: old witness threshold AND new
+witness readiness threshold." Verifying it as an AND-composition of two
+already-correct, already-tested primitives (`verify_policy_transition`
+and `WitnessedEventCertificate::verify`) is the smallest change that
+satisfies that sentence, rather than inventing new machinery for a
+condition Phase 1 already expresses.
+
+**Constitutional impact:** none. No new cryptography — composes
+`sign_witness_receipt`/`WitnessedEventCertificate::verify` unchanged,
+identical to D-0468. No voice/value edge: `witness_rotation` still lives
+entirely inside `did-mini`.
+
+**Implementation status:** shipped — `crates/did-mini/src/
+witness_rotation.rs` (new: `verify_witness_rotation`; module doc updated
+to describe §17.2+§17.3 scope instead of §17.2-only; 6 new tests: both
+thresholds met succeeds, a missing new-policy certificate against a real
+new policy fails with the exact threshold/zero-count error, an old-policy
+failure surfaces unchanged through the composed function, the new
+policy's own threshold is enforced (one of two required new witnesses is
+not enough), full retirement succeeds with no new certificate required,
+and a new-policy certificate whose recorded event digest does not match
+the real rotation event is rejected), `crates/did-mini/src/lib.rs`
+(re-export).
+
+**Failure point:** still no wiring into `assess_kel_assurance` — whether a
+real verifier should *require* §17.3's higher assurance level (versus
+§17.2 alone, versus neither) for any given governance action remains a
+founder-facing policy call, the same open item every earlier phase in
+this design doc already left for its own consuming decision. §17.4
+(unavailable-witness recovery) remains unbuilt and is deliberately the
+opposite assumption from both this and D-0468: it must work *without* old
+witnesses' cooperation.
+
+**Required follow-up:** §17.4 (unavailable-witness recovery) is now the
+only unbuilt piece of Phase 7's committed scope; a real call site gating
+an authority decision on an assurance level remains the founder-facing
+policy call named since Phase 3.
+
+**Supersedes / superseded by:** extends D-0468; supersedes nothing.
+Closes §17.2+§17.3 of Phase 7 of `docs/design/
+kel-witness-receipts-and-duplicity-gossip.md`'s committed plan.
+
+### D-0473 — Randomized, eclipse-hardened gossip fanout selection  ·  *Proposed*
+
+**Date:** 2026-09-08 · **Refs:** D-0472 (`mini_net::dialable_fanout`, the
+deterministic function this hardens), `mini_porep::sample_challenges`
+(D-0064, the seeded-derivation precedent this reuses), `docs/THREAT_MODEL.md`
+"Routing attacks"/"Eclipse attacks" rows, roadmap [#24](../../issues/24),
+Directive 11, [#92](../../issues/92).
+
+**Decision:** `gossip.rs`'s own module docs have named this gap since the
+crate's first slice: "Fanout selection here is deterministic
+(closest-first), not randomized. Real gossip networks randomize fanout
+specifically to resist an attacker positioning itself as every honest
+peer's 'closest' neighbor and silently dropping traffic (an eclipse
+attack)." `mini_net::randomized_fanout_peers(candidates, fanout, seed)`
+closes it: each candidate's selection key is
+`BLAKE3("mini-net/gossip/randomized-fanout/v1" || seed || id)`, sorted
+ascending, first `fanout` kept — selection now depends on `seed`, not a
+candidate's routing distance. `randomized_dialable_fanout` is the
+address-aware counterpart, composed over the same dialable-candidate pool
+`dialable_fanout` (D-0472) already gathers — that gathering step
+(`RoutingTable::closest_peers` filtered through `AddressBook::get`, minus
+`exclude`) is now a shared private `dialable_candidates` helper so
+neither public function reimplements it.
+
+**Why this is the right shape, not a bespoke shuffle:** `mini_porep
+::sample_challenges` already established the pattern this reuses for an
+unrelated purpose (auditor challenge sampling, D-0064): a
+domain-separated, keyed BLAKE3 derivation over `(context, seed, index)`
+gives output that is fully deterministic and reproducible for anyone who
+knows `seed`, yet unpredictable for anyone who does not — exactly the
+property fanout selection needs. A Fisher-Yates shuffle seeded from a
+PRNG would need a PRNG dependency and a seed-to-state conversion this
+tree doesn't otherwise carry; sorting by a keyed hash needs neither and
+composes with nothing but `mini_crypto::HashAlgorithm::Blake3`, already a
+dependency.
+
+**Why `seed` freshness, not the hashing, is what actually buys the
+resistance:** the function itself cannot enforce how a caller chooses
+`seed` — a caller that hardcodes one fixed seed forever gets a different
+*static* selection than closest-first order, which is no better against
+a patient attacker who simply learns that one static answer. The real
+mitigation requires `seed` to change per round (or per message) from
+something no candidate peer controls or can predict in advance — fresh
+local randomness (`mini_crypto::random_32`) is the straightforward
+choice, stated explicitly in the function's own docs rather than assumed.
+
+**What this does not do, stated plainly:**
+
+- **No defense against a fully eclipsed candidate pool.** If every
+  candidate in `candidates`/the dialable pool is already attacker-
+  controlled, randomizing which one gets picked changes nothing — this
+  raises the cost of a *partial* eclipse (occupying some, not all, of a
+  victim's nearby routing positions), it does not close full eclipse.
+  `docs/THREAT_MODEL.md`'s "Routing attacks" row (the one whose own text
+  named "availability-level routing attacks (eclipse)" as undefended) is
+  updated to cite this as partial mitigation; the separate "Eclipse
+  attacks" row, specifically about eclipsing a *validator's* finality
+  view, is untouched — this slice is generic gossip fanout, not
+  consensus-layer eclipse defense.
+- **No bucket-refresh-by-liveness-ping.** `routing.rs`'s own separate
+  honest limit — a full bucket still simply refuses new candidates
+  rather than evicting a stale/dead one — is untouched; that is the
+  complementary hardening this does not provide.
+- **No wiring into a real running mesh.** Same honest limit D-0472
+  already stated for `dialable_fanout`: these are selection functions, a
+  caller still assembles the loop that actually runs live traffic.
+- **No wire-format or transport changes.** No new crate dependency
+  either — `mini_crypto` was already a dependency (`peer.rs`'s
+  `PeerId::generate` already uses `mini_crypto::random_32`).
+
+**Constitutional impact:** none. Composition of an already-reviewed
+primitive (`mini_crypto::HashAlgorithm::Blake3`, the same construction
+this tree already uses for hashing everywhere) applied to a new purpose
+(seeded selection ordering, not integrity or authentication) — not new
+cryptography. No voice/value edge: `mini-net` gains no new dependency at
+all.
+
+**Implementation status:** shipped — `crates/mini-net/src/gossip.rs`
+(new: `RANDOMIZED_FANOUT_DOMAIN`, `randomized_fanout_peers`,
+`randomized_dialable_fanout`, private `dialable_candidates` helper
+factored out of `dialable_fanout`; module doc rewritten to describe both
+selection variants and their respective honest limits),
+`crates/mini-net/src/lib.rs` (re-exports). 7 new tests in
+`crates/mini-net/tests/net.rs`: same seed reproduces the same selection
+(twice, for both the plain and address-aware variant), varying the seed
+across 12 fixed values changes the result at least once, selection caps
+at the requested size and never exceeds the candidate count, every
+selected id is drawn from the real candidate set with no duplicates, and
+the address-aware variant correctly excludes both a named sender and a
+routing-known-but-address-less peer.
+
+**Failure point:** a caller that does not understand the `seed`-freshness
+requirement and reuses a constant seed gains nothing over
+`dialable_fanout`'s existing deterministic order except a different fixed
+answer — the function's docs state this explicitly rather than leaving it
+implicit, but nothing in the type system prevents the mistake.
+
+**Required follow-up:** bucket-refresh-by-liveness-ping (`routing.rs`'s
+remaining honest limit) and wiring either fanout variant into a real
+running multi-node mesh both remain open, tracked in roadmap #24.
+
+**Supersedes / superseded by:** extends D-0472; supersedes nothing.

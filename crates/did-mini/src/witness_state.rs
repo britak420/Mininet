@@ -83,6 +83,7 @@ pub struct WitnessIdentityState {
     pub witness_policy_generation: u64,
     accepted_event: Event,
     issued_receipt: WitnessReceipt,
+    accepted_policy: WitnessPolicy,
 }
 
 impl WitnessIdentityState {
@@ -98,6 +99,19 @@ impl WitnessIdentityState {
     /// observation.
     pub fn issued_receipt(&self) -> &WitnessReceipt {
         &self.issued_receipt
+    }
+
+    /// The full [`WitnessPolicy`] this witness accepted alongside
+    /// [`Self::accepted_event`] — not just its generation number
+    /// (the public `witness_policy_generation` field). Phase 7's
+    /// `WitnessJournal::certify_policy_transition` (`crate::
+    /// witness_rotation`) needs the *whole* old policy (witness set +
+    /// threshold), not merely its generation, to know which witnesses may
+    /// certify a transition away from it and to verify a certificate
+    /// against it later — a bare generation number cannot reconstruct
+    /// that.
+    pub fn accepted_policy(&self) -> &WitnessPolicy {
+        &self.accepted_policy
     }
 }
 
@@ -238,6 +252,7 @@ impl WitnessJournal {
                         witness_policy_generation: policy.generation,
                         accepted_event: event.clone(),
                         issued_receipt: receipt.clone(),
+                        accepted_policy: policy.clone(),
                     },
                 );
                 Ok(WitnessObservation::Accepted(receipt))

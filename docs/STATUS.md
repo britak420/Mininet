@@ -148,8 +148,23 @@ given time.
   over the existing encrypted `Channel`. No peer or archive becomes a trust
   anchor. Honest limits: static validator set only; no historical set-transition
   or weak-subjectivity/long-range rule; exact transparent state capped at 8 MiB
-  and one response at one bearer frame; no chunked Merkle state proofs,
-  discovery/retry/multi-peer/eclipse policy, external audit, or physical
+  and one response at one bearer frame. **Chunked Merkle state transfer over
+  real TCP now exists (D-0469):** `mini_consensus::chunked_snapshot`'s
+  `SnapshotManifest`/`SnapshotChunker`/`SnapshotAssembler` split the same
+  execution state into requester-chosen 1 KiB–1 MiB chunks, each
+  independently verifiable against a Merkle root before the receiver trusts
+  it, so a weak or lossy-linked device can re-fetch a single bad chunk
+  instead of discarding a whole multi-megabyte transfer — the real, checked
+  authority is still, unchanged, `header.state_root == state.commitment()`
+  at full reassembly. `net::chunk_sync_over_tcp`/`serve_chunk_sync_over_tcp`
+  carry the whole exchange over the same real, encrypted, one-shot
+  connection every other state-sync helper uses, ending in the same
+  `ConsensusNode::apply_state_sync` call an ordinary snapshot response
+  already goes through. Honest limits: one peer, one pass, no retry; the
+  chunked path only ever fetches the archive's latest snapshot, never the
+  block suffix after it (a receiver may still need an ordinary
+  `state_sync_over_tcp` call to close that last gap); no multi-peer
+  sourcing, discovery/eclipse policy, external audit, or physical
   weakest-device measurements. State-sync sockets have local I/O deadlines, but
   peer choice and retry remain host policy. The equivocation evidence is no longer silently dropped by
   the network driver (D-0088: `mini_consensus::EquivocatorRegistry`
@@ -322,21 +337,53 @@ given time.
   locally-cached "what do I believe" state `mini_sync::Ingest` already
   maintains; not self-certifying like a KEL carrier, so it gets no
   special ingest branch — it flows through the same ordinary
-  author-provenance path every object already uses; 11 tests. **Not yet
-  real:** no bounded/incremental re-verify (`observe_verified`/
-  `observe_declared` re-verify the whole chain from inception on every
-  call, not just the new suffix), no fork-proof construction for the
-  harder "conflicting descendant" case, no recovery-aware handling (every
-  rotation is treated identically), no persistence for `DuplicityRegistry`
-  (in-memory only), no automatic evidence-fetch policy (a
-  `Disagreement`/`Ahead` outcome is returned, never auto-resolved — a
-  host policy choice), no bounded retention/pruning for gossip-summary
-  objects, no witness-rotation-aware pruning (Phase 7, not started), no
-  real call site yet gates an authority decision on a
-  `KelAssurance` level or feeds real proofs into `DuplicityRegistry`, no
-  network transport for Phase 4's protocol messages. Each remaining phase
-  is its own later PR, gated behind external review (D-0047) before any
-  high-value authority decision may depend on this layer.
+  author-provenance path every object already uses; 11 tests.
+  **Witness rotation, Phase 7's §17.2+§17.3 shipped (D-0468, D-0471):**
+  `did_mini::witness_rotation`'s `WitnessJournal::certify_policy_transition`
+  lets a witness that already holds accepted state for an identity
+  certify, under its own *old* retained policy generation, that a
+  specific chain-valid direct-successor establishment event legitimately
+  changes that identity's witness policy — closing research report
+  §17.2's gap, where a compromised controller could otherwise drop every
+  honest witness in one unwitnessed, self-signed rotation. No new receipt
+  or certificate type: a certification is an ordinary
+  `WitnessReceiptStatement` naming the retiring generation, so Phase 1's
+  `WitnessedEventCertificate::verify` already does the threshold check
+  unchanged; `verify_policy_transition` adds only the independent check
+  that the presented event really is a policy change (witness set or
+  threshold differs, compared as a set, not list order) rather than
+  trusting the certificate's mere existence. `WitnessIdentityState`
+  gained an `accepted_policy` field (the *whole* old `WitnessPolicy`, not
+  just its generation number) so a witness can know which policy, and
+  which witnesses, it is certifying a transition away from; 12 tests.
+  **§17.3's new-witness readiness threshold now also shipped (D-0471):**
+  `verify_witness_rotation` AND-composes that same old-policy check with
+  a new-policy one — enough *new* witnesses' own ordinary first receipts
+  for the same event, checked via the unchanged
+  `WitnessedEventCertificate::verify` against the policy the rotation
+  event itself declares. Still no new receipt type: a new witness's first
+  `observe`/`observe_declared` call already signs under the new
+  generation (D-0459's policy-from-KEL discipline), so Phase 1-4's
+  existing machinery already produces exactly the statement §17.3 asks
+  for — the only new code is the AND-composition, plus treating a full
+  witness-policy retirement (no new witness set to prove readiness for)
+  as vacuously satisfying the new-policy half; 6 tests.
+  **Not yet real:** no bounded/incremental re-verify
+  (`observe_verified`/`observe_declared` re-verify the whole chain from
+  inception on every call, not just the new suffix), no fork-proof
+  construction for the harder "conflicting descendant" case, no
+  recovery-aware handling (every rotation is treated identically), no
+  persistence for `DuplicityRegistry` (in-memory only), no automatic
+  evidence-fetch policy (a `Disagreement`/`Ahead` outcome is returned,
+  never auto-resolved — a host policy choice), no bounded
+  retention/pruning for gossip-summary objects, no unavailable-witness
+  recovery (§17.4, the last piece of Phase 7), no real call site yet gates an authority
+  decision on a `KelAssurance` level, requires old-policy certification
+  before trusting a rotation, or feeds real proofs into
+  `DuplicityRegistry`, no network transport for Phase 4's protocol
+  messages. Each remaining phase is its own later PR, gated behind
+  external review (D-0047) before any high-value authority decision may
+  depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire
   tag `0x02`) is real — `VerifyingKey`/`Signature` parse and verify
@@ -1102,10 +1149,26 @@ given time.
   validly-signed but unrelated parts is still caught;
   `missing_superblock_chunks` distinguishes "part manifest not yet held"
   from "chunks still missing within an already-held part." One level of
-  nesting, addressing up to 64 GiB. Not wired into any `mini-sync`
-  replication path or production caller yet, and this is the addressing/
-  composition piece only — distributing shards/chunks at real network
-  scale remains `mini-net`/`mini-store`'s separately-scoped job.
+  nesting, addressing up to 64 GiB. **Wired into real `mini-sync`
+  replication, and bounded-memory, now (D-0470):** `mini_media::sync`'s
+  `pull_manifest`/`pull_superblock`/`serve_missing` compose these want-lists
+  with `mini_sync::request_retrieval`/`serve_retrieval`'s already-tested
+  exact-object-retrieval exchange over an already-established
+  `Bearer`/`Channel` — the same composition `mini-search-federation-net`
+  (D-0432) already proved for an unrelated object type — driving as many
+  retrieval rounds as newly-arrived part manifests reveal. Separately,
+  `assemble_to_writer`/`assemble_superblock_to_writer` stream an
+  already-complete payload straight to a `Write` sink one chunk at a time
+  (via a new `mini_crypto::HashAlgorithm::incremental` hasher), instead of
+  `assemble`/`assemble_superblock`'s single up-front allocation — up to
+  256 MiB or 64 GiB respectively, exactly what Directive 11's weakest
+  device cannot spare. Still not wired to any production caller (a real
+  `mini-forge` release artifact, a media player), no multi-peer sourcing/
+  retry, and no progressive-playback support — every chunk must still be
+  present before `assemble_to_writer` writes anything, so this closes
+  "cannot hold the whole file in RAM," not "can start playing before the
+  last chunk arrives." Distributing shards/chunks at real network scale
+  otherwise remains `mini-net`/`mini-store`'s separately-scoped job.
 - **shipped (D-0434, roadmap #34)** — cold/owner-only storage tiers.
   `mini_store::owner_seal` gives `mini_objects::Payload::Encrypted` (a wire
   variant every reader had rejected since the object model's inception) a
@@ -1268,15 +1331,53 @@ given time.
   is first-seen-wins so a later, hostile PEX response can never silently
   redirect who a caller dials for an id it already resolved; a response
   is capped at `MAX_PEX_RECORDS` so it can never become an unbounded
-  memory/bandwidth sink. `mini-net`'s gossip logic is still proven live
-  over real sockets separately from this; the two aren't wired together
-  yet (that integration — routing PEX-discovered peers into gossip
-  fanout — is follow-up, not done here).
-- **partial** — `mini-net`'s gossip logic is proven live over real
-  sockets; peer *discovery* (`RoutingTable`) is unexercised over a real
-  transport as part of an actual mesh (PEX above proves the discovery
-  *mechanism* over real TCP, but nothing yet drives gossip fanout or
-  routing-table refresh from it end to end).
+  memory/bandwidth sink.
+- **shipped (D-0472)** — PEX-discovered peers now drive real gossip
+  fanout, closing the "aren't wired together yet" gap the line above used
+  to name. `mini_net::dialable_fanout` composes
+  `RoutingTable::closest_peers`, `AddressBook::get` and `fanout_peers`
+  into the one query a gossiping node actually needs: the nearest peers
+  to a target it can both route to *and* dial, skipping anything
+  routing-known but still address-less and skipping a caller-named
+  `exclude` (the peer a message just arrived from, so gossip never
+  bounces straight back to its own sender). Proven over a real socket
+  (`a_node_gossips_to_a_peer_it_only_ever_learned_about_through_pex_over_real_tcp`):
+  a node that knows only one peer runs a PEX round, discovers a second
+  peer purely from that exchange, selects it as a fanout target through
+  `dialable_fanout` (never a hardcoded address), dials a connection it
+  never had before the test, and gossips a message the receiver accepts
+  exactly once.
+  **What it does not do:** `dialable_fanout` is a pure selection
+  function — pairing it with real sockets end to end at mesh scale (many
+  nodes, many hops, a message actually crossing more than one relay
+  purely through discovered addresses) remains for a caller to wire, the
+  same way `mini_consensus::discovery::pex_over_tcp` wires this crate's
+  PEX logic for the consensus mesh specifically. Bucket refresh by
+  liveness ping remains the one honest limit still open from
+  `routing.rs`'s own module docs.
+- **shipped (D-0473)** — randomized, eclipse-hardened fanout selection,
+  closing `gossip.rs`'s other named honest limit: `dialable_fanout`'s
+  closest-first order lets an attacker who occupies a victim's nearest
+  routing positions guarantee it always gets selected, forever.
+  `mini_net::randomized_fanout_peers` sorts candidates by a
+  domain-separated `BLAKE3(seed || id)` key instead of caller order — the
+  same seeded-derivation shape `mini_porep::sample_challenges` already
+  uses for auditor challenge sampling (D-0064) — so selection depends on
+  `seed`, not routing distance; `randomized_dialable_fanout` is the
+  address-aware counterpart over the same candidate pool
+  `dialable_fanout` already gathers (factored into a shared private
+  `dialable_candidates` helper so neither reimplements the composition).
+  Directly answers `docs/THREAT_MODEL.md`'s "Routing attacks"/"Eclipse
+  attacks" rows, which named exactly this gap.
+  **What it does not do:** an attacker who already controls 100% of a
+  victim's candidate pool is not defended — randomizing selection among
+  only-attacker candidates changes nothing; this raises the cost of a
+  *partial* eclipse, it does not close full eclipse. `seed` freshness is
+  the caller's responsibility and not enforced by the function itself: a
+  caller that reuses one fixed seed forever gets a different static
+  selection, not an unpredictable one. Bucket refresh by liveness ping
+  remains open, as does wiring either fanout variant into a real running
+  mesh.
 - **not started** — BLE radio adapter (needs real phone hardware,
   [#22](../../issues/22)); NAT traversal; local mesh routing.
 
