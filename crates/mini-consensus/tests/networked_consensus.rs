@@ -8,17 +8,22 @@
 //! `mini_execution`'s state machine cross a process boundary. Everything the
 //! nodes agree on travels as bytes over a wire: proposals, signed
 //! `did:mini` votes, quorum certificates. Nothing is shared but the public
-//! validator KELs every node would have anyway.
+//! validator KELs every node would have anyway, plus a test-only shutdown
+//! counter that keeps relay sockets alive until all nodes finish.
 //!
 //! Honest caveat, matching the crate docs: these are threads over loopback,
 //! not machines over the internet, and the round-0 driver assumes every
 //! proposer is online. That is a real network transport exercising the real
 //! protocol, not yet a deployment.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use did_mini::{Capabilities, Controller, Did, Kel};
 use mini_bearer::{Bearer, TcpBearer};
@@ -33,6 +38,31 @@ use mini_crypto::SigningKey;
 use mini_execution::SettlementBlockBody;
 use mini_settlement::sign_claim;
 
+/// Local finality ends `run_to_height`, not the test's connected-network
+/// assumption. Keep completed nodes' sockets alive and relay pending votes until
+/// every participating node has finalized. This shares shutdown coordination
+/// only: all ledger/finality evidence still arrives through authenticated TCP.
+fn relay_until_all_finished(mesh: &mut TcpMesh, completed: &AtomicUsize, expected: usize) {
+    completed.fetch_add(1, Ordering::SeqCst);
+    let deadline = Instant::now() + Duration::from_secs(100);
+    let mut seen = BTreeSet::new();
+    while completed.load(Ordering::SeqCst) < expected {
+        assert!(
+            Instant::now() < deadline,
+            "peer did not finish before shutdown deadline"
+        );
+        for message in mesh.poll() {
+            if seen.insert(message.to_wire_bytes()) {
+                assert!(
+                    seen.len() <= 4096,
+                    "shutdown relay exceeded its message budget"
+                );
+                mesh.broadcast(&message).unwrap();
+            }
+        }
+        thread::sleep(Duration::from_millis(1));
+    }
+}
 /// A validator: an identity root plus a `VOTE`-capable delegated device.
 fn validator(seed: u8) -> (Controller, Controller) {
     let mut root = Controller::incept_single_from_seeds(&[seed; 32], &[seed + 1; 32]).unwrap();
@@ -83,6 +113,7 @@ fn block_body(height: u64) -> SettlementBlockBody {
 fn four_nodes_over_a_real_tcp_mesh_finalize_and_converge() {
     const N: usize = 4;
     const TARGET_HEIGHT: u64 = 3;
+    let completed = Arc::new(AtomicUsize::new(0));
 
     let signers: Vec<(Controller, Controller)> =
         (0..N as u8).map(|i| validator(10 + i * 10)).collect();
@@ -110,6 +141,7 @@ fn four_nodes_over_a_real_tcp_mesh_finalize_and_converge() {
         let validators = validators.clone();
         let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
+        let completed = Arc::clone(&completed);
         let root_did = root.did();
 
         handles.push(thread::spawn(move || {
@@ -143,6 +175,7 @@ fn four_nodes_over_a_real_tcp_mesh_finalize_and_converge() {
                 &mut equivocators,
             )
             .expect("every honest node online should finalize the target height");
+            relay_until_all_finished(&mut mesh, &completed, addrs.len());
             assert_eq!(
                 equivocators.flagged_count(),
                 0,
@@ -195,6 +228,7 @@ fn a_crashed_proposer_is_survived_by_view_change_and_the_cluster_still_converges
     const N_VALIDATORS: usize = 4; // quorum = 3
     const N_ONLINE: usize = 3;
     const TARGET_HEIGHT: u64 = 4; // heights 1..=4 cover every proposer slot
+    let completed = Arc::new(AtomicUsize::new(0));
 
     let signers: Vec<(Controller, Controller)> = (0..N_VALIDATORS as u8)
         .map(|i| validator(10 + i * 10))
@@ -227,6 +261,7 @@ fn a_crashed_proposer_is_survived_by_view_change_and_the_cluster_still_converges
         let validators = validators.clone();
         let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
+        let completed = Arc::clone(&completed);
         let root_did = root.did();
 
         handles.push(thread::spawn(move || {
@@ -262,6 +297,7 @@ fn a_crashed_proposer_is_survived_by_view_change_and_the_cluster_still_converges
                 &mut equivocators,
             )
             .expect("three online validators (== quorum) must finalize via view-change");
+            relay_until_all_finished(&mut mesh, &completed, addrs.len());
             assert_eq!(equivocators.flagged_count(), 0);
             (node.finalized_height(), node.commitment())
         }));
@@ -295,6 +331,7 @@ fn a_crashed_proposer_is_survived_by_view_change_and_the_cluster_still_converges
 fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() {
     const N: usize = 4;
     const TARGET_HEIGHT: u64 = 3;
+    let completed = Arc::new(AtomicUsize::new(0));
 
     let mut signers: Vec<(Controller, Controller)> =
         (0..N as u8).map(|i| validator(10 + i * 10)).collect();
@@ -323,6 +360,7 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
         let validators = validators.clone();
         let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
+        let completed = Arc::clone(&completed);
         let root_did = root0.did();
         thread::spawn(move || {
             let mut mesh = TcpMesh::establish(
@@ -355,6 +393,7 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
                 &mut equivocators,
             )
             .expect("node 0 must finalize the target height like every other honest node");
+            relay_until_all_finished(&mut mesh, &completed, addrs.len());
 
             // Serve exactly one catch-up request from this node's own
             // finalized history -- the whole run, from genesis.
@@ -380,6 +419,7 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
             let validators = validators.clone();
             let peer_roots = peer_roots.clone();
             let oracle = oracle.clone();
+            let completed = Arc::clone(&completed);
             let root_did = root.did();
             thread::spawn(move || {
                 let mut mesh = TcpMesh::establish(
@@ -412,6 +452,7 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
                     &mut equivocators,
                 )
                 .expect("every honest node online should finalize the target height");
+                relay_until_all_finished(&mut mesh, &completed, addrs.len());
                 (node.finalized_height(), node.commitment())
             })
         })
@@ -489,6 +530,7 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
 fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transport() {
     const N: usize = 4;
     const TARGET_HEIGHT: u64 = 3;
+    let completed = Arc::new(AtomicUsize::new(0));
 
     let mut signers: Vec<(Controller, Controller)> =
         (0..N as u8).map(|i| validator(10 + i * 10)).collect();
@@ -517,6 +559,7 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
         let validators = validators.clone();
         let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
+        let completed = Arc::clone(&completed);
         let root_did = root0.did();
         thread::spawn(move || {
             let mut mesh = TcpMesh::establish(
@@ -549,6 +592,7 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
                 &mut equivocators,
             )
             .unwrap();
+            relay_until_all_finished(&mut mesh, &completed, addrs.len());
             serve_catch_up_over_tcp(&node, &catchup_listener).unwrap();
             (node.finalized_height(), node.commitment())
         })
@@ -561,6 +605,7 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
             let validators = validators.clone();
             let peer_roots = peer_roots.clone();
             let oracle = oracle.clone();
+            let completed = Arc::clone(&completed);
             let root_did = root.did();
             thread::spawn(move || {
                 let mut mesh = TcpMesh::establish(
@@ -593,6 +638,7 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
                     &mut equivocators,
                 )
                 .unwrap();
+                relay_until_all_finished(&mut mesh, &completed, addrs.len());
                 (node.finalized_height(), node.commitment())
             })
         })
@@ -640,6 +686,7 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
 fn four_nodes_over_a_partial_line_mesh_finalize_via_re_gossip() {
     const N: usize = 4; // quorum = 3
     const TARGET_HEIGHT: u64 = 3;
+    let completed = Arc::new(AtomicUsize::new(0));
 
     // Undirected line edges: 0-1, 1-2, 2-3. Each node's neighbor set.
     fn neighbors(i: usize) -> Vec<usize> {
@@ -673,6 +720,7 @@ fn four_nodes_over_a_partial_line_mesh_finalize_via_re_gossip() {
         let validators = validators.clone();
         let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
+        let completed = Arc::clone(&completed);
         let root_did = root.did();
         handles.push(thread::spawn(move || {
             let mut mesh = TcpMesh::establish_topology(
@@ -706,6 +754,7 @@ fn four_nodes_over_a_partial_line_mesh_finalize_via_re_gossip() {
                 &mut equivocators,
             )
             .expect("a connected (if partial) mesh must finalize via re-gossip");
+            relay_until_all_finished(&mut mesh, &completed, addrs.len());
             assert_eq!(equivocators.flagged_count(), 0);
             (node.finalized_height(), node.commitment())
         }));

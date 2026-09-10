@@ -479,13 +479,14 @@ impl Link {
         stream
             .set_read_timeout(Some(HANDSHAKE_TIMEOUT))
             .map_err(mini_bearer::BearerError::from)?;
+        let mut reader = FrameReader::new();
         let channel = if is_initiator {
             let (initiator, hello) = Initiator::start()?;
             handshake_send(&stream, &hello)?;
-            let response = handshake_recv(&stream)?;
+            let response = handshake_recv(&stream, &mut reader)?;
             initiator.finish(&response)?
         } else {
-            let hello = handshake_recv(&stream)?;
+            let hello = handshake_recv(&stream, &mut reader)?;
             let (channel, response) = Responder::respond(&hello)?;
             handshake_send(&stream, &response)?;
             channel
@@ -495,7 +496,7 @@ impl Link {
             .map_err(mini_bearer::BearerError::from)?;
         Ok(Link {
             stream,
-            reader: FrameReader::new(),
+            reader,
             channel,
             outbound: Vec::new(),
             out_pos: 0,
@@ -664,7 +665,7 @@ fn authenticate_mesh_link(
                 .seal(&own.to_wire_bytes(), MESH_ADMISSION_AAD)?,
         )?;
     }
-    let ciphertext = handshake_recv(&link.stream)?;
+    let ciphertext = handshake_recv(&link.stream, &mut link.reader)?;
     let bytes = link.channel.open(&ciphertext, MESH_ADMISSION_AAD)?;
     let peer = ValidatorHandshakeAttestation::from_wire_bytes(&bytes)?;
     let root_kel = admission
@@ -859,9 +860,10 @@ fn handshake_send(mut stream: &TcpStream, msg: &[u8]) -> Result<()> {
 
 /// Receive one handshake message (blocking, bounded by whatever read timeout
 /// the caller already set on `stream` — [`Link::new`] sets
-/// [`HANDSHAKE_TIMEOUT`] before calling this).
-fn handshake_recv(mut stream: &TcpStream) -> Result<Vec<u8>> {
-    let mut reader = FrameReader::new();
+/// [`HANDSHAKE_TIMEOUT`] before calling this). The link retains this reader
+/// across anonymous handshake, admission, and application frames so a TCP read
+/// coalescing adjacent phases cannot discard bytes or desynchronize AEAD counters.
+fn handshake_recv(mut stream: &TcpStream, reader: &mut FrameReader) -> Result<Vec<u8>> {
     loop {
         if let Some(frame) = reader.next_frame()? {
             return Ok(frame);
@@ -1066,6 +1068,30 @@ fn handle_emits<O: ValidatorOracle>(
 mod tests {
     use super::*;
 
+    #[test]
+    fn coalesced_handshake_and_application_frames_are_retained() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut sender = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (receiver, _) = listener.accept().unwrap();
+        receiver
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let first = encode_frame(b"admission").unwrap();
+        let second = encode_frame(b"first consensus frame").unwrap();
+        let mut coalesced = first;
+        coalesced.extend_from_slice(&second);
+        sender.write_all(&coalesced).unwrap();
+        drop(sender);
+        let mut reader = FrameReader::new();
+        assert_eq!(
+            handshake_recv(&receiver, &mut reader).unwrap(),
+            b"admission"
+        );
+        assert_eq!(
+            handshake_recv(&receiver, &mut reader).unwrap(),
+            b"first consensus frame"
+        );
+    }
     #[test]
     fn a_state_sync_client_is_not_held_forever_by_a_silent_peer() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
