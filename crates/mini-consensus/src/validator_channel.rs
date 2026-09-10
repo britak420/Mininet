@@ -47,14 +47,10 @@
 //!
 //! ## What this still does not close
 //!
-//! - **Opt-in, not required.** [`crate::net::TcpMesh`]'s links stay
-//!   anonymous by its own existing design ("consensus messages
-//!   self-identify... the transport only needs to move bytes to everyone,
-//!   not know who is who") — this module is a capability a caller reaches
-//!   for when link-level identity matters (admitting only known validators
-//!   to a connection, attributing a wedged or hostile link to a root), not
-//!   a replacement for that design or something wired into `TcpMesh`
-//!   itself.
+//! - **Mesh admission is mandatory.** [`crate::net::TcpMesh`] uses this
+//!   signature verification inside its required network/set-bound admission
+//!   exchange. The standalone send/receive helpers remain building blocks
+//!   for other callers and do not themselves establish deployment freshness.
 //! - **Proves delegation, not honesty.** A validator that authenticates
 //!   correctly is still free to go silent, censor, or propose invalid
 //!   blocks — this closes "which identity is this," not "is this identity

@@ -53,7 +53,11 @@ pub fn next(home: &Path, store_path: &Path) -> Result<u64> {
     })
 }
 
-fn allocate(home: &Path, author: &str, trusted_head: impl FnOnce() -> Result<u64>) -> Result<u64> {
+fn allocate(
+    home: &Path,
+    author: &str,
+    signed_sequence_floor: impl FnOnce() -> Result<u64>,
+) -> Result<u64> {
     mini_durable::create_dir_all(home).map_err(io)?;
     let _lock = mini_durable::lock_exclusive(&lock_path(home)).map_err(io)?;
     let path = counter_path(home);
@@ -77,7 +81,9 @@ fn allocate(home: &Path, author: &str, trusted_head: impl FnOnce() -> Result<u64
             return Err(CliError::CorruptSequenceFile);
         }
     }
-    let floor = trusted_head()?;
+    // This is the public sequence number of a provenance-verified object,
+    // not confidential identity material. Keep integrity and secrecy distinct.
+    let floor = signed_sequence_floor()?;
     let current = current.unwrap_or(0);
     if current < floor {
         return Err(CliError::CorruptSequenceFile);

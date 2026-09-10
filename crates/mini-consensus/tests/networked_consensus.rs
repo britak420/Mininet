@@ -23,7 +23,9 @@ use std::time::Duration;
 use did_mini::{Capabilities, Controller, Did, Kel};
 use mini_bearer::{Bearer, TcpBearer};
 use mini_chain::{ValidatorOracle, ValidatorSet};
-use mini_consensus::net::{catch_up_over_tcp, run_to_height, serve_catch_up_over_tcp, TcpMesh};
+use mini_consensus::net::{
+    catch_up_over_tcp, run_to_height, serve_catch_up_over_tcp, MeshAdmission, TcpMesh,
+};
 use mini_consensus::{
     CatchupRequest, CatchupResponse, ConsensusNode, EquivocatorRegistry, NodeConfig,
 };
@@ -91,6 +93,7 @@ fn four_nodes_over_a_real_tcp_mesh_finalize_and_converge() {
         oracle.insert(device.kel());
     }
     let validators = ValidatorSet::new(signers.iter().map(|(r, _)| r.did()).collect()).unwrap();
+    let peer_roots: Vec<_> = signers.iter().map(|(r, _)| r.did()).collect();
 
     // Bind every listener *before* any node dials, so the mesh setup cannot
     // race on connection-refused (see TcpMesh::establish's contract).
@@ -105,11 +108,25 @@ fn four_nodes_over_a_real_tcp_mesh_finalize_and_converge() {
     {
         let addrs = addrs.clone();
         let validators = validators.clone();
+        let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
         let root_did = root.did();
 
         handles.push(thread::spawn(move || {
-            let mut mesh = TcpMesh::establish(index, &addrs, &listener).unwrap();
+            let mut mesh = TcpMesh::establish(
+                index,
+                &addrs,
+                &listener,
+                &MeshAdmission {
+                    network_id: mini_settlement::MININET_NETWORK_ID,
+                    local_root: &root_did,
+                    device: &device,
+                    validators: &validators,
+                    oracle: &oracle,
+                    peer_roots: &peer_roots[..addrs.len()],
+                },
+            )
+            .unwrap();
             let mut node = ConsensusNode::new(NodeConfig {
                 root: root_did,
                 device,
@@ -191,6 +208,7 @@ fn a_crashed_proposer_is_survived_by_view_change_and_the_cluster_still_converges
     // The validator set is all four; only the first three ever run. The fourth
     // (signers[3]) is the permanently-offline validator.
     let validators = ValidatorSet::new(signers.iter().map(|(r, _)| r.did()).collect()).unwrap();
+    let peer_roots: Vec<_> = signers.iter().map(|(r, _)| r.did()).collect();
 
     // Mesh only among the three online nodes — they never dial the offline one.
     let listeners: Vec<TcpListener> = (0..N_ONLINE)
@@ -207,11 +225,25 @@ fn a_crashed_proposer_is_survived_by_view_change_and_the_cluster_still_converges
     {
         let addrs = addrs.clone();
         let validators = validators.clone();
+        let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
         let root_did = root.did();
 
         handles.push(thread::spawn(move || {
-            let mut mesh = TcpMesh::establish(index, &addrs, &listener).unwrap();
+            let mut mesh = TcpMesh::establish(
+                index,
+                &addrs,
+                &listener,
+                &MeshAdmission {
+                    network_id: mini_settlement::MININET_NETWORK_ID,
+                    local_root: &root_did,
+                    device: &device,
+                    validators: &validators,
+                    oracle: &oracle,
+                    peer_roots: &peer_roots[..addrs.len()],
+                },
+            )
+            .unwrap();
             let mut node = ConsensusNode::new(NodeConfig {
                 root: root_did,
                 device,
@@ -272,6 +304,7 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
         oracle.insert(device.kel());
     }
     let validators = ValidatorSet::new(signers.iter().map(|(r, _)| r.did()).collect()).unwrap();
+    let peer_roots: Vec<_> = signers.iter().map(|(r, _)| r.did()).collect();
 
     let mut listeners: Vec<TcpListener> = (0..N)
         .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
@@ -288,10 +321,24 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
     let handle0 = {
         let addrs = addrs.clone();
         let validators = validators.clone();
+        let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
         let root_did = root0.did();
         thread::spawn(move || {
-            let mut mesh = TcpMesh::establish(0, &addrs, &listener0).unwrap();
+            let mut mesh = TcpMesh::establish(
+                0,
+                &addrs,
+                &listener0,
+                &MeshAdmission {
+                    network_id: mini_settlement::MININET_NETWORK_ID,
+                    local_root: &root_did,
+                    device: &device0,
+                    validators: &validators,
+                    oracle: &oracle,
+                    peer_roots: &peer_roots[..addrs.len()],
+                },
+            )
+            .unwrap();
             let mut node = ConsensusNode::new(NodeConfig {
                 root: root_did,
                 device: device0,
@@ -331,10 +378,24 @@ fn a_late_joining_node_catches_up_via_real_tcp_and_matches_the_clusters_state() 
         .map(|(index, (listener, (root, device)))| {
             let addrs = addrs.clone();
             let validators = validators.clone();
+            let peer_roots = peer_roots.clone();
             let oracle = oracle.clone();
             let root_did = root.did();
             thread::spawn(move || {
-                let mut mesh = TcpMesh::establish(index, &addrs, &listener).unwrap();
+                let mut mesh = TcpMesh::establish(
+                    index,
+                    &addrs,
+                    &listener,
+                    &MeshAdmission {
+                        network_id: mini_settlement::MININET_NETWORK_ID,
+                        local_root: &root_did,
+                        device: &device,
+                        validators: &validators,
+                        oracle: &oracle,
+                        peer_roots: &peer_roots[..addrs.len()],
+                    },
+                )
+                .unwrap();
                 let mut node = ConsensusNode::new(NodeConfig {
                     root: root_did,
                     device,
@@ -437,6 +498,7 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
         oracle.insert(device.kel());
     }
     let validators = ValidatorSet::new(signers.iter().map(|(r, _)| r.did()).collect()).unwrap();
+    let peer_roots: Vec<_> = signers.iter().map(|(r, _)| r.did()).collect();
 
     let mut listeners: Vec<TcpListener> = (0..N)
         .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
@@ -453,10 +515,24 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
     let handle0 = {
         let addrs = addrs.clone();
         let validators = validators.clone();
+        let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
         let root_did = root0.did();
         thread::spawn(move || {
-            let mut mesh = TcpMesh::establish(0, &addrs, &listener0).unwrap();
+            let mut mesh = TcpMesh::establish(
+                0,
+                &addrs,
+                &listener0,
+                &MeshAdmission {
+                    network_id: mini_settlement::MININET_NETWORK_ID,
+                    local_root: &root_did,
+                    device: &device0,
+                    validators: &validators,
+                    oracle: &oracle,
+                    peer_roots: &peer_roots[..addrs.len()],
+                },
+            )
+            .unwrap();
             let mut node = ConsensusNode::new(NodeConfig {
                 root: root_did,
                 device: device0,
@@ -483,10 +559,24 @@ fn a_late_joining_node_catches_up_through_the_net_modules_own_encrypted_transpor
         .map(|(index, (listener, (root, device)))| {
             let addrs = addrs.clone();
             let validators = validators.clone();
+            let peer_roots = peer_roots.clone();
             let oracle = oracle.clone();
             let root_did = root.did();
             thread::spawn(move || {
-                let mut mesh = TcpMesh::establish(index, &addrs, &listener).unwrap();
+                let mut mesh = TcpMesh::establish(
+                    index,
+                    &addrs,
+                    &listener,
+                    &MeshAdmission {
+                        network_id: mini_settlement::MININET_NETWORK_ID,
+                        local_root: &root_did,
+                        device: &device,
+                        validators: &validators,
+                        oracle: &oracle,
+                        peer_roots: &peer_roots[..addrs.len()],
+                    },
+                )
+                .unwrap();
                 let mut node = ConsensusNode::new(NodeConfig {
                     root: root_did,
                     device,
@@ -568,6 +658,7 @@ fn four_nodes_over_a_partial_line_mesh_finalize_via_re_gossip() {
         oracle.insert(device.kel());
     }
     let validators = ValidatorSet::new(signers.iter().map(|(r, _)| r.did()).collect()).unwrap();
+    let peer_roots: Vec<_> = signers.iter().map(|(r, _)| r.did()).collect();
 
     let listeners: Vec<TcpListener> = (0..N)
         .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
@@ -580,11 +671,25 @@ fn four_nodes_over_a_partial_line_mesh_finalize_via_re_gossip() {
     {
         let addrs = addrs.clone();
         let validators = validators.clone();
+        let peer_roots = peer_roots.clone();
         let oracle = oracle.clone();
         let root_did = root.did();
         handles.push(thread::spawn(move || {
-            let mut mesh =
-                TcpMesh::establish_topology(index, &addrs, &listener, &neighbors(index)).unwrap();
+            let mut mesh = TcpMesh::establish_topology(
+                index,
+                &addrs,
+                &listener,
+                &neighbors(index),
+                &MeshAdmission {
+                    network_id: mini_settlement::MININET_NETWORK_ID,
+                    local_root: &root_did,
+                    device: &device,
+                    validators: &validators,
+                    oracle: &oracle,
+                    peer_roots: &peer_roots[..addrs.len()],
+                },
+            )
+            .unwrap();
             let mut node = ConsensusNode::new(NodeConfig {
                 root: root_did,
                 device,
@@ -619,4 +724,94 @@ fn four_nodes_over_a_partial_line_mesh_finalize_via_re_gossip() {
     }
     let genesis = mini_execution::LedgerChain::genesis().state().commitment();
     assert_ne!(reference, genesis, "no block was really applied");
+}
+
+#[test]
+fn mesh_rejects_wrong_network_expected_peer_and_membership_over_tcp() {
+    for fault in 0..3 {
+        let (root_a, device_a) = validator(11);
+        let (root_b, device_b) = validator(31);
+        let (root_c, device_c) = validator(51);
+        let roots = vec![root_a.did(), root_b.did()];
+        let validators = ValidatorSet::new(vec![root_a.did(), root_b.did(), root_c.did()]).unwrap();
+        let mut oracle = Directory::default();
+        for kel in [
+            root_a.kel(),
+            device_a.kel(),
+            root_b.kel(),
+            device_b.kel(),
+            root_c.kel(),
+            device_c.kel(),
+        ] {
+            oracle.insert(kel);
+        }
+        let listener_a = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener_b = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addrs = [
+            listener_a.local_addr().unwrap(),
+            listener_b.local_addr().unwrap(),
+        ];
+        thread::scope(|scope| {
+            let server = scope.spawn(|| {
+                let network_id = if fault == 0 {
+                    [73; 32]
+                } else {
+                    mini_settlement::MININET_NETWORK_ID
+                };
+                let server_set = if fault == 2 {
+                    ValidatorSet::new(vec![root_b.did(), root_c.did()]).unwrap()
+                } else {
+                    validators.clone()
+                };
+                // For the removed root, the server pins C in A's address slot;
+                // the actual connecting root A must never be substituted for C.
+                let server_roots = if fault == 2 {
+                    vec![root_c.did(), root_b.did()]
+                } else {
+                    roots.clone()
+                };
+                TcpMesh::establish(
+                    1,
+                    &addrs,
+                    &listener_b,
+                    &MeshAdmission {
+                        network_id,
+                        local_root: &root_b.did(),
+                        device: &device_b,
+                        validators: &server_set,
+                        oracle: &oracle,
+                        peer_roots: &server_roots,
+                    },
+                )
+            });
+            let client_roots = if fault == 1 {
+                vec![root_a.did(), root_c.did()]
+            } else {
+                roots.clone()
+            };
+            let client = TcpMesh::establish(
+                0,
+                &addrs,
+                &listener_a,
+                &MeshAdmission {
+                    network_id: mini_settlement::MININET_NETWORK_ID,
+                    local_root: &root_a.did(),
+                    device: &device_a,
+                    validators: &validators,
+                    oracle: &oracle,
+                    peer_roots: &client_roots,
+                },
+            );
+            assert!(
+                client.is_err(),
+                "invalid mesh context must fail on the connecting side: {fault}"
+            );
+            let server_result = server.join().unwrap();
+            // A responder can finish sending its valid attestation before the
+            // dialer checks its separately pinned expected root (fault 1).
+            if fault != 1 {
+                assert!(server_result.is_err());
+            }
+        });
+    }
 }

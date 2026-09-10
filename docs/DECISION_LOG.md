@@ -22075,3 +22075,13 @@ identity capture from that sequence callback. Only a new scan can establish
 whether the reported flow is resolved; code shape changes and earlier green
 workflows cannot substitute for that result. Historical entries are preserved
 as evidence of the mistaken inference.
+
+### Follow-up evidence, 2026-09-10 (not a governance Decision)
+
+The `f66bae4` scan did not clear the 42 logging alerts. Its actual SARIF source
+trace and CodeQL `SensitiveVariableAccess` implementation establish that the
+variable name `trusted_head` itself was classified by the secret-name heuristic
+(which includes `trusted`). Its value is the public signed-object sequence floor.
+The callback is renamed `signed_sequence_floor` to state that meaning; no rule
+or finding was suppressed. Identity-capture removal alone was insufficient.
+The audit matrix records the new scan result when available.
