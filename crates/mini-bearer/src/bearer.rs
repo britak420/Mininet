@@ -33,6 +33,24 @@ pub trait Bearer {
     fn try_recv(&mut self) -> Result<Option<Vec<u8>>>;
 }
 
+/// Lets a caller hold a heterogeneous set of live links — some in-process
+/// (a test), some real BLE, some TCP — in one collection, e.g.
+/// `Vec<Box<dyn Bearer + Send>>`. Dispatches straight through to the boxed
+/// value; no behavior of its own.
+impl Bearer for Box<dyn Bearer + Send> {
+    fn send(&mut self, frame: &[u8]) -> Result<()> {
+        (**self).send(frame)
+    }
+
+    fn recv(&mut self) -> Result<Vec<u8>> {
+        (**self).recv()
+    }
+
+    fn try_recv(&mut self) -> Result<Option<Vec<u8>>> {
+        (**self).try_recv()
+    }
+}
+
 /// Encode a payload as a length-prefixed frame (`u32` big-endian length + bytes)
 /// for transport over a byte-stream bearer.
 pub fn encode_frame(payload: &[u8]) -> Result<Vec<u8>> {

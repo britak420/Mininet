@@ -81,6 +81,7 @@ members = [
     "crates/mini-search-federation",
     "crates/mini-search-federation-net",
     "crates/mini-storage-fraud",
+    "crates/mini-mesh",
 ]
 
 [workspace.package]

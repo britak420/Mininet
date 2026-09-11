@@ -1378,8 +1378,34 @@ given time.
   selection, not an unpredictable one. Bucket refresh by liveness ping
   remains open, as does wiring either fanout variant into a real running
   mesh.
-- **not started** — BLE radio adapter (needs real phone hardware,
-  [#22](../../issues/22)); NAT traversal; local mesh routing.
+- **partial (D-0503/D-0504/D-0505)** — local multi-hop mesh relay
+  (`docs/design/ble-mesh-relay.md`), the founder's 2026-09-11 direction
+  that nearby devices form a real network over BLE, not just pair
+  one-to-one. `mini_bearer::EncryptedLink` (any `Bearer` plus an
+  already-established `Channel` handshake) and new crate `mini-mesh`
+  (`MeshNode`: a dynamic set of `EncryptedLink`s plus `mini_net::GossipRouter`
+  for dedup) generalize `mini_consensus::net::TcpMesh`/`run_to_height`'s
+  already-proven relay shape — dedup-flood re-gossip live over any
+  **connected** graph, not just a full mesh — off raw `TcpStream` and onto
+  any `Bearer`. Proven multi-hop over a real four-node line topology
+  (A—B—C—D, no direct A↔C/A↔D/B↔D edge) two ways: in-process
+  (`InProcessBearer`) and over **real loopback TCP sockets and threads**
+  (`crates/mini-mesh/tests/tcp_relay.rs`), so the relay algorithm itself is
+  proven over genuine OS I/O without needing any BLE hardware.
+  `mini-ffi::mesh::MeshHandle` exposes it to Kotlin (D-0504). On Android
+  (D-0505), `BlePeripheralServer` (replacing D-0502's single-connection
+  `BlePeripheralRadio`) now tracks many simultaneous connected centrals;
+  `BleCentralRadio` splits scan-from-connect so a caller with its own
+  scanner never starts a redundant second one; `BleMeshService`
+  orchestrates both roles at once (advertise-and-serve *and*
+  scan-and-connect) into one shared mesh. **What remains "not started" or
+  unverified:** the real BLE radio adapter chain (D-0374/D-0375/D-0502/
+  D-0505) has never run on real phone hardware in this environment (needs
+  real phone hardware, [#22](../../issues/22)); `BleMeshService` is not
+  yet wired into any UI; NAT traversal for a non-local mesh is untouched;
+  there is no routing (only flooding — fine at small mesh scale, not
+  evaluated at internet scale) and no peer-discovery change beyond BLE's
+  own advertise/scan.
 
 ## 9. AI & audit gates
 

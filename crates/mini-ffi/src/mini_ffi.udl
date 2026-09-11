@@ -43,6 +43,27 @@ interface BleBearerHandle {
   sequence<u8>? try_recv();
 };
 
+dictionary MeshMessage {
+  sequence<u8> id;
+  sequence<u8> payload;
+};
+
+interface MeshHandle {
+  constructor();
+
+  [Throws=MeshError]
+  void add_dialed_link(BleRadio radio, u32 mtu);
+
+  [Throws=MeshError]
+  void add_accepted_link(BleRadio radio, u32 mtu);
+
+  u32 link_count();
+
+  sequence<u8> broadcast(sequence<u8> payload);
+
+  sequence<MeshMessage> poll();
+};
+
 interface RootCore {
   constructor();
 
@@ -272,6 +293,11 @@ enum BleBearerError {
   "MtuTooSmall",
   "TooManyChunks",
   "Protocol",
+};
+
+[Error]
+enum MeshError {
+  "HandshakeFailed",
 };
 
 [Error]

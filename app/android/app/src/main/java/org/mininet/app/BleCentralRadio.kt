@@ -56,7 +56,11 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
      * Blocks the calling thread until ready, or [timeoutMs] elapses --
      * at which point this returns `false` and the caller should [close]
      * rather than retry an already-started, possibly half-connected
-     * session.
+     * session. A convenience wrapper around [connectAndAwaitReady] for a
+     * caller with no scanner of its own; [BleMeshService] runs one
+     * continuous scan for every nearby device instead and calls
+     * [connectAndAwaitReady] directly per discovery, so it never starts a
+     * second, redundant scan per connection attempt.
      */
     fun scanConnectAndAwaitReady(timeoutMs: Long): Boolean {
         val scanner = adapter?.bluetoothLeScanner ?: return false
@@ -85,7 +89,18 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
         scanFound.await(timeoutMs, TimeUnit.MILLISECONDS)
         runCatching { scanner.stopScan(scanCallback) }
         val device = foundDevice.get() ?: return false
+        val remaining = (timeoutMs - (System.currentTimeMillis() - start)).coerceAtLeast(0)
+        return connectAndAwaitReady(device, remaining)
+    }
 
+    /**
+     * Connects to an already-discovered `device`, discovers services, and
+     * enables notifications. Blocks the calling thread until ready, or
+     * [timeoutMs] elapses -- at which point this returns `false` and the
+     * caller should [close] rather than retry.
+     */
+    fun connectAndAwaitReady(device: BluetoothDevice, timeoutMs: Long): Boolean {
+        val start = System.currentTimeMillis()
         gatt = device.connectGatt(appContext, false, this, BluetoothDevice.TRANSPORT_LE)
 
         fun remaining(): Long = (timeoutMs - (System.currentTimeMillis() - start)).coerceAtLeast(0)

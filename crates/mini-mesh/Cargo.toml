@@ -1,0 +1,20 @@
+[package]
+name = "mini-mesh"
+version = "0.0.1"
+description = "Transport-generic dedup-flood mesh relay over a dynamic set of mini-bearer links — the BLE-mesh generalization of mini-consensus::net::TcpMesh's proven multi-hop relay shape."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+# The transport (Bearer, EncryptedLink) this crate composes over.
+mini-bearer = { path = "../mini-bearer" }
+# GossipRouter -- the dedup logic already proven in mini-net, reused rather
+# than reimplemented a third time (mini-consensus::net's own SeenCache is
+# the second copy; this crate does not add a fourth).
+mini-net = { path = "../mini-net" }
+# Only the content-addressed message-id hash.
+mini-crypto = { path = "../mini-crypto" }

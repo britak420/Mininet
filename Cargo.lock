@@ -2655,6 +2655,7 @@ dependencies = [
  "did-mini",
  "mini-bearer",
  "mini-crypto",
+ "mini-mesh",
  "mini-objects",
  "mini-social",
  "mini-store",
@@ -2746,6 +2747,15 @@ dependencies = [
  "mini-objects",
  "mini-store",
  "mini-sync",
+]
+
+[[package]]
+name = "mini-mesh"
+version = "0.0.1"
+dependencies = [
+ "mini-bearer",
+ "mini-crypto",
+ "mini-net",
 ]
 
 [[package]]

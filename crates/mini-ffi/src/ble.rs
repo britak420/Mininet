@@ -73,7 +73,7 @@ impl std::error::Error for BleRadioError {}
 /// to drive it — a UniFFI callback interface can only ever offer `&self`
 /// methods (Kotlin owns no borrow checker), so this adapter is the entire
 /// difference between the two.
-struct RadioAdapter(Box<dyn BleRadio>);
+pub(crate) struct RadioAdapter(Box<dyn BleRadio>);
 
 impl mini_bearer::BleRadio for RadioAdapter {
     fn write_chunk(&mut self, chunk: &[u8]) -> mini_bearer::Result<()> {
@@ -93,6 +93,19 @@ impl mini_bearer::BleRadio for RadioAdapter {
             .try_read_chunk()
             .map_err(|_| mini_bearer::BearerError::Closed)
     }
+}
+
+/// Builds the same `mini_bearer::AndroidBleBearer<RadioAdapter>`
+/// [`BleBearerHandle::new`] wraps, without the UniFFI object wrapper — for
+/// [`crate::mesh`], which needs a bare [`mini_bearer::Bearer`] it can box
+/// into a `mini_mesh::MeshNode` link rather than a `send`/`recv`-only
+/// handle. `RadioAdapter` itself stays private to this module; this is the
+/// one sanctioned way another module in this crate gets one built.
+pub(crate) fn android_bearer(
+    radio: Box<dyn BleRadio>,
+    mtu: u32,
+) -> mini_bearer::AndroidBleBearer<RadioAdapter> {
+    mini_bearer::AndroidBleBearer::new(RadioAdapter(radio), mtu as usize)
 }
 
 /// UniFFI object wrapping `mini_bearer::AndroidBleBearer` (D-0374) so

@@ -52,6 +52,7 @@ mod bearer;
 mod ble;
 mod channel;
 mod discovery;
+mod encrypted_link;
 mod error;
 mod inprocess;
 mod tcp;
@@ -66,6 +67,7 @@ pub use channel::{
 pub use discovery::{
     LocalAnnouncer, LocalScanner, DEFAULT_MULTICAST_GROUP, DEFAULT_MULTICAST_PORT,
 };
+pub use encrypted_link::EncryptedLink;
 pub use error::{BearerError, Result};
 pub use inprocess::{pair, InProcessBearer};
 pub use tcp::TcpBearer;
