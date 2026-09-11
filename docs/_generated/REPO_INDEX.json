@@ -3,7 +3,7 @@
     "crates": 77,
     "files": 967,
     "headings": 3519,
-    "rust_symbols": 9779
+    "rust_symbols": 9798
   },
   "crates": {
     "did-mini": {
@@ -8516,7 +8516,7 @@
       "title": "mini-bearer"
     },
     {
-      "bytes": 8647,
+      "bytes": 10456,
       "group": "crate:mini-bearer",
       "headings": [],
       "keywords": [
@@ -8545,9 +8545,9 @@
         "vec",
         "return"
       ],
-      "lines": 233,
+      "lines": 272,
       "path": "crates/mini-bearer/src/android_ble.rs",
-      "sha256": "0d8f8e6cccd1b5601a7e487e841fea06c2cba351ca90468f32ebf9728c7347fe",
+      "sha256": "351035467b867e806d31af92ffc663c2987555c09544343da32a9244335f9da4",
       "symbols": [
         {
           "kind": "trait",
@@ -8615,121 +8615,136 @@
           "name": "try_recv"
         },
         {
+          "kind": "fn",
+          "line": 129,
+          "name": "max_frame_bytes"
+        },
+        {
           "kind": "mod",
-          "line": 123,
+          "line": 139,
           "name": "tests"
         },
         {
           "kind": "struct",
-          "line": 128,
+          "line": 144,
           "name": "MockRadio"
         },
         {
           "kind": "impl",
-          "line": 133,
+          "line": 149,
           "name": "BleRadio"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 150,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 139,
+          "line": 155,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 158,
           "name": "try_read_chunk"
         },
         {
           "kind": "fn",
-          "line": 151,
+          "line": 167,
           "name": "pair_with_mtu"
         },
         {
           "kind": "fn",
-          "line": 162,
+          "line": 178,
           "name": "pair"
         },
         {
           "kind": "fn",
-          "line": 167,
+          "line": 183,
           "name": "a_frame_larger_than_one_chunk_round_trips_through_chunking_and_reassembly"
         },
         {
           "kind": "fn",
-          "line": 175,
+          "line": 191,
           "name": "multiple_frames_round_trip_in_order"
         },
         {
           "kind": "fn",
-          "line": 188,
+          "line": 204,
           "name": "try_recv_returns_none_with_nothing_pending_then_the_frame_once_sent"
         },
         {
           "kind": "fn",
-          "line": 196,
+          "line": 212,
           "name": "a_write_failure_when_the_peer_radio_is_gone_surfaces_through_send"
         },
         {
           "kind": "fn",
-          "line": 204,
+          "line": 220,
           "name": "a_read_failure_when_the_peer_radio_is_gone_surfaces_through_recv"
         },
         {
           "kind": "fn",
-          "line": 212,
+          "line": 228,
           "name": "an_empty_frame_round_trips"
         },
         {
           "kind": "fn",
-          "line": 219,
+          "line": 235,
           "name": "a_tiny_mtu_forces_many_chunks_and_still_reassembles_correctly"
         },
         {
           "kind": "fn",
-          "line": 227,
+          "line": 243,
           "name": "an_mtu_too_small_for_even_the_header_is_rejected_before_any_write"
+        },
+        {
+          "kind": "fn",
+          "line": 250,
+          "name": "max_frame_bytes_matches_chunk_frames_own_too_many_chunks_boundary"
+        },
+        {
+          "kind": "fn",
+          "line": 267,
+          "name": "max_frame_bytes_is_zero_when_the_mtu_cannot_fit_even_the_header"
         }
       ],
       "title": "use crate::bearer::Bearer;"
     },
     {
-      "bytes": 4656,
+      "bytes": 5698,
       "group": "crate:mini-bearer",
       "headings": [],
       "keywords": [
         "self",
-        "frame",
-        "len",
         "bearer",
-        "buf",
-        "result",
-        "vec",
+        "frame",
         "max_frame_bytes",
         "send",
+        "result",
+        "vec",
+        "payload",
         "framereader",
         "bytes",
-        "payload",
+        "one",
         "max_stream_buffer_bytes",
         "frames",
-        "one",
+        "len",
         "recv",
         "try_recv",
-        "some",
-        "bearererror",
-        "return",
-        "max",
+        "usize",
+        "out",
         "new",
+        "some",
         "stream",
-        "usize"
+        "bearererror",
+        "none",
+        "option"
       ],
-      "lines": 129,
+      "lines": 149,
       "path": "crates/mini-bearer/src/bearer.rs",
-      "sha256": "a99788ad37719bf6c430d8bb793649c2065d6edc3e49c3abc90e7e0616ff93d1",
+      "sha256": "5f3de7eb80196187af141cc6d9fae35036272e6cf59bfdd23013d52e03a7bfc5",
       "symbols": [
         {
           "kind": "const",
@@ -8762,60 +8777,70 @@
           "name": "try_recv"
         },
         {
+          "kind": "fn",
+          "line": 47,
+          "name": "max_frame_bytes"
+        },
+        {
           "kind": "impl",
-          "line": 40,
+          "line": 56,
           "name": "Bearer"
         },
         {
           "kind": "fn",
-          "line": 41,
+          "line": 57,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 45,
+          "line": 61,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 49,
+          "line": 65,
           "name": "try_recv"
         },
         {
           "kind": "fn",
-          "line": 56,
+          "line": 69,
+          "name": "max_frame_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 76,
           "name": "encode_frame"
         },
         {
           "kind": "struct",
-          "line": 72,
+          "line": 92,
           "name": "FrameReader"
         },
         {
           "kind": "impl",
-          "line": 76,
+          "line": 96,
           "name": "FrameReader"
         },
         {
           "kind": "fn",
-          "line": 78,
+          "line": 98,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 87,
+          "line": 107,
           "name": "push"
         },
         {
           "kind": "fn",
-          "line": 110,
+          "line": 130,
           "name": "next_frame"
         }
       ],
       "title": "use crate::error::{BearerError, Result};"
     },
     {
-      "bytes": 13188,
+      "bytes": 13199,
       "group": "crate:mini-bearer",
       "headings": [],
       "keywords": [
@@ -8827,7 +8852,6 @@
         "one",
         "chunk",
         "payload",
-        "chunk_header_bytes",
         "chunkreassembler",
         "max_frame_bytes",
         "max",
@@ -8837,6 +8861,7 @@
         "real",
         "bearererror",
         "index",
+        "chunk_header_bytes",
         "vec",
         "out",
         "ble",
@@ -8846,13 +8871,8 @@
       ],
       "lines": 355,
       "path": "crates/mini-bearer/src/ble.rs",
-      "sha256": "d8d0580f4c12b4a57057fb9f1fed5ac251de75620a393d16801c182dc59c5064",
+      "sha256": "5f3483dd61f6108f6ef583791c909f14cf3ec8676423e3bbd0b73462c24bdb8b",
       "symbols": [
-        {
-          "kind": "const",
-          "line": 53,
-          "name": "CHUNK_HEADER_BYTES"
-        },
         {
           "kind": "fn",
           "line": 65,
@@ -8962,7 +8982,7 @@
       "title": "use crate::error::{BearerError, Result};"
     },
     {
-      "bytes": 9511,
+      "bytes": 9778,
       "group": "crate:mini-bearer",
       "headings": [],
       "keywords": [
@@ -8976,24 +8996,24 @@
         "ka_suite",
         "e_i_pub",
         "binding",
-        "key",
         "responder_hello",
         "kdf_suite",
         "aead_suite",
-        "derive",
         "usize",
-        "aead",
         "hello",
         "self",
         "initiator_hello",
         "hello_msg",
+        "derive",
+        "bound",
         "agreementsecretkey",
+        "bearer",
         "result",
-        "used"
+        "aead"
       ],
-      "lines": 253,
+      "lines": 257,
       "path": "crates/mini-bearer/src/channel.rs",
-      "sha256": "58517306cdcb30402f96430916d0d2573ba3c647adc2dfe9d7c82b6f9492ccc8",
+      "sha256": "aefac8a5a51542cc7169442a1dfd5b3d69e40bdb2d1cf711255d1ec05c3b32df",
       "symbols": [
         {
           "kind": "const",
@@ -9002,137 +9022,132 @@
         },
         {
           "kind": "const",
-          "line": 35,
-          "name": "AEAD_TAG_BYTES"
-        },
-        {
-          "kind": "const",
-          "line": 38,
+          "line": 42,
           "name": "MAX_CHANNEL_CIPHERTEXT_BYTES"
         },
         {
           "kind": "const",
-          "line": 44,
+          "line": 48,
           "name": "MAX_CHANNEL_PLAINTEXT_BYTES"
         },
         {
           "kind": "const",
-          "line": 47,
+          "line": 51,
           "name": "KA_SUITE"
         },
         {
           "kind": "const",
-          "line": 49,
+          "line": 53,
           "name": "KDF_SUITE"
         },
         {
           "kind": "const",
-          "line": 51,
+          "line": 55,
           "name": "AEAD_SUITE"
         },
         {
           "kind": "const",
-          "line": 53,
+          "line": 57,
           "name": "HS_SALT"
         },
         {
           "kind": "const",
-          "line": 55,
+          "line": 59,
           "name": "TRAFFIC_INFO"
         },
         {
           "kind": "const",
-          "line": 57,
+          "line": 61,
           "name": "OKM_LEN"
         },
         {
           "kind": "const",
-          "line": 59,
+          "line": 63,
           "name": "HELLO_LEN"
         },
         {
           "kind": "struct",
-          "line": 64,
+          "line": 68,
           "name": "Initiator"
         },
         {
           "kind": "impl",
-          "line": 69,
+          "line": 73,
           "name": "Initiator"
         },
         {
           "kind": "fn",
-          "line": 71,
+          "line": 75,
           "name": "start"
         },
         {
           "kind": "fn",
-          "line": 79,
+          "line": 83,
           "name": "finish"
         },
         {
           "kind": "struct",
-          "line": 93,
+          "line": 97,
           "name": "Responder"
         },
         {
           "kind": "impl",
-          "line": 95,
+          "line": 99,
           "name": "Responder"
         },
         {
           "kind": "fn",
-          "line": 98,
+          "line": 102,
           "name": "respond"
         },
         {
           "kind": "struct",
-          "line": 117,
+          "line": 121,
           "name": "Channel"
         },
         {
           "kind": "impl",
-          "line": 125,
+          "line": 129,
           "name": "Channel"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 130,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 144,
           "name": "channel_binding"
         },
         {
           "kind": "fn",
-          "line": 146,
+          "line": 150,
           "name": "seal"
         },
         {
           "kind": "fn",
-          "line": 164,
+          "line": 168,
           "name": "open"
         },
         {
           "kind": "fn",
-          "line": 181,
+          "line": 185,
           "name": "hello_msg"
         },
         {
           "kind": "fn",
-          "line": 191,
+          "line": 195,
           "name": "parse_hello"
         },
         {
           "kind": "fn",
-          "line": 214,
+          "line": 218,
           "name": "derive_keys"
         },
         {
           "kind": "fn",
-          "line": 248,
+          "line": 252,
           "name": "counter_nonce"
         }
       ],
@@ -9281,38 +9296,38 @@
       "title": "use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};"
     },
     {
-      "bytes": 6657,
+      "bytes": 10147,
       "group": "crate:mini-bearer",
       "headings": [],
       "keywords": [
         "bearer",
         "channel",
         "self",
-        "encryptedlink",
-        "handshake",
         "send",
-        "initiator",
-        "ciphertext",
-        "hello",
-        "dial",
-        "accept",
-        "recv",
+        "encryptedlink",
         "already",
-        "result",
-        "response",
-        "encrypted_link_aad",
-        "same",
-        "open",
+        "initiator",
+        "handshake",
+        "hello",
+        "seal",
         "own",
         "responder",
-        "inprocessbearer",
+        "max",
         "channel_binding",
+        "max_sendable_plaintext_bytes",
+        "recv",
+        "ble",
         "just",
-        "frame"
+        "result",
+        "side",
+        "response",
+        "caller",
+        "same",
+        "mini-consensus"
       ],
-      "lines": 156,
+      "lines": 235,
       "path": "crates/mini-bearer/src/encrypted_link.rs",
-      "sha256": "5874f8293cfce606bf1a99e1a4f779d22bec2c421991063ac5171ce502948624",
+      "sha256": "9ee64c85f386524d7e7b0a3f772ba3dab950d50c22c30c421afc8135758de887",
       "symbols": [
         {
           "kind": "const",
@@ -9346,48 +9361,88 @@
         },
         {
           "kind": "fn",
-          "line": 70,
+          "line": 75,
+          "name": "max_sendable_plaintext_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 93,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 76,
+          "line": 107,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 83,
+          "line": 114,
           "name": "try_recv"
         },
         {
           "kind": "mod",
-          "line": 92,
+          "line": 123,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 105,
+          "line": 136,
           "name": "handshake"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 149,
           "name": "a_dialed_and_accepted_link_round_trip_a_frame_each_way"
         },
         {
           "kind": "fn",
-          "line": 131,
+          "line": 162,
           "name": "try_recv_returns_none_with_nothing_pending_then_the_frame_once_sent"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 171,
           "name": "two_independent_links_have_independent_bindings"
         },
         {
           "kind": "fn",
-          "line": 149,
+          "line": 180,
           "name": "a_closed_peer_surfaces_as_an_error_not_a_panic"
+        },
+        {
+          "kind": "struct",
+          "line": 192,
+          "name": "BoundedBearer"
+        },
+        {
+          "kind": "impl",
+          "line": 197,
+          "name": "Bearer"
+        },
+        {
+          "kind": "fn",
+          "line": 198,
+          "name": "send"
+        },
+        {
+          "kind": "fn",
+          "line": 201,
+          "name": "recv"
+        },
+        {
+          "kind": "fn",
+          "line": 204,
+          "name": "try_recv"
+        },
+        {
+          "kind": "fn",
+          "line": 207,
+          "name": "max_frame_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 213,
+          "name": "a_payload_over_the_bearers_own_capacity_is_rejected_without_desyncing_the_channel"
         }
       ],
       "title": "use crate::bearer::Bearer;"
@@ -40168,7 +40223,7 @@
       "title": "The transport (Bearer, EncryptedLink) this crate composes over."
     },
     {
-      "bytes": 17992,
+      "bytes": 22141,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
@@ -40179,16 +40234,16 @@
         "fmt",
         "new",
         "poll",
+        "bearer",
+        "send",
         "mesh",
         "every",
         "same",
         "encryptedlink",
         "relay",
-        "bearer",
         "ble",
         "one",
         "payload",
-        "send",
         "seen",
         "default_seen_capacity",
         "std",
@@ -40197,9 +40252,9 @@
         "tree",
         "already"
       ],
-      "lines": 448,
+      "lines": 544,
       "path": "crates/mini-mesh/src/lib.rs",
-      "sha256": "6f353299070287b29d7d47bd3cd40ade1c297f9edf68fb88c60d3b8428476447",
+      "sha256": "2f1a94475eb0ddc970eef9762111470206e022f406e16564867965293b9c769b",
       "symbols": [
         {
           "kind": "const",
@@ -40258,93 +40313,133 @@
         },
         {
           "kind": "fn",
-          "line": 125,
+          "line": 138,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 149,
+          "line": 175,
           "name": "poll"
         },
         {
           "kind": "impl",
-          "line": 185,
+          "line": 211,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 186,
+          "line": 212,
           "name": "default"
         },
         {
           "kind": "mod",
-          "line": 192,
+          "line": 218,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 196,
+          "line": 222,
           "name": "boxed"
         },
         {
           "kind": "fn",
-          "line": 207,
+          "line": 233,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 216,
+          "line": 242,
           "name": "two_directly_linked_nodes_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 228,
+          "line": 254,
           "name": "a_repeated_broadcast_is_deduped_not_delivered_twice"
         },
         {
           "kind": "fn",
-          "line": 249,
+          "line": 275,
           "name": "a_broadcast_from_one_end_of_a_line_topology_reaches_the_other_end_via_relay"
         },
         {
           "kind": "fn",
-          "line": 294,
+          "line": 320,
           "name": "a_disconnected_pair_never_hears_a_broadcast_from_the_other_side"
         },
         {
           "kind": "fn",
-          "line": 313,
+          "line": 339,
           "name": "a_node_recognizes_its_own_broadcast_echoed_back_and_does_not_redeliver_it"
         },
         {
           "kind": "fn",
-          "line": 328,
+          "line": 354,
           "name": "link_count_reflects_added_links"
         },
         {
           "kind": "fn",
-          "line": 338,
+          "line": 364,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_broadcast_not_just_poll"
         },
         {
           "kind": "fn",
-          "line": 357,
+          "line": 383,
           "name": "a_dead_link_is_pruned_during_polls_own_reflood_step_too"
         },
         {
           "kind": "fn",
-          "line": 381,
+          "line": 407,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever"
         },
         {
           "kind": "fn",
-          "line": 401,
+          "line": 427,
           "name": "poll_never_drains_more_than_the_per_link_cap_in_one_call"
         },
         {
           "kind": "fn",
-          "line": 419,
+          "line": 445,
           "name": "an_oversized_broadcast_is_rejected_without_touching_any_link"
+        },
+        {
+          "kind": "struct",
+          "line": 479,
+          "name": "BoundedBearer"
+        },
+        {
+          "kind": "impl",
+          "line": 484,
+          "name": "Bearer"
+        },
+        {
+          "kind": "fn",
+          "line": 485,
+          "name": "send"
+        },
+        {
+          "kind": "fn",
+          "line": 488,
+          "name": "recv"
+        },
+        {
+          "kind": "fn",
+          "line": 491,
+          "name": "try_recv"
+        },
+        {
+          "kind": "fn",
+          "line": 494,
+          "name": "max_frame_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 501,
+          "name": "link_with_bound"
+        },
+        {
+          "kind": "fn",
+          "line": 514,
+          "name": "a_broadcast_too_large_for_one_links_bearer_is_rejected_without_touching_any_link"
         }
       ],
       "title": "use mini_bearer::{Bearer, BearerError, EncryptedLink, MAX_CHANNEL_PLAINTEXT_BYTES};"
@@ -80466,7 +80561,7 @@
       "title": "Beta contributor guide"
     },
     {
-      "bytes": 7604,
+      "bytes": 8083,
       "group": "docs",
       "headings": [
         {
@@ -80481,17 +80576,17 @@
         },
         {
           "level": 2,
-          "line": 102,
+          "line": 108,
           "text": "Before trusting any of this"
         },
         {
           "level": 2,
-          "line": 116,
+          "line": 122,
           "text": "UI beta (the product layer)"
         },
         {
           "level": 2,
-          "line": 123,
+          "line": 129,
           "text": "Post-beta (not on the critical path)"
         }
       ],
@@ -80500,30 +80595,30 @@
         "real",
         "still",
         "honest",
-        "path",
-        "keystone",
         "generated",
-        "cargo",
         "bearer",
         "ble",
+        "bleradio",
         "gatt",
-        "mini-keystone",
-        "own",
         "status",
         "what",
         "here",
-        "reward",
+        "path",
         "see",
-        "identity",
+        "cargo",
         "trait",
         "demo",
         "protocol",
-        "adds",
-        "bleradio"
+        "actually",
+        "each",
+        "mini-keystone",
+        "own",
+        "replayguard",
+        "stands"
       ],
-      "lines": 129,
+      "lines": 135,
       "path": "docs/BETA_STATUS.md",
-      "sha256": "8550f44791d266ef1ef67acd4ae24f42292963a702712d078713fb886dfeccf9",
+      "sha256": "489ad48a347fad55e375cc6462dbdd0dc00f37c1236da446ac6a4ad450ceafd1",
       "symbols": [],
       "title": "Beta status"
     },
@@ -80753,7 +80848,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1345853,
+      "bytes": 1345854,
       "group": "docs",
       "headings": [
         {
@@ -81183,9 +81278,9 @@
         "release",
         "first"
       ],
-      "lines": 22344,
+      "lines": 22345,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "993cbddf6a318d03acb22e9dfb0b9233b6de8fec0dcb408654664a7f9efd634b",
+      "sha256": "ddad9737ee946da03c5d83b1e28519577a815e23bbbf15f888b6d6b9f2ee8d57",
       "symbols": [],
       "title": "Decision Log"
     },

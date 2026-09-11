@@ -117,6 +117,22 @@ impl<R: BleRadio> Bearer for AndroidBleBearer<R> {
             }
         }
     }
+
+    /// The largest frame [`crate::ble::chunk_frame`] can encode at this
+    /// bearer's `mtu` within a `u16` chunk count -- matches that function's
+    /// own `TooManyChunks` bound exactly, computed without ever calling it,
+    /// so a caller can reject an oversized frame before paying for (or
+    /// committing state ahead of) a `send` that would fail deep inside
+    /// chunking. `Some(0)` when `mtu` is too small to fit even the chunk
+    /// header: every call would fail with `MtuTooSmall` regardless of
+    /// payload size, so nothing fits.
+    fn max_frame_bytes(&self) -> Option<usize> {
+        if self.mtu <= crate::ble::CHUNK_HEADER_BYTES {
+            return Some(0);
+        }
+        let payload_per_chunk = self.mtu - crate::ble::CHUNK_HEADER_BYTES;
+        Some(payload_per_chunk.saturating_mul(usize::from(u16::MAX)))
+    }
 }
 
 #[cfg(test)]
@@ -228,5 +244,28 @@ mod tests {
         let (mut a, _b) = pair_with_mtu(3);
         let err = a.send(b"data").unwrap_err();
         assert!(matches!(err, BearerError::MtuTooSmall { .. }));
+    }
+
+    #[test]
+    fn max_frame_bytes_matches_chunk_frames_own_too_many_chunks_boundary() {
+        use crate::ble::chunk_frame;
+
+        let (a, _b) = pair_with_mtu(20);
+        let max = a.max_frame_bytes().expect("BLE bearer has a bound");
+
+        // Exactly at the boundary: chunk_frame accepts it.
+        assert!(chunk_frame(&vec![0u8; max], 20).is_ok());
+        // One byte more: the same function this bearer's own send() calls
+        // rejects it with TooManyChunks -- max_frame_bytes must agree
+        // exactly, not just approximately, since a caller uses it to reject
+        // a payload before ever calling send().
+        let err = chunk_frame(&vec![0u8; max + 1], 20).unwrap_err();
+        assert!(matches!(err, BearerError::TooManyChunks { .. }));
+    }
+
+    #[test]
+    fn max_frame_bytes_is_zero_when_the_mtu_cannot_fit_even_the_header() {
+        let (a, _b) = pair_with_mtu(3);
+        assert_eq!(a.max_frame_bytes(), Some(0));
     }
 }

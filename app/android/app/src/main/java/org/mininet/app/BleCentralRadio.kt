@@ -243,16 +243,30 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
     // forever) and why bounding it is safe for this class's actual usage
     // (mini_mesh::MeshNode never calls the blocking recv/readChunk path
     // again after the one-shot handshake read).
+    //
+    // The timeout is ONE deadline across every call, not reset per call --
+    // same reasoning as BlePeripheralServer.PeripheralLinkRadio.readChunk:
+    // AndroidBleBearer::recv calls readChunk() repeatedly to reassemble one
+    // multi-chunk handshake frame, so resetting the timeout on each
+    // individual chunk would let an untrusted peripheral string this
+    // thread along far past READ_TIMEOUT_MS by sending one chunk just
+    // under the timeout apart.
+    private var readDeadlineNanos: Long? = null
+
     override fun readChunk(): List<UByte> {
+        val deadline = readDeadlineNanos ?: (System.nanoTime() + READ_TIMEOUT_MS * 1_000_000L).also {
+            readDeadlineNanos = it
+        }
+        val remainingMs = ((deadline - System.nanoTime()) / 1_000_000L).coerceAtLeast(0L)
         val chunk = try {
-            incoming.poll(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            incoming.poll(remainingMs, TimeUnit.MILLISECONDS)
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
             throw BleRadioException.Failed("interrupted while waiting for a chunk: ${e.message}")
         }
         if (chunk != null) return chunk.toUByteList()
         if (connectFailed) throw BleRadioException.Failed("peripheral disconnected")
-        throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")
+        throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms of the first")
     }
 
     // Buffered chunks are drained first regardless of failure state, same

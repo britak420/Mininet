@@ -172,15 +172,24 @@ class BleMeshService(context: Context) {
                     }
             }
         })
-        if (!peripheralOk) {
+        // Rechecked after each blocking step below, not just implicitly at
+        // the top: a concurrent close() that ran while peripheralServer
+        // .start()/startScanning() was blocking would otherwise go
+        // unnoticed here, letting this call start (or leave running) a
+        // scan or advertisement that close() already believes it tore
+        // down. close() is safe to call again -- it stops whatever this
+        // call has started so far (it can now see, e.g., a scanCallback
+        // startScanning() only just set) and leaves nothing orphaned.
+        if (!peripheralOk || closed) {
             close()
             return false
         }
-        if (!startScanning()) {
+        val scanningOk = startScanning()
+        if (!scanningOk || closed) {
             close()
             return false
         }
-        runCatching {
+        val scheduled = runCatching {
             pollTask = pollExecutor.scheduleWithFixedDelay({
                 // mesh.poll() has already drained and recorded every one of
                 // these in the seen cache by the time this runs -- a later
@@ -189,14 +198,20 @@ class BleMeshService(context: Context) {
                 // later message in the same batch; catching per-message keeps
                 // one bad payload from taking the rest down with it.
                 runCatching { mesh.poll() }.getOrNull()?.forEach { message ->
-                    runCatching { onMessage(message.payload) }
+                    // Dispatched onto the cached worker pool, not run
+                    // inline on this single scheduled poll thread:
+                    // onMessage is arbitrary caller code that might block
+                    // (disk/network I/O) or simply never return, and this
+                    // is the only thread driving mesh.poll() -- if
+                    // onMessage ran here directly, one slow or hung
+                    // handler would silently stop all relay traffic, not
+                    // just delivery of that one message.
+                    runOnWorker { runCatching { onMessage(message.payload) } }
                 }
             }, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
-        }.onFailure {
-            // Lost a race with a concurrent close() (pollExecutor already
-            // shut down) between the closed check above and here -- not a
-            // real failure of this startup, close() already tore down
-            // everything this call would otherwise report as started.
+        }.isSuccess
+        if (!scheduled || closed) {
+            close()
             return false
         }
         return true

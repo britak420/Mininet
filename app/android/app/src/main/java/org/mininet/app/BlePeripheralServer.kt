@@ -444,16 +444,32 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
         // read, mini_mesh::MeshNode only ever calls try_recv (never
         // blocking recv/readChunk again), so no legitimate caller needs
         // readChunk to block past a generous timeout.
+        //
+        // The timeout is ONE deadline across every call, not reset per
+        // call: AndroidBleBearer::recv (the Rust side driving this during
+        // the handshake) calls readChunk() repeatedly to reassemble a
+        // single multi-chunk frame, and a fresh READ_TIMEOUT_MS on every
+        // individual chunk would let an untrusted central declare a huge
+        // chunk_count and send one valid-looking chunk just under the
+        // timeout apart, pinning this thread (and, transitively, one of
+        // BleMeshService's worker threads) far longer than the timeout is
+        // meant to bound -- up to READ_TIMEOUT_MS times the chunk count.
+        private var readDeadlineNanos: Long? = null
+
         override fun readChunk(): List<UByte> {
+            val deadline = readDeadlineNanos ?: (System.nanoTime() + READ_TIMEOUT_MS * 1_000_000L).also {
+                readDeadlineNanos = it
+            }
+            val remainingMs = ((deadline - System.nanoTime()) / 1_000_000L).coerceAtLeast(0L)
             val chunk = try {
-                state.incoming.poll(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                state.incoming.poll(remainingMs, TimeUnit.MILLISECONDS)
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw BleRadioException.Failed("interrupted while waiting for a chunk: ${e.message}")
             }
             if (chunk != null) return chunk.toUByteList()
             if (state.disconnected) throw BleRadioException.Failed("central disconnected")
-            throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")
+            throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms of the first")
         }
 
         // Buffered chunks are drained first regardless of disconnect state

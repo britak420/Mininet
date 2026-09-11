@@ -19671,262 +19671,6 @@ running multi-node mesh both remain open, tracked in roadmap #24.
 
 **Supersedes / superseded by:** extends D-0472; supersedes nothing.
 
-### D-0502 — Kotlin-side BLE GATT implementation of `BleRadio` (issue #201, Android beta slice 5)  ·  *Proposed*
-**Date:** 2026-09-11 · **Refs:** issue #201, D-0374, D-0375.
-
-**Decision:** Add `BlePeripheralRadio` (GATT server/advertiser) and
-`BleCentralRadio` (GATT client/scanner) under `app/android/app/src/main/
-java/org/mininet/app/`, both implementing the UniFFI-generated
-`org.mininet.core.BleRadio` callback interface directly against real
-Android `BluetoothGattServer`/`BluetoothGattCallback`/`BluetoothGatt`
-APIs, plus the manifest permissions (`BLUETOOTH_SCAN`/`ADVERTISE`/
-`CONNECT`, legacy `BLUETOOTH`/`BLUETOOTH_ADMIN`/`ACCESS_FINE_LOCATION`
-capped at API 30, `neverForLocation` on the scan permission since this
-app never derives location from scan results) and the `bluetooth_le`
-required feature declaration those classes need.
-
-**Reason:** D-0374/D-0375 built the entire chain up to the Kotlin
-boundary — `mini_bearer::android_ble::AndroidBleBearer` (a full, tested
-`impl Bearer` generic over any radio), and `mini_ffi::ble`'s UniFFI
-`callback interface BleRadio`/`BleBearerHandle` letting Kotlin drive it —
-and named the real Kotlin GATT implementation as the one piece neither
-closed. `docs/BETA_STATUS.md` item 1 and `docs/ROADMAP_TO_RELEASE.md`'s
-R10 both still named it as outstanding. This closes that specific gap:
-one MTU-bounded write characteristic (central → peripheral) and one
-notify characteristic (peripheral → central), a standard CCCD descriptor
-for enabling notifications, both roles draining/feeding a
-`LinkedBlockingQueue<ByteArray>` to satisfy `BleRadio.read_chunk`'s
-blocking contract and `try_read_chunk`'s non-blocking one, and a
-`CountDownLatch`-based synchronous wait over each async GATT
-write/notify callback so `write_chunk`'s synchronous UniFFI contract
-(Rust calls it and blocks on the result) is honored correctly despite
-Android's BLE APIs being callback-driven rather than blocking.
-
-**Constitutional impact:** none. No new cryptography — this is transport
-plumbing, not a security boundary; presence/identity verification
-(`mini-presence`, `did-mini`) still runs entirely on top of whatever
-bearer carries it, unchanged by which bearer that is. No voice/value
-edge: `mini-bearer`/`mini-ffi` gain no new crate dependency, and this PR
-adds no Cargo dependency at all — only new Kotlin files and a manifest
-permission block.
-
-**Implementation status:** prototype, unverified. New:
-`app/android/app/src/main/java/org/mininet/app/BleGattProfile.kt`
-(shared service/characteristic/CCCD UUID constants),
-`BlePeripheralRadio.kt`, `BleCentralRadio.kt`;
-`app/android/app/src/main/AndroidManifest.xml` gains the BLE permission
-block above. Doc comments in `crates/mini-bearer/src/android_ble.rs` and
-`crates/mini-ffi/src/ble.rs` updated to point at this decision instead of
-describing the Kotlin gap as still fully open. **Written without a
-JDK/Android SDK available in this environment — this has never actually
-been compiled.** Android CI's `assembleDebug` is the first real compile
-check either class will ever have had. Neither class is wired into
-`MiniViewModel`'s pairing flow or `mini-keystone::run_demo` yet, and no
-real BLE hardware exists in this environment to test against — a real
-two-device connection remains the only thing that can prove this
-protocol implementation is actually correct end to end, not merely
-structurally plausible against the documented GATT API surface, exactly
-the same honest limit D-0374/D-0375 already stated for the layers below
-this one.
-
-**Failure point:** if the UniFFI Kotlin codegen for a fieldless
-`[Error] enum` variant (`BleRadioError::Failed`) does not generate a
-single-string-argument constructor on `BleRadioException.Failed` the way
-it does for the structurally identical `StorageCipherError`/
-`StorageCipherException` pair this code's calling convention was copied
-from (D-0338, already compiling in CI), this fails to build — the first
-real signal will be Android CI's `assembleDebug`, not this environment.
-Beyond that: any subtle mismatch against the real `BluetoothGattServer`/
-`BluetoothGattCallback` contract (a wrong callback signature, a missed
-`sendResponse`, an MTU assumption that doesn't hold on a real radio)
-cannot be caught by compilation alone and will only surface in the real
-two-device test this decision explicitly does not claim to have run.
-
-**Required follow-up:** wire `BlePeripheralRadio`/`BleCentralRadio` into
-`MiniViewModel`'s pairing flow (a UI path for choosing/advertising a BLE
-role is separate, later work) and into `mini-keystone::run_demo` so the
-keystone demo can run over a real bearer instead of only the in-process
-one; then the real two-device test itself (roadmap R10/R11, hardware
-gate #97, `docs/gates/hardware-test-protocol.md`). None of that follow-up
-is code-only.
-
-**Supersedes / superseded by:** extends D-0374/D-0375; supersedes
-nothing.
-
-### D-0503 — Transport-generic dedup-flood mesh relay: `mini_bearer::EncryptedLink` + new crate `mini-mesh` (`docs/design/ble-mesh-relay.md`)  ·  *Proposed*
-**Date:** 2026-09-11 · **Refs:** `docs/design/ble-mesh-relay.md`, D-0205, D-0472, D-0473, roadmap R10/R11, issue #97.
-
-**Decision:** Add `mini_bearer::EncryptedLink<B: Bearer>` (any `Bearer` plus
-an already-established `Channel` handshake, dial/accept matching the
-existing initiator/responder asymmetry) and a new crate `mini-mesh`
-(`MeshNode`: a dynamic set of `EncryptedLink`s plus `mini_net::GossipRouter`
-for dedup, exposing `broadcast`/`poll` with the dedup-flood re-gossip
-already happening inside `poll`). Also add `impl Bearer for
-Box<dyn Bearer + Send>` to `mini-bearer` so a caller can hold a
-heterogeneous set of live links (test doubles and real bearers alike) in
-one collection.
-
-**Reason:** The founder's 2026-09-11 direction: devices should be able to
-find each other and form a real network over BLE, not just pair
-one-to-one, so a group of nearby phones stays reachable to each other even
-if the internet itself is down. The relay *algorithm* this needs already
-exists, twice — `mini_net::GossipRouter`'s dedup and
-`mini_consensus::net::TcpMesh`/`run_to_height`'s real-socket, real-proven
-"any **connected** graph is live" relay (D-0205's four-node line-topology
-TCP test) — so per this repo's own "do not re-propose what already exists"
-rule, this closes the actual gap instead: a transport-generic version of
-that shape, off raw `TcpStream` and onto any `mini_bearer::Bearer`, so the
-identical algorithm drives BLE without a second implementation.
-
-**Constitutional impact:** none. No new cryptography — `EncryptedLink`
-composes the exact established `Channel`/`Initiator`/`Responder`
-construction `mini-sync`/`mini-cli`/`mini-consensus` already use, unchanged.
-No voice/value edge: `mini-mesh` depends only on `mini-bearer`, `mini-net`,
-and `mini-crypto` (for the content-addressed message-id hash), none of
-which touch governance or value crates.
-
-**Implementation status:** shipped, hardware-free proven. New:
-`crates/mini-bearer/src/encrypted_link.rs` (4 tests), `crates/mini-mesh/`
-(`MeshNode`, 6 in-process unit tests including a four-node A—B—C—D
-line-topology test with no direct A↔C/A↔D/B↔D edge — the same multi-hop
-proof D-0205 established for TCP consensus, generalized here — plus
-`tests/tcp_relay.rs`, the same line-topology proof over **real loopback
-TCP sockets and threads**, not just in-process channels, so the relay is
-proven over genuine OS I/O without needing any BLE hardware). `mini-bearer`
-gains the `Box<dyn Bearer + Send>` blanket impl. 116 tests pass across
-`mini-bearer`/`mini-mesh`/`mini-ffi` combined; `cargo fmt`/`clippy -D
-warnings` clean; full `cargo check --workspace --all-features` clean.
-
-**Failure point:** `EncryptedLink::dial`/`accept` each block on the
-bearer's `recv()` until the other side's hello/response arrives — correct
-for two genuinely separate devices/processes, but calling both
-sequentially on one thread (as a naive test would) deadlocks; every test
-here spawns the accepter on its own thread, documented explicitly in each
-test so the pattern doesn't get silently miscopied elsewhere. `MeshNode`
-floods to *every* link including the one a message arrived from (relying
-on the sender's own dedup to drop the echo, matching `TcpMesh::broadcast`'s
-exact behavior) — simple and proven correct here, but means a link's
-effective traffic is never less than one echo per relayed message.
-
-**Required follow-up:** wiring into `mini-ffi` (D-0504) and the Android app
-(D-0505); the real multi-device BLE acceptance test (roadmap R10/R11,
-hardware gate #97) remains the only thing that can prove any of this over
-an actual radio, not just proven-correct algorithm and real (but wired)
-TCP sockets.
-
-**Supersedes / superseded by:** extends D-0205's relay proof and D-0374/
-D-0375's BLE/UniFFI chain off TCP-only/single-link; supersedes nothing.
-
-### D-0504 — `mini-ffi::mesh`: UniFFI boundary over `mini_mesh::MeshNode` (`MeshHandle`)  ·  *Proposed*
-**Date:** 2026-09-11 · **Refs:** D-0503, D-0338, D-0375.
-
-**Decision:** Add `mini_ffi::mesh::MeshHandle` (constructor, `add_dialed_link`/
-`add_accepted_link` taking the existing `BleRadio` callback interface plus
-an MTU, `link_count`, `broadcast`, `poll`) and the matching `.udl`
-declarations (`interface MeshHandle`, `dictionary MeshMessage`,
-`[Error] enum MeshError`). `mini-ffi::ble` gains `pub(crate)
-android_bearer`/`pub(crate) RadioAdapter` so `mesh.rs` can build the same
-`AndroidBleBearer<RadioAdapter>` `BleBearerHandle` already wraps, without a
-second radio-adapter implementation.
-
-**Reason:** D-0503's `MeshNode` needs a way for Kotlin to actually hand it
-real BLE connections as they form. Mirrors the existing `StorageCipher`/
-`BleRadio` callback-interface pattern (D-0338/D-0375) exactly rather than
-inventing a new FFI shape.
-
-**Constitutional impact:** none. Same composition as D-0503; no new
-cryptography, no voice/value edge (`mini-ffi` already depended on
-`mini-bearer`; the only new dependency is `mini-mesh` itself).
-
-**Implementation status:** shipped, hardware-free proven.
-`crates/mini-ffi/src/mesh.rs`, one test linking two `MeshHandle`s over
-mock `BleRadio` implementations (the same mock-radio pattern
-`crates/mini-ffi/src/ble.rs`'s own tests already use) and exchanging a
-broadcast. Included in D-0503's 116-test/clippy/workspace-check run.
-
-**Failure point:** `add_dialed_link`/`add_accepted_link` block for the
-handshake round trip, same as `EncryptedLink::dial`/`accept` directly —
-callers must run them off Kotlin's main thread, same discipline
-`RootCore::begin_pairing_offer`/`finish_pairing_offer` already require and
-document.
-
-**Required follow-up:** D-0505 (Android wiring); no `.udl`/Kotlin binding
-generation has been exercised in this environment (no JDK/Android SDK) —
-Android CI's `assembleDebug` is the first real check that the generated
-Kotlin bindings for `MeshHandle`/`MeshMessage`/`MeshError` actually compile
-and match `BleMeshService`'s usage.
-
-**Supersedes / superseded by:** extends D-0374/D-0375's `BleBearerHandle`
-UniFFI pattern to `MeshHandle`; supersedes nothing.
-
-### D-0505 — Android: multi-central `BlePeripheralServer`, split `BleCentralRadio`, and `BleMeshService` orchestration  ·  *Proposed*
-**Date:** 2026-09-11 · **Refs:** D-0502, D-0503, D-0504.
-
-**Decision:** Replace D-0502's single-connection `BlePeripheralRadio` with
-`BlePeripheralServer` — one `BluetoothGattServer` tracking many
-simultaneously connected centrals (keyed by device address), handing the
-caller a fresh per-central `BleRadio` the moment each enables
-notifications, serialized per-send via a `Semaphore` (not a `synchronized`
-monitor — see the failure point below) since every central shares one
-GATT characteristic object. Split `BleCentralRadio`'s scan-then-connect
-into `connectAndAwaitReady(device, timeoutMs)` (new) plus
-`scanConnectAndAwaitReady` (existing, now a convenience wrapper), so a
-caller that already discovered a device via its own scan does not start a
-second, redundant one. Add `BleMeshService`, which runs both roles at
-once — advertises/serves centrals *and* continuously scans for and
-connects to other advertising devices — feeding every resulting link into
-one shared `mini_ffi::MeshHandle`.
-
-**Reason:** D-0502 shipped a real Kotlin `BleRadio` implementation, but
-strictly one point-to-point connection — insufficient for a *network*
-(the founder's 2026-09-11 direction): a device needs to hold many
-simultaneous BLE links at once for D-0503's mesh relay to have more than
-one edge to flood across.
-
-**Constitutional impact:** none. Transport/UI plumbing only; no
-cryptographic or governance-relevant change. Manifest permissions
-unchanged from D-0502 (already covers `BLUETOOTH_SCAN`/`ADVERTISE`/
-`CONNECT`).
-
-**Implementation status:** prototype, unverified — same honest limit as
-D-0502, sharpened: written without a JDK/Android SDK or BLE hardware in
-this environment, so none of `BlePeripheralServer`/`BleCentralRadio`'s
-split/`BleMeshService` has ever compiled. Android CI's `assembleDebug` is
-the first real check. Not wired into `MiniViewModel`'s pairing UI or
-`mini-keystone`'s demo — `BleMeshService` is a standalone orchestrator a
-later UI layer would instantiate and observe (`mesh.broadcast`/`poll`),
-named as separate follow-up rather than forced into this batch.
-
-**Failure point, found and fixed during this same batch, stated for the
-record:** the first draft of `BlePeripheralServer.writeChunk` held one
-`synchronized` monitor across both the notify send *and* the blocking wait
-for `onNotificationSent`'s acknowledgment — but that callback fires on a
-different (Binder) thread and needs the *same* monitor, briefly, to
-signal the waiting latch, which self-deadlocks the two threads against
-each other. Fixed by separating concerns: a `Semaphore` serializes the
-whole send round trip across every connected central (preventing the
-real, documented Android hazard of two sends racing on one shared
-characteristic value), while a separate plain lock (`ackLock`), held only
-briefly and never across the wait, guards the pending-ack bookkeeping
-`onNotificationSent` touches. No test in this environment could have
-caught this (no JDK/Android SDK); it was found by re-reading the
-concurrency reasoning by hand before committing, which is exactly why
-that reasoning is written into the class's own doc comment rather than
-left implicit.
-
-**Required follow-up:** wiring `BleMeshService` into the app's actual UI
-(a "join the local mesh" surface, observing `mesh.poll()`); a real
-multi-device (3+) mesh acceptance test — the only thing that can prove
-any of D-0503/D-0504/D-0505 correct against an actual radio (roadmap
-R10/R11, hardware gate #97, `docs/gates/hardware-test-protocol.md`);
-tuning `BleMeshService`'s fixed conservative MTU to each link's actually
-negotiated one; a connection-count cap once real battery/radio limits are
-measured rather than guessed at.
-
-**Supersedes / superseded by:** supersedes D-0502's single-connection
-`BlePeripheralRadio` (deleted, replaced by `BlePeripheralServer`); does
-not change D-0502's `BleCentralRadio`/manifest-permission work, only
-extends it.
 ### D-0480 — FROST signing hardening: nonce reuse, participant-set panics, non-canonical signatures (F-01/F-02/F-03)  ·  *Proposed*
 
 **Date:** 2026-09-08 · **Refs:** PR #327's `docs/audits/
@@ -22341,3 +22085,260 @@ variable name `trusted_head` itself was classified by the secret-name heuristic
 The callback is renamed `signed_sequence_floor` to state that meaning; no rule
 or finding was suppressed. Identity-capture removal alone was insufficient.
 The audit matrix records the new scan result when available.
+
+### D-0502 — Kotlin-side BLE GATT implementation of `BleRadio` (issue #201, Android beta slice 5)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** issue #201, D-0374, D-0375.
+
+**Decision:** Add `BlePeripheralRadio` (GATT server/advertiser) and
+`BleCentralRadio` (GATT client/scanner) under `app/android/app/src/main/
+java/org/mininet/app/`, both implementing the UniFFI-generated
+`org.mininet.core.BleRadio` callback interface directly against real
+Android `BluetoothGattServer`/`BluetoothGattCallback`/`BluetoothGatt`
+APIs, plus the manifest permissions (`BLUETOOTH_SCAN`/`ADVERTISE`/
+`CONNECT`, legacy `BLUETOOTH`/`BLUETOOTH_ADMIN`/`ACCESS_FINE_LOCATION`
+capped at API 30, `neverForLocation` on the scan permission since this
+app never derives location from scan results) and the `bluetooth_le`
+required feature declaration those classes need.
+
+**Reason:** D-0374/D-0375 built the entire chain up to the Kotlin
+boundary — `mini_bearer::android_ble::AndroidBleBearer` (a full, tested
+`impl Bearer` generic over any radio), and `mini_ffi::ble`'s UniFFI
+`callback interface BleRadio`/`BleBearerHandle` letting Kotlin drive it —
+and named the real Kotlin GATT implementation as the one piece neither
+closed. `docs/BETA_STATUS.md` item 1 and `docs/ROADMAP_TO_RELEASE.md`'s
+R10 both still named it as outstanding. This closes that specific gap:
+one MTU-bounded write characteristic (central → peripheral) and one
+notify characteristic (peripheral → central), a standard CCCD descriptor
+for enabling notifications, both roles draining/feeding a
+`LinkedBlockingQueue<ByteArray>` to satisfy `BleRadio.read_chunk`'s
+blocking contract and `try_read_chunk`'s non-blocking one, and a
+`CountDownLatch`-based synchronous wait over each async GATT
+write/notify callback so `write_chunk`'s synchronous UniFFI contract
+(Rust calls it and blocks on the result) is honored correctly despite
+Android's BLE APIs being callback-driven rather than blocking.
+
+**Constitutional impact:** none. No new cryptography — this is transport
+plumbing, not a security boundary; presence/identity verification
+(`mini-presence`, `did-mini`) still runs entirely on top of whatever
+bearer carries it, unchanged by which bearer that is. No voice/value
+edge: `mini-bearer`/`mini-ffi` gain no new crate dependency, and this PR
+adds no Cargo dependency at all — only new Kotlin files and a manifest
+permission block.
+
+**Implementation status:** prototype, unverified. New:
+`app/android/app/src/main/java/org/mininet/app/BleGattProfile.kt`
+(shared service/characteristic/CCCD UUID constants),
+`BlePeripheralRadio.kt`, `BleCentralRadio.kt`;
+`app/android/app/src/main/AndroidManifest.xml` gains the BLE permission
+block above. Doc comments in `crates/mini-bearer/src/android_ble.rs` and
+`crates/mini-ffi/src/ble.rs` updated to point at this decision instead of
+describing the Kotlin gap as still fully open. **Written without a
+JDK/Android SDK available in this environment — this has never actually
+been compiled.** Android CI's `assembleDebug` is the first real compile
+check either class will ever have had. Neither class is wired into
+`MiniViewModel`'s pairing flow or `mini-keystone::run_demo` yet, and no
+real BLE hardware exists in this environment to test against — a real
+two-device connection remains the only thing that can prove this
+protocol implementation is actually correct end to end, not merely
+structurally plausible against the documented GATT API surface, exactly
+the same honest limit D-0374/D-0375 already stated for the layers below
+this one.
+
+**Failure point:** if the UniFFI Kotlin codegen for a fieldless
+`[Error] enum` variant (`BleRadioError::Failed`) does not generate a
+single-string-argument constructor on `BleRadioException.Failed` the way
+it does for the structurally identical `StorageCipherError`/
+`StorageCipherException` pair this code's calling convention was copied
+from (D-0338, already compiling in CI), this fails to build — the first
+real signal will be Android CI's `assembleDebug`, not this environment.
+Beyond that: any subtle mismatch against the real `BluetoothGattServer`/
+`BluetoothGattCallback` contract (a wrong callback signature, a missed
+`sendResponse`, an MTU assumption that doesn't hold on a real radio)
+cannot be caught by compilation alone and will only surface in the real
+two-device test this decision explicitly does not claim to have run.
+
+**Required follow-up:** wire `BlePeripheralRadio`/`BleCentralRadio` into
+`MiniViewModel`'s pairing flow (a UI path for choosing/advertising a BLE
+role is separate, later work) and into `mini-keystone::run_demo` so the
+keystone demo can run over a real bearer instead of only the in-process
+one; then the real two-device test itself (roadmap R10/R11, hardware
+gate #97, `docs/gates/hardware-test-protocol.md`). None of that follow-up
+is code-only.
+
+**Supersedes / superseded by:** extends D-0374/D-0375; supersedes
+nothing.
+
+### D-0503 — Transport-generic dedup-flood mesh relay: `mini_bearer::EncryptedLink` + new crate `mini-mesh` (`docs/design/ble-mesh-relay.md`)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** `docs/design/ble-mesh-relay.md`, D-0205, D-0472, D-0473, roadmap R10/R11, issue #97.
+
+**Decision:** Add `mini_bearer::EncryptedLink<B: Bearer>` (any `Bearer` plus
+an already-established `Channel` handshake, dial/accept matching the
+existing initiator/responder asymmetry) and a new crate `mini-mesh`
+(`MeshNode`: a dynamic set of `EncryptedLink`s plus `mini_net::GossipRouter`
+for dedup, exposing `broadcast`/`poll` with the dedup-flood re-gossip
+already happening inside `poll`). Also add `impl Bearer for
+Box<dyn Bearer + Send>` to `mini-bearer` so a caller can hold a
+heterogeneous set of live links (test doubles and real bearers alike) in
+one collection.
+
+**Reason:** The founder's 2026-09-11 direction: devices should be able to
+find each other and form a real network over BLE, not just pair
+one-to-one, so a group of nearby phones stays reachable to each other even
+if the internet itself is down. The relay *algorithm* this needs already
+exists, twice — `mini_net::GossipRouter`'s dedup and
+`mini_consensus::net::TcpMesh`/`run_to_height`'s real-socket, real-proven
+"any **connected** graph is live" relay (D-0205's four-node line-topology
+TCP test) — so per this repo's own "do not re-propose what already exists"
+rule, this closes the actual gap instead: a transport-generic version of
+that shape, off raw `TcpStream` and onto any `mini_bearer::Bearer`, so the
+identical algorithm drives BLE without a second implementation.
+
+**Constitutional impact:** none. No new cryptography — `EncryptedLink`
+composes the exact established `Channel`/`Initiator`/`Responder`
+construction `mini-sync`/`mini-cli`/`mini-consensus` already use, unchanged.
+No voice/value edge: `mini-mesh` depends only on `mini-bearer`, `mini-net`,
+and `mini-crypto` (for the content-addressed message-id hash), none of
+which touch governance or value crates.
+
+**Implementation status:** shipped, hardware-free proven. New:
+`crates/mini-bearer/src/encrypted_link.rs` (4 tests), `crates/mini-mesh/`
+(`MeshNode`, 6 in-process unit tests including a four-node A—B—C—D
+line-topology test with no direct A↔C/A↔D/B↔D edge — the same multi-hop
+proof D-0205 established for TCP consensus, generalized here — plus
+`tests/tcp_relay.rs`, the same line-topology proof over **real loopback
+TCP sockets and threads**, not just in-process channels, so the relay is
+proven over genuine OS I/O without needing any BLE hardware). `mini-bearer`
+gains the `Box<dyn Bearer + Send>` blanket impl. 116 tests pass across
+`mini-bearer`/`mini-mesh`/`mini-ffi` combined; `cargo fmt`/`clippy -D
+warnings` clean; full `cargo check --workspace --all-features` clean.
+
+**Failure point:** `EncryptedLink::dial`/`accept` each block on the
+bearer's `recv()` until the other side's hello/response arrives — correct
+for two genuinely separate devices/processes, but calling both
+sequentially on one thread (as a naive test would) deadlocks; every test
+here spawns the accepter on its own thread, documented explicitly in each
+test so the pattern doesn't get silently miscopied elsewhere. `MeshNode`
+floods to *every* link including the one a message arrived from (relying
+on the sender's own dedup to drop the echo, matching `TcpMesh::broadcast`'s
+exact behavior) — simple and proven correct here, but means a link's
+effective traffic is never less than one echo per relayed message.
+
+**Required follow-up:** wiring into `mini-ffi` (D-0504) and the Android app
+(D-0505); the real multi-device BLE acceptance test (roadmap R10/R11,
+hardware gate #97) remains the only thing that can prove any of this over
+an actual radio, not just proven-correct algorithm and real (but wired)
+TCP sockets.
+
+**Supersedes / superseded by:** extends D-0205's relay proof and D-0374/
+D-0375's BLE/UniFFI chain off TCP-only/single-link; supersedes nothing.
+
+### D-0504 — `mini-ffi::mesh`: UniFFI boundary over `mini_mesh::MeshNode` (`MeshHandle`)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** D-0503, D-0338, D-0375.
+
+**Decision:** Add `mini_ffi::mesh::MeshHandle` (constructor, `add_dialed_link`/
+`add_accepted_link` taking the existing `BleRadio` callback interface plus
+an MTU, `link_count`, `broadcast`, `poll`) and the matching `.udl`
+declarations (`interface MeshHandle`, `dictionary MeshMessage`,
+`[Error] enum MeshError`). `mini-ffi::ble` gains `pub(crate)
+android_bearer`/`pub(crate) RadioAdapter` so `mesh.rs` can build the same
+`AndroidBleBearer<RadioAdapter>` `BleBearerHandle` already wraps, without a
+second radio-adapter implementation.
+
+**Reason:** D-0503's `MeshNode` needs a way for Kotlin to actually hand it
+real BLE connections as they form. Mirrors the existing `StorageCipher`/
+`BleRadio` callback-interface pattern (D-0338/D-0375) exactly rather than
+inventing a new FFI shape.
+
+**Constitutional impact:** none. Same composition as D-0503; no new
+cryptography, no voice/value edge (`mini-ffi` already depended on
+`mini-bearer`; the only new dependency is `mini-mesh` itself).
+
+**Implementation status:** shipped, hardware-free proven.
+`crates/mini-ffi/src/mesh.rs`, one test linking two `MeshHandle`s over
+mock `BleRadio` implementations (the same mock-radio pattern
+`crates/mini-ffi/src/ble.rs`'s own tests already use) and exchanging a
+broadcast. Included in D-0503's 116-test/clippy/workspace-check run.
+
+**Failure point:** `add_dialed_link`/`add_accepted_link` block for the
+handshake round trip, same as `EncryptedLink::dial`/`accept` directly —
+callers must run them off Kotlin's main thread, same discipline
+`RootCore::begin_pairing_offer`/`finish_pairing_offer` already require and
+document.
+
+**Required follow-up:** D-0505 (Android wiring); no `.udl`/Kotlin binding
+generation has been exercised in this environment (no JDK/Android SDK) —
+Android CI's `assembleDebug` is the first real check that the generated
+Kotlin bindings for `MeshHandle`/`MeshMessage`/`MeshError` actually compile
+and match `BleMeshService`'s usage.
+
+**Supersedes / superseded by:** extends D-0374/D-0375's `BleBearerHandle`
+UniFFI pattern to `MeshHandle`; supersedes nothing.
+
+### D-0505 — Android: multi-central `BlePeripheralServer`, split `BleCentralRadio`, and `BleMeshService` orchestration  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** D-0502, D-0503, D-0504.
+
+**Decision:** Replace D-0502's single-connection `BlePeripheralRadio` with
+`BlePeripheralServer` — one `BluetoothGattServer` tracking many
+simultaneously connected centrals (keyed by device address), handing the
+caller a fresh per-central `BleRadio` the moment each enables
+notifications, serialized per-send via a `Semaphore` (not a `synchronized`
+monitor — see the failure point below) since every central shares one
+GATT characteristic object. Split `BleCentralRadio`'s scan-then-connect
+into `connectAndAwaitReady(device, timeoutMs)` (new) plus
+`scanConnectAndAwaitReady` (existing, now a convenience wrapper), so a
+caller that already discovered a device via its own scan does not start a
+second, redundant one. Add `BleMeshService`, which runs both roles at
+once — advertises/serves centrals *and* continuously scans for and
+connects to other advertising devices — feeding every resulting link into
+one shared `mini_ffi::MeshHandle`.
+
+**Reason:** D-0502 shipped a real Kotlin `BleRadio` implementation, but
+strictly one point-to-point connection — insufficient for a *network*
+(the founder's 2026-09-11 direction): a device needs to hold many
+simultaneous BLE links at once for D-0503's mesh relay to have more than
+one edge to flood across.
+
+**Constitutional impact:** none. Transport/UI plumbing only; no
+cryptographic or governance-relevant change. Manifest permissions
+unchanged from D-0502 (already covers `BLUETOOTH_SCAN`/`ADVERTISE`/
+`CONNECT`).
+
+**Implementation status:** prototype, unverified — same honest limit as
+D-0502, sharpened: written without a JDK/Android SDK or BLE hardware in
+this environment, so none of `BlePeripheralServer`/`BleCentralRadio`'s
+split/`BleMeshService` has ever compiled. Android CI's `assembleDebug` is
+the first real check. Not wired into `MiniViewModel`'s pairing UI or
+`mini-keystone`'s demo — `BleMeshService` is a standalone orchestrator a
+later UI layer would instantiate and observe (`mesh.broadcast`/`poll`),
+named as separate follow-up rather than forced into this batch.
+
+**Failure point, found and fixed during this same batch, stated for the
+record:** the first draft of `BlePeripheralServer.writeChunk` held one
+`synchronized` monitor across both the notify send *and* the blocking wait
+for `onNotificationSent`'s acknowledgment — but that callback fires on a
+different (Binder) thread and needs the *same* monitor, briefly, to
+signal the waiting latch, which self-deadlocks the two threads against
+each other. Fixed by separating concerns: a `Semaphore` serializes the
+whole send round trip across every connected central (preventing the
+real, documented Android hazard of two sends racing on one shared
+characteristic value), while a separate plain lock (`ackLock`), held only
+briefly and never across the wait, guards the pending-ack bookkeeping
+`onNotificationSent` touches. No test in this environment could have
+caught this (no JDK/Android SDK); it was found by re-reading the
+concurrency reasoning by hand before committing, which is exactly why
+that reasoning is written into the class's own doc comment rather than
+left implicit.
+
+**Required follow-up:** wiring `BleMeshService` into the app's actual UI
+(a "join the local mesh" surface, observing `mesh.poll()`); a real
+multi-device (3+) mesh acceptance test — the only thing that can prove
+any of D-0503/D-0504/D-0505 correct against an actual radio (roadmap
+R10/R11, hardware gate #97, `docs/gates/hardware-test-protocol.md`);
+tuning `BleMeshService`'s fixed conservative MTU to each link's actually
+negotiated one; a connection-count cap once real battery/radio limits are
+measured rather than guessed at.
+
+**Supersedes / superseded by:** supersedes D-0502's single-connection
+`BlePeripheralRadio` (deleted, replaced by `BlePeripheralServer`); does
+not change D-0502's `BleCentralRadio`/manifest-permission work, only
+extends it.

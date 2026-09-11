@@ -50,7 +50,7 @@ use crate::error::{BearerError, Result};
 use crate::MAX_FRAME_BYTES;
 
 /// Byte width of one chunk's header (`chunk_index` + `chunk_count`, both `u16`).
-const CHUNK_HEADER_BYTES: usize = 4;
+pub(crate) const CHUNK_HEADER_BYTES: usize = 4;
 
 /// Split `frame` into a sequence of MTU-sized chunks, each carrying a
 /// 4-byte header. `mtu` is the number of bytes usable for one chunk

@@ -113,21 +113,47 @@ impl MeshNode {
     /// if it comes back through [`Self::poll`] from elsewhere (deduped, not
     /// delivered twice, but the id is still useful to log).
     ///
-    /// Rejects a `payload` over [`MAX_CHANNEL_PLAINTEXT_BYTES`] up front,
-    /// before touching any link: [`Channel::seal`][mini_bearer::Channel::seal]
-    /// would reject it identically on *every* link (it is a property of the
-    /// payload, not of any one connection), so without this check every
-    /// held link's `send` would fail together and the same
-    /// `retain_mut`-based pruning that correctly drops a genuinely
-    /// desynced link would instead empty the whole mesh over one oversized
-    /// local message. A rejected payload is never marked seen: it was never
+    /// Rejects a `payload` over [`MAX_CHANNEL_PLAINTEXT_BYTES`], or over any
+    /// held link's own [`EncryptedLink::max_sendable_plaintext_bytes`], up
+    /// front, before touching any link: either bound would reject the same
+    /// payload identically on *every* link with that bound (it is a
+    /// property of the payload versus a fixed limit, not of any one
+    /// connection's live state), so without this check every held link's
+    /// `send` would fail together and the same `retain_mut`-based pruning
+    /// that correctly drops a genuinely desynced link would instead empty
+    /// the whole mesh over one oversized local message. A BLE-backed link's
+    /// bound is typically far smaller than `MAX_CHANNEL_PLAINTEXT_BYTES`
+    /// (its negotiated MTU limits how many chunks a `u16` chunk count can
+    /// express) — this is what actually catches that case, not the channel
+    /// cap alone. A rejected payload is never marked seen: it was never
     /// actually sent, so nothing needs deduping against it.
+    ///
+    /// **Honest limit**: this rejects a payload that does not fit the
+    /// *smallest*-capacity held link, even if it would fit every other one
+    /// — this mesh floods to every link, so a payload that cannot reach one
+    /// held link cannot be broadcast at all today. A future heterogeneous-
+    /// bearer mesh wanting partial delivery to only the links that can
+    /// carry a given payload would need real routing, not flooding; out of
+    /// scope here (see the design doc's "no routing" honest limit).
     pub fn broadcast(&mut self, payload: &[u8]) -> Result<[u8; 32], BearerError> {
         if payload.len() > MAX_CHANNEL_PLAINTEXT_BYTES {
             return Err(BearerError::FrameTooLarge {
                 max: MAX_CHANNEL_PLAINTEXT_BYTES,
                 got: payload.len(),
             });
+        }
+        if let Some(min_capacity) = self
+            .links
+            .iter()
+            .filter_map(|link| link.max_sendable_plaintext_bytes())
+            .min()
+        {
+            if payload.len() > min_capacity {
+                return Err(BearerError::FrameTooLarge {
+                    max: min_capacity,
+                    got: payload.len(),
+                });
+            }
         }
         let id = message_id(payload);
         self.seen.record_seen(id);
@@ -441,6 +467,76 @@ mod tests {
 
         // Both links are still genuinely usable afterward.
         a.broadcast(b"still works").unwrap();
+        assert_eq!(b.poll().len(), 1);
+        assert_eq!(c.poll().len(), 1);
+    }
+
+    /// Wraps an [`InProcessBearer`] with a caller-chosen
+    /// [`Bearer::max_frame_bytes`], standing in for a real bearer with a
+    /// narrower-than-[`mini_bearer::MAX_FRAME_BYTES`] limit -- e.g. a real
+    /// BLE bearer's own chunk-count limit at a small MTU -- without needing
+    /// a real BLE radio to prove the mesh-level behavior.
+    struct BoundedBearer {
+        inner: InProcessBearer,
+        max: usize,
+    }
+
+    impl Bearer for BoundedBearer {
+        fn send(&mut self, frame: &[u8]) -> mini_bearer::Result<()> {
+            self.inner.send(frame)
+        }
+        fn recv(&mut self) -> mini_bearer::Result<Vec<u8>> {
+            self.inner.recv()
+        }
+        fn try_recv(&mut self) -> mini_bearer::Result<Option<Vec<u8>>> {
+            self.inner.try_recv()
+        }
+        fn max_frame_bytes(&self) -> Option<usize> {
+            Some(self.max)
+        }
+    }
+
+    /// Same shape as [`link`], but `a`'s side of the link is bounded to
+    /// `max_ciphertext_bytes`.
+    fn link_with_bound(a: &mut MeshNode, b: &mut MeshNode, max_ciphertext_bytes: usize) {
+        let (bearer_a, bearer_b) = mini_bearer::pair();
+        let bounded_a: Box<dyn Bearer + Send> = Box::new(BoundedBearer {
+            inner: bearer_a,
+            max: max_ciphertext_bytes,
+        });
+        let boxed_b = boxed(bearer_b);
+        let accepter = std::thread::spawn(move || EncryptedLink::accept(boxed_b).unwrap());
+        a.add_link(EncryptedLink::dial(bounded_a).unwrap());
+        b.add_link(accepter.join().unwrap());
+    }
+
+    #[test]
+    fn a_broadcast_too_large_for_one_links_bearer_is_rejected_without_touching_any_link() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        let mut c = MeshNode::new();
+        // b's link is bounded far below MAX_CHANNEL_PLAINTEXT_BYTES -- the
+        // same shape a real BLE link at a small MTU has (its chunk-count
+        // limit, not the channel's own ~16 MiB cap, is the real bound) --
+        // while c's link has no extra bound at all.
+        link_with_bound(&mut a, &mut b, 64);
+        link(&mut a, &mut c);
+        assert_eq!(a.link_count(), 2);
+
+        // Well under MAX_CHANNEL_PLAINTEXT_BYTES (so the earlier, coarser
+        // check would let it through) but over what b's link can carry.
+        let payload = vec![0u8; 100];
+        let result = a.broadcast(&payload);
+        assert!(matches!(result, Err(BearerError::FrameTooLarge { .. })));
+        assert_eq!(
+            a.link_count(),
+            2,
+            "a payload too large for one link's bearer must not prune any healthy link, \
+             including that link itself"
+        );
+
+        // Both links still work afterward.
+        a.broadcast(b"fits fine").unwrap();
         assert_eq!(b.poll().len(), 1);
         assert_eq!(c.poll().len(), 1);
     }

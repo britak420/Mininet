@@ -34,20 +34,26 @@ still missing for a real two-phone beta, in order:
    `BleRadio` trait and `AndroidBleBearer`, a full, tested `impl Bearer`
    generic over any radio implementation; `mini-ffi::ble` (D-0375) adds
    the UniFFI `callback interface BleRadio` and `BleBearerHandle` that
-   let Kotlin actually drive it across the FFI boundary. **D-0502** adds
-   the real Kotlin GATT implementations: `org.mininet.app.
-   BlePeripheralRadio` (GATT server/advertiser) and `BleCentralRadio`
-   (GATT client/scanner), one MTU-negotiated write characteristic and one
-   notify characteristic between them, both implementing the generated
-   `BleRadio` callback interface directly against real
-   `BluetoothGattServer`/`BluetoothGattCallback` APIs. This item is still
-   not closed: neither class is wired into `MiniViewModel`'s pairing flow
-   or `mini-keystone`'s demo yet, Android CI's `assembleDebug` is the
-   first real compile check either class has ever had (this environment
-   has no JDK/Android SDK), and — the same honest limit D-0374/D-0375
-   already named — only a real two-device test can prove the protocol is
-   actually correct, not just structurally plausible against the
-   documented GATT APIs.
+   let Kotlin actually drive it across the FFI boundary. **D-0502** added
+   the first real Kotlin GATT implementations (a single-connection
+   `BlePeripheralRadio`); **D-0505** replaced that class with
+   `org.mininet.app.BlePeripheralServer` — a multi-central GATT server
+   that hands out one per-link `BleRadio` per connected central, rather
+   than a single fixed radio pair — alongside `BleCentralRadio` (GATT
+   client/scanner, unchanged in shape from D-0502) and `BleMeshService`
+   (orchestrates both roles into one shared `mini_mesh::MeshNode` mesh,
+   D-0503/D-0504). `BlePeripheralRadio` no longer exists in the tree; a
+   reference to it elsewhere in older text means the pre-D-0505 single-
+   connection design. Each of `BlePeripheralServer`/`BleCentralRadio`
+   implements the generated `BleRadio` callback interface directly against
+   real `BluetoothGattServer`/`BluetoothGattCallback`/`BluetoothGatt` APIs.
+   This item is still not closed: none of these classes is wired into
+   `MiniViewModel`'s pairing flow or `mini-keystone`'s demo yet, Android
+   CI's `assembleDebug` is the first real compile check any of them has
+   ever had (this environment has no JDK/Android SDK), and — the same
+   honest limit D-0374/D-0375 already named — only a real two-device test
+   can prove the protocol is actually correct, not just structurally
+   plausible against the documented GATT APIs.
 2. ~~**Active range measurement**~~ — **shipped (D-0368)**:
    `mini_presence::active_range` performs a real challenge-response
    round-trip exchange over the already-bound encrypted channel
