@@ -124,11 +124,37 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
         gatt = null
     }
 
+    // Set by the caller (BleMeshService) right after constructing this
+    // radio, before ever connecting -- invoked once this radio has
+    // terminally failed or disconnected (including well after a link was
+    // already up and in use), so the caller can release whatever it holds
+    // for this radio (BleMeshService.centralLinks' entry) without polling
+    // or otherwise having to notice on its own that a central-role link
+    // died. `@Volatile` since GATT callbacks and the caller's own thread
+    // can both touch it.
+    @Volatile
+    private var onFailed: (() -> Unit)? = null
+
+    fun setOnFailed(callback: () -> Unit) {
+        onFailed = callback
+    }
+
     private fun failAndReleaseAll() {
         connectFailed = true
         connectedLatch.countDown()
         servicesReadyLatch.countDown()
         notificationsReadyLatch.countDown()
+        // Release the GATT client registration and callback immediately
+        // rather than waiting for the whole BleMeshService to close --
+        // without this, every central-role link that connects and later
+        // disconnects (setup failure or a real peer going away well after
+        // the link was up) leaks its GATT client for the rest of the
+        // service's lifetime; a long-running mesh meeting many peers over
+        // time can exhaust the platform's GATT connection budget purely
+        // from ones already gone.
+        runCatching { gatt?.close() }
+        gatt = null
+        onFailed?.invoke()
     }
 
     override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {

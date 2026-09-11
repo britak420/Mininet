@@ -3,7 +3,7 @@
     "crates": 77,
     "files": 967,
     "headings": 3519,
-    "rust_symbols": 9798
+    "rust_symbols": 9799
   },
   "crates": {
     "did-mini": {
@@ -40223,7 +40223,7 @@
       "title": "The transport (Bearer, EncryptedLink) this crate composes over."
     },
     {
-      "bytes": 22141,
+      "bytes": 24981,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
@@ -40252,9 +40252,9 @@
         "tree",
         "already"
       ],
-      "lines": 544,
+      "lines": 603,
       "path": "crates/mini-mesh/src/lib.rs",
-      "sha256": "2f1a94475eb0ddc970eef9762111470206e022f406e16564867965293b9c769b",
+      "sha256": "c60969749b3877d48bef017ed8c4adf66ab9b9db815e38cfcdeec282416a9df1",
       "symbols": [
         {
           "kind": "const",
@@ -40323,123 +40323,128 @@
         },
         {
           "kind": "impl",
-          "line": 211,
+          "line": 229,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 212,
+          "line": 230,
           "name": "default"
         },
         {
           "kind": "mod",
-          "line": 218,
+          "line": 236,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 222,
+          "line": 240,
           "name": "boxed"
         },
         {
           "kind": "fn",
-          "line": 233,
+          "line": 251,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 242,
+          "line": 260,
           "name": "two_directly_linked_nodes_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 254,
+          "line": 272,
           "name": "a_repeated_broadcast_is_deduped_not_delivered_twice"
         },
         {
           "kind": "fn",
-          "line": 275,
+          "line": 293,
           "name": "a_broadcast_from_one_end_of_a_line_topology_reaches_the_other_end_via_relay"
         },
         {
           "kind": "fn",
-          "line": 320,
+          "line": 338,
           "name": "a_disconnected_pair_never_hears_a_broadcast_from_the_other_side"
         },
         {
           "kind": "fn",
-          "line": 339,
+          "line": 357,
           "name": "a_node_recognizes_its_own_broadcast_echoed_back_and_does_not_redeliver_it"
         },
         {
           "kind": "fn",
-          "line": 354,
+          "line": 372,
           "name": "link_count_reflects_added_links"
         },
         {
           "kind": "fn",
-          "line": 364,
+          "line": 382,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_broadcast_not_just_poll"
         },
         {
           "kind": "fn",
-          "line": 383,
+          "line": 401,
           "name": "a_dead_link_is_pruned_during_polls_own_reflood_step_too"
         },
         {
           "kind": "fn",
-          "line": 407,
+          "line": 425,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever"
         },
         {
           "kind": "fn",
-          "line": 427,
+          "line": 445,
           "name": "poll_never_drains_more_than_the_per_link_cap_in_one_call"
         },
         {
           "kind": "fn",
-          "line": 445,
+          "line": 463,
           "name": "an_oversized_broadcast_is_rejected_without_touching_any_link"
         },
         {
           "kind": "struct",
-          "line": 479,
+          "line": 497,
           "name": "BoundedBearer"
         },
         {
           "kind": "impl",
-          "line": 484,
+          "line": 502,
           "name": "Bearer"
         },
         {
           "kind": "fn",
-          "line": 485,
+          "line": 503,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 488,
+          "line": 506,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 491,
+          "line": 509,
           "name": "try_recv"
         },
         {
           "kind": "fn",
-          "line": 494,
+          "line": 512,
           "name": "max_frame_bytes"
         },
         {
           "kind": "fn",
-          "line": 501,
+          "line": 519,
           "name": "link_with_bound"
         },
         {
           "kind": "fn",
-          "line": 514,
+          "line": 532,
           "name": "a_broadcast_too_large_for_one_links_bearer_is_rejected_without_touching_any_link"
+        },
+        {
+          "kind": "fn",
+          "line": 563,
+          "name": "a_relayed_payload_too_large_for_one_links_bearer_does_not_prune_that_link"
         }
       ],
       "title": "use mini_bearer::{Bearer, BearerError, EncryptedLink, MAX_CHANNEL_PLAINTEXT_BYTES};"

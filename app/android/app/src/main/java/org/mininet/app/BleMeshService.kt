@@ -12,8 +12,10 @@ import android.os.ParcelUuid
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import org.mininet.core.MeshHandle
 
@@ -100,6 +102,35 @@ class BleMeshService(context: Context) {
     }
     private var pollTask: ScheduledFuture<*>? = null
 
+    // Bounded, unlike `worker`: message delivery is driven by mesh.poll()
+    // on a fixed schedule and can submit up to MAX_MESSAGES_PER_LINK_PER_
+    // POLL deliveries per link, every POLL_INTERVAL_MS, indefinitely. If
+    // the caller's onMessage is slow (disk/network I/O) or -- as its own
+    // contract explicitly allows -- simply never returns, an unbounded
+    // pool (`worker`'s newCachedThreadPool) would keep creating threads to
+    // run every new delivery until the process exhausts memory or native
+    // thread handles, exactly what moving delivery off the poll thread was
+    // supposed to prevent becoming a *different* resource exhaustion bug.
+    // A small fixed pool with a bounded queue gives delivery real
+    // throughput without that unbounded growth; DiscardPolicy is the
+    // explicit overload response once the queue is full: silently drop
+    // the newest delivery rather than blocking the submitter (that would
+    // stall mesh.poll() itself, reintroducing the exact hazard this
+    // executor exists to avoid) or growing without bound. Content-
+    // addressed dedup means nothing about the mesh's own correctness
+    // depends on every delivery actually reaching onMessage; relay
+    // traffic itself keeps moving via mesh.poll() regardless of this
+    // executor's backlog.
+    private val deliveryExecutor = ThreadPoolExecutor(
+        1,
+        DELIVERY_MAX_THREADS,
+        DELIVERY_KEEP_ALIVE_SECONDS,
+        TimeUnit.SECONDS,
+        LinkedBlockingQueue(DELIVERY_QUEUE_CAPACITY),
+        { runnable -> Thread(runnable, "mininet-ble-mesh-deliver").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardPolicy(),
+    )
+
     private fun runOnWorker(block: () -> Unit) {
         if (closed) return
         try {
@@ -117,6 +148,19 @@ class BleMeshService(context: Context) {
         } catch (_: RejectedExecutionException) {
             // Lost the race with close() between the check above and this
             // call -- not an error, just already shutting down.
+        }
+    }
+
+    // No try/catch around execute() here: ThreadPoolExecutor.DiscardPolicy
+    // never throws RejectedExecutionException (unlike the default
+    // AbortPolicy) -- a full queue or an already-shut-down executor both
+    // just silently decline the task, which is exactly the intended
+    // degradation for best-effort message delivery.
+    private fun runOnDelivery(block: () -> Unit) {
+        if (closed) return
+        deliveryExecutor.execute {
+            if (closed) return@execute
+            block()
         }
     }
 
@@ -198,15 +242,18 @@ class BleMeshService(context: Context) {
                 // later message in the same batch; catching per-message keeps
                 // one bad payload from taking the rest down with it.
                 runCatching { mesh.poll() }.getOrNull()?.forEach { message ->
-                    // Dispatched onto the cached worker pool, not run
-                    // inline on this single scheduled poll thread:
+                    // Dispatched onto the bounded deliveryExecutor, not
+                    // run inline on this single scheduled poll thread and
+                    // not on the unbounded `worker` pool either:
                     // onMessage is arbitrary caller code that might block
                     // (disk/network I/O) or simply never return, and this
                     // is the only thread driving mesh.poll() -- if
                     // onMessage ran here directly, one slow or hung
                     // handler would silently stop all relay traffic, not
-                    // just delivery of that one message.
-                    runOnWorker { runCatching { onMessage(message.payload) } }
+                    // just delivery of that one message. See
+                    // deliveryExecutor's own doc for why it must be
+                    // bounded rather than reusing `worker`.
+                    runOnDelivery { runCatching { onMessage(message.payload) } }
                 }
             }, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
         }.isSuccess
@@ -277,6 +324,14 @@ class BleMeshService(context: Context) {
         if (centralLinks.putIfAbsent(device.address, radio) != null) {
             return
         }
+        // Covers the case the two explicit cleanups below (failed connect,
+        // failed handshake) don't: a link that connects, becomes a working
+        // mesh link, and only *later* has its peer disconnect. Without
+        // this, centralLinks retains that BleCentralRadio (and, before the
+        // GATT-close fix in failAndReleaseAll, its GATT client too) for
+        // the rest of this service's lifetime even though mini_mesh has
+        // already pruned the dead link on the Rust side.
+        radio.setOnFailed { centralLinks.remove(device.address, radio) }
         runOnWorker {
             // connectAndAwaitReady, not scanConnectAndAwaitReady: this
             // service already runs its own continuous scan above, so
@@ -315,6 +370,7 @@ class BleMeshService(context: Context) {
         centralLinks.clear()
         worker.shutdown()
         pollExecutor.shutdown()
+        deliveryExecutor.shutdown()
     }
 
     companion object {
@@ -333,5 +389,18 @@ class BleMeshService(context: Context) {
         // real tuning against actual radio/battery behavior is
         // hardware-gate territory, not guessed at here.
         private const val POLL_INTERVAL_MS = 250L
+
+        // deliveryExecutor's bounds -- see its own doc for why it must be
+        // bounded at all. A couple of threads is enough for onMessage
+        // calls to make real progress concurrently without competing with
+        // `worker`'s handshake/connect threads for CPU; the queue capacity
+        // is generous relative to one poll cycle's worst case
+        // (MAX_MESSAGES_PER_LINK_PER_POLL per link, across however many
+        // links are held) without being large enough to hide a
+        // persistently stuck onMessage for long before DiscardPolicy
+        // starts shedding load.
+        private const val DELIVERY_MAX_THREADS = 2
+        private const val DELIVERY_KEEP_ALIVE_SECONDS = 30L
+        private const val DELIVERY_QUEUE_CAPACITY = 256
     }
 }

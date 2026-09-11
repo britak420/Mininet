@@ -197,11 +197,29 @@ impl MeshNode {
             true
         });
 
-        // Same terminal-on-send-failure pruning as broadcast(): a link that
-        // fails mid-reflood is desynced (its AEAD counter already advanced
-        // past what the peer received) and is dropped, not retried.
+        // Same terminal-on-send-failure pruning as broadcast() -- *except*
+        // for FrameTooLarge, which is never terminal: both
+        // Channel::seal's own MAX_CHANNEL_PLAINTEXT_BYTES check and
+        // EncryptedLink::send's bearer-capacity check
+        // (max_sendable_plaintext_bytes) run *before* seal, so a
+        // FrameTooLarge here means this link's AEAD counter never moved --
+        // it is simply too narrow (e.g. a BLE link's small MTU) to carry
+        // *this* relayed payload, which unlike a local broadcast() call
+        // was never checked against this link's capacity up front (it
+        // arrived from a *different*, possibly higher-capacity link, so
+        // no single preflight could have caught it). Pruning a perfectly
+        // healthy narrow link over one relayed message it cannot carry
+        // would partition it from the rest of the mesh for every future
+        // message too, including ones it easily could have carried; skip
+        // it for this message and keep it instead. Any other error still
+        // means the counter *did* advance (or the bearer itself failed)
+        // and the link really is desynced.
         for payload in &to_reflood {
-            self.links.retain_mut(|link| link.send(payload).is_ok());
+            self.links.retain_mut(|link| match link.send(payload) {
+                Ok(()) => true,
+                Err(BearerError::FrameTooLarge { .. }) => true,
+                Err(_) => false,
+            });
         }
 
         new_messages
@@ -538,6 +556,47 @@ mod tests {
         // Both links still work afterward.
         a.broadcast(b"fits fine").unwrap();
         assert_eq!(b.poll().len(), 1);
+        assert_eq!(c.poll().len(), 1);
+    }
+
+    #[test]
+    fn a_relayed_payload_too_large_for_one_links_bearer_does_not_prune_that_link() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        let mut c = MeshNode::new();
+        link(&mut a, &mut b);
+        // Unlike a direct broadcast() call (which checks the payload
+        // against every held link up front), a relayed message arrives
+        // from a *different* link than the ones it gets reflooded across
+        // -- no single preflight on a's side could have known c's bearer
+        // capacity, so this is the one path where poll()'s own reflood
+        // step is what actually has to make the right call.
+        link_with_bound(&mut b, &mut c, 64);
+        assert_eq!(b.link_count(), 2);
+
+        // Fits a<->b (unbounded) and the channel cap, but not b<->c's
+        // bearer capacity.
+        let payload = vec![0u8; 100];
+        a.broadcast(&payload).unwrap();
+
+        let received = b.poll();
+        assert_eq!(received.len(), 1, "b still receives it from a");
+        assert_eq!(
+            b.link_count(),
+            2,
+            "the reflood send toward c must fail with FrameTooLarge, not prune the link -- \
+             c's AEAD counter never advanced, so it is not desynced, just unable to carry \
+             this one oversized message"
+        );
+        assert!(
+            c.poll().is_empty(),
+            "c genuinely never received the oversized relay -- that part is a real, honest \
+             delivery gap, just not a reason to drop the connection"
+        );
+
+        // The link toward c is still genuinely usable for anything that
+        // actually fits it.
+        b.broadcast(b"fits fine").unwrap();
         assert_eq!(c.poll().len(), 1);
     }
 }
