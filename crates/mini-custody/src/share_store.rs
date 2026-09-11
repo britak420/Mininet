@@ -60,12 +60,16 @@ pub fn seal_key_package(
     passphrase: &[u8],
     serialized_key_package: &[u8],
 ) -> Result<SealedKeyPackageV1> {
-    let salt: [u8; SALT_LEN] = {
-        let full = mini_crypto::random_32().map_err(|_| CustodyError::Entropy)?;
-        let mut s = [0u8; SALT_LEN];
-        s.copy_from_slice(&full[..SALT_LEN]);
-        s
-    };
+    // Built directly from a slice of fresh entropy, never through a
+    // zeroed-then-overwritten intermediate array: that idiom (`[0u8; N]`
+    // followed by `copy_from_slice`) reads to static analysis as a
+    // hard-coded value flowing to a cryptographic-salt sink even though
+    // the zero bytes are never actually used (CodeQL flagged exactly
+    // this at the previous revision of this function).
+    let salt: [u8; SALT_LEN] = mini_crypto::random_32().map_err(|_| CustodyError::Entropy)?
+        [..SALT_LEN]
+        .try_into()
+        .expect("SALT_LEN <= 32, the length of random_32()'s output");
     let key = derive_wrapping_key(passphrase, &salt)?;
     let nonce = AeadNonce::generate().map_err(|_| CustodyError::Entropy)?;
     let ciphertext = key

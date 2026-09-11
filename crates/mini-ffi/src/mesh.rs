@@ -150,6 +150,7 @@ mod tests {
     struct MockRadio {
         tx: Sender<Vec<u8>>,
         rx: Mutex<Receiver<Vec<u8>>>,
+        disconnected: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     }
 
     impl BleRadio for MockRadio {
@@ -170,6 +171,11 @@ mod tests {
                 Err(TryRecvError::Disconnected) => Err(BleRadioError::Failed),
             }
         }
+        fn disconnect(&self) {
+            if let Some(flag) = &self.disconnected {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
     }
 
     fn mock_pair() -> (Box<dyn BleRadio>, Box<dyn BleRadio>) {
@@ -179,10 +185,12 @@ mod tests {
             Box::new(MockRadio {
                 tx: tx_a,
                 rx: Mutex::new(rx_b),
+                disconnected: None,
             }),
             Box::new(MockRadio {
                 tx: tx_b,
                 rx: Mutex::new(rx_a),
+                disconnected: None,
             }),
         )
     }
@@ -214,6 +222,61 @@ mod tests {
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].id, id);
         assert_eq!(received[0].payload, b"hello mesh");
+    }
+
+    #[test]
+    fn a_link_pruned_after_its_peer_disappears_tells_the_platform_radio_to_disconnect() {
+        // Regression test for a Codex finding on PR #333: when
+        // mini_mesh::MeshNode prunes a link after a terminal try_recv
+        // failure, dropping the Rust-side EncryptedLink used to have no
+        // way to tell the platform (Android GATT) side to actually close
+        // the connection -- the link's platform-side resources (a GATT
+        // connection, a BlePeripheralServer.LinkState/BleMeshService
+        // centralLinks entry) stayed live and occupied. RadioAdapter's
+        // Drop impl (mini-ffi/src/ble.rs) now calls BleRadio::disconnect()
+        // whenever the bearer wrapping a radio is dropped for any reason,
+        // including exactly this mesh-pruning path.
+        let (tx_a, rx_a) = channel();
+        let (tx_b, rx_b) = channel();
+        let disconnected = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let radio_a: Box<dyn BleRadio> = Box::new(MockRadio {
+            tx: tx_a,
+            rx: Mutex::new(rx_b),
+            disconnected: Some(std::sync::Arc::clone(&disconnected)),
+        });
+        let radio_b: Box<dyn BleRadio> = Box::new(MockRadio {
+            tx: tx_b,
+            rx: Mutex::new(rx_a),
+            disconnected: None,
+        });
+
+        let mesh_a = MeshHandle::new();
+        let mesh_b = std::sync::Arc::new(MeshHandle::new());
+        let mesh_b_accepter = std::sync::Arc::clone(&mesh_b);
+        let accepter =
+            std::thread::spawn(move || mesh_b_accepter.add_accepted_link(radio_b, 64).unwrap());
+        mesh_a.add_dialed_link(radio_a, 64).unwrap();
+        accepter.join().unwrap();
+        assert_eq!(mesh_a.link_count(), 1);
+        assert!(!disconnected.load(std::sync::atomic::Ordering::SeqCst));
+
+        // Drop mesh_b's own side entirely -- this is the last surviving
+        // handle to it (the accepter thread's clone was dropped when the
+        // thread finished), so this drops mesh_b's MeshNode, its
+        // EncryptedLink, its radio_b, and radio_b's `tx_b`: the sender
+        // that fed radio_a's `rx`. Once that sender is gone, radio_a's
+        // next read observes a terminal, not just an empty, channel.
+        drop(mesh_b);
+
+        // poll() drains radio_a: try_read_chunk() now reports
+        // TryRecvError::Disconnected -> BleRadioError::Failed ->
+        // BearerError::Closed -> MeshNode::poll()'s retain_mut prunes the
+        // link -> the boxed AndroidBleBearer<RadioAdapter> (and so
+        // RadioAdapter) is dropped -> RadioAdapter::drop() calls
+        // radio_a.disconnect().
+        mesh_a.poll();
+        assert_eq!(mesh_a.link_count(), 0);
+        assert!(disconnected.load(std::sync::atomic::Ordering::SeqCst));
     }
 
     #[test]

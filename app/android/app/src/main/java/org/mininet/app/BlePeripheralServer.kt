@@ -486,6 +486,20 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
             if (state.disconnected) throw BleRadioException.Failed("central disconnected")
             return null
         }
+
+        // Called from Rust whenever the bearer wrapping this radio is
+        // dropped for any reason -- including mini_mesh::MeshNode pruning
+        // this link after a protocol or send failure, not only the
+        // explicit `disconnect` closure onLinkReady's caller gets for a
+        // failed handshake (see that callback's own doc comment). Same
+        // action, `cancelConnection`: onConnectionStateChange's
+        // STATE_DISCONNECTED branch removes this central's `LinkState`
+        // from `links` and marks it disconnected once the platform
+        // confirms the teardown, exactly as it already does for every
+        // other disconnect path.
+        override fun disconnect() {
+            runCatching { gattServer?.cancelConnection(state.device) }
+        }
     }
 
     companion object {

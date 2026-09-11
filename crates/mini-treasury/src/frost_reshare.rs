@@ -90,15 +90,28 @@ use crate::frost_sign::lagrange_coefficient;
 /// participant computing a resharing contribution must use the *same*
 /// subset, or their Lagrange coefficients (and therefore the sum) will not
 /// reconstruct the original secret.
+///
+/// `new_committee` is the new committee's exact identifier set — **not**
+/// assumed to be `1..=new_committee.len()`: unlike [`dkg_round1`]'s own
+/// convention, a new committee's identifiers may be any distinct nonzero
+/// values (e.g. carried over from some other numbering scheme). This is
+/// recorded on the returned [`DkgRound1Secret`] as the only identifiers
+/// [`dkg_generate_round2_shares`] will ever evaluate the resulting
+/// polynomial at -- see that function's docs for why bounding recipients
+/// to the *real* roster (not just excluding index `0`) matters.
 pub fn reshare_round1(
     old_key_package: &KeyPackage,
     old_participating_indices: &[u16],
-    new_n: u16,
+    new_committee: &[u16],
     new_threshold: u16,
     context: &[u8],
     _ack: AcknowledgedUnauditedDkg,
 ) -> Result<(DkgRound1Secret, DkgRound1Package)> {
-    if new_n == 0
+    let new_n = new_committee.len() as u16;
+    let allowed_recipients: BTreeSet<u16> = new_committee.iter().copied().collect();
+    if new_committee.is_empty()
+        || new_committee.contains(&0)
+        || allowed_recipients.len() != new_committee.len()
         || new_n > MAX_PARTICIPANTS
         || new_threshold == 0
         || new_threshold > new_n
@@ -129,7 +142,10 @@ pub fn reshare_round1(
     )?;
 
     Ok((
-        DkgRound1Secret { coefficients },
+        DkgRound1Secret {
+            coefficients,
+            allowed_recipients,
+        },
         DkgRound1Package {
             index: old_key_package.index,
             commitments,
@@ -283,7 +299,7 @@ mod tests {
     fn run_reshare_round1(
         old_shares: &[KeyPackage],
         old_participating: &[u16],
-        new_n: u16,
+        new_committee: &[u16],
         new_threshold: u16,
         context: &[u8],
         old_public: &PublicKeyPackage,
@@ -295,7 +311,7 @@ mod tests {
             let (secret, package) = reshare_round1(
                 old_key_package,
                 old_participating,
-                new_n,
+                new_committee,
                 new_threshold,
                 context,
                 dkg_ack(),
@@ -354,7 +370,7 @@ mod tests {
         let session = run_reshare_round1(
             &old_shares,
             &old_participating,
-            new_committee.len() as u16,
+            &new_committee,
             new_threshold,
             b"reshare-epoch-2",
             &old_public,
@@ -424,7 +440,7 @@ mod tests {
         let session = run_reshare_round1(
             &old_shares,
             &old_participating,
-            new_committee.len() as u16,
+            &new_committee,
             new_threshold,
             b"ctx",
             &old_public,
@@ -455,8 +471,16 @@ mod tests {
         let old_participating = [1u16, 2, 4];
         let old_key_package = old_shares.iter().find(|s| s.index == 1).unwrap();
 
-        let (_, mut package) =
-            reshare_round1(old_key_package, &old_participating, 4, 3, b"ctx", dkg_ack()).unwrap();
+        let new_committee = [1u16, 2, 3, 4];
+        let (_, mut package) = reshare_round1(
+            old_key_package,
+            &old_participating,
+            &new_committee,
+            3,
+            b"ctx",
+            dkg_ack(),
+        )
+        .unwrap();
         // Substitute a commitment that is NOT lambda_1 * Y_1 -- e.g. a
         // fresh, unrelated random value, simulating a resharing
         // participant trying to inject an arbitrary contribution instead
@@ -492,7 +516,7 @@ mod tests {
         let session = run_reshare_round1(
             &old_shares,
             &old_participating,
-            new_committee.len() as u16,
+            &new_committee,
             new_threshold,
             b"ctx",
             &old_public,

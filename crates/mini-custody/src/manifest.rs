@@ -206,6 +206,11 @@ impl DkgSessionManifestV1 {
     /// the domain's actual current epoch) or `expiry_height` against a
     /// live chain height (same reason).
     pub fn validate(&self) -> Result<()> {
+        if !crate::domains::is_known_domain(self.custody_domain) {
+            return Err(CustodyError::InvalidManifest(
+                "custody_domain is not one of the declared production domains",
+            ));
+        }
         if self.roster.len() != SIGNER_COUNT as usize {
             return Err(CustodyError::InvalidManifest("roster size != 11"));
         }
@@ -216,17 +221,24 @@ impl DkgSessionManifestV1 {
                 ));
             }
         }
-        let mut device_keys = std::collections::BTreeSet::new();
-        let mut transport_keys = std::collections::BTreeSet::new();
+        // Uniqueness is checked across the *union* of both key roles, not
+        // independently within each: device and transport keys authorize
+        // different things (protocol-message signing vs. transport-channel
+        // identity, see `CustodyParticipantV1`'s docs), so one
+        // participant's transport key appearing as another's device key
+        // would hand the first participant ceremony-signing authority
+        // under the second's identity -- checking the two sets separately
+        // missed exactly that cross-role reuse.
+        let mut seen_keys = std::collections::BTreeSet::new();
         for participant in &self.roster {
-            if !device_keys.insert(participant.device_verifying_key.to_bytes()) {
+            if !seen_keys.insert(participant.device_verifying_key.to_bytes()) {
                 return Err(CustodyError::InvalidManifest(
-                    "duplicate device_verifying_key",
+                    "a roster key (device or transport) is reused",
                 ));
             }
-            if !transport_keys.insert(participant.transport_identity_key.to_bytes()) {
+            if !seen_keys.insert(participant.transport_identity_key.to_bytes()) {
                 return Err(CustodyError::InvalidManifest(
-                    "duplicate transport_identity_key",
+                    "a roster key (device or transport) is reused",
                 ));
             }
         }
@@ -328,6 +340,37 @@ mod tests {
     fn non_canonical_roster_order_is_rejected() {
         let mut manifest = sample_manifest();
         manifest.roster.swap(0, 1);
+        assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn an_undeclared_custody_domain_is_rejected() {
+        let mut manifest = sample_manifest();
+        manifest.custody_domain = CustodyDomain(5); // not one of the four declared domains
+        assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn every_declared_production_domain_validates() {
+        for domain in [
+            crate::domains::BTC_CUSTODY,
+            crate::domains::XMR_CUSTODY,
+            crate::domains::XRPL_CUSTODY,
+            crate::domains::BOUNTY_PAYOUT_CUSTODY,
+        ] {
+            let mut manifest = sample_manifest();
+            manifest.custody_domain = domain;
+            manifest.validate().unwrap();
+        }
+    }
+
+    #[test]
+    fn reusing_one_participants_transport_key_as_anothers_device_key_is_rejected() {
+        let mut manifest = sample_manifest();
+        // Participant 1's device key becomes participant 0's transport key:
+        // same key, two different roles, two different participants.
+        let stolen = manifest.roster[1].device_verifying_key.clone();
+        manifest.roster[0].transport_identity_key = stolen;
         assert!(manifest.validate().is_err());
     }
 

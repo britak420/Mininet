@@ -46,6 +46,14 @@ pub trait BleRadio: Send + Sync {
     /// Return the next already-buffered chunk, or `Ok(None)` if none is
     /// pending yet. Must never block.
     fn try_read_chunk(&self) -> Result<Option<Vec<u8>>, BleRadioError>;
+    /// Best-effort: close the underlying platform connection. See
+    /// [`RadioAdapter`]'s `Drop` impl for when Rust calls this — not only
+    /// on an explicit caller-driven close, but whenever the bearer
+    /// wrapping this radio is dropped for any reason, including
+    /// `mini_mesh::MeshNode` pruning a link after a protocol or send
+    /// failure. Never blocks; failures here have nothing further for Rust
+    /// to act on.
+    fn disconnect(&self);
 }
 
 /// Failure reported by a caller-implemented [`BleRadio`]. Carries no
@@ -92,6 +100,26 @@ impl mini_bearer::BleRadio for RadioAdapter {
         self.0
             .try_read_chunk()
             .map_err(|_| mini_bearer::BearerError::Closed)
+    }
+}
+
+impl Drop for RadioAdapter {
+    /// Closes the underlying platform connection whenever this adapter (and
+    /// so the `AndroidBleBearer`/`EncryptedLink`/`mini_mesh` link it backs)
+    /// is dropped for *any* reason — not only an explicit caller-driven
+    /// close. This is what actually closes the gap a `mini_mesh::MeshNode`
+    /// pruning a link after a protocol or send failure would otherwise
+    /// leave open: dropping the Rust-side `EncryptedLink` never used to
+    /// have any operation that told the platform radio to disconnect, so a
+    /// pruned link's GATT connection (and, on the peripheral side, its
+    /// `centralLinks`/`LinkState` entry) stayed live and occupied,
+    /// suppressing rediscovery of the same peer. Tied to `Drop` rather
+    /// than threaded through `MeshNode`'s own pruning call sites so every
+    /// present and future way a link's bearer can end (mesh pruning, a
+    /// failed handshake, an explicit close) gets the same treatment for
+    /// free.
+    fn drop(&mut self) {
+        self.0.disconnect();
     }
 }
 
@@ -235,6 +263,7 @@ mod tests {
                 Err(TryRecvError::Disconnected) => Err(BleRadioError::Failed),
             }
         }
+        fn disconnect(&self) {}
     }
 
     fn pair_with_mtu(mtu: u32) -> (BleBearerHandle, BleBearerHandle) {
@@ -302,6 +331,7 @@ mod tests {
             fn try_read_chunk(&self) -> Result<Option<Vec<u8>>, BleRadioError> {
                 Err(BleRadioError::Failed)
             }
+            fn disconnect(&self) {}
         }
         let handle = BleBearerHandle::new(Box::new(AlwaysFailingRadio), 64);
         assert_eq!(

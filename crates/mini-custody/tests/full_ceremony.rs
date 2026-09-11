@@ -31,6 +31,11 @@ fn test_did(seed: u8) -> Did {
 struct TestParticipant {
     did: Did,
     device_key: SigningKey,
+    // A distinct key from `device_key`: `manifest::validate` rejects a
+    // roster that reuses one key across both protocol roles, even for the
+    // same participant (see `crates/mini-custody/src/manifest.rs`'s
+    // "a roster key (device or transport) is reused" check).
+    transport_key: SigningKey,
 }
 
 fn build_roster() -> (DkgSessionManifestV1, Vec<TestParticipant>) {
@@ -38,6 +43,7 @@ fn build_roster() -> (DkgSessionManifestV1, Vec<TestParticipant>) {
         .map(|seed| TestParticipant {
             did: test_did(seed),
             device_key: SigningKey::from_seed(&[seed; 32]),
+            transport_key: SigningKey::from_seed(&[seed.wrapping_add(100); 32]),
         })
         .collect();
     participants.sort_by(|a, b| a.did.as_str().cmp(b.did.as_str()));
@@ -47,7 +53,7 @@ fn build_roster() -> (DkgSessionManifestV1, Vec<TestParticipant>) {
         .map(|p| CustodyParticipantV1 {
             custody_did: p.did.clone(),
             device_verifying_key: p.device_key.verifying_key(),
-            transport_identity_key: p.device_key.verifying_key(),
+            transport_identity_key: p.transport_key.verifying_key(),
         })
         .collect();
 
@@ -109,12 +115,7 @@ fn full_11_party_ceremony_produces_a_usable_threshold_key() {
         .iter()
         .map(|p| session::sign_round1_view_ack(session_id, root, &p.did, &p.device_key))
         .collect();
-    assert!(session::round1_view_confirmed(
-        &manifest,
-        &acks,
-        &session_id,
-        &root
-    ));
+    assert!(session::round1_view_confirmed(&manifest, &acks, &root));
 
     // Phase D: DKG Round 2. Each participant's `round1_packages` argument
     // is every *other* participant's package.

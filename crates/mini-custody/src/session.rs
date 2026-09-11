@@ -229,10 +229,15 @@ pub fn sign_round1_view_ack(
 fn verify_round1_view_ack(
     manifest: &DkgSessionManifestV1,
     ack: &Round1ViewAckV1,
-    expected_session_id: &[u8; 32],
     expected_root: &[u8; 32],
 ) -> Result<()> {
-    if &ack.session_id != expected_session_id || &ack.round1_root != expected_root {
+    // Compared directly against the manifest's own session id -- not a
+    // caller-supplied "expected session id" a retried ceremony's stale
+    // attempt could satisfy. A caller that (by bug or by a malicious
+    // coordinator's retry) passed the previous attempt's session id as
+    // "expected" would otherwise let that attempt's acks validate against
+    // this manifest even though they were never signed for it.
+    if ack.session_id != manifest.session_id() || &ack.round1_root != expected_root {
         return Err(CustodyError::Round1ViewMismatch);
     }
     let position = manifest
@@ -248,12 +253,11 @@ fn verify_round1_view_ack(
 
 /// `true` only if `acks` contains exactly 11 valid acknowledgements, one
 /// per distinct roster member, every one of them agreeing on the *same*
-/// `expected_root` for `expected_session_id`. This is the barrier `part2`
-/// must wait behind.
+/// `expected_root` and bound to `manifest`'s own session id. This is the
+/// barrier `part2` must wait behind.
 pub fn round1_view_confirmed(
     manifest: &DkgSessionManifestV1,
     acks: &[Round1ViewAckV1],
-    expected_session_id: &[u8; 32],
     expected_root: &[u8; 32],
 ) -> bool {
     if acks.len() != manifest.roster.len() {
@@ -261,7 +265,7 @@ pub fn round1_view_confirmed(
     }
     let mut seen = std::collections::HashSet::new();
     for ack in acks {
-        if verify_round1_view_ack(manifest, ack, expected_session_id, expected_root).is_err() {
+        if verify_round1_view_ack(manifest, ack, expected_root).is_err() {
             return false;
         }
         if !seen.insert(ack.custody_did.clone()) {
@@ -391,9 +395,9 @@ fn verify_completion_attestation(
 
 /// `true` only if `attestations` has exactly 11 valid, distinct-signer
 /// entries that all agree on the *same*
-/// session/root/public-package-hash/group-key. A DKG-generated key is
-/// never treated as active custody authority on anything less -- crate
-/// docs' Phase G.
+/// session/root/public-package-hash/group-key, and that session is
+/// `manifest`'s own. A DKG-generated key is never treated as active
+/// custody authority on anything less -- crate docs' Phase G.
 pub fn completion_confirmed(
     manifest: &DkgSessionManifestV1,
     attestations: &[CompletionAttestationV1],
@@ -405,6 +409,14 @@ pub fn completion_confirmed(
         Some(a) => a,
         None => return false,
     };
+    // A complete, internally-consistent attestation set from an earlier
+    // ceremony attempt (same roster, retried with a new `attempt`) must
+    // never be accepted for this manifest just because it's complete and
+    // mutually consistent -- it has to actually be an attestation of
+    // *this* session.
+    if first.session_id != manifest.session_id() {
+        return false;
+    }
     let mut seen = std::collections::HashSet::new();
     for attestation in attestations {
         if attestation.session_id != first.session_id

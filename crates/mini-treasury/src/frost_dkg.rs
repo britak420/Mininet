@@ -230,6 +230,17 @@ pub(crate) fn verify_knowledge(
 /// share sum in [`dkg_finalize`].
 pub struct DkgRound1Secret {
     pub(crate) coefficients: Vec<Scalar>,
+    /// The exact set of recipient identifiers this session's real roster
+    /// permits, fixed at generation time. Recorded so
+    /// [`dkg_generate_round2_shares`] can bound which indices it will ever
+    /// evaluate at to this session's actual participants — see that
+    /// function's docs for why an unbounded recipient list is itself a
+    /// secret-recovery oracle, not just an index-0 problem. Not a bare
+    /// numeric range: [`crate::frost_reshare::reshare_round1`]'s new
+    /// committee identifiers are not required to be sequential from `1`,
+    /// so the allowed set has to be the roster's actual identifiers, not
+    /// `1..=n`.
+    pub(crate) allowed_recipients: BTreeSet<u16>,
 }
 
 impl core::fmt::Debug for DkgRound1Secret {
@@ -285,7 +296,10 @@ pub fn dkg_round1(
     let proof_of_knowledge = prove_knowledge(coefficients[0], commitments[0], index, context)?;
 
     Ok((
-        DkgRound1Secret { coefficients },
+        DkgRound1Secret {
+            coefficients,
+            allowed_recipients: (1..=n).collect(),
+        },
         DkgRound1Package {
             index,
             commitments,
@@ -335,12 +349,29 @@ pub fn verify_round1_package(
 /// gap on the *recipient* side, where nothing previously stopped a caller
 /// (or a malicious coordinator relaying `recipient_indices`) from asking
 /// for evaluation at `0` and receiving the raw secret back.
+///
+/// Also rejects any index outside `secret.allowed_recipients` (fixed at
+/// [`dkg_round1`]/[`crate::frost_reshare::reshare_round1`] time) and any
+/// index repeated within `recipient_indices`. Index `0` alone is not the
+/// whole vulnerability class: a degree-`(threshold - 1)` polynomial is
+/// recoverable at *any* point from `threshold` of its evaluations by
+/// Lagrange interpolation, including `f(0)`, so a coordinator able to ask
+/// this function to evaluate at arbitrarily many *nonzero* indices —
+/// "phantom" indices with no real participant behind them — is just as
+/// much a secret-recovery oracle as asking for `f(0)` directly, once it
+/// has collected `threshold` distinct answers. Bounding every recipient to
+/// this session's actual roster caps what any combination of calls can
+/// ever expose at the same real participants' shares the protocol already
+/// intentionally discloses to them.
 pub fn dkg_generate_round2_shares(
     secret: &DkgRound1Secret,
     recipient_indices: &[u16],
 ) -> Result<BTreeMap<u16, Scalar>> {
-    if recipient_indices.contains(&0) {
-        return Err(TreasuryError::InvalidFrostParticipant);
+    let mut seen = BTreeSet::new();
+    for &j in recipient_indices {
+        if j == 0 || !secret.allowed_recipients.contains(&j) || !seen.insert(j) {
+            return Err(TreasuryError::InvalidFrostParticipant);
+        }
     }
     Ok(recipient_indices
         .iter()
@@ -711,6 +742,48 @@ mod tests {
             dkg_generate_round2_shares(&secret, &[2, 0, 3]).unwrap_err(),
             TreasuryError::InvalidFrostParticipant
         );
+    }
+
+    #[test]
+    fn a_recipient_index_beyond_the_session_roster_is_rejected() {
+        // n = 5: only indices 1..=5 are real participants. Anything past
+        // that is a "phantom" index with no real participant behind it --
+        // rejecting index 0 alone does not stop a coordinator from
+        // collecting `threshold` evaluations at made-up indices like
+        // 6, 7, 8 and interpolating f(0) from those instead.
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        assert_eq!(
+            dkg_generate_round2_shares(&secret, &[2, 6]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
+    fn a_repeated_recipient_index_in_one_call_is_rejected() {
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        assert_eq!(
+            dkg_generate_round2_shares(&secret, &[2, 3, 2]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
+    fn a_coordinator_cannot_collect_enough_phantom_evaluations_to_interpolate_the_secret() {
+        // End-to-end demonstration, not just a boundary check: even a
+        // coordinator who can call `dkg_generate_round2_shares` directly
+        // (bypassing any real per-recipient transport) can never gather
+        // `threshold` evaluations at indices this session didn't actually
+        // have, because every out-of-range index is refused individually
+        // -- there is no way to accumulate enough points to run Lagrange
+        // interpolation against f(0).
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        // The only accessible indices are 1..=5; asking for any index in
+        // 6..=1000 always fails, so no amount of calling this function
+        // can ever produce `threshold` (3) evaluations outside the real
+        // roster.
+        for phantom in 6u16..=1000 {
+            assert!(dkg_generate_round2_shares(&secret, &[phantom]).is_err());
+        }
     }
 
     #[test]

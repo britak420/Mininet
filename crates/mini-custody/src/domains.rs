@@ -22,6 +22,25 @@ pub const XRPL_CUSTODY: CustodyDomain = CustodyDomain(3);
 /// `mini_bounty` anonymous developer-bounty payout signing authority.
 pub const BOUNTY_PAYOUT_CUSTODY: CustodyDomain = CustodyDomain(4);
 
+/// Every domain [`DkgSessionManifestV1::validate`] accepts. A fifth
+/// production domain is a deliberate code change to this list (and this
+/// module's own doc comment says so) -- not a value any manifest on the
+/// wire can introduce by simply naming an unused `u16`.
+const KNOWN_DOMAINS: [CustodyDomain; 4] = [
+    BTC_CUSTODY,
+    XMR_CUSTODY,
+    XRPL_CUSTODY,
+    BOUNTY_PAYOUT_CUSTODY,
+];
+
+/// Whether `domain` is one of this crate's declared production custody
+/// domains. Used by [`DkgSessionManifestV1::validate`] to reject a
+/// manifest naming any other `CustodyDomain(u16)` value outright, since
+/// the type itself does not close the representation.
+pub(crate) fn is_known_domain(domain: CustodyDomain) -> bool {
+    KNOWN_DOMAINS.contains(&domain)
+}
+
 /// One domain's currently active custody key state, as recorded locally
 /// after a ceremony completes. This crate never fetches or reconciles
 /// this against any external chain -- see the crate's top-level "no
@@ -90,20 +109,34 @@ impl CustodyDomainRegistry {
     /// caller must have already confirmed
     /// [`crate::session::completion_confirmed`] -- this type has no way
     /// to enforce that itself, since it never sees the attestations.
+    ///
+    /// Takes the completed ceremony's own `manifest` (not a bare
+    /// `(domain, epoch, key)` tuple) and re-runs [`Self::validate_chain`]
+    /// against this registry's *current* state immediately before
+    /// inserting, rather than trusting the caller checked it against
+    /// whatever the state was earlier. Two completions for the same
+    /// domain processed out of order (a genuinely later ceremony's result
+    /// arriving first, say) would otherwise let a stale, already-
+    /// superseded completion overwrite a newer one just because both were
+    /// independently valid *when each was checked*: this registry
+    /// describes the currently active custody authority, so an insert
+    /// that is not the exact successor of what is stored *right now* is
+    /// rejected instead of silently accepted.
     pub fn record_completion(
         &mut self,
-        domain: CustodyDomain,
-        epoch: u64,
+        manifest: &DkgSessionManifestV1,
         group_public_key: [u8; 32],
-    ) {
+    ) -> Result<()> {
+        self.validate_chain(manifest)?;
         self.states.insert(
-            domain.0,
+            manifest.custody_domain.0,
             DomainKeyStateV1 {
-                domain,
-                epoch,
+                domain: manifest.custody_domain,
+                epoch: manifest.custody_epoch,
                 group_public_key,
             },
         );
+        Ok(())
     }
 }
 
@@ -169,7 +202,8 @@ mod tests {
     #[test]
     fn a_rotation_must_chain_from_the_recorded_state() {
         let mut registry = CustodyDomainRegistry::new();
-        registry.record_completion(BTC_CUSTODY, 1, [5u8; 32]);
+        let epoch1 = sample_manifest(BTC_CUSTODY, 0, [0u8; 32]);
+        registry.record_completion(&epoch1, [5u8; 32]).unwrap();
         let good = sample_manifest(BTC_CUSTODY, 1, [5u8; 32]);
         registry.validate_chain(&good).unwrap();
 
@@ -178,9 +212,32 @@ mod tests {
     }
 
     #[test]
+    fn an_out_of_order_stale_completion_cannot_roll_the_registry_back() {
+        let mut registry = CustodyDomainRegistry::new();
+        let epoch1 = sample_manifest(BTC_CUSTODY, 0, [0u8; 32]);
+        registry.record_completion(&epoch1, [5u8; 32]).unwrap();
+        let epoch2 = sample_manifest(BTC_CUSTODY, 1, [5u8; 32]);
+        registry.record_completion(&epoch2, [6u8; 32]).unwrap();
+        assert_eq!(registry.state_of(BTC_CUSTODY).unwrap().epoch, 2);
+
+        // A delayed re-delivery of the epoch-1 completion arrives after
+        // epoch 2 is already recorded: it is not the exact successor of
+        // the *current* state (epoch 2), so it must be rejected rather
+        // than silently rolling the registry back to epoch 1.
+        let err = registry.record_completion(&epoch1, [5u8; 32]).unwrap_err();
+        assert!(matches!(err, CustodyError::InvalidManifest(_)));
+        assert_eq!(registry.state_of(BTC_CUSTODY).unwrap().epoch, 2);
+        assert_eq!(
+            registry.state_of(BTC_CUSTODY).unwrap().group_public_key,
+            [6u8; 32]
+        );
+    }
+
+    #[test]
     fn domains_are_independent() {
         let mut registry = CustodyDomainRegistry::new();
-        registry.record_completion(BTC_CUSTODY, 1, [5u8; 32]);
+        let epoch1 = sample_manifest(BTC_CUSTODY, 0, [0u8; 32]);
+        registry.record_completion(&epoch1, [5u8; 32]).unwrap();
         // XMR has never completed a ceremony, even though BTC has.
         let xmr_first = sample_manifest(XMR_CUSTODY, 0, [0u8; 32]);
         registry.validate_chain(&xmr_first).unwrap();

@@ -29,8 +29,18 @@
 
 use zeroize::Zeroize;
 
+// Every point this module decodes is a published spend/view account key or
+// an ephemeral per-payment transaction key (`tx_public_key`, R = r*G) --
+// never a role where the identity element is a meaningful value. Using the
+// non-identity decoder here (not just in the signature modules) closes a
+// real gap: with the plain decoder, a recipient could publish the identity
+// point as `view_public`, making the Diffie-Hellman shared point `r*B`
+// always equal the identity regardless of the sender's `r`, so the
+// derived `s` (and therefore the memo key `StealthSharedSecret`) becomes
+// predictable to any observer and the output becomes linkable across
+// payments to the same published spend key.
 use crate::canonical::{
-    canonical_point as decompress_point, canonical_scalar as decompress_scalar,
+    canonical_nonidentity_point as decompress_point, canonical_scalar as decompress_scalar,
 };
 use crate::curve::{hash_to_scalar, random_scalar, RistrettoPoint, Scalar};
 use crate::error::Result;
@@ -401,6 +411,79 @@ mod tests {
             one_time_address: vec![0u8; 32],
         };
         assert!(!scheme.recognizes(b"view", b"spend", &fake_output));
+    }
+
+    /// The identity point's canonical compressed encoding. Not a "short"
+    /// or malformed byte string -- `canonical_point` (the plain decoder)
+    /// accepts it as a perfectly valid Ristretto point. Only the
+    /// non-identity decoder rejects it.
+    fn identity_point_bytes() -> [u8; 32] {
+        use curve25519_dalek::traits::Identity;
+        crate::curve::RistrettoPoint::identity()
+            .compress()
+            .to_bytes()
+    }
+
+    #[test]
+    fn a_published_identity_view_key_is_rejected_not_silently_accepted() {
+        // A recipient (malicious or buggy) publishes the identity point as
+        // their view key. If accepted, the DH shared point r*B is always
+        // the identity regardless of the sender's r, making the derived
+        // shared secret -- and therefore the memo key and the one-time
+        // address's own unlinkability -- predictable to any observer.
+        let recipient = StealthKeypair::generate().unwrap();
+        let identity = identity_point_bytes();
+        assert_eq!(
+            derive_output_with_secret(&recipient.spend_public_bytes(), &identity),
+            None
+        );
+        let mut scheme = MininetStealthAddress;
+        assert_eq!(
+            scheme.derive_output(&recipient.spend_public_bytes(), &identity),
+            None
+        );
+    }
+
+    #[test]
+    fn a_published_identity_spend_key_is_rejected_not_silently_accepted() {
+        let recipient = StealthKeypair::generate().unwrap();
+        let identity = identity_point_bytes();
+        assert_eq!(
+            derive_output_with_secret(&identity, &recipient.view_public_bytes()),
+            None
+        );
+        assert!(!stealth_address_is_well_formed(
+            &identity,
+            &recipient.view_public_bytes()
+        ));
+    }
+
+    #[test]
+    fn an_identity_transaction_key_is_rejected_by_recognizes_and_recover_shared_secret() {
+        let recipient = StealthKeypair::generate().unwrap();
+        let identity = identity_point_bytes();
+        let fake_output = StealthOutput {
+            tx_public_key: identity.to_vec(),
+            one_time_address: vec![0u8; 32],
+        };
+        let scheme = MininetStealthAddress;
+        assert!(!scheme.recognizes(
+            &recipient.view_secret_bytes(),
+            &recipient.spend_public_bytes(),
+            &fake_output
+        ));
+        assert_eq!(
+            recover_shared_secret(&recipient.view_secret_bytes(), &identity),
+            None
+        );
+        assert_eq!(
+            derive_spend_scalar(
+                &recipient.view_secret_bytes(),
+                &recipient.spend_secret_bytes(),
+                &fake_output
+            ),
+            None
+        );
     }
 
     #[test]

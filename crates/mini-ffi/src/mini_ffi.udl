@@ -28,6 +28,16 @@ callback interface BleRadio {
 
   [Throws=BleRadioError]
   sequence<u8>? try_read_chunk();
+
+  // Best-effort: close the underlying platform connection (GATT
+  // disconnect/cancelConnection). Called from Rust exactly once, when the
+  // bearer wrapping this radio is dropped for any reason -- including a
+  // `mini_mesh::MeshNode` pruning this link after a protocol or send
+  // failure, not only an explicit `close()`/`disconnect()` call a caller
+  // makes directly. No `Throws`: a failure here has nothing further for
+  // Rust to act on, the same reasoning `RadioAdapter`'s other methods
+  // already collapse every platform-specific failure into one error for.
+  void disconnect();
 };
 
 interface BleBearerHandle {

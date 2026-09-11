@@ -93,7 +93,17 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
-        scanner.startScan(listOf(filter), settings, scanCallback)
+        try {
+            scanner.startScan(listOf(filter), settings, scanCallback)
+        } catch (_: SecurityException) {
+            // A fresh install (or a user who revoked it) without
+            // BLUETOOTH_SCAN granted yet -- the same failure
+            // BleMeshService.startScanning() already catches for its own
+            // continuous scan. No scan was ever started, so there is
+            // nothing to stop; just report the clean failure this
+            // function's contract already promises for "not ready."
+            return false
+        }
         scanFound.await(timeoutMs, TimeUnit.MILLISECONDS)
         runCatching { scanner.stopScan(scanCallback) }
         val device = foundDevice.get() ?: return false
@@ -109,7 +119,17 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
      */
     fun connectAndAwaitReady(device: BluetoothDevice, timeoutMs: Long): Boolean {
         val start = System.currentTimeMillis()
-        gatt = device.connectGatt(appContext, false, this, BluetoothDevice.TRANSPORT_LE)
+        try {
+            gatt = device.connectGatt(appContext, false, this, BluetoothDevice.TRANSPORT_LE)
+        } catch (_: SecurityException) {
+            // Same missing-permission case scanConnectAndAwaitReady's own
+            // startScan guards against, reachable here too since a caller
+            // (BleMeshService) can invoke this directly with an
+            // already-discovered device, skipping this class's own scan
+            // step entirely. `gatt` is never assigned when this throws, so
+            // there is no half-open GATT client for close() to clean up.
+            return false
+        }
 
         fun remaining(): Long = (timeoutMs - (System.currentTimeMillis() - start)).coerceAtLeast(0)
         if (!connectedLatch.await(remaining(), TimeUnit.MILLISECONDS) || connectFailed) return false
@@ -306,6 +326,15 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
         if (chunk != null) return chunk.toUByteList()
         if (connectFailed) throw BleRadioException.Failed("peripheral disconnected")
         return null
+    }
+
+    // Called from Rust whenever the bearer wrapping this radio is dropped
+    // for any reason -- including mini_mesh::MeshNode pruning this link
+    // after a protocol or send failure, not only an explicit caller-driven
+    // close. Reuses close() so both paths tear down the same GATT client
+    // state identically.
+    override fun disconnect() {
+        close()
     }
 
     companion object {

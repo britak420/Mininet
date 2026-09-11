@@ -22931,3 +22931,213 @@ noise, and — as always — closing Gate #97 itself is founder/hardware-
 tester action this repository cannot substitute for.
 
 **Supersedes / superseded by:** none.
+
+### D-0511 — PR #333 CI/CodeQL/Codex remediation batch: `dependency-deny` advisory, hard-coded-salt static-analysis fix, FROST DKG phantom-index oracle, stealth-address identity-key rejection, `mini-custody` session-binding/key-reuse/domain/rollback fixes, BLE disconnect propagation  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** GitHub CI (`dependency-deny`, CodeQL) and
+Codex automated review on PR #333, commits `696f28a`/`32df4ad`; touches
+`deny.toml`; `crates/mini-custody/src/{share_store,session,manifest,
+domains}.rs`, `crates/mini-custody/tests/{full_ceremony,session_binding}
+.rs`; `crates/mini-treasury/src/{frost_dkg,frost_reshare}.rs`;
+`crates/mini-value/src/{confidential_impl,stealth_impl}.rs`;
+`crates/mini-ffi/src/{ble,mesh,mini_ffi.udl}`; `app/android/app/src/main/
+java/org/mininet/app/{BleCentralRadio,BlePeripheralServer}.kt`;
+`README.md`.
+
+**Decision:** every finding below was independently verified against the
+real code before being fixed, per this tree's standing discipline (D-0506/
+D-0507/D-0509/D-0510's identical practice) — none was taken on the
+reviewing tool's word alone.
+
+1. **`dependency-deny` CI failure.** `frost-ristretto255` (D-0507, pinned
+   to the Gate #93 audit report's normative version) pulls
+   `postcard`'s `heapless-cas` feature (needed for
+   `PublicKeyPackage::serialize`, used in `mini_custody::session`) →
+   `heapless` 0.7 → `atomic-polyfill` 1.0.3, flagged unmaintained
+   (RUSTSEC-2023-0089). No safe upgrade exists: `heapless` 0.8+ dropped
+   atomic-polyfill for `portable-atomic`, but `postcard` 1.1.3 (latest)
+   still pins `heapless` 0.7. Added a specific, reasoned `deny.toml`
+   ignore entry (the same pattern the file's existing RUSTSEC-2026-0192
+   entry already uses) rather than loosening the policy generally.
+2. **CodeQL critical: hard-coded cryptographic value used as a salt**
+   (`mini-custody::share_store::seal_key_package`). Not actually a
+   hard-coded salt — a fresh salt was already drawn from
+   `mini_crypto::random_32()` on every call — but the `[0u8; SALT_LEN]`-
+   then-`copy_from_slice` idiom used to build it reads to CodeQL's
+   dataflow analysis as a literal flowing to a salt sink. Rewritten to
+   build the array directly from a slice of the random bytes via
+   `try_into()`, with no zeroed intermediate for a static analyzer (or a
+   future human reader) to misread.
+3. **FROST DKG phantom-index oracle** (`mini_treasury::frost_dkg::
+   dkg_generate_round2_shares`, D-0506's own index-0 fix). Rejecting only
+   recipient index `0` left the function as an evaluation oracle for
+   arbitrary *nonzero* indices: a coordinator able to call it with
+   `threshold` distinct made-up ("phantom") indices could Lagrange-
+   interpolate `f(0)` — the raw DKG secret — exactly as directly as
+   requesting index `0` itself, without needing any real participant's
+   cooperation. Fixed by recording the session's actual permitted
+   recipient set on `DkgRound1Secret` at generation time
+   (`allowed_recipients: BTreeSet<u16>`, not a numeric range — verified
+   against `frost_reshare::reshare_round1`'s own test fixtures, which
+   deliberately use non-sequential new-committee identifiers like
+   `[10,11,12,13]`, so a bare `1..=n` range check would have rejected a
+   legitimate resharing roster) and rejecting any `dkg_generate_round2_
+   shares` call for an index outside it, or a duplicate index within one
+   call. `frost_reshare::reshare_round1`'s signature changed from a bare
+   `new_n: u16` to `new_committee: &[u16]` so the real roster, not just
+   its size, is available to bind.
+4. **Stealth-address identity-key acceptance** (`mini_value::
+   stealth_impl`). Every decode site (`recipient_spend_public`/
+   `recipient_view_public`, `own_spend_public`, `output.tx_public_key`)
+   used the plain `canonical_point` decoder (D-0509), which accepts the
+   identity element as a structurally valid Ristretto point. A recipient
+   publishing the identity point as `view_public` makes the Diffie-Hellman
+   shared point `r*B` always equal the identity regardless of the
+   sender's `r`, making the derived shared secret — and so the memo key
+   and the one-time address's unlinkability — predictable to any
+   observer. Every one of those roles is a published account/transaction
+   key, never a role where identity is meaningful, so the whole module's
+   import switched to `canonical_nonidentity_point` (already used
+   elsewhere for exactly this reason, e.g. `mlsag`/`ring_impl`'s key
+   images, per D-0509).
+5. **`mini-custody` session binding** (`session::round1_view_confirmed`/
+   `verify_round1_view_ack`, `session::completion_confirmed`). Both took
+   the expected session id as a bare parameter rather than reading
+   `manifest.session_id()` directly, so a complete, internally-consistent,
+   validly-signed set of Round-1 acks or completion attestations from a
+   *different* ceremony attempt (same roster, retried with a new
+   `attempt`, hence a different `session_id`) could satisfy the barrier
+   for a manifest it was never signed for if a caller (by bug, or a
+   malicious coordinator orchestrating a retry) supplied the wrong
+   "expected" value. Both now compare directly against `manifest.
+   session_id()`; `round1_view_confirmed`'s redundant `expected_session_id`
+   parameter was removed entirely rather than left as a now-unchecked
+   trap for a future caller.
+6. **Key reuse across custody protocol roles**
+   (`manifest::DkgSessionManifestV1::validate`). Device and transport keys
+   were checked for uniqueness in two separate sets, so participant A's
+   transport key could be reused as participant B's device key (or vice
+   versa, or even one participant's own key reused across both their own
+   roles) without being caught, handing whoever holds that key
+   ceremony-signing authority under an identity that isn't theirs.
+   Uniqueness is now checked across the union of both roles in one set.
+7. **Undeclared custody domains accepted**
+   (`manifest::DkgSessionManifestV1::validate`). `CustodyDomain(pub u16)`
+   is a public tuple struct — nothing stopped a manifest from naming any
+   `u16`, not just the four production domains `domains.rs` declares
+   (BTC/XMR/XRPL/bounty-payout). Added `domains::is_known_domain` (a
+   closed, in-code list) and a `validate` check against it.
+8. **Completed epochs could roll the registry back**
+   (`domains::CustodyDomainRegistry::record_completion`). An unconditional
+   `states.insert` let a delayed, out-of-order delivery of an older
+   (but individually valid-when-checked) ceremony completion silently
+   overwrite a newer one. `record_completion` now takes the completed
+   ceremony's own manifest (not a bare `(domain, epoch, key)` tuple) and
+   re-runs `validate_chain` against the registry's *current* state
+   immediately before inserting, so only the exact successor of what is
+   stored right now is ever accepted.
+9. **Canonical-scalar decoding vs. pre-existing note compatibility**
+   (`mini_value::confidential_impl::pedersen_commitment`, flagged as a
+   consequence of D-0509). Correct as a general engineering concern —
+   switching a blinding-factor *opening* path from
+   `Scalar::from_bytes_mod_order` to the canonical decoder makes roughly
+   15/16 of blinding factors generated the old way (raw
+   `mini_crypto::random_32()` bytes, no wide reduction) fail to reopen —
+   but not applicable to this specific codebase today: there is no
+   production deployment or persisted note corpus predating D-0509, which
+   shipped the canonical-decode fix and the companion generation-side fix
+   (`mini_value::random_scalar_bytes`) together in the same unreleased
+   branch. Documented explicitly on `pedersen_commitment` as a
+   compatibility boundary future persistence work must account for,
+   rather than built out as unneeded migration machinery today (nothing
+   to migrate yet).
+10. **BLE link pruning never told the platform to disconnect**
+    (`mini_mesh::MeshNode`/`mini-ffi`/Android). When `MeshNode::poll`
+    prunes a link after a terminal `try_recv`/`send` failure, dropping the
+    Rust-side `EncryptedLink` had no operation that reached the platform
+    radio: the Android GATT connection stayed open, and on the peripheral
+    side `BlePeripheralServer`'s `LinkState`/`BleMeshService`'s
+    `centralLinks` entry stayed live, suppressing rediscovery of the same
+    peer. Fixed at the ownership boundary rather than by threading a
+    callback through `MeshNode`'s specific pruning call sites: added
+    `BleRadio::disconnect()` (UDL callback interface, Rust trait, and both
+    Kotlin implementations — `BleCentralRadio.disconnect` reuses its
+    existing `close()`; `BlePeripheralServer.PeripheralLinkRadio.
+    disconnect` reuses the same `cancelConnection` the existing
+    handshake-failure `disconnect` closure already calls) and an
+    `impl Drop for RadioAdapter` that calls it. Since `RadioAdapter` is
+    owned (by value, through `AndroidBleBearer`/`EncryptedLink`) by every
+    link `MeshNode` holds, this fires on *any* path a link's bearer is
+    dropped — mesh pruning, a failed handshake, an explicit close — not
+    only the two specific call sites the finding named.
+11. Also fixed, as **P2**: an unguarded `BluetoothDevice.connectGatt`/
+    `BluetoothLeScanner.startScan` in `BleCentralRadio.
+    {connectAndAwaitReady,scanConnectAndAwaitReady}` could throw
+    `SecurityException` on Android 12+ without runtime Bluetooth grants
+    (the same class `BleMeshService.startScanning` already guards);
+    wrapped both in `try`/`catch`, returning the clean `false` this
+    class's own contract already promises for "not ready" rather than
+    crashing. `README.md`'s decision-log summary range updated through
+    this entry.
+
+**Reason:** every fix above is the same category of error this tree's own
+review discipline exists to catch before merge — a real gap between what a
+check claims to enforce and what it actually enforces (session binding,
+domain closure, key-role separation, registry monotonicity), a real
+secret-recovery oracle one boundary check short of complete (the DKG
+phantom-index case, structurally identical to D-0506's own index-0 fix),
+a real predictability gap at a cryptographic boundary (stealth identity
+keys, structurally identical to D-0509's non-identity fixes), a real
+platform-resource leak at an ownership boundary (BLE disconnect), and two
+static-analysis/supply-chain findings that needed a specific, documented
+response rather than a blanket suppression.
+
+**Constitutional impact:** none. No dependency-edge change. All affected
+crates (`mini-custody`, `mini-treasury`, `mini-value`, `mini-ffi`, the
+Android app) remain founder-overridden, AI-authored, unaudited prototypes
+per D-0036/D-0037/D-0047 — this closes concrete defects in them without
+changing that status or claiming any gate closure.
+
+**Implementation status:** shipped. New/changed tests: `mini-custody`
+gains `manifest::tests::{an_undeclared_custody_domain_is_rejected,
+every_declared_production_domain_validates,
+reusing_one_participants_transport_key_as_anothers_device_key_is_rejected}`,
+`domains::tests::an_out_of_order_stale_completion_cannot_roll_the_
+registry_back`, and a new integration test file
+`tests/session_binding.rs` (two tests proving a retried ceremony attempt's
+acks/attestations don't satisfy a different manifest); `mini-treasury`
+gains `frost_dkg::tests::{a_recipient_index_beyond_the_session_roster_is_
+rejected, a_repeated_recipient_index_in_one_call_is_rejected,
+a_coordinator_cannot_collect_enough_phantom_evaluations_to_interpolate_
+the_secret}`; `mini-value` gains `stealth_impl::tests::{a_published_
+identity_view_key_is_rejected_not_silently_accepted,
+a_published_identity_spend_key_is_rejected_not_silently_accepted,
+an_identity_transaction_key_is_rejected_by_recognizes_and_recover_shared_
+secret}`; `mini-ffi` gains `mesh::tests::
+a_link_pruned_after_its_peer_disappears_tells_the_platform_radio_to_
+disconnect`, a real end-to-end proof (not just a unit check) that dropping
+a mesh-pruned link's bearer reaches a mock platform radio's `disconnect()`.
+`cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features
+--workspace -- -D warnings`, and `cargo deny check` are all clean;
+`cargo test --workspace --all-features` passes everywhere except the same
+pre-existing, sandbox-only `mini-build-runner-wasmtime` adversarial-suite
+failure D-0509/D-0510 already recorded (missing `wasm32` rustc target).
+The two Kotlin changes (`BleCentralRadio`/`BlePeripheralServer.kt`)
+compile by inspection only — no JDK/Android SDK in this environment, the
+same honest limit every Android-side decision in this log already states.
+
+**Failure point:** this closes the specific findings above; it is not a
+general audit of `mini-custody`/`mini-treasury`/`mini-value`/the BLE mesh
+stack, and none of those crates' broader unaudited status changes. The
+canonical-scalar/pre-existing-note compatibility note (item 9) is a
+documentation-only fix — if this scheme is ever used to persist real,
+spendable notes before a real migration step is added, the concern it
+documents becomes live.
+
+**Required follow-up:** none blocking; the same Gate #72/#93/#97 follow-up
+items D-0506–D-0510 already name remain open. Real Android CI
+(`assembleDebug`) and a real two-device test remain the only gates that
+actually exercise the Kotlin changes in this entry, as every prior
+Android-side entry in this log already states.
+
+**Supersedes / superseded by:** none.

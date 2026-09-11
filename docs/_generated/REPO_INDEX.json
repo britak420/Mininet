@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 78,
-    "files": 983,
+    "files": 984,
     "headings": 3570,
-    "rust_symbols": 10024
+    "rust_symbols": 10048
   },
   "crates": {
     "did-mini": {
@@ -1780,7 +1780,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28057,
+      "bytes": 28218,
       "group": "root",
       "headings": [
         {
@@ -1820,7 +1820,7 @@
         },
         {
           "level": 2,
-          "line": 443,
+          "line": 446,
           "text": "License"
         }
       ],
@@ -1850,9 +1850,9 @@
         "path",
         "switch"
       ],
-      "lines": 447,
+      "lines": 450,
       "path": "README.md",
-      "sha256": "2a24f2013e904414df8502f53ddb2892b40b831757444485efa5a47826d01e0a",
+      "sha256": "919d3c06a8eb8717fbfd2e05338f4632b01f26b5f9b59a12a1ba6ef08a400826",
       "symbols": [],
       "title": "Mininet"
     },
@@ -25760,7 +25760,7 @@
       "title": "use did_mini::Did;"
     },
     {
-      "bytes": 7364,
+      "bytes": 10322,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
@@ -25769,29 +25769,29 @@
         "custodydomain",
         "state",
         "key",
-        "self",
-        "previous_epoch",
         "custody",
         "ceremony",
-        "domainkeystatev1",
+        "previous_epoch",
+        "self",
         "custodydomainregistry",
         "signing",
         "authority",
+        "const",
         "recorded",
-        "states",
-        "seed",
+        "registry",
+        "domainkeystatev1",
         "new",
+        "one",
         "never",
         "chain",
         "custodyerror",
-        "const",
-        "epoch",
-        "group_public_key",
-        "registry"
+        "dkgsessionmanifestv1",
+        "states",
+        "previous_group_key"
       ],
-      "lines": 191,
+      "lines": 248,
       "path": "crates/mini-custody/src/domains.rs",
-      "sha256": "9e7b460b76e6d5c913e3ccc9fe51a47098ff65060f85c2b6ed784de4d736aaa9",
+      "sha256": "4211383e3d92af7363427913e603f515751a4ab15366f6a23b03624a607ad904",
       "symbols": [
         {
           "kind": "const",
@@ -25814,78 +25814,88 @@
           "name": "BOUNTY_PAYOUT_CUSTODY"
         },
         {
+          "kind": "const",
+          "line": 29,
+          "name": "KNOWN_DOMAINS"
+        },
+        {
           "kind": "struct",
-          "line": 31,
+          "line": 50,
           "name": "DomainKeyStateV1"
         },
         {
           "kind": "struct",
-          "line": 40,
+          "line": 59,
           "name": "CustodyDomainRegistry"
         },
         {
           "kind": "impl",
-          "line": 44,
+          "line": 63,
           "name": "CustodyDomainRegistry"
         },
         {
           "kind": "fn",
-          "line": 45,
+          "line": 64,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 53,
+          "line": 72,
           "name": "state_of"
         },
         {
           "kind": "fn",
-          "line": 62,
+          "line": 81,
           "name": "validate_chain"
         },
         {
           "kind": "fn",
-          "line": 93,
+          "line": 125,
           "name": "record_completion"
         },
         {
           "kind": "mod",
-          "line": 111,
+          "line": 144,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 151,
           "name": "test_did"
         },
         {
           "kind": "fn",
-          "line": 124,
+          "line": 157,
           "name": "participant"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 167,
           "name": "sample_manifest"
         },
         {
           "kind": "fn",
-          "line": 156,
+          "line": 189,
           "name": "a_first_ceremony_for_a_domain_must_have_zero_previous_state"
         },
         {
           "kind": "fn",
-          "line": 163,
+          "line": 196,
           "name": "a_first_ceremony_with_nonzero_previous_state_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 170,
+          "line": 203,
           "name": "a_rotation_must_chain_from_the_recorded_state"
         },
         {
           "kind": "fn",
-          "line": 181,
+          "line": 215,
+          "name": "an_out_of_order_stale_completion_cannot_roll_the_registry_back"
+        },
+        {
+          "kind": "fn",
+          "line": 237,
           "name": "domains_are_independent"
         }
       ],
@@ -26036,7 +26046,7 @@
       "title": "pub mod abort;"
     },
     {
-      "bytes": 14877,
+      "bytes": 16772,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
@@ -26065,9 +26075,9 @@
         "u16",
         "channel"
       ],
-      "lines": 360,
+      "lines": 403,
       "path": "crates/mini-custody/src/manifest.rs",
-      "sha256": "0f1688815d579889e50a54513a903996e5d2fd610388a1f0f26b1beb73233dcb",
+      "sha256": "141aadc4fde497004671e27239afaac0a5588edf082db4a64e4bf5af3023ef33",
       "symbols": [
         {
           "kind": "const",
@@ -26136,67 +26146,82 @@
         },
         {
           "kind": "fn",
-          "line": 238,
+          "line": 250,
           "name": "frost_identifier_of"
         },
         {
           "kind": "fn",
-          "line": 247,
+          "line": 259,
           "name": "session_id"
         },
         {
           "kind": "mod",
-          "line": 253,
+          "line": 265,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 261,
+          "line": 273,
           "name": "test_did"
         },
         {
           "kind": "fn",
-          "line": 267,
+          "line": 279,
           "name": "participant"
         },
         {
           "kind": "fn",
-          "line": 277,
+          "line": 289,
           "name": "sample_manifest"
         },
         {
           "kind": "fn",
-          "line": 305,
+          "line": 317,
           "name": "a_valid_manifest_round_trips_through_encode_decode"
         },
         {
           "kind": "fn",
-          "line": 313,
+          "line": 325,
           "name": "trailing_bytes_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 321,
+          "line": 333,
           "name": "wrong_roster_size_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 328,
+          "line": 340,
           "name": "non_canonical_roster_order_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 335,
-          "name": "any_field_change_changes_the_session_id"
-        },
-        {
-          "kind": "fn",
-          "line": 343,
-          "name": "frost_identifiers_map_1_through_11_in_roster_order"
+          "line": 347,
+          "name": "an_undeclared_custody_domain_is_rejected"
         },
         {
           "kind": "fn",
           "line": 354,
+          "name": "every_declared_production_domain_validates"
+        },
+        {
+          "kind": "fn",
+          "line": 368,
+          "name": "reusing_one_participants_transport_key_as_anothers_device_key_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 378,
+          "name": "any_field_change_changes_the_session_id"
+        },
+        {
+          "kind": "fn",
+          "line": 386,
+          "name": "frost_identifiers_map_1_through_11_in_roster_order"
+        },
+        {
+          "kind": "fn",
+          "line": 397,
           "name": "unknown_did_has_no_identifier"
         }
       ],
@@ -26300,7 +26325,7 @@
       "title": "use crate::error::{CustodyError, Result};"
     },
     {
-      "bytes": 15654,
+      "bytes": 16432,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
@@ -26329,9 +26354,9 @@
         "see",
         "position"
       ],
-      "lines": 426,
+      "lines": 438,
       "path": "crates/mini-custody/src/session.rs",
-      "sha256": "0e47f202c8c1d3570fd2e569e74ccb4c309de59c4eb1366733f3e6a3db904ee7",
+      "sha256": "6b371c364456c04233dfabb886408dcc469562a872d55bb91a5314669375c51b",
       "symbols": [
         {
           "kind": "fn",
@@ -26405,85 +26430,85 @@
         },
         {
           "kind": "fn",
-          "line": 253,
+          "line": 258,
           "name": "round1_view_confirmed"
         },
         {
           "kind": "fn",
-          "line": 282,
+          "line": 286,
           "name": "dkg_part2"
         },
         {
           "kind": "fn",
-          "line": 293,
+          "line": 297,
           "name": "dkg_part3"
         },
         {
           "kind": "fn",
-          "line": 307,
+          "line": 311,
           "name": "public_package_hash"
         },
         {
           "kind": "struct",
-          "line": 323,
+          "line": 327,
           "name": "CompletionAttestationV1"
         },
         {
           "kind": "fn",
-          "line": 332,
+          "line": 336,
           "name": "completion_message"
         },
         {
           "kind": "fn",
-          "line": 348,
+          "line": 352,
           "name": "sign_completion_attestation"
         },
         {
           "kind": "fn",
-          "line": 372,
+          "line": 376,
           "name": "verify_completion_attestation"
         },
         {
           "kind": "fn",
-          "line": 397,
+          "line": 401,
           "name": "completion_confirmed"
         }
       ],
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 6133,
+      "bytes": 6533,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
         "session_id",
-        "sealed",
         "passphrase",
+        "sealed",
         "salt",
         "nonce",
-        "keypackage",
         "key",
         "custodyerror",
         "salt_len",
+        "keypackage",
         "sealedkeypackagev1",
+        "never",
         "result",
         "ciphertext",
         "map_err",
         "sharestorageauthenticationfailed",
-        "payload",
-        "bytes",
         "derive_wrapping_key",
-        "seal_key_package",
-        "open_key_package",
         "one",
-        "never",
+        "bytes",
         "argon2",
         "key_bytes",
-        "serialized"
+        "payload",
+        "seal_key_package",
+        "open_key_package",
+        "output"
       ],
-      "lines": 149,
+      "lines": 153,
       "path": "crates/mini-custody/src/share_store.rs",
-      "sha256": "a1ab230cc0c5cd3b81035ba2c33e6914ad6e867004187724484dfff254fc1b2b",
+      "sha256": "3356b4676309cc96067debb9790651c5420f696e71103d5ccab73ff32ec911ca",
       "symbols": [
         {
           "kind": "const",
@@ -26507,37 +26532,37 @@
         },
         {
           "kind": "fn",
-          "line": 86,
+          "line": 90,
           "name": "open_key_package"
         },
         {
           "kind": "mod",
-          "line": 95,
+          "line": 99,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 99,
+          "line": 103,
           "name": "a_sealed_package_opens_with_the_right_passphrase"
         },
         {
           "kind": "fn",
-          "line": 109,
+          "line": 113,
           "name": "the_wrong_passphrase_fails_closed"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 122,
           "name": "relabeling_to_a_different_session_id_fails_closed"
         },
         {
           "kind": "fn",
-          "line": 128,
+          "line": 132,
           "name": "tampered_ciphertext_fails_closed"
         },
         {
           "kind": "fn",
-          "line": 139,
+          "line": 143,
           "name": "two_seals_of_the_same_payload_use_different_salts_and_nonces"
         }
       ],
@@ -26707,38 +26732,38 @@
       "title": "use crate::error::{CustodyError, Result};"
     },
     {
-      "bytes": 9132,
+      "bytes": 9474,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
-        "identifier",
-        "did",
         "manifest",
+        "did",
         "unwrap",
-        "btreemap",
+        "identifier",
         "participants",
         "session",
         "dkg",
+        "roster",
+        "seed",
         "device_key",
         "vec",
-        "package",
-        "session_id",
         "testparticipant",
         "phase",
-        "seed",
+        "btreemap",
+        "signingkey",
         "map",
         "collect",
+        "session_id",
         "frost_ristretto255",
-        "roster",
+        "key",
         "round1",
-        "round2",
         "multihash",
-        "iter",
-        "every"
+        "participant",
+        "iter"
       ],
-      "lines": 224,
+      "lines": 225,
       "path": "crates/mini-custody/tests/full_ceremony.rs",
-      "sha256": "11495ebd8d8d97eef3b165a33dfe83ede6595972ad885301b8c5c3cabc95b9f2",
+      "sha256": "26e18b8071d9c052225a97b787774bff1c7cecf2746f852c1854be658e4aeb9c",
       "symbols": [
         {
           "kind": "fn",
@@ -26752,16 +26777,78 @@
         },
         {
           "kind": "fn",
-          "line": 36,
+          "line": 41,
           "name": "build_roster"
         },
         {
           "kind": "fn",
-          "line": 71,
+          "line": 77,
           "name": "full_11_party_ceremony_produces_a_usable_threshold_key"
         }
       ],
       "title": "use std::collections::BTreeMap;"
+    },
+    {
+      "bytes": 4068,
+      "group": "crate:mini-custody",
+      "headings": [],
+      "keywords": [
+        "did",
+        "session",
+        "session_id",
+        "manifest",
+        "participants",
+        "manifest_a",
+        "build_roster",
+        "seed",
+        "device_key",
+        "manifest_b",
+        "testparticipant",
+        "attempt",
+        "roster",
+        "signingkey",
+        "vec",
+        "acks",
+        "attestations",
+        "different",
+        "multihash",
+        "map",
+        "collect",
+        "root",
+        "session_id_a",
+        "assert"
+      ],
+      "lines": 109,
+      "path": "crates/mini-custody/tests/session_binding.rs",
+      "sha256": "948c91d7f303b5b6034d28e21eacf62ba0ee57ec62a915ea86ca42b2600ee34e",
+      "symbols": [
+        {
+          "kind": "fn",
+          "line": 16,
+          "name": "test_did"
+        },
+        {
+          "kind": "struct",
+          "line": 22,
+          "name": "TestParticipant"
+        },
+        {
+          "kind": "fn",
+          "line": 30,
+          "name": "build_roster"
+        },
+        {
+          "kind": "fn",
+          "line": 66,
+          "name": "round1_view_acks_from_a_retried_attempt_do_not_satisfy_a_different_manifest"
+        },
+        {
+          "kind": "fn",
+          "line": 83,
+          "name": "completion_attestations_from_a_retried_attempt_do_not_satisfy_a_different_manifest"
+        }
+      ],
+      "title": "use did_mini::Did;"
     },
     {
       "bytes": 1100,
@@ -33074,7 +33161,7 @@
       "title": "fn main() {"
     },
     {
-      "bytes": 12680,
+      "bytes": 14279,
       "group": "crate:mini-ffi",
       "headings": [],
       "keywords": [
@@ -33085,27 +33172,27 @@
         "read_chunk",
         "try_read_chunk",
         "fmt",
-        "androidblebearer",
-        "radioadapter",
         "bleradioerror",
-        "radio",
         "result",
         "error",
-        "uniffi",
+        "androidblebearer",
+        "radioadapter",
+        "radio",
         "core",
         "send",
+        "uniffi",
         "chunk",
         "vec",
         "ble",
+        "disconnect",
         "std",
-        "blebearerhandle",
+        "drop",
         "bearer",
-        "boundary",
-        "kotlin"
+        "boundary"
       ],
-      "lines": 315,
+      "lines": 345,
       "path": "crates/mini-ffi/src/ble.rs",
-      "sha256": "ee550d6fce6c14c62a1901bb786cb3e5716ca54a0452fbe3ceb90ff87112f638",
+      "sha256": "e160145b04f8cdd853ce7dee78a3297c299f7cad27d88c66f5335e2fe85e6d55",
       "symbols": [
         {
           "kind": "trait",
@@ -33128,199 +33215,224 @@
           "name": "try_read_chunk"
         },
         {
+          "kind": "fn",
+          "line": 56,
+          "name": "disconnect"
+        },
+        {
           "kind": "enum",
-          "line": 58,
+          "line": 66,
           "name": "BleRadioError"
         },
         {
           "kind": "impl",
-          "line": 63,
+          "line": 71,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 64,
+          "line": 72,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 69,
+          "line": 77,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 78,
+          "line": 86,
           "name": "mini_bearer::BleRadio"
         },
         {
           "kind": "fn",
-          "line": 79,
+          "line": 87,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 85,
+          "line": 93,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 91,
+          "line": 99,
           "name": "try_read_chunk"
         },
         {
+          "kind": "impl",
+          "line": 106,
+          "name": "Drop"
+        },
+        {
+          "kind": "fn",
+          "line": 121,
+          "name": "drop"
+        },
+        {
           "kind": "struct",
-          "line": 116,
+          "line": 144,
           "name": "BleBearerHandle"
         },
         {
           "kind": "impl",
-          "line": 120,
+          "line": 148,
           "name": "BleBearerHandle"
         },
         {
           "kind": "fn",
-          "line": 127,
+          "line": 155,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 162,
           "name": "lock"
         },
         {
           "kind": "fn",
-          "line": 141,
+          "line": 169,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 148,
+          "line": 176,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 154,
+          "line": 182,
           "name": "try_recv"
         },
         {
           "kind": "enum",
-          "line": 166,
+          "line": 194,
           "name": "BleBearerError"
         },
         {
           "kind": "impl",
-          "line": 181,
+          "line": 209,
           "name": "BleBearerError"
         },
         {
           "kind": "fn",
-          "line": 182,
+          "line": 210,
           "name": "from_bearer"
         },
         {
           "kind": "impl",
-          "line": 193,
+          "line": 221,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 194,
+          "line": 222,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 208,
+          "line": 236,
           "name": "std::error::Error"
         },
         {
           "kind": "mod",
-          "line": 211,
+          "line": 239,
           "name": "tests"
         },
         {
           "kind": "struct",
-          "line": 215,
+          "line": 243,
           "name": "MockRadio"
         },
         {
           "kind": "impl",
-          "line": 220,
+          "line": 248,
           "name": "BleRadio"
         },
         {
           "kind": "fn",
-          "line": 221,
+          "line": 249,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 224,
+          "line": 252,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 231,
+          "line": 259,
           "name": "try_read_chunk"
         },
         {
           "kind": "fn",
-          "line": 240,
+          "line": 266,
+          "name": "disconnect"
+        },
+        {
+          "kind": "fn",
+          "line": 269,
           "name": "pair_with_mtu"
         },
         {
           "kind": "fn",
-          "line": 257,
+          "line": 286,
           "name": "pair"
         },
         {
           "kind": "fn",
-          "line": 262,
+          "line": 291,
           "name": "a_frame_larger_than_one_chunk_round_trips_through_the_ffi_handle"
         },
         {
           "kind": "fn",
-          "line": 270,
+          "line": 299,
           "name": "try_recv_returns_none_with_nothing_pending_then_the_frame_once_sent"
         },
         {
           "kind": "fn",
-          "line": 278,
+          "line": 307,
           "name": "a_radio_failure_surfaces_as_radio_failed_not_a_panic"
         },
         {
           "kind": "fn",
-          "line": 286,
+          "line": 315,
           "name": "an_mtu_too_small_for_the_header_is_reported_distinctly"
         },
         {
           "kind": "fn",
-          "line": 293,
+          "line": 322,
           "name": "a_bleradio_error_maps_to_radio_failed_through_the_adapter"
         },
         {
           "kind": "struct",
-          "line": 294,
+          "line": 323,
           "name": "AlwaysFailingRadio"
         },
         {
           "kind": "impl",
-          "line": 295,
+          "line": 324,
           "name": "BleRadio"
         },
         {
           "kind": "fn",
-          "line": 296,
+          "line": 325,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 299,
+          "line": 328,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 302,
+          "line": 331,
           "name": "try_read_chunk"
+        },
+        {
+          "kind": "fn",
+          "line": 334,
+          "name": "disconnect"
         }
       ],
       "title": "use std::sync::Mutex;"
@@ -34225,7 +34337,7 @@
       "title": "use std::sync::Mutex;"
     },
     {
-      "bytes": 9458,
+      "bytes": 12576,
       "group": "crate:mini-ffi",
       "headings": [],
       "keywords": [
@@ -34254,9 +34366,9 @@
         "bleradio",
         "central"
       ],
-      "lines": 244,
+      "lines": 307,
       "path": "crates/mini-ffi/src/mesh.rs",
-      "sha256": "c09b3e597ee285a4bfcb301033491523b04d3e900e5f0bd588d68cc3dba74143",
+      "sha256": "24fd8371013bab0dd5e6f81b919889b6a39ce78730b4935d13e54c170370759e",
       "symbols": [
         {
           "kind": "struct",
@@ -34350,37 +34462,47 @@
         },
         {
           "kind": "impl",
-          "line": 155,
+          "line": 156,
           "name": "BleRadio"
         },
         {
           "kind": "fn",
-          "line": 156,
+          "line": 157,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 159,
+          "line": 160,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 166,
+          "line": 167,
           "name": "try_read_chunk"
         },
         {
           "kind": "fn",
-          "line": 175,
+          "line": 174,
+          "name": "disconnect"
+        },
+        {
+          "kind": "fn",
+          "line": 181,
           "name": "mock_pair"
         },
         {
           "kind": "fn",
-          "line": 191,
+          "line": 199,
           "name": "two_meshes_linked_over_mock_radios_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 220,
+          "line": 228,
+          "name": "a_link_pruned_after_its_peer_disappears_tells_the_platform_radio_to_disconnect"
+        },
+        {
+          "kind": "fn",
+          "line": 283,
           "name": "an_oversized_broadcast_surfaces_payload_too_large_without_dropping_links"
         }
       ],
@@ -73783,7 +73905,7 @@
       "title": "use core::fmt;"
     },
     {
-      "bytes": 39200,
+      "bytes": 43039,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
@@ -73812,9 +73934,9 @@
         "value",
         "group"
       ],
-      "lines": 962,
+      "lines": 1035,
       "path": "crates/mini-treasury/src/frost_dkg.rs",
-      "sha256": "26e36f7305057b33b55e3f35a38fe04c348f0f672c0a643b006555ea25c49b57",
+      "sha256": "30af82160639c13048e1af0a34efe8f266c7a49f413113f82611f7030fe0591f",
       "symbols": [
         {
           "kind": "struct",
@@ -73843,192 +73965,207 @@
         },
         {
           "kind": "impl",
-          "line": 235,
+          "line": 246,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 236,
+          "line": 247,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 243,
+          "line": 254,
           "name": "Drop"
         },
         {
           "kind": "fn",
-          "line": 244,
+          "line": 255,
           "name": "drop"
         },
         {
           "kind": "struct",
-          "line": 253,
+          "line": 264,
           "name": "DkgRound1Package"
         },
         {
           "kind": "fn",
-          "line": 268,
+          "line": 279,
           "name": "dkg_round1"
         },
         {
           "kind": "fn",
-          "line": 304,
+          "line": 318,
           "name": "verify_round1_package"
         },
         {
           "kind": "fn",
-          "line": 338,
+          "line": 366,
           "name": "dkg_generate_round2_shares"
         },
         {
           "kind": "fn",
-          "line": 356,
+          "line": 387,
           "name": "dkg_verify_received_share"
         },
         {
           "kind": "struct",
-          "line": 371,
+          "line": 402,
           "name": "DkgComplaint"
         },
         {
           "kind": "struct",
-          "line": 382,
+          "line": 413,
           "name": "DkgRebuttal"
         },
         {
           "kind": "struct",
-          "line": 393,
+          "line": 424,
           "name": "DkgResolution"
         },
         {
           "kind": "fn",
-          "line": 421,
+          "line": 452,
           "name": "dkg_resolve"
         },
         {
           "kind": "fn",
-          "line": 484,
+          "line": 515,
           "name": "dkg_finalize"
         },
         {
           "kind": "mod",
-          "line": 541,
+          "line": 572,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 544,
+          "line": 575,
           "name": "ack"
         },
         {
           "kind": "struct",
-          "line": 548,
+          "line": 579,
           "name": "Session"
         },
         {
           "kind": "fn",
-          "line": 555,
+          "line": 586,
           "name": "run_round1"
         },
         {
           "kind": "fn",
-          "line": 577,
+          "line": 608,
           "name": "exchange_round2"
         },
         {
           "kind": "fn",
-          "line": 608,
+          "line": 639,
           "name": "finalize_all"
         },
         {
           "kind": "fn",
-          "line": 629,
+          "line": 660,
           "name": "rejects_invalid_parameters"
         },
         {
           "kind": "fn",
-          "line": 649,
+          "line": 680,
           "name": "a_full_honest_run_produces_matching_group_keys_and_verifiable_shares"
         },
         {
           "kind": "fn",
-          "line": 674,
+          "line": 705,
           "name": "a_forged_round1_proof_of_knowledge_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 686,
+          "line": 717,
           "name": "a_round1_package_from_one_session_does_not_verify_under_a_different_context"
         },
         {
           "kind": "fn",
-          "line": 696,
+          "line": 727,
           "name": "wrong_commitment_count_for_threshold_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 705,
+          "line": 736,
           "name": "requesting_a_round2_share_for_recipient_index_0_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 717,
+          "line": 748,
+          "name": "a_recipient_index_beyond_the_session_roster_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 762,
+          "name": "a_repeated_recipient_index_in_one_call_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 771,
+          "name": "a_coordinator_cannot_collect_enough_phantom_evaluations_to_interpolate_the_secret"
+        },
+        {
+          "kind": "fn",
+          "line": 790,
           "name": "a_complaint_accusing_index_0_is_rejected_before_any_rebuttal_lookup"
         },
         {
           "kind": "fn",
-          "line": 734,
+          "line": 807,
           "name": "a_tampered_share_fails_feldman_verification"
         },
         {
           "kind": "fn",
-          "line": 742,
+          "line": 815,
           "name": "an_unrebutted_complaint_excludes_the_accused"
         },
         {
           "kind": "fn",
-          "line": 754,
+          "line": 827,
           "name": "a_true_rebuttal_excludes_no_one_and_marks_the_complaint_false"
         },
         {
           "kind": "fn",
-          "line": 772,
+          "line": 845,
           "name": "a_false_rebuttal_still_excludes_the_accused"
         },
         {
           "kind": "fn",
-          "line": 788,
+          "line": 861,
           "name": "an_accuser_cannot_frame_an_honest_sender_who_correctly_rebuts"
         },
         {
           "kind": "fn",
-          "line": 811,
+          "line": 884,
           "name": "complaint_referencing_an_unknown_participant_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 824,
+          "line": 897,
           "name": "finalize_fails_when_exclusions_drop_below_threshold"
         },
         {
           "kind": "fn",
-          "line": 849,
+          "line": 922,
           "name": "a_missing_share_from_a_non_excluded_participant_is_rejected_not_silently_dropped"
         },
         {
           "kind": "fn",
-          "line": 877,
+          "line": 950,
           "name": "an_equivocating_sender_is_caught_by_whichever_recipient_got_the_inconsistent_share"
         },
         {
           "kind": "fn",
-          "line": 896,
+          "line": 969,
           "name": "finalize_excludes_a_misbehaving_participant_and_the_rest_still_converge"
         },
         {
           "kind": "fn",
-          "line": 930,
+          "line": 1003,
           "name": "a_finalized_dkg_key_signs_and_verifies_through_ordinary_frost_signing"
         }
       ],
@@ -74162,7 +74299,7 @@
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 23126,
+      "bytes": 24131,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
@@ -74191,83 +74328,83 @@
         "subset",
         "never"
       ],
-      "lines": 567,
+      "lines": 591,
       "path": "crates/mini-treasury/src/frost_reshare.rs",
-      "sha256": "b7bda59eed3ec4412750694d116a41a63528bbabd74b0cee721e1578054fa01c",
+      "sha256": "06da2c029a0c80324a12a4332acd169049675deb0015e1c7ddce0a841c85db3e",
       "symbols": [
         {
           "kind": "fn",
-          "line": 93,
+          "line": 102,
           "name": "reshare_round1"
         },
         {
           "kind": "fn",
-          "line": 148,
+          "line": 164,
           "name": "verify_reshare_round1_package"
         },
         {
           "kind": "fn",
-          "line": 194,
+          "line": 210,
           "name": "reshare_finalize"
         },
         {
           "kind": "mod",
-          "line": 254,
+          "line": 270,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 262,
+          "line": 278,
           "name": "dkg_ack"
         },
         {
           "kind": "fn",
-          "line": 266,
+          "line": 282,
           "name": "trusted_ack"
         },
         {
           "kind": "fn",
-          "line": 274,
+          "line": 290,
           "name": "old_committee"
         },
         {
           "kind": "struct",
-          "line": 278,
+          "line": 294,
           "name": "ReshareSession"
         },
         {
           "kind": "fn",
-          "line": 283,
+          "line": 299,
           "name": "run_reshare_round1"
         },
         {
           "kind": "fn",
-          "line": 320,
+          "line": 336,
           "name": "exchange_reshare_round2"
         },
         {
           "kind": "fn",
-          "line": 348,
+          "line": 364,
           "name": "a_full_reshare_preserves_the_group_public_key_and_signs"
         },
         {
           "kind": "fn",
-          "line": 418,
+          "line": 434,
           "name": "insufficient_old_quorum_is_rejected_at_finalize"
         },
         {
           "kind": "fn",
-          "line": 453,
+          "line": 469,
           "name": "a_tampered_reshare_contribution_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 486,
+          "line": 510,
           "name": "a_misbehaving_old_sender_can_be_excluded_via_the_shared_dkg_complaint_machinery"
         },
         {
           "kind": "fn",
-          "line": 555,
+          "line": 579,
           "name": "resharing_and_ordinary_dkg_round1_packages_share_a_type_but_not_a_finalize_path"
         }
       ],
@@ -77275,38 +77412,38 @@
       "title": "use crate::bp_range::RangeProof;"
     },
     {
-      "bytes": 8779,
+      "bytes": 10265,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
         "commitment",
+        "confidentialamountscheme",
         "proof",
         "amount",
-        "confidentialamountscheme",
         "blinding",
-        "fee",
-        "some",
+        "scalar",
+        "blinding_factor",
         "point",
+        "confidential",
+        "bp_range",
+        "self",
+        "canonical_scalar",
+        "some",
+        "d-0509",
         "mininetconfidentialamount",
         "commit_with_proof",
         "sum_commitments",
-        "confidential",
-        "bp_range",
         "bp_generators",
         "balance",
-        "self",
-        "scalar",
-        "blinding_factor",
+        "rangeproof",
+        "canonical",
         "vec",
         "value",
-        "sum",
-        "verify_range_proof",
-        "verify_balance",
-        "pedersen_commitment"
+        "same"
       ],
-      "lines": 205,
+      "lines": 227,
       "path": "crates/mini-value/src/confidential_impl.rs",
-      "sha256": "a5928b9d6b90d64d1c5a2245d2104c4f425c88cec3d16f7a9f4a79ffad6b248e",
+      "sha256": "ea28fdfd08e07a3badf3737f37b156904380c3d61106c32415fcc1841ee61125",
       "symbols": [
         {
           "kind": "struct",
@@ -77335,72 +77472,72 @@
         },
         {
           "kind": "fn",
-          "line": 73,
+          "line": 95,
           "name": "pedersen_commitment"
         },
         {
           "kind": "fn",
-          "line": 90,
+          "line": 112,
           "name": "public_amount_commitment"
         },
         {
           "kind": "fn",
-          "line": 99,
+          "line": 121,
           "name": "sum_commitments"
         },
         {
           "kind": "mod",
-          "line": 108,
+          "line": 130,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 112,
+          "line": 134,
           "name": "a_committed_amount_verifies_its_own_range_proof"
         },
         {
           "kind": "fn",
-          "line": 120,
+          "line": 142,
           "name": "a_bare_commitment_is_the_same_point_the_proving_path_produces"
         },
         {
           "kind": "fn",
-          "line": 137,
+          "line": 159,
           "name": "a_bare_commitment_rejects_a_malformed_blinding_factor"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 164,
           "name": "bare_commitments_balance_exactly_as_proven_ones_do"
         },
         {
           "kind": "fn",
-          "line": 154,
+          "line": 176,
           "name": "malformed_blinding_factor_is_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 160,
+          "line": 182,
           "name": "malformed_commitment_bytes_fail_verification_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 168,
+          "line": 190,
           "name": "balanced_inputs_and_outputs_verify"
         },
         {
           "kind": "fn",
-          "line": 181,
+          "line": 203,
           "name": "unbalanced_inputs_and_outputs_fail_verification"
         },
         {
           "kind": "fn",
-          "line": 194,
+          "line": 216,
           "name": "empty_inputs_and_outputs_are_vacuously_balanced"
         },
         {
           "kind": "fn",
-          "line": 200,
+          "line": 222,
           "name": "malformed_commitment_in_balance_check_fails_without_panicking"
         }
       ],
@@ -78373,252 +78510,272 @@
       "title": "pub struct StealthOutput {"
     },
     {
-      "bytes": 21744,
+      "bytes": 25161,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
         "self",
+        "key",
+        "spend",
         "fmt",
         "recipient",
-        "spend",
-        "key",
         "stealthkeypair",
-        "stealthaddressscheme",
-        "core",
-        "public",
-        "spend_public",
         "view_public",
-        "stealth",
+        "core",
         "view",
+        "spend_public",
+        "stealthaddressscheme",
+        "stealth",
+        "public",
         "scalar",
+        "point",
         "address",
         "spend_secret",
         "view_secret",
-        "bytes",
-        "debug",
         "hex",
         "private",
+        "shared",
         "via",
-        "keypair",
-        "compress"
+        "same",
+        "output"
       ],
-      "lines": 560,
+      "lines": 643,
       "path": "crates/mini-value/src/stealth_impl.rs",
-      "sha256": "9a3eef71105ddd0df00813c853fe7ed89084ad7c083f17dde26f88bc14a2b5b3",
+      "sha256": "d92cef4ef6de5cb958e4090ed01af2d7d2ddaf92b18152d31ce36fd3b9849912",
       "symbols": [
         {
           "kind": "struct",
-          "line": 45,
+          "line": 55,
           "name": "StealthKeypair"
         },
         {
           "kind": "impl",
-          "line": 52,
+          "line": 62,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 53,
+          "line": 63,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 64,
+          "line": 74,
           "name": "StealthKeypair"
         },
         {
           "kind": "fn",
-          "line": 66,
+          "line": 76,
           "name": "generate"
         },
         {
           "kind": "fn",
-          "line": 78,
+          "line": 88,
           "name": "spend_public_bytes"
         },
         {
           "kind": "fn",
-          "line": 83,
+          "line": 93,
           "name": "view_public_bytes"
         },
         {
           "kind": "fn",
-          "line": 89,
+          "line": 99,
           "name": "view_secret_bytes"
         },
         {
           "kind": "fn",
-          "line": 98,
+          "line": 108,
           "name": "spend_secret_bytes"
         },
         {
           "kind": "fn",
-          "line": 103,
+          "line": 113,
           "name": "hex"
         },
         {
           "kind": "fn",
-          "line": 113,
+          "line": 123,
           "name": "one_time_key_is_well_formed"
         },
         {
           "kind": "struct",
-          "line": 119,
+          "line": 129,
           "name": "MininetStealthAddress"
         },
         {
           "kind": "impl",
-          "line": 121,
+          "line": 131,
           "name": "StealthAddressScheme"
         },
         {
           "kind": "fn",
-          "line": 122,
+          "line": 132,
           "name": "derive_output"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 150,
           "name": "recognizes"
         },
         {
           "kind": "struct",
-          "line": 176,
+          "line": 186,
           "name": "StealthSharedSecret"
         },
         {
           "kind": "impl",
-          "line": 178,
+          "line": 188,
           "name": "StealthSharedSecret"
         },
         {
           "kind": "fn",
-          "line": 181,
+          "line": 191,
           "name": "as_key_material"
         },
         {
           "kind": "impl",
-          "line": 186,
+          "line": 196,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 188,
+          "line": 198,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 193,
+          "line": 203,
           "name": "Drop"
         },
         {
           "kind": "fn",
-          "line": 194,
+          "line": 204,
           "name": "drop"
         },
         {
           "kind": "fn",
-          "line": 206,
+          "line": 216,
           "name": "derive_output_with_secret"
         },
         {
           "kind": "fn",
-          "line": 234,
+          "line": 244,
           "name": "recover_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 255,
+          "line": 265,
           "name": "view_public_from_secret"
         },
         {
           "kind": "fn",
-          "line": 273,
+          "line": 283,
           "name": "stealth_address_is_well_formed"
         },
         {
           "kind": "fn",
-          "line": 285,
+          "line": 295,
           "name": "derive_spend_scalar"
         },
         {
           "kind": "mod",
-          "line": 299,
+          "line": 309,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 303,
+          "line": 313,
           "name": "recipient_recognizes_their_own_output"
         },
         {
           "kind": "fn",
-          "line": 321,
+          "line": 331,
           "name": "a_different_recipient_does_not_recognize_the_output"
         },
         {
           "kind": "fn",
-          "line": 340,
+          "line": 350,
           "name": "two_outputs_to_the_same_recipient_are_unlinkable"
         },
         {
           "kind": "fn",
-          "line": 373,
+          "line": 383,
           "name": "derived_spend_scalar_actually_opens_the_one_time_address"
         },
         {
           "kind": "fn",
-          "line": 395,
+          "line": 405,
           "name": "malformed_keys_are_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 407,
+          "line": 420,
+          "name": "identity_point_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 428,
+          "name": "a_published_identity_view_key_is_rejected_not_silently_accepted"
+        },
+        {
+          "kind": "fn",
+          "line": 448,
+          "name": "a_published_identity_spend_key_is_rejected_not_silently_accepted"
+        },
+        {
+          "kind": "fn",
+          "line": 462,
+          "name": "an_identity_transaction_key_is_rejected_by_recognizes_and_recover_shared_secret"
+        },
+        {
+          "kind": "fn",
+          "line": 490,
           "name": "sender_and_recipient_derive_the_same_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 424,
+          "line": 507,
           "name": "derive_output_with_secret_produces_a_recognizable_output"
         },
         {
           "kind": "fn",
-          "line": 444,
+          "line": 527,
           "name": "a_stranger_derives_a_different_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 459,
+          "line": 542,
           "name": "two_payments_to_one_recipient_share_no_secret"
         },
         {
           "kind": "fn",
-          "line": 479,
+          "line": 562,
           "name": "a_shared_secret_never_prints_its_bytes"
         },
         {
           "kind": "fn",
-          "line": 501,
+          "line": 584,
           "name": "malformed_inputs_to_the_shared_secret_helpers_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 507,
+          "line": 590,
           "name": "view_public_from_secret_matches_the_generated_keypair"
         },
         {
           "kind": "fn",
-          "line": 516,
+          "line": 599,
           "name": "view_public_from_secret_does_not_match_a_stranger"
         },
         {
           "kind": "fn",
-          "line": 526,
+          "line": 609,
           "name": "view_public_from_secret_rejects_non_canonical_and_degenerate_scalars"
         },
         {
           "kind": "fn",
-          "line": 538,
+          "line": 621,
           "name": "well_formed_stealth_addresses_are_accepted_and_broken_ones_are_not"
         }
       ],
@@ -80112,7 +80269,7 @@
       "title": "use std::collections::HashMap;"
     },
     {
-      "bytes": 4393,
+      "bytes": 5864,
       "group": "root",
       "headings": [
         {
@@ -80182,104 +80339,104 @@
         },
         {
           "level": 1,
-          "line": 45,
+          "line": 65,
           "text": "Every license actually in use across this workspace's dependency graph"
         },
         {
           "level": 1,
-          "line": 46,
+          "line": 66,
           "text": "at the time of writing (mini-crypto/did-mini's curve25519-dalek stack,"
         },
         {
           "level": 1,
-          "line": 47,
+          "line": 67,
           "text": "mini-value's Bulletproofs machinery, and now Wasmtime's own tree via"
         },
         {
           "level": 1,
-          "line": 48,
+          "line": 68,
           "text": "mini-build-runner-wasmtime). CC0-1.0 is this workspace's own license"
         },
         {
           "level": 1,
-          "line": 49,
+          "line": 69,
           "text": "(see root Cargo.toml `[workspace.package]`)."
         },
         {
           "level": 1,
-          "line": 79,
+          "line": 99,
           "text": "`deny` would also flag every intra-workspace `path = \"../other-crate\"`"
         },
         {
           "level": 1,
-          "line": 80,
+          "line": 100,
           "text": "dependency in this repo, because a path dependency with no `version`"
         },
         {
           "level": 1,
-          "line": 81,
+          "line": 101,
           "text": "requirement is indistinguishable from a real `*` wildcard to cargo-deny"
         },
         {
           "level": 1,
-          "line": 82,
+          "line": 102,
           "text": "-- and every one of this workspace's ~45 crates depends on several"
         },
         {
           "level": 1,
-          "line": 83,
+          "line": 103,
           "text": "others that way. That is not the risk `wildcards` exists to catch (an"
         },
         {
           "level": 1,
-          "line": 84,
+          "line": 104,
           "text": "external crate resolvable to any past-or-future registry version); a"
         },
         {
           "level": 1,
-          "line": 85,
+          "line": 105,
           "text": "path dependency always resolves to the exact source at this exact git"
         },
         {
           "level": 1,
-          "line": 86,
+          "line": 106,
           "text": "commit. Genuine external wildcard requirements (a real supply-chain"
         },
         {
           "level": 1,
-          "line": 87,
+          "line": 107,
           "text": "risk) still surface here as warnings and should be caught in review."
         }
       ],
       "keywords": [
         "workspace",
         "dependency",
-        "cargo-deny",
         "own",
-        "deny",
+        "cargo-deny",
+        "graph",
         "license",
         "cargo",
+        "tree",
+        "advisory",
         "real",
         "every",
-        "tree",
-        "graph",
         "version",
-        "path",
+        "heapless",
+        "postcard",
         "font",
-        "advisory",
+        "its",
         "now",
         "stack",
+        "path",
+        "upgrade",
         "mini-desktop",
-        "requirement",
+        "deny",
         "mini-build-runner-wasmtime",
-        "wasmtime",
-        "whole",
-        "one",
-        "against"
+        "wasmtime"
       ],
-      "lines": 95,
+      "lines": 115,
       "path": "deny.toml",
-      "sha256": "011b51a7c812b8f79c7dc87eead82d53c7e264e54df1e992d034c21a2eb0025d",
+      "sha256": "e621576d9ca8b440537c3c10b9399a5bc542ca57124d6527371d641e0f0ccec0",
       "symbols": [],
       "title": "cargo-deny configuration (D-0069 dependency-governance requirement for"
     },
@@ -82681,7 +82838,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1381481,
+      "bytes": 1395003,
       "group": "docs",
       "headings": [
         {
@@ -83101,19 +83258,19 @@
         "design",
         "closes",
         "decision",
+        "batch",
         "signed",
         "roadmap",
         "new",
         "doctrine",
         "log",
-        "batch",
         "local",
         "release",
         "first"
       ],
-      "lines": 22934,
+      "lines": 23144,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "0e72144c2398c312458722b4c834617617e527f83d131bebab15a22e7616f53b",
+      "sha256": "5bb3969b0ee5968ccec6f6248291fa51fd2d3f10a2e38296b0f5a64b89814609",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -103123,7 +103280,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 89637,
+      "bytes": 90773,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -103152,9 +103309,9 @@
         "independently",
         "both"
       ],
-      "lines": 1374,
+      "lines": 1387,
       "path": "governance/work-claims.json",
-      "sha256": "1fad019a12838931b0de7a44cb1553a332f087780ce89121bf484db888419417",
+      "sha256": "c64219eab61af8ec3c4e5aa0919bb7bd24bc68e111f45b6f3c4cdcec7ac73a2e",
       "symbols": [],
       "title": "{"
     },
