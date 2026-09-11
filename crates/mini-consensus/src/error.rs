@@ -73,6 +73,16 @@ pub enum ConsensusError {
     /// A validator-handshake attestation's device is delegated but was
     /// never appointed `did_mini::Capabilities::VOTE`.
     ValidatorHandshakeMissingVoteCapability,
+    /// A validator-handshake attestation's root has a valid, currently
+    /// undelegated `VOTE`-capable device -- but that root is not a member
+    /// of the validator set the caller is actually checking against
+    /// (F-14). A root can hold `VOTE` capability without ever having been
+    /// admitted to any real consensus deployment, or after having been
+    /// removed from one; `crate::validator_channel` proves *which*
+    /// identity is on the other end of a channel, never that the identity
+    /// is a currently seated validator for a particular epoch — that is
+    /// this separate check.
+    ValidatorHandshakeNotAMember,
 }
 
 impl core::fmt::Display for ConsensusError {
@@ -131,6 +141,10 @@ impl core::fmt::Display for ConsensusError {
             ConsensusError::ValidatorHandshakeMissingVoteCapability => write!(
                 f,
                 "validator-handshake device is not a VOTE-capable delegate of its claimed root"
+            ),
+            ConsensusError::ValidatorHandshakeNotAMember => write!(
+                f,
+                "validator-handshake root is not a member of the checked validator set"
             ),
         }
     }

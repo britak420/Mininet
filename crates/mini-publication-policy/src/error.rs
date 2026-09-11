@@ -26,6 +26,7 @@ pub enum PublicationPolicyError {
     /// implement, or the achieved privacy did not name the onion-relay
     /// mechanism.
     Relay(RelayError),
+    Transport(mini_transport_security::TransportSecurityError),
 }
 
 impl fmt::Display for PublicationPolicyError {
@@ -34,6 +35,7 @@ impl fmt::Display for PublicationPolicyError {
             PublicationPolicyError::Routing(err) => write!(f, "{err}"),
             PublicationPolicyError::Pricing(err) => write!(f, "{err}"),
             PublicationPolicyError::Relay(err) => write!(f, "{err}"),
+            PublicationPolicyError::Transport(err) => write!(f, "{err}"),
         }
     }
 }

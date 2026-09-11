@@ -11,6 +11,11 @@ pub enum CliError {
     NotInitialized,
     /// A seed file existed but was not the expected length.
     CorruptSeedFile,
+    /// The author-sequence counter file existed but its contents were not
+    /// a trustworthy `u64` (empty, non-numeric, out of range, or an
+    /// unexpected read error) — never silently treated as "no counter
+    /// yet" (F-04).
+    CorruptSequenceFile,
     /// Filesystem I/O failure, message from the underlying `io::Error`.
     Io(String),
     /// A `did-mini` operation failed.
@@ -56,6 +61,10 @@ impl fmt::Display for CliError {
                 write!(f, "no identity here yet -- run `mini identity init` first")
             }
             CliError::CorruptSeedFile => write!(f, "seed file exists but is not valid"),
+            CliError::CorruptSequenceFile => write!(
+                f,
+                "sequence counter file exists but is not a trustworthy count -- refusing to reuse old sequence numbers"
+            ),
             CliError::Io(e) => write!(f, "I/O error: {e}"),
             CliError::Identity(e) => write!(f, "identity error: {e}"),
             CliError::Forge(e) => write!(f, "forge error: {e}"),
@@ -83,6 +92,7 @@ impl CliError {
             CliError::AlreadyInitialized => "already_initialized",
             CliError::NotInitialized => "not_initialized",
             CliError::CorruptSeedFile => "corrupt_seed_file",
+            CliError::CorruptSequenceFile => "corrupt_sequence_file",
             CliError::Io(_) => "io",
             CliError::Identity(_) => "identity",
             CliError::Forge(_) => "forge",

@@ -244,6 +244,33 @@ impl IntakeEnvelope {
             return Err(IntakeError::TrailingBytes);
         }
 
+        // Decoding cannot bypass the same state invariants as mutators.
+        // These remain local labels; valid structure is not review evidence.
+        let previously_accepted = matches!(
+            review_state,
+            ReviewState::Accepted | ReviewState::Superseded
+        );
+        if authority >= AuthorityClass::ReviewedEvidence && !previously_accepted {
+            return Err(IntakeError::InvalidAuthorityPromotion);
+        }
+        if !links.is_empty() && !previously_accepted {
+            return Err(IntakeError::LinkRequiresAcceptedReview);
+        }
+        if links
+            .iter()
+            .enumerate()
+            .any(|(i, link)| links[..i].contains(link))
+        {
+            return Err(IntakeError::InvalidReviewTransition);
+        }
+        if representations.len() != provenance.len()
+            || representations.iter().zip(&provenance).any(|(rep, prov)| {
+                rep.kind != prov.representation || rep.generator != prov.generator
+            })
+        {
+            return Err(IntakeError::InvalidReviewTransition);
+        }
+
         Ok(IntakeEnvelope {
             version,
             intake_id,
@@ -573,5 +600,74 @@ mod tests {
             IntakeEnvelope::from_bytes(&bytes),
             Err(IntakeError::LimitExceeded)
         );
+    }
+    #[test]
+    fn decoded_labels_cannot_bypass_review_link_or_provenance_invariants() {
+        for state in [
+            ReviewState::Unreviewed,
+            ReviewState::Quarantined,
+            ReviewState::UnderReview,
+            ReviewState::Rejected,
+        ] {
+            let mut forged = IntakeEnvelope::new(sample_id(), sample_source());
+            forged.review_state = state;
+            forged.authority = AuthorityClass::ReviewedEvidence;
+            assert_eq!(
+                IntakeEnvelope::from_bytes(&forged.to_bytes()),
+                Err(IntakeError::InvalidAuthorityPromotion)
+            );
+            forged.authority = AuthorityClass::UntrustedExternal;
+            forged.links.push(IntakeLink::Issue(1));
+            assert_eq!(
+                IntakeEnvelope::from_bytes(&forged.to_bytes()),
+                Err(IntakeError::LinkRequiresAcceptedReview)
+            );
+        }
+        let mut accepted = IntakeEnvelope::new(sample_id(), sample_source());
+        accepted
+            .advance_review_state(ReviewState::UnderReview)
+            .unwrap();
+        accepted
+            .advance_review_state(ReviewState::Accepted)
+            .unwrap();
+        accepted.add_link(IntakeLink::Issue(1)).unwrap();
+        accepted
+            .promote_authority(AuthorityClass::ReviewedEvidence)
+            .unwrap();
+        accepted
+            .advance_review_state(ReviewState::Superseded)
+            .unwrap();
+        assert_eq!(
+            IntakeEnvelope::from_bytes(&accepted.to_bytes()).unwrap(),
+            accepted
+        );
+        accepted.links.push(IntakeLink::Issue(1));
+        assert!(IntakeEnvelope::from_bytes(&accepted.to_bytes()).is_err());
+    }
+    #[test]
+    fn decoded_representation_requires_its_matching_generator_provenance() {
+        let generator = GeneratorIdentity {
+            extractor_id: "text".into(),
+            extractor_version: "1".into(),
+        };
+        let mut envelope = IntakeEnvelope::new(sample_id(), sample_source());
+        envelope.add_representation(
+            DerivedRepresentation {
+                kind: RepresentationKind::ExtractedText,
+                digest: Multihash::of(HashAlgorithm::Blake3, b"derived"),
+                byte_length: 7,
+                generator: generator.clone(),
+                deterministic: true,
+            },
+            DerivationRecord {
+                representation: RepresentationKind::ExtractedText,
+                generator,
+                produced_at_ms: 1,
+            },
+        );
+        envelope.provenance[0].generator.extractor_id = "substituted generator".into();
+        assert!(IntakeEnvelope::from_bytes(&envelope.to_bytes()).is_err());
+        envelope.provenance.clear();
+        assert!(IntakeEnvelope::from_bytes(&envelope.to_bytes()).is_err());
     }
 }

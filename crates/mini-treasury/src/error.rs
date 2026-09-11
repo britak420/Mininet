@@ -51,11 +51,20 @@ pub enum TreasuryError {
     /// this should be structurally impossible given verified inputs, and
     /// is checked directly rather than only relied upon algebraically.
     ReshareGroupKeyMismatch,
+    /// The nonces passed to [`crate::frost_sign::round2_sign`] do not derive
+    /// the round-1 commitment `(D_i, E_i)` this signer actually published in
+    /// `signing_package` — either a stale/foreign [`crate::frost_sign::
+    /// SigningNonces`] value, or an attempt to sign against a commitment
+    /// this signer never made.
+    NonceCommitmentMismatch,
+    /// The durable signer cannot prove the nonce is reserved and unused.
+    SigningJournal(String),
 }
 
 impl fmt::Display for TreasuryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            TreasuryError::SigningJournal(message) => write!(f, "signing journal: {message}"),
             TreasuryError::InvalidSignerSet => write!(f, "invalid treasury signer set"),
             TreasuryError::InvalidThreshold => write!(f, "invalid signer threshold"),
             TreasuryError::NoRateInEffect => write!(f, "no governed rate in effect at this time"),
@@ -94,6 +103,12 @@ impl fmt::Display for TreasuryError {
                 write!(
                     f,
                     "resharing produced a different group public key than the old committee held"
+                )
+            }
+            TreasuryError::NonceCommitmentMismatch => {
+                write!(
+                    f,
+                    "round-2 nonces do not derive the committed round-1 commitment"
                 )
             }
         }

@@ -55,10 +55,7 @@ impl HashAlgorithm {
             HashAlgorithm::Sha256 => {
                 let mut h = Sha256::new();
                 h.update(data);
-                let out = h.finalize();
-                let mut digest = [0u8; 32];
-                digest.copy_from_slice(&out);
-                digest
+                h.finalize().into()
             }
         }
     }

@@ -11,7 +11,7 @@
 //! that these are *independent* publication-time choices, not a coupled
 //! state machine this crate should silently constrain on a caller's
 //! behalf. Whether a chosen combination actually achieves what a caller
-//! wants is a separate question [`crate::achieved_result_receipt_for`]
+//! wants is a separate question [`crate::publication_routing_plan_for`]
 //! (Track D2) answers, by routing through `mini-transport-policy`'s own
 //! fail-closed property check -- it is not baked into construction here.
 
@@ -46,7 +46,7 @@ pub enum Attribution {
     /// No publisher identity is disclosed alongside the object. This is
     /// a publication-time *declaration of intent*, not a proof: whether
     /// it is actually achievable depends on the chosen transport tier,
-    /// which [`crate::achieved_result_receipt_for`] checks.
+    /// which [`crate::publication_routing_plan_for`] checks.
     Anonymous,
 }
 

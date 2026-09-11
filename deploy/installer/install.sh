@@ -98,6 +98,10 @@ else
     id -u mininet >/dev/null 2>&1 || useradd --system --home-dir /var/lib/mininet --shell /usr/sbin/nologin mininet
 fi
 install -d -o mininet -g mininet -m 0750 /var/lib/mininet
+# Stable sibling inode shared by all CLI writers and exclusive maintenance.
+touch /var/lib/.mininet-maintenance-mininet.lock
+chown mininet:mininet /var/lib/.mininet-maintenance-mininet.lock
+chmod 0660 /var/lib/.mininet-maintenance-mininet.lock
 
 # --- 4. Kernel hardening baseline ---
 log "applying sysctl hardening baseline"

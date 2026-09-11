@@ -381,3 +381,63 @@ fn non_utf8_source_bytes_are_refused_even_with_a_text_media_type() {
     );
     assert!(matches!(result, Err(IntakeSocialError::NotUtf8)));
 }
+
+#[test]
+fn recovery_requires_signed_intake_and_source_links_even_for_identical_text() {
+    use mini_intake_social::{build_accepted_intake_post, verify_recovered_post_matches_intake};
+    let dir = tempdir().unwrap();
+    let mut backend = MemoryBackend::new();
+    let mut envelope = intake_local_file(
+        &mut backend,
+        &write_temp(dir.path(), "a.txt", "same text"),
+        1,
+    )
+    .unwrap();
+    envelope
+        .advance_review_state(ReviewState::UnderReview)
+        .unwrap();
+    envelope
+        .advance_review_state(ReviewState::Accepted)
+        .unwrap();
+    let (human, device) = human(61);
+    let post = build_accepted_intake_post(&backend, &human, &device, &envelope, 2, 1).unwrap();
+    verify_recovered_post_matches_intake(&backend, &human, &envelope, &post).unwrap();
+    // Previously this ordinary post was accepted because its author and text
+    // matched, even though nothing in its signature bound it to this intake.
+    let unrelated = mini_social::build_post(&human, &device, "same text", 2, 1).unwrap();
+    assert!(matches!(
+        verify_recovered_post_matches_intake(&backend, &human, &envelope, &unrelated),
+        Err(IntakeSocialError::RecoveredPostMismatch)
+    ));
+    let arbitrary = mini_objects::ObjectId::parse(&backend_key(&Multihash::of(
+        HashAlgorithm::Blake3,
+        b"wrong",
+    )))
+    .unwrap();
+    for wrong_intake in [true, false] {
+        let intake = mini_objects::ObjectId::parse(&backend_key(&envelope.intake_id.0)).unwrap();
+        let source = mini_objects::ObjectId::parse(&backend_key(&envelope.source.digest)).unwrap();
+        let substituted = mini_social::build_intake_post(
+            &human,
+            &device,
+            "same text",
+            if wrong_intake {
+                arbitrary.clone()
+            } else {
+                intake
+            },
+            if wrong_intake {
+                source
+            } else {
+                arbitrary.clone()
+            },
+            2,
+            1,
+        )
+        .unwrap();
+        assert!(matches!(
+            verify_recovered_post_matches_intake(&backend, &human, &envelope, &substituted),
+            Err(IntakeSocialError::RecoveredPostMismatch)
+        ));
+    }
+}

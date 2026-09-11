@@ -48,6 +48,7 @@ mod installer;
 mod intake;
 mod json;
 mod keystone;
+mod maintenance;
 mod pr;
 mod project;
 mod provenance;

@@ -63,7 +63,7 @@ impl AcknowledgedPrototypeOnly {
 /// One participant's share of the group secret key, plus what they need to
 /// sign: their own index, secret share, and the group's public key.
 /// Nothing here reveals the group secret or any other participant's share.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct KeyPackage {
     /// This participant's index (`1..=n`, never `0`).
     pub index: u16,
@@ -71,6 +71,22 @@ pub struct KeyPackage {
     pub secret_share: Scalar,
     /// The group's public key `Y = f(0)*G`, the same for every participant.
     pub group_public_key: RistrettoPoint,
+}
+
+impl core::fmt::Debug for KeyPackage {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("KeyPackage")
+            .field("index", &self.index)
+            .field("secret_share", &"[redacted]")
+            .field("group_public_key", &self.group_public_key)
+            .finish()
+    }
+}
+impl Drop for KeyPackage {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.secret_share.zeroize();
+    }
 }
 
 /// Public material every participant and the coordinator need: the group

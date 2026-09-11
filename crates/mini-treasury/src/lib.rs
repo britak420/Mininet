@@ -96,8 +96,8 @@ pub use frost_keygen::{
 };
 pub use frost_reshare::{reshare_finalize, reshare_round1, verify_reshare_round1_package};
 pub use frost_sign::{
-    aggregate, round1_commit, round2_sign, verify, verify_signature_share, NonceCommitment,
-    Signature, SigningNonces, SigningPackage,
+    aggregate, round1_commit, round2_sign, verify, verify_signature_share, DurableFrostSigner,
+    DurableSigningNonces, NonceCommitment, Signature, SigningNonces, SigningPackage,
 };
 pub use rate::{mint_amount_micro, RateEntry, RateHistory, RATE_SCALE};
 pub use receipt::{

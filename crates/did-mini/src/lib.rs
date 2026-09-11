@@ -90,7 +90,10 @@ pub use witness_protocol::{
     FetchWitnessReceiptResponse, RejectionReason, SubmitEventForWitnessingRequest,
     SubmitEventForWitnessingResponse,
 };
-pub use witness_rotation::{verify_policy_transition, verify_witness_rotation};
+pub use witness_rotation::{
+    verify_dead_witness_recovery, verify_policy_transition, verify_witness_rotation,
+    DeadWitnessRecoveryPolicy, WitnessUnavailabilityAttestation,
+};
 pub use witness_state::{
     ControllerDuplicityProof, WitnessEquivocationProof, WitnessIdentityState, WitnessJournal,
     WitnessObservation,

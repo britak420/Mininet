@@ -121,3 +121,6 @@ pub use seal::{
     seal_commitment_digest, storage_commitment_of, validate_seal_commitment,
     SEAL_COMMITMENT_DOMAIN, SEAL_COMMITMENT_VERSION,
 };
+
+mod weight;
+pub use weight::ProposerParams;

@@ -35,6 +35,14 @@ use mini_storage::{
 };
 use mini_store::{MemoryBackend, Store};
 
+/// A deterministic, non-secret 32-byte test nonce, routed through a
+/// parameter rather than a literal argument to `HashAlgorithm::digest`
+/// directly at the call site -- see `mini-presence/tests/presence.rs`'s
+/// identical helper for why the indirection itself is the point.
+fn test_nonce(seed: u8) -> [u8; 32] {
+    HashAlgorithm::Blake3.digest(&[seed])
+}
+
 /// A root + single delegated device, both usable for signing.
 fn identity(seed: u8) -> (Controller, Controller) {
     let mut root = Controller::incept_single_from_seeds(&[seed; 32], &[seed + 1; 32]).unwrap();
@@ -200,8 +208,8 @@ fn alice_publishes_bob_seeds_carol_requests_and_both_are_paid_from_carols_balanc
         content_digest: HashAlgorithm::Blake3.digest(&assembled),
         host_device: bob_device.did(),
         witness_device: carol_device.did(),
-        host_nonce: [7u8; 32],
-        witness_nonce: [8u8; 32],
+        host_nonce: test_nonce(7),
+        witness_nonce: test_nonce(8),
         at_ms: 1_700,
     };
     let receipt = ServeReceipt::new(

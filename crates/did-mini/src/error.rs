@@ -171,6 +171,23 @@ pub enum IdentityError {
     /// old-policy certification (research report §17.2) exists for real
     /// witness-set transitions, not ordinary rotations.
     NotAWitnessPolicyChange,
+    /// A [`crate::WitnessUnavailabilityAttestation`] claimed a waiting
+    /// period shorter than the caller's [`crate::DeadWitnessRecoveryPolicy`]
+    /// requires (research report §17.4) — dead-witness recovery cannot be
+    /// triggered casually.
+    RecoveryWaitingPeriodNotMet { needed_epochs: u64, got_epochs: u64 },
+    /// [`crate::verify_dead_witness_recovery`] was not shown enough
+    /// *distinct* old witnesses attested unreachable to meet the caller's
+    /// [`crate::DeadWitnessRecoveryPolicy`] — a single missing witness must
+    /// never be enough to justify recovery.
+    InsufficientUnavailabilityEvidence { needed: usize, got: usize },
+    /// A witness was asked to certify a *different* successor than the one
+    /// it already certified for the exact same predecessor event and
+    /// retiring policy generation (F-06) — refused, since signing it would
+    /// let a compromised controller collect old-policy certificates for
+    /// two rival policy-changing successors by asking each old witness
+    /// separately, one certificate per rival.
+    ConflictingPolicyTransitionCertification,
 }
 
 impl fmt::Display for IdentityError {
@@ -318,6 +335,21 @@ impl fmt::Display for IdentityError {
             IdentityError::NotAWitnessPolicyChange => write!(
                 f,
                 "the presented event does not change the witness set or threshold"
+            ),
+            IdentityError::RecoveryWaitingPeriodNotMet {
+                needed_epochs,
+                got_epochs,
+            } => write!(
+                f,
+                "dead-witness recovery waiting period not met: needed {needed_epochs} epochs, got {got_epochs}"
+            ),
+            IdentityError::InsufficientUnavailabilityEvidence { needed, got } => write!(
+                f,
+                "not enough distinct old witnesses attested unreachable: needed {needed}, got {got}"
+            ),
+            IdentityError::ConflictingPolicyTransitionCertification => write!(
+                f,
+                "already certified a different successor for this exact predecessor and generation"
             ),
         }
     }

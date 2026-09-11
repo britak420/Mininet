@@ -32,10 +32,13 @@ const DOMAIN: &[u8] = b"mini-consensus/msg/v3";
 /// signed object in this tree.
 const PROPOSAL_SIGN_DOMAIN: &[u8] = b"mini-consensus/proposal/v3";
 
-/// Hard cap on device signatures in one proposal (a well-formed proposal
-/// carries one device's signature; the bound stops a malformed frame forcing
-/// an unbounded allocation before verification).
-const MAX_SIGS_PER_PROPOSAL: usize = 16;
+/// Hard cap on device signatures in one proposal. Mirrors
+/// `did_mini::MAX_SIGNATURES` (F-10) rather than restating a smaller
+/// number: a well-formed proposal ordinarily carries one device's
+/// signature, but a cap below did-mini's own would let a legitimate
+/// threshold-signed proposal verify in memory and then fail to decode its
+/// own encoding.
+const MAX_SIGS_PER_PROPOSAL: usize = did_mini::MAX_SIGNATURES;
 
 /// Hard cap on a single encoded consensus message. Matches
 /// [`mini_bearer::MAX_FRAME_BYTES`] — the transport under [`crate::net`]
@@ -545,6 +548,29 @@ mod tests {
         // vote cast on the decoded header is a vote on the original block.
         assert_eq!(p.header.hash(), hash_before);
         assert_eq!(p.body.hash(), body_hash_before);
+    }
+
+    #[test]
+    fn a_17_key_threshold_proposers_proposal_round_trips_past_the_old_16_signature_cap() {
+        // F-10: MAX_SIGS_PER_PROPOSAL was hardcoded to 16, below did-mini's
+        // own MAX_SIGNATURES (64) -- a legitimate threshold device with
+        // more than 16 current keys could sign a proposal in memory
+        // (`Controller::sign_message` emits one `IndexedSig` per current
+        // key) and then fail to decode its own wire encoding. 17 is the
+        // smallest count that exercises the old cap's exact off-by-one.
+        let keys: Vec<_> = (0..17).map(|_| SigningKey::generate().unwrap()).collect();
+        let next_keys: Vec<_> = (0..17).map(|_| SigningKey::generate().unwrap()).collect();
+        let device = Controller::incept(keys, 17, next_keys, 17).unwrap();
+        let root = Controller::incept_single().unwrap();
+        let original = sign_proposal(0, -1, header(), body(), &root.did(), &device);
+        assert_eq!(original.signature.len(), 17);
+        let bytes = ConsensusMessage::Proposal(original.clone()).to_wire_bytes();
+        let ConsensusMessage::Proposal(decoded) =
+            ConsensusMessage::from_wire_bytes(&bytes).unwrap()
+        else {
+            panic!("expected a proposal");
+        };
+        assert_eq!(decoded, original);
     }
 
     #[test]

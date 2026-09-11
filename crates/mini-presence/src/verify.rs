@@ -238,8 +238,20 @@ pub fn verify_presence(
     {
         return Err(PresenceError::Replay);
     }
-    replay.check_and_record(&f.initiator.device, &f.initiator.nonce);
-    replay.check_and_record(&f.responder.device, &f.responder.nonce);
+    // F-12/D-0487: `check_and_record`'s return now actually reflects
+    // durable acceptance for implementations backed by real storage (e.g.
+    // `FileReplayGuard`) — a caller that ignored it, as this one used to,
+    // would accept an exchange whose replay-guard write failed and could
+    // then be replayed again after a crash/restart, since nothing durable
+    // remembers it. Either party's record failing to durably commit
+    // refuses the whole exchange, matching the guard's own "commit before
+    // acknowledging" contract rather than silently trusting an in-memory-
+    // only acceptance.
+    let initiator_recorded = replay.check_and_record(&f.initiator.device, &f.initiator.nonce);
+    let responder_recorded = replay.check_and_record(&f.responder.device, &f.responder.nonce);
+    if !initiator_recorded || !responder_recorded {
+        return Err(PresenceError::ReplayGuardWriteFailed);
+    }
 
     Ok(PresenceVerdict {
         initiator_root: ctx.initiator_root.did(),

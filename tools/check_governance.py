@@ -66,6 +66,17 @@ PHASE_RECORD_PATH = Path("governance/current-phase.json")
 PHASE_SCHEMA_PATH = Path("governance/current-phase.schema.json")
 BOOTSTRAP_STATE_PATH = Path("governance/bootstrap-operating-state.json")
 BOOTSTRAP_STATE_SCHEMA_PATH = Path("governance/bootstrap-operating-state.schema.json")
+# PR #327 finding F-17 (D-0492): the record's own last_verified_at timestamp
+# was never checked against wall-clock time, so it could go arbitrarily
+# stale -- silently -- while `status` stayed "active". 30 days divides
+# D-0083's 3-month exception window into thirds and is short enough that a
+# stale record surfaces well before the window's own hard expiry gate
+# (`expires_at`, checked separately above) would catch it anyway. This is a
+# warning, not a merge-blocking failure: a validator cannot itself confirm
+# GitHub team membership, ruleset state, or release status, so it cannot
+# manufacture the re-verification it is asking for -- only make the absence
+# of one impossible to miss.
+BOOTSTRAP_STATE_MAX_VERIFICATION_AGE = dt.timedelta(days=30)
 WORK_CLAIMS_PATH = Path("governance/work-claims.json")
 WORK_CLAIMS_SCHEMA_PATH = Path("governance/work-claims.schema.json")
 WORK_CLAIM_ACTIVE_STATUSES = {"active", "in_review"}
@@ -809,6 +820,7 @@ def validate_session_charter(
 def validate_bootstrap_operating_state(
     root: Path,
     errors: list[str],
+    warnings: list[str],
     now: dt.datetime | None = None,
 ) -> None:
     state_path = root / BOOTSTRAP_STATE_PATH
@@ -845,6 +857,18 @@ def validate_bootstrap_operating_state(
         fail(errors, "D-0083 bootstrap profile is not yet effective")
     if expiry and expiry < check_time:
         fail(errors, "D-0083 bootstrap profile has expired; restore the D-0033 ruleset")
+    verified = parse_instant(state.get("last_verified_at"), "bootstrap profile last-verified time", errors)
+    if verified and verified > check_time:
+        fail(errors, "bootstrap operating state last_verified_at is in the future")
+    elif verified and check_time - verified > BOOTSTRAP_STATE_MAX_VERIFICATION_AGE:
+        warnings.append(
+            "bootstrap operating state last_verified_at is more than "
+            f"{BOOTSTRAP_STATE_MAX_VERIFICATION_AGE.days} days old "
+            f"({verified.date().isoformat()}); re-confirm the declared "
+            "maintainer count, release status, and Forge-canonical status "
+            "against real GitHub/network state and update the record "
+            "(PR #327 finding F-17)"
+        )
     maintainers = state.get("independent_non_founder_human_maintainers")
     if not isinstance(maintainers, int) or isinstance(maintainers, bool) or maintainers < 0:
         fail(errors, "bootstrap operating state requires a non-negative maintainer count")
@@ -1117,11 +1141,29 @@ def validate_baseline(
     validate_session_charter(
         root, errors, warnings, canonical_root, now, candidate_activation
     )
-    validate_bootstrap_operating_state(root, errors, now)
+    validate_bootstrap_operating_state(root, errors, warnings, now)
     validate_work_claims(root, errors, warnings, now)
 
 
 def validate_proposal(body: str, changed: list[str], errors: list[str], warnings: list[str]) -> None:
+    """Check that a proposal body's *structure* covers what a reviewer needs
+    to see -- the required headings are present, exactly one change class is
+    selected, a protected/Tier-F path change carries the classification and
+    identifiers it needs, and a few known-bad phrasings and gaps are
+    flagged (PR #327 finding F-24).
+
+    This is a coverage check, not a content check: it confirms a proposal
+    did not *forget* to write a section, never that what it wrote under
+    that section is true, complete, or was actually reviewed for depth or
+    security by anyone. A proposal can pass every rule here and still
+    describe unfinished work, an unverified claim, or a citation to a
+    decision that never actually completed what it says it did -- this
+    function has no way to know, and does not pretend to. A clean result
+    means "nothing structurally required is missing," full stop; whether
+    the content is honest remains a human review question, the same
+    boundary `tools/check_decisions.py` and `tools/check_roadmap.py`
+    already draw explicitly in their own module docs.
+    """
     if not body.strip():
         fail(errors, "proposal body is empty or unavailable")
         return

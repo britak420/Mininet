@@ -137,19 +137,19 @@ fn rerank_updates_scores_and_the_named_profile() {
     )];
     let parsed = parse_query("rust programming");
     let merged = federate_query(&sources(&providers), &profile(), &parsed, 1_000, 10).unwrap();
-    assert_eq!(merged[0].result.result.ranking_profile, profile().id);
+    assert_eq!(merged[0].result().result.ranking_profile, profile().id);
 
     let reranked = local_rerank(&merged, &lexical_only_profile(), 10).unwrap();
     assert_eq!(reranked.len(), 1);
     assert_eq!(
-        reranked[0].result.result.ranking_profile,
+        reranked[0].result().result.ranking_profile,
         lexical_only_profile().id
     );
     // Under a lexical-only profile the score collapses to exactly the
     // lexical signal, which is never the whole public-default score.
     assert_eq!(
-        reranked[0].result.result.relevance_score_bps,
-        reranked[0].result.result.explanation.lexical_bps
+        reranked[0].result().result.relevance_score_bps,
+        reranked[0].result().result.explanation.lexical_bps
     );
 }
 
@@ -179,11 +179,11 @@ fn rerank_under_the_same_profile_reproduces_the_original_order() {
 
     let merged_urls: Vec<String> = merged
         .iter()
-        .map(|r| r.result.result.url.canonical_string())
+        .map(|r| r.result().result.url.canonical_string())
         .collect();
     let reranked_urls: Vec<String> = reranked
         .iter()
-        .map(|r| r.result.result.url.canonical_string())
+        .map(|r| r.result().result.url.canonical_string())
         .collect();
     assert_eq!(merged_urls, reranked_urls);
 }
@@ -216,10 +216,10 @@ fn rerank_can_reorder_results_under_a_different_profile() {
         10,
     )
     .unwrap();
-    assert_eq!(merged[0].result.result.url.host.as_str(), "a.example");
+    assert_eq!(merged[0].result().result.url.host.as_str(), "a.example");
 
     let reranked = local_rerank(&merged, &lexical_only_profile(), 10).unwrap();
-    assert_eq!(reranked[0].result.result.url.host.as_str(), "b.example");
+    assert_eq!(reranked[0].result().result.url.host.as_str(), "b.example");
 }
 
 #[test]

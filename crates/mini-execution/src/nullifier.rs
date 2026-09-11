@@ -1,51 +1,8 @@
-//! Shielded spends, as consensus sees them: **opaque bytes and nothing
-//! else**.
-//!
-//! A private payment is a ring signature, a set of Pedersen commitments, a
-//! balance equation and a stack of range proofs. None of that appears here,
-//! and none of it may. What the canonical ledger has to decide about a
-//! shielded spend is exactly one thing — *which* claim first spent a given
-//! output — and that question is answerable from two opaque values: the
-//! **key image** the spend published, and the **digest** of the claim that
-//! published it.
-//!
-//! # Why the chain does not understand private payments
-//!
-//! Three reasons, in increasing order of how badly they would bite.
-//!
-//! 1. **The voice/value wall (P1, Directive 16).** `mini-private-payment`
-//!    reaches `mini-value`, and this crate reaches `mini-chain`. A
-//!    dependency edge between them would be the first path in this tree
-//!    from a value crate to the crate that counts votes. There is none
-//!    today and there must be none tomorrow, so the two halves meet through
-//!    `(Vec<u8>, [u8; 32])` — standard-library types, no shared crate, no
-//!    format either side can drift from.
-//! 2. **Liveness.** A validator that had to verify a Bulletproof and a
-//!    16-member MLSAG per shielded spend before it could vote would be a
-//!    validator whose block time is set by the most expensive cryptography
-//!    in the protocol. Verification belongs where it already is —
-//!    `mini_private_payment::verify`, run by whoever cares — and the chain
-//!    orders the results.
-//! 3. **Neutrality.** A chain that could read a payment's contents is a
-//!    chain that could be made to treat some payments differently. This is
-//!    the same argument `mini-private-payment` makes for not depending on
-//!    `mini-social`: the layer that orders transactions must not be able to
-//!    tell what they are for.
-//!
-//! # What this costs, stated plainly
-//!
-//! The chain finalizes a key image on a proposer's say-so. It does **not**
-//! check that some valid claim produced it, because it cannot — that check
-//! is the cryptography it deliberately cannot see. A Byzantine proposer can
-//! therefore burn an output that is not theirs by including a record naming
-//! its key image, and honest nodes would finalize it.
-//!
-//! That is a real hole and it is not closed here. Closing it needs a
-//! validity rule the chain *can* check — a succinct proof, or a validator
-//! set that does verify claims and is measured for it — and that is
-//! [roadmap R8](../../../docs/ROADMAP_TO_RELEASE.md)'s territory, not this
-//! module's. What this module does is make the *ordering* real, which is
-//! what M3 requires and what nothing implemented before it.
+//! Shielded-spend validity crosses the voice/value wall through opaque records
+//! and an injected verifier. Execution, voting, commitment, and recovery require
+//! independent claim verification; a quorum certificate never substitutes for it.
+//! The consensus crates cannot inspect amounts or use them as vote weights.
+//! Missing evidence rejects a candidate until the evidence is available.
 
 use mini_crypto::HashAlgorithm;
 
@@ -108,6 +65,44 @@ impl NullifierRecord {
         w.extend_from_slice(&self.canonical_bytes());
         HashAlgorithm::Blake3.digest(&w)
     }
+}
+
+/// The validator-set half of R8's still-open validity rule (D-0474):
+/// independently confirms a real, valid claim produced a group of
+/// same-digest [`NullifierRecord`]s, without this crate ever depending on
+/// the cryptography that proves it.
+///
+/// A claim spending several outputs contributes several [`NullifierRecord`]s
+/// that all carry its digest ([`NullifierRecord::claim_digest`]) — `group`
+/// is exactly that set, and `digest` is the value they all share. An
+/// implementor typically looks the digest up in its own locally-held claim
+/// evidence (never part of the canonical block body or wire protocol —
+/// nothing here can require that without this crate learning what a claim
+/// even is), decodes and verifies it with whatever cryptography it links,
+/// and confirms the result's own key images and transcript digest exactly
+/// match `group`/`digest` rather than merely existing.
+///
+/// Required for every shielded state transition and checkpoint. A missing
+/// verifier rejects shielded input; transparent-only bodies remain supported.
+/// `mini-shielded-verify` provides the concrete cryptographic implementation
+/// without adding a value dependency to the consensus crates.
+pub trait ClaimVerifier: Send + Sync {
+    /// Returns `true` only if a real claim verifies and its key
+    /// images/transcript digest exactly match `group`/`digest` — never on
+    /// trust, never on the claim's mere presence.
+    fn verify_claim(
+        &self,
+        network_id: &[u8; 32],
+        digest: &[u8; 32],
+        group: &[NullifierRecord],
+    ) -> Option<crate::ShieldedClaimEffects>;
+
+    /// Verify explicit genesis funding and public commitment encodings.
+    fn verify_genesis_allocation(
+        &self,
+        network_id: &[u8; 32],
+        allocation: &crate::ShieldedGenesisAllocation,
+    ) -> bool;
 }
 
 #[cfg(test)]

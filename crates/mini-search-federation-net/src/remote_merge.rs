@@ -73,14 +73,19 @@ pub fn federated_result_from_wire(
         ranking_profile: wire.ranking_profile,
         explanation,
     };
-    Ok(FederatedResult {
-        result: ResultProvenance {
+    // FederatedResult::remote_asserted is the only constructor available
+    // to this crate -- it always tags ResultOrigin::RemoteAsserted, so
+    // the merge in mini_search_federation::federate_query can never be
+    // told this score was locally verified when it was not (PR #327
+    // finding F-21).
+    Ok(FederatedResult::remote_asserted(
+        ResultProvenance {
             result,
             source_observation: CrawlObservationId(wire.source_observation),
             index_segment: wire.index_segment,
         },
         provider,
-    })
+    ))
 }
 
 /// Merge one remote peer's [`crate::remote_query`] results into a caller's
@@ -121,6 +126,7 @@ pub fn merge_authenticated_remote_results(
 #[cfg(test)]
 mod tests {
     use mini_crypto::{HashAlgorithm, Multihash};
+    use mini_search_federation::ResultOrigin;
     use mini_web_types::{
         AvailabilityState, CanonicalUrl, IndexSegmentId, NormalizedHost, RankingProfileId, Scheme,
     };
@@ -164,13 +170,16 @@ mod tests {
     fn a_valid_wire_result_converts_and_round_trips_its_fields() {
         let wire = wire_result("/a", 4_000);
         let result = federated_result_from_wire(wire.clone(), provider(b"p1")).unwrap();
-        assert_eq!(result.result.result.url, wire.url);
+        assert_eq!(result.result().result.url, wire.url);
         assert_eq!(
-            result.result.result.relevance_score_bps.value(),
+            result.result().result.relevance_score_bps.value(),
             wire.relevance_score_bps
         );
-        assert_eq!(result.result.source_observation.0, wire.source_observation);
-        assert_eq!(result.provider, provider(b"p1"));
+        assert_eq!(
+            result.result().source_observation.0,
+            wire.source_observation
+        );
+        assert_eq!(result.provider().clone(), provider(b"p1"));
     }
 
     #[test]
@@ -204,17 +213,28 @@ mod tests {
     }
 
     #[test]
-    fn merging_deduplicates_a_url_present_in_both_local_and_remote_by_score() {
+    fn merging_preserves_competing_remote_claims_without_score_authority() {
         let local =
             vec![federated_result_from_wire(wire_result("/a", 1_000), provider(b"local")).unwrap()];
         let remote = vec![wire_result("/a", 9_000), wire_result("/b", 500)];
         let merged = merge_remote_results(local, remote, provider(b"remote"), 10).unwrap();
 
         assert_eq!(merged.len(), 2);
-        assert_eq!(merged[0].result.result.url, url("/a"));
-        assert_eq!(merged[0].provider, provider(b"remote"));
-        assert_eq!(merged[0].result.result.relevance_score_bps.value(), 9_000);
-        assert_eq!(merged[1].result.result.url, url("/b"));
+        assert_eq!(merged[0].result().result.url, url("/a"));
+        assert_eq!(merged[0].remote_claims().len(), 2);
+        assert!(merged[0].remote_claims().iter().any(|claim| claim
+            .result
+            .result
+            .relevance_score_bps
+            .value()
+            == 9_000));
+        assert!(merged[0].remote_claims().iter().any(|claim| claim
+            .result
+            .result
+            .relevance_score_bps
+            .value()
+            == 1_000));
+        assert_eq!(merged[1].result().result.url, url("/b"));
     }
 
     #[test]
@@ -224,8 +244,8 @@ mod tests {
         let remote = vec![wire_result("/b", 900), wire_result("/c", 800)];
         let merged = merge_remote_results(local, remote, provider(b"remote"), 2).unwrap();
         assert_eq!(merged.len(), 2);
-        assert_eq!(merged[0].result.result.url, url("/a"));
-        assert_eq!(merged[1].result.result.url, url("/b"));
+        assert_eq!(merged[0].result().result.url, url("/a"));
+        assert_eq!(merged[1].result().result.url, url("/b"));
     }
 
     #[test]
@@ -236,6 +256,158 @@ mod tests {
         assert_eq!(
             merge_remote_results(local, remote, provider(b"remote"), 10),
             Err(NetError::Protocol)
+        );
+    }
+
+    /// A genuine [`mini_search_federation::FederatedResult`] built the
+    /// only way `ResultOrigin::LocallyComputed` can ever actually happen:
+    /// a real `federate_query` call over a real, in-process
+    /// `FederationSource`, at canonical URL `/a` on `example.org` (the
+    /// same URL `wire_result("/a", ..)` above names), so it can compete
+    /// head-to-head against a wire-asserted result for the identical
+    /// document.
+    fn genuine_local_result(inbound_links: u32) -> FederatedResult {
+        use mini_lexical_index::{Field, IndexBuilder, UrlId};
+        use mini_query::{parse_query, DocumentContext, DocumentContextTable};
+        use mini_ranker::{Corpus, DocumentMeta};
+        use mini_search_federation::{federate_query, FederationSource};
+        use mini_web_types::RankingProfile;
+
+        let doc_id = UrlId(digest(b"local-doc-a"));
+        let mut builder = IndexBuilder::new();
+        builder.add_document(
+            doc_id.clone(),
+            &[
+                (Field::Title, "rust guide"),
+                (Field::Body, "rust programming"),
+            ],
+        );
+        let mut corpus = Corpus::new();
+        corpus.insert(
+            &doc_id,
+            DocumentMeta {
+                url: url("/a"),
+                title: "rust guide".to_string(),
+                snippet: "rust programming".to_string(),
+                observed_at_ms: 0,
+                inbound_links,
+                content_digest: digest(b"local-doc-a"),
+                availability: AvailabilityState::Available,
+            },
+        );
+        let mut contexts = DocumentContextTable::new();
+        contexts.insert(
+            &doc_id,
+            DocumentContext {
+                language: Some("en".to_string()),
+                media_type: None,
+                source_observation: CrawlObservationId(digest(b"local-obs")),
+            },
+        );
+        let index = builder.build();
+        let source = FederationSource {
+            provider: provider(b"local"),
+            index: &index,
+            corpus: &corpus,
+            contexts: &contexts,
+            index_segment: IndexSegmentId(digest(b"local-segment")),
+        };
+        let profile = RankingProfile::public_default(RankingProfileId(digest(b"public-default")));
+        let parsed = parse_query("rust programming");
+        let mut merged = federate_query(&[source], &profile, &parsed, 0, 10).unwrap();
+        assert_eq!(
+            merged.len(),
+            1,
+            "the fixture query must match exactly the one seeded document"
+        );
+        merged.remove(0)
+    }
+
+    #[test]
+    fn a_genuinely_local_result_is_tagged_locally_computed_by_construction() {
+        // Sanity check on the test fixture itself: federate_query really
+        // does tag its own output LocallyComputed, and the wire path
+        // really does tag its own output RemoteAsserted -- if either
+        // stopped being true the tests below would pass for the wrong
+        // reason.
+        let local = genuine_local_result(1);
+        assert_eq!(local.origin(), ResultOrigin::LocallyComputed);
+        let remote = federated_result_from_wire(wire_result("/a", 1), provider(b"p")).unwrap();
+        assert_eq!(remote.origin(), ResultOrigin::RemoteAsserted);
+    }
+
+    #[test]
+    fn a_hostile_remote_max_score_assertion_cannot_outrank_a_genuine_local_result() {
+        // PR #327 finding F-21's own concrete example and named
+        // acceptance test ("hostile max-score provider"): a malicious or
+        // compromised remote peer reports the maximum possible score for
+        // a URL this process already scored for real, honestly, from its
+        // own held index. The remote's self-asserted number must not win
+        // merely because it is bigger.
+        let local_result = genuine_local_result(3);
+        let local_score = local_result.result().result.relevance_score_bps.value();
+        assert!(
+            local_score < WeightBps::MAX.value(),
+            "fixture must not already be maxed out, or this test proves nothing"
+        );
+
+        let hostile_remote = wire_result("/a", WeightBps::MAX.value());
+        let merged = merge_remote_results(
+            vec![local_result],
+            vec![hostile_remote],
+            provider(b"attacker"),
+            10,
+        )
+        .unwrap();
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].origin(), ResultOrigin::LocallyComputed);
+        assert_eq!(
+            merged[0].result().result.relevance_score_bps.value(),
+            local_score,
+            "the locally-verified score must survive unchanged, not be replaced by the hostile claim"
+        );
+    }
+
+    #[test]
+    fn a_genuine_local_result_still_loses_to_a_better_genuine_local_result() {
+        // The origin tiebreak must not become "local always wins,
+        // regardless of anything else" -- two genuinely LocallyComputed
+        // results for the same URL (e.g. two local FederationSources
+        // that both happen to hold the same document) still resolve by
+        // score, exactly as before this finding's fix.
+        let weak = genuine_local_result(1);
+        let strong = genuine_local_result(50);
+        let merged = merge_federated_results(vec![weak.clone(), strong.clone()], 10);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].origin(), ResultOrigin::LocallyComputed);
+        assert!(
+            merged[0].result().result.relevance_score_bps.value()
+                >= weak.result().result.relevance_score_bps.value()
+        );
+    }
+    #[test]
+    fn hostile_remote_scores_cannot_change_order_and_disagreement_survives_remerge() {
+        let a = federated_result_from_wire(wire_result("/a", 1), provider(b"p1")).unwrap();
+        let mut conflicting = wire_result("/a", 10_000);
+        conflicting.ranking_profile = RankingProfileId(digest(b"other-profile"));
+        conflicting.source_observation = digest(b"other-observation");
+        conflicting.title = "contradictory title".into();
+        let b = federated_result_from_wire(conflicting, provider(b"p2")).unwrap();
+        let c = federated_result_from_wire(wire_result("/z", 10_000), provider(b"p3")).unwrap();
+        let forward = merge_federated_results(vec![a.clone(), b.clone(), c.clone()], 10);
+        let reverse = merge_federated_results(vec![c, b.clone(), a], 10);
+        assert_eq!(forward, reverse);
+        assert_eq!(forward[0].result().result.url, url("/a"));
+        assert_eq!(forward[0].remote_claims().len(), 2);
+        let again = merge_federated_results(vec![forward[0].clone(), b], 10);
+        assert_eq!(again[0], forward[0]);
+        let real = genuine_local_result(1);
+        let hostile =
+            federated_result_from_wire(wire_result("/aaa", 10_000), provider(b"hostile")).unwrap();
+        assert_eq!(
+            merge_federated_results(vec![hostile, real.clone()], 1),
+            vec![real]
         );
     }
 }

@@ -765,6 +765,10 @@ class RuntimeInstructionSurfaceTests(unittest.TestCase):
 
 class BootstrapOperatingProfileTests(unittest.TestCase):
     def validate_state(self, mutate=None, now=None) -> list[str]:
+        errors, _warnings = self.validate_state_full(mutate, now)
+        return errors
+
+    def validate_state_full(self, mutate=None, now=None) -> tuple[list[str], list[str]]:
         with tempfile.TemporaryDirectory() as temp:
             root = copy_fixture(Path(temp) / "candidate")
             state_path = root / CHECKER.BOOTSTRAP_STATE_PATH
@@ -773,8 +777,9 @@ class BootstrapOperatingProfileTests(unittest.TestCase):
                 mutate(data)
                 state_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
             errors: list[str] = []
-            CHECKER.validate_bootstrap_operating_state(root, errors, now)
-            return errors
+            warnings: list[str] = []
+            CHECKER.validate_bootstrap_operating_state(root, errors, warnings, now)
+            return errors, warnings
 
     def test_active_founder_only_state_passes(self) -> None:
         self.assertEqual([], self.validate_state(now=dt.datetime(2026, 7, 13, tzinfo=dt.timezone.utc)))
@@ -792,6 +797,34 @@ class BootstrapOperatingProfileTests(unittest.TestCase):
         for mutate in mutations:
             with self.subTest(mutate=mutate):
                 self.assertTrue(self.validate_state(mutate, dt.datetime(2026, 7, 13, tzinfo=dt.timezone.utc)))
+
+    def test_stale_last_verified_at_warns_but_does_not_block(self) -> None:
+        # PR #327 finding F-17 (D-0492): a record that has not been
+        # re-confirmed against real GitHub/network state in over a month
+        # must not read as clean just because none of its declared fields
+        # individually changed.
+        errors, warnings = self.validate_state_full(now=dt.datetime(2026, 8, 20, tzinfo=dt.timezone.utc))
+        self.assertEqual([], errors)
+        self.assertTrue(any("last_verified_at is more than 30 days old" in w for w in warnings), warnings)
+
+    def test_freshly_verified_state_has_no_staleness_warning(self) -> None:
+        errors, warnings = self.validate_state_full(now=dt.datetime(2026, 7, 20, tzinfo=dt.timezone.utc))
+        self.assertEqual([], errors)
+        self.assertFalse(any("last_verified_at" in w for w in warnings), warnings)
+
+    def test_future_dated_last_verified_at_fails_closed(self) -> None:
+        errors = self.validate_state(
+            lambda data: data.update(last_verified_at="2026-07-13T00:00:00Z"),
+            now=dt.datetime(2026, 7, 12, 21, 45, tzinfo=dt.timezone.utc),
+        )
+        self.assertTrue(any("last_verified_at is in the future" in error for error in errors), errors)
+
+    def test_missing_last_verified_at_fails_closed(self) -> None:
+        errors = self.validate_state(
+            lambda data: data.pop("last_verified_at", None),
+            now=dt.datetime(2026, 7, 13, tzinfo=dt.timezone.utc),
+        )
+        self.assertTrue(any("last-verified time is missing" in error for error in errors), errors)
 
 
 class WorkClaimRegistryTests(unittest.TestCase):

@@ -71,6 +71,7 @@ pub fn run(raw_args: &[String]) -> Result<String> {
         .map(PathBuf::from)
         .unwrap_or_else(|| home.join("store"));
 
+    let _maintenance_lease = crate::maintenance::lease(&home)?;
     dispatch(&home, &store_path, args, json)
 }
 

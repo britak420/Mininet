@@ -1,45 +1,10 @@
-//! What happens to a replica *after* it registers.
+//! Audited replica standing with checked ongoing possession.
 //!
-//! Registration proves a replica was genuinely sealed once. It says nothing
-//! about whether the provider still holds it a month later, and nothing about
-//! how much storage that provider may claim to be contributing. Both are
-//! separate problems, and both are places where a number can be asserted
-//! rather than proven.
-//!
-//! # The gap this closes
-//!
-//! `mini_spacetime::MerkleStorageProof::new` used to take `capacity_units`
-//! from its caller, with nothing tying that number to the commitment beside
-//! it, and `mini_spacetime::proposer_weight` took a bare `u64` while
-//! documenting that it "trusts its input completely". A provider could seal a
-//! single 32-byte node, register it honestly, and declare a million units.
-//!
-//! That inverts the thesis the whole storage design rests on. "A thousand
-//! cheap, scattered machines outcompete one warehouse" only holds if capacity
-//! has to be *proven*; if it can be declared, the cheapest possible node wins
-//! by typing a larger number.
-//!
-//! [`capacity_units_of`] derives capacity from the audited seal and takes no
-//! caller figure. **The derived path is now the only path** (D-0448):
-//! `proposer_weight` accepts nothing but a
-//! [`mini_spacetime::ProvenCapacity`], which has no numeric constructor, and
-//! `StorageCommitment::block_size_bytes` is re-checked against the served
-//! bytes on every challenge — so the byte total behind those units is a
-//! consequence of what a provider actually answered. Previously this crate
-//! closed the hole only for callers who opted in, which for an
-//! authority-bearing function is the same as leaving it open.
-//!
-//! # What is still not proven here
-//!
-//! - **Not a clock.** Windows are computed from caller-supplied milliseconds.
-//!   A caller feeding a dishonest clock gets dishonest windows. Anchoring
-//!   requires the same witnessed/chain-height evidence the rest of this crate
-//!   is waiting on.
-//! - **Not liveness.** A missed window means "this verifier saw no proof",
-//!   which is indistinguishable from a network partition. That is why lapse
-//!   degrades gradually and reversibly rather than punishing on first miss.
-//! - **Not a reward.** Nothing here pays anyone, and no crate consumes
-//!   [`ProvenCapacity`] to do so. It is a measurement, not an entitlement.
+//! Proposer weight is available only through ProviderStanding. Its capacity
+//! cannot be created from declarations or summed by external callers. Every
+//! active replica has both a verified registration and verified window responses.
+//! Time and beacon inputs still require canonical anchoring before production;
+//! these checks do not establish replication uniqueness or auditor independence.
 
 use std::collections::BTreeMap;
 
@@ -58,17 +23,51 @@ pub const WINDOW_CHALLENGE_DOMAIN: &[u8] = b"mininet/mini-storage-fraud/window-c
 /// prover's work and the verifier's.
 pub const MAX_CHALLENGES_PER_WINDOW: u32 = 1024;
 
-/// Re-exported from `mini-spacetime` rather than redefined here.
+pub use mini_spacetime::StorageUnitPolicy;
+
+/// Audited, active capacity minted only by this crate's lifecycle checks.
+/// It has no public constructor from a number, commitment, or observation, and
+/// cannot be added to itself to multiply one replica's weight.
 ///
-/// This crate had its own `StorageUnitPolicy`/`ProvenCapacity` pair with the
-/// same names and the same meaning. Two types called `ProvenCapacity` is how
-/// a caller ends up holding one kind of "proven" and passing it somewhere
-/// that means the other — the same reason `mini-private-payment` reuses
-/// `mini_settlement::SettlementState` instead of defining a parallel
-/// finality enum. The canonical definitions now live one layer down, beside
-/// [`mini_spacetime::proposer_weight`], which is the only thing that
-/// consumes them.
-pub use mini_spacetime::{ProvenCapacity, StorageUnitPolicy};
+/// ```compile_fail
+/// use mini_storage_fraud::ProvenCapacity;
+/// use mini_spacetime::{StorageCommitment, StorageUnitPolicy};
+/// let claim = StorageCommitment { merkle_root: [0; 32], block_count: 1_000_000, block_size_bytes: 32 };
+/// let forged = ProvenCapacity::from_commitment(&claim, &StorageUnitPolicy::gibibytes());
+/// ```
+///
+/// ```compile_fail
+/// use mini_spacetime::{ObservedCapacity, StorageCommitment, StorageUnitPolicy};
+/// let claim = StorageCommitment { merkle_root: [0; 32], block_count: 1_000_000, block_size_bytes: 32 };
+/// let capacity = ObservedCapacity::from_commitment(&claim, &StorageUnitPolicy::gibibytes());
+/// mini_spacetime::proposer_weight(capacity, 1, &Default::default());
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProvenCapacity {
+    units: u64,
+    committed_bytes: u64,
+}
+
+impl ProvenCapacity {
+    fn none() -> Self {
+        Self {
+            units: 0,
+            committed_bytes: 0,
+        }
+    }
+    fn saturating_add(self, other: Self) -> Self {
+        Self {
+            units: self.units.saturating_add(other.units),
+            committed_bytes: self.committed_bytes.saturating_add(other.committed_bytes),
+        }
+    }
+    pub fn units(&self) -> u64 {
+        self.units
+    }
+    pub fn committed_bytes(&self) -> u64 {
+        self.committed_bytes
+    }
+}
 
 /// Derive capacity from the audited seal.
 ///
@@ -79,8 +78,8 @@ pub use mini_spacetime::{ProvenCapacity, StorageUnitPolicy};
 pub fn capacity_units_of(
     claim: &VerifiedReplicaClaim,
     policy: &StorageUnitPolicy,
-) -> ProvenCapacity {
-    ProvenCapacity::from_commitment(&claim.storage_commitment(), policy)
+) -> mini_spacetime::ObservedCapacity {
+    mini_spacetime::ObservedCapacity::from_commitment(&claim.storage_commitment(), policy)
 }
 
 /// How often a registered replica must prove it still holds what it sealed.
@@ -166,6 +165,7 @@ impl ReplicaState {
 pub struct ReplicaLifecycle {
     claim: VerifiedReplicaClaim,
     genesis_ms: u64,
+    window_policy: WindowPolicy,
     state: ReplicaState,
     /// The window this replica became obligated to prove in. Misses are
     /// counted from here until the first successful window replaces it.
@@ -190,6 +190,7 @@ impl ReplicaLifecycle {
         Self {
             claim,
             genesis_ms,
+            window_policy: *policy,
             state: ReplicaState::Degraded { missed_windows: 0 },
             obligated_from: window,
             last_proven_window: None,
@@ -209,7 +210,8 @@ impl ReplicaLifecycle {
         self.last_proven_window
     }
 
-    /// The challenges this replica must answer for `window`.
+    /// The challenges this replica must answer for `window`. Returns no
+    /// challenges when the supplied policy differs from the pinned policy.
     ///
     /// Leaf indices are derived from the seal digest, the window index, and a
     /// `beacon` the **verifier** supplies. The provider contributes nothing to
@@ -224,6 +226,9 @@ impl ReplicaLifecycle {
         beacon: &[u8],
         policy: &WindowPolicy,
     ) -> Vec<StorageChallenge> {
+        if policy != &self.window_policy {
+            return Vec::new();
+        }
         let node_count = self.claim.seal().node_count as u64;
         let digest = seal_commitment_digest(self.claim.seal());
         (0..policy.challenges_per_window)
@@ -243,14 +248,36 @@ impl ReplicaLifecycle {
             .collect()
     }
 
-    /// Record that every challenge for `window` was answered correctly.
-    ///
-    /// The caller verifies the responses — `mini_porep::respond` produces them
-    /// and `mini_spacetime::verify_storage_challenge` checks them against the
-    /// replica root this claim carries. This records the outcome and moves the
-    /// state machine; it deliberately does not re-verify, so there is exactly
-    /// one place that decides whether a response was good.
-    pub fn record_proven_window(&mut self, window: u64, policy: &WindowPolicy) -> Result<()> {
+    /// Verify the exact window challenges before recording possession. Missing,
+    /// extra, substituted, or invalid Merkle responses never grant capacity.
+    pub fn record_proven_window(
+        &mut self,
+        window: u64,
+        beacon: &[u8],
+        responses: &[mini_spacetime::StorageChallengeResponse],
+        policy: &WindowPolicy,
+    ) -> Result<()> {
+        if policy != &self.window_policy {
+            return Err(FraudError::InvalidPolicy);
+        }
+        if window < self.highest_window_seen {
+            return Err(FraudError::WindowAlreadyProven);
+        }
+        let challenges = self.challenges_for(window, beacon, policy);
+        if responses.len() != challenges.len()
+            || !challenges
+                .iter()
+                .zip(responses)
+                .all(|(challenge, response)| {
+                    mini_spacetime::verify_storage_challenge(
+                        &self.claim.storage_commitment(),
+                        challenge,
+                        response,
+                    )
+                })
+        {
+            return Err(FraudError::AuditFailed);
+        }
         if matches!(self.state, ReplicaState::Retired | ReplicaState::Suspended) {
             return Err(FraudError::ReplicaNotProving);
         }
@@ -272,9 +299,14 @@ impl ReplicaLifecycle {
 
     /// Move the clock forward without a proof, crediting nothing.
     ///
+    /// Uses the policy pinned at registration; the legacy policy argument
+    /// cannot change the grace allowance.
+    ///
     /// Idempotent for windows already accounted for, so a verifier polling
     /// repeatedly inside one window does not accumulate phantom misses.
-    pub fn advance_to(&mut self, window: u64, policy: &WindowPolicy) {
+    pub fn advance_to(&mut self, window: u64, _policy: &WindowPolicy) {
+        // A caller cannot extend grace by substituting a weaker policy.
+        let policy = self.window_policy;
         if window <= self.highest_window_seen {
             return;
         }
@@ -313,7 +345,11 @@ impl ReplicaLifecycle {
     /// active, nothing otherwise.
     pub fn proven_capacity(&self, units: &StorageUnitPolicy) -> ProvenCapacity {
         if self.state.counts_capacity() {
-            capacity_units_of(&self.claim, units)
+            let observed = capacity_units_of(&self.claim, units);
+            ProvenCapacity {
+                units: observed.units(),
+                committed_bytes: observed.committed_bytes(),
+            }
         } else {
             ProvenCapacity::none()
         }
@@ -328,6 +364,7 @@ impl ReplicaLifecycle {
 #[derive(Debug, Default)]
 pub struct ProviderStanding {
     replicas: BTreeMap<[u8; 32], ReplicaLifecycle>,
+    provider_root: Option<did_mini::Did>,
 }
 
 impl ProviderStanding {
@@ -335,10 +372,23 @@ impl ProviderStanding {
         Self::default()
     }
 
-    /// Track a replica, keyed by its replica root.
-    pub fn track(&mut self, lifecycle: ReplicaLifecycle) {
+    /// Track one replica for this provider. Duplicate roots are rejected so
+    /// replaying an old lifecycle cannot resurrect lapsed or retired capacity.
+    pub fn track(&mut self, lifecycle: ReplicaLifecycle) -> Result<()> {
+        if self
+            .replicas
+            .contains_key(&lifecycle.claim().replica_root())
+        {
+            return Err(FraudError::AlreadyRegistered);
+        }
+        let root = lifecycle.claim().provider_root();
+        if self.provider_root.as_ref().is_some_and(|held| held != root) {
+            return Err(FraudError::ProviderMismatch);
+        }
+        self.provider_root = Some(root.clone());
         self.replicas
             .insert(lifecycle.claim().replica_root(), lifecycle);
+        Ok(())
     }
 
     pub fn get_mut(&mut self, replica_root: &[u8; 32]) -> Option<&mut ReplicaLifecycle> {
@@ -369,11 +419,26 @@ impl ProviderStanding {
     /// Saturating: a provider tracking absurdly many replicas cannot wrap this
     /// into a small number.
     /// Keyed by replica root, so no replica is counted twice — the one
-    /// caveat [`ProvenCapacity::saturating_add`] cannot enforce itself.
+    /// aggregate operation is private, preventing external double-counting.
     pub fn proven_capacity(&self, units: &StorageUnitPolicy) -> ProvenCapacity {
         self.replicas
             .values()
             .map(|lifecycle| lifecycle.proven_capacity(units))
             .fold(ProvenCapacity::none(), ProvenCapacity::saturating_add)
+    }
+
+    /// This provider's block-production selection weight (D-0477),
+    /// derived entirely from its own tracked, audited, lifecycle-checked
+    /// replicas.
+    ///
+    /// The only capacity-bearing parameter is checked standing; no public
+    /// lower-layer weight function accepts caller-constructed measurements.
+    pub fn block_production_weight(
+        &self,
+        units: &StorageUnitPolicy,
+        distinct_regions: u32,
+        params: &crate::ProposerParams,
+    ) -> u64 {
+        crate::weight::proposer_weight(self.proven_capacity(units), distinct_regions, params)
     }
 }

@@ -93,30 +93,16 @@ impl StorageUnitPolicy {
     }
 }
 
-/// Capacity that something actually checked.
-///
-/// **There is deliberately no constructor taking a number.** The only ways
-/// to obtain one are [`ProvenCapacity::from_commitment`], which derives it
-/// from a [`StorageCommitment`] whose block size is enforced on every
-/// challenge, and [`ProvenCapacity::none`]. That is the whole point of the
-/// type: [`crate::proposer_weight`] weights block production, and a
-/// function that exercises that much authority must not be reachable with a
-/// number a caller typed.
-///
-/// Before this existed, `proposer_weight` took a bare `u64` and its own
-/// documentation said it "trusts its input completely" — so a provider
-/// could commit a single 32-byte block, prove it honestly, and then declare
-/// a million units. That inverts the thesis the storage design rests on:
-/// "a thousand cheap machines outcompete one warehouse" holds only while
-/// capacity must be proven, since a warehouse and a Raspberry Pi type a
-/// large number equally cheaply.
+/// A byte measurement derived from a declared commitment or a possession source.
+/// This type is not an audited registration, a unique replica, or authority to
+/// earn rewards or proposer weight. Checked standing lives in mini-storage-fraud.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ProvenCapacity {
+pub struct ObservedCapacity {
     units: u64,
     committed_bytes: u64,
 }
 
-impl ProvenCapacity {
+impl ObservedCapacity {
     /// Derive capacity from a commitment. Truncating division: a commitment
     /// smaller than one unit counts as zero rather than rounding up into
     /// capacity nobody committed.
@@ -151,7 +137,7 @@ impl ProvenCapacity {
     ///
     /// Sound because both operands were derived: a sum of checked
     /// quantities is itself checked, and no sequence of additions can mint
-    /// capacity from nothing — [`ProvenCapacity::none`] added any number of
+    /// capacity from nothing — [`ObservedCapacity::none`] added any number of
     /// times is still zero. This is the only arithmetic the type permits,
     /// and it exists so a provider holding several replicas can be totalled
     /// without anyone unwrapping to `u64` and back.
@@ -361,9 +347,9 @@ impl MerkleStorageProof {
 }
 
 impl ProofOfSpaceTimeSource for MerkleStorageProof {
-    fn proven_capacity(&mut self, now_ms: u64) -> Option<ProvenCapacity> {
+    fn proven_capacity(&mut self, now_ms: u64) -> Option<ObservedCapacity> {
         if self.history.proven_space_time(&self.policy, now_ms) {
-            Some(ProvenCapacity::from_commitment(
+            Some(ObservedCapacity::from_commitment(
                 &self.commitment,
                 &self.units,
             ))
@@ -601,7 +587,7 @@ mod tests {
         };
         let coarse = StorageUnitPolicy::new(1024 * 1024).unwrap();
         assert_eq!(
-            ProvenCapacity::from_commitment(&commitment, &coarse).units(),
+            ObservedCapacity::from_commitment(&commitment, &coarse).units(),
             0
         );
     }

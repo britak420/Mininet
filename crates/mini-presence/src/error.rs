@@ -34,6 +34,15 @@ pub enum PresenceError {
     MissingAttestCapability,
     /// A nonce was reused (or the two parties reused each other's nonce): replay.
     Replay,
+    /// A replay guard's durable record of this exchange's nonce(s) could not
+    /// be committed to storage (F-12): the exchange is refused rather than
+    /// accepted on an in-memory-only acceptance that a process restart
+    /// would forget, which would let the same nonce be replayed and
+    /// accepted again later. Distinct from [`PresenceError::Replay`] (a
+    /// nonce that genuinely was seen before) so an operator can tell a
+    /// storage failure from an actual replay attempt, even though both are
+    /// refused identically here.
+    ReplayGuardWriteFailed,
     /// Both devices belong to the same identity root: an identity root cannot be co-present
     /// with itself (P2 target — presence is evidence of two identity roots meeting).
     SelfPresence,
@@ -75,6 +84,12 @@ impl core::fmt::Display for PresenceError {
                 write!(f, "device lacks the ATTEST capability")
             }
             PresenceError::Replay => write!(f, "nonce reuse (replay) detected"),
+            PresenceError::ReplayGuardWriteFailed => {
+                write!(
+                    f,
+                    "replay guard could not durably record this exchange's nonce"
+                )
+            }
             PresenceError::SelfPresence => {
                 write!(f, "both devices belong to the same identity root")
             }
