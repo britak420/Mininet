@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-11T17:26:35Z",
+  "updated_at": "2026-09-11T18:45:28Z",
   "claims": [
     {
       "issue": 122,
@@ -1349,7 +1349,12 @@
         "crates/mini-value/src/lib.rs",
         "crates/mini-private-payment/src/claim.rs",
         "crates/mini-private-payment/src/scan.rs",
-        "crates/mini-private-payment/tests/support/mod.rs"
+        "crates/mini-private-payment/tests/support/mod.rs",
+        "crates/mini-presence/src/evidence_v2.rs",
+        "crates/mini-presence/src/verify.rs",
+        "crates/mini-presence/src/error.rs",
+        "crates/mini-presence/src/lib.rs",
+        "crates/mini-presence/tests/presence_v2.rs"
       ],
       "decision_ids": [
         "D-0502",
@@ -1359,9 +1364,10 @@
         "D-0506",
         "D-0507",
         "D-0508",
-        "D-0509"
+        "D-0509",
+        "D-0510"
       ],
-      "notes": "PR #333 combines two originally separate efforts, consolidated onto this one branch/PR per founder instruction 2026-09-11. (1) BLE mesh relay (docs/design/ble-mesh-relay.md): D-0502 Kotlin BleRadio implementation (single-connection, later superseded by D-0505), D-0503 mini_bearer::EncryptedLink + new crate mini-mesh (MeshNode), hardware-free proven with in-process AND real-loopback-TCP multi-hop line-topology tests, D-0504 mini-ffi::mesh UniFFI boundary (MeshHandle), D-0505 Android BlePeripheralServer multi-central redesign/BleCentralRadio scan-connect split/BleMeshService orchestration -- unverified without a JDK/Android SDK/BLE hardware in this environment. (2) Gate #93/#72 crypto engineering remediation from two anonymous external audit reports, adopted per explicit founder/user 'full scope now' instruction: D-0506 fixes the verified index-0 DKG vulnerability in mini_treasury::frost_dkg, D-0507 adds mini-custody (a production ceremony layer over frost_ristretto255's audited DKG), D-0508 gates the legacy hand-rolled DKG off mini-treasury's default API, D-0509 fixes canonical scalar/point decoding in mini-value. Originally allocated D-0502-D-0505 on a separate branch (claude/gate-72-93-crypto-custody-remediation) created independently off main; renumbered to D-0506-D-0509 on merge into this branch, which had already claimed D-0502-D-0505 for the BLE mesh work. Per D-0047, neither audit report nor this remediation closes Gate #93/#72 -- see the decision log entries for the explicit non-claims."
+      "notes": "PR #333 combines three originally separate efforts, consolidated onto this one branch/PR per founder instruction 2026-09-11. (1) BLE mesh relay (docs/design/ble-mesh-relay.md): D-0502 Kotlin BleRadio implementation (single-connection, later superseded by D-0505), D-0503 mini_bearer::EncryptedLink + new crate mini-mesh (MeshNode), hardware-free proven with in-process AND real-loopback-TCP multi-hop line-topology tests, D-0504 mini-ffi::mesh UniFFI boundary (MeshHandle), D-0505 Android BlePeripheralServer multi-central redesign/BleCentralRadio scan-connect split/BleMeshService orchestration -- unverified without a JDK/Android SDK/BLE hardware in this environment. (2) Gate #93/#72 crypto engineering remediation from two anonymous external audit reports, adopted per explicit founder/user 'full scope now' instruction: D-0506 fixes the verified index-0 DKG vulnerability in mini_treasury::frost_dkg, D-0507 adds mini-custody (a production ceremony layer over frost_ristretto255's audited DKG), D-0508 gates the legacy hand-rolled DKG off mini-treasury's default API, D-0509 fixes canonical scalar/point decoding in mini-value. Originally allocated D-0502-D-0505 on a separate branch (claude/gate-72-93-crypto-custody-remediation) created independently off main; renumbered to D-0506-D-0509 on merge into this branch, which had already claimed D-0502-D-0505 for the BLE mesh work. Per D-0047, neither audit report nor this remediation closes Gate #93/#72 -- see the decision log entries for the explicit non-claims. (3) Gate #97 hardware/BLE/UWB/presence architecture from a fourth anonymous report, which itself states 'GATE #97: FAIL / BLOCKED UNTIL THE REAL-DEVICE EVIDENCE IN THIS DOCUMENT PASSES' and claims no physical result -- D-0510 implements the RangingEvidenceV2/PresencePolicyV2/HardwareCapabilityRegistryV1/verify_presence_v2 architecture in mini-presence as engineering remediation only; no gate-closure claim is made or implied, and no physical hardware validation happens in this repository."
     }
   ]
 }

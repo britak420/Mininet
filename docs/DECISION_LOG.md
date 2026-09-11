@@ -22783,3 +22783,151 @@ remains founder action per `docs/gates/crypto-audit-scope.md` — is not
 something engineering remediation on this side can substitute for.
 
 **Supersedes / superseded by:** none.
+
+### D-0510 — `mini-presence`: `RangingEvidenceV2`/`PresencePolicyV2`/`verify_presence_v2`, a hardware-classification architecture for Gate #97 (engineering remediation, not gate closure)  ·  *Shipped, unaudited, no physical validation*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+Hardware Validation 05 — Gate #97 BLE/UWB/Presence"), its own Sections
+27-28 and 33 (device certification data model, hardware classification
+algorithm, exact code change map); new module
+`crates/mini-presence/src/evidence_v2.rs`;
+`crates/mini-presence/src/{error,verify,lib}.rs`; new integration tests
+`crates/mini-presence/tests/presence_v2.rs`.
+
+**Decision:** unlike the Gate #72/#93 reports (D-0506-D-0509), this
+report does not ask for gate closure — it states its own result plainly
+as "GATE #97: FAIL / BLOCKED UNTIL THE REAL-DEVICE EVIDENCE IN THIS
+DOCUMENT PASSES" and "NO PHYSICAL RESULT IS CLAIMED BY THIS DOCUMENT,"
+deferring closure to real hardware testers this sandboxed environment
+cannot be. That removes the tension present in the other three uploaded
+reports (this tree does not treat an anonymous, unsigned document as a
+verified audit — see D-0506/D-0507/D-0509 and the founder-chat exchanges
+recorded around them): there is no gate-closure request here to decline,
+only an architecture to implement and verify against the real crate
+before writing any code, per this tree's standing "verify claims before
+implementing" discipline.
+
+Verified against real code first: `crates/mini-presence/src/{ranging,
+attestation,verify}.rs` were read in full and the report's claims were
+accurate — `ranging::RangingSource` ships no real implementation
+(`NoUwb` always returns `Ok(None)`); `attestation::UwbRanging` is a bare
+`{distance_cm, sample_count}` pair whose own doc comment already admits
+`sample_count` is "not independently checked" by this crate;
+`TransportKind::InProcess` is treated as a proximity transport by
+`is_proximity()` (correct for this crate's own CI, but the report's
+concern that a canonical/production path must not inherit that is
+legitimate); `verify::verify_presence`'s UWB check is optional and
+purely additive to the software RTT bound, never required.
+
+Implemented, per Section 33.2's exact instruction ("ADD: canonical
+`PresencePolicyV2`. ADD: verifier path: `verify_presence_v2`. It must:
+derive assurance; validate sample/distance/security bounds; reject
+production InProcess; preserve existing KEL/signature/nonces/replay/
+software RTT."):
+
+- `RangingTechnologyV2` (Uwb / BleChannelSounding / SoftwareRtt),
+  `RangingSecurityProfileV2` (SecureSts / Unauthenticated),
+  `MeasurementSidedness` (OneSided / TwoSided), `AttackIndicatorV2` (a
+  `u8` NADM-scale attack-detection signal), `PresenceAssuranceV2`
+  (Unusable < WeakSoftware < CertifiedMedium < CertifiedSecure, `Ord`-
+  derived so a caller can express a minimum threshold).
+- `RangingEvidenceV2`: raw, independently-checkable measurement fields
+  only (technology, security profile, sidedness, a registry capability-
+  class id, an OOB-config digest, a session-binding digest, sample
+  count, duration, min/p10/median/p90/max distance in mm, attack
+  indicator, opaque platform quality flags). Deliberately **no**
+  "claimed assurance" field: per the report's "derived not caller-set"
+  requirement, nothing on the wire type lets a caller assert its own
+  trust level.
+- `HardwareCapabilityRegistryV1`: a versioned, source-controlled,
+  in-code registry of generic capability *classes* ("UWB w/ FiRa-profile
+  secure ranging," "Bluetooth Channel Sounding," "software RTT") rather
+  than a per-device allowlist, matching the report's stated preference
+  and its "no online service" requirement — a new class ships as a
+  reviewed code change, nothing is fetched at runtime.
+- `classify_ranging_evidence`: the Section 28 hardware classification
+  algorithm, implemented as a pure, total function over evidence +
+  registry. Hardware (UWB/BLE-CS) evidence must cite a registry-
+  recognized, secure-ranging-certified class, report `SecureSts`, stay
+  within the NADM/sample-count/window/distance (median *and* p90 tail)
+  bounds `PresencePolicyV2`'s associated constants fix, and is capped at
+  `CertifiedMedium` unless both sides cross-checked
+  (`MeasurementSidedness::TwoSided`, which alone reaches
+  `CertifiedSecure`). Any failure — including an unrecognized capability
+  class, regardless of how good the claimed numbers look — is
+  `Unusable`, never silently downgraded to a lower-but-still-accepted
+  level.
+- `verify::verify_presence_v2`: calls the existing, unmodified
+  `verify_presence` first (so every KEL/delegation/signature/nonce/
+  replay/software-RTT check it already performs still applies
+  unchanged), then unconditionally rejects `TransportKind::InProcess`
+  (stricter than V1's `is_proximity()`, which allows it for CI),
+  requires — when evidence is supplied — that
+  `RangingEvidenceV2::session_binding_digest` equal
+  `blake3(attestation_transcript)` (evidence from one session can never
+  back a different one), and always **recomputes**
+  `classify_ranging_evidence` itself rather than trusting anything the
+  caller supplied, checking the result against a caller-specified
+  minimum. No evidence still succeeds at `WeakSoftware` (the base
+  checks already enforce the software RTT bound), so devices without
+  ranging hardware are unaffected exactly as the report requires.
+
+**Reason:** the same reasoning D-0509 applied to scalar/point decoding
+applies here to trust levels: a field a caller can set to whatever it
+likes is not evidence, it's a claim. `RangingEvidenceV2` has no
+assurance field for a caller to lie into, and `verify_presence_v2`
+always derives the real value from raw, checkable numbers plus a
+registry the caller cannot edit at the call site. This is exactly the
+project's "typed domains, never generic `sign(bytes)`" instinct applied
+to a classification instead of a signature: the set of assurance levels
+achievable is fixed by the algorithm, not by whatever the wire message
+says about itself.
+
+**Constitutional impact:** none. No dependency-edge change (mini-
+presence has no edge to any voice/value crate either direction, and none
+was added). This is new architecture in an already-owner-adopted,
+unaudited crate — it does not touch, weaken, or invoke the unfreezing
+process for any Tier-F invariant, and does not claim gate closure. It
+composes only already-reviewed primitives (`mini_crypto::HashAlgorithm::
+Blake3`) plus ordinary Rust — no new cryptographic construction.
+
+**Implementation status:** shipped as architecture only. 20 new unit
+tests in `evidence_v2.rs` (classification boundary conditions: two-sided
+vs. one-sided caps, unrecognized capability class, a device claiming
+secure ranging for the software-only class, attack-indicator threshold,
+sample-count/window/distance bounds including the p90-tail case a tight
+median alone can't hide, self-inconsistent distance ordering, both
+hardware technologies) and 7 new integration tests in
+`tests/presence_v2.rs` (InProcess rejection, no-evidence path at/under
+its ceiling, evidence-session-binding mismatch, unusable evidence,
+insufficient assurance for both the no-evidence and one-sided-evidence
+cases, a full real end-to-end `CertifiedSecure` verification using real
+delegation/KEL/channel-handshake/signature fixtures matching the
+existing `tests/presence.rs` fixture shape). `cargo fmt --all`, `cargo
+clippy --all-targets --all-features --workspace -- -D warnings`, and
+`cargo test -p mini-presence` are clean; full-workspace `cargo test
+--workspace --all-features` re-run pending as part of this same batch.
+
+**Failure point:** this is architecture, not a closed gate — the report
+itself says so. Nothing here talks to real UWB or BLE Channel Sounding
+hardware; `HardwareCapabilityRegistryV1::builtin`'s three classes are
+generic and unvalidated against any specific real device's actual
+behavior; no platform shell (Android/iOS) in this tree produces a
+`RangingEvidenceV2` yet — Section 33's Kotlin-side module map is
+unimplemented; `platform_quality_flags` is carried but not interpreted
+by any check yet; `oob_config_digest` is carried and required to be
+present but this crate cannot independently witness the out-of-band
+exchange it claims to summarize, so a compromised platform could still
+lie about it. Real hardware validation remains gated on the same
+condition the report itself names: physical devices and testers this
+sandboxed environment does not have.
+
+**Required follow-up:** a real platform integration (Android/iOS UWB and
+Bluetooth Channel Sounding stacks) that actually produces
+`RangingEvidenceV2` from hardware, real-device data collection to
+validate or correct `HardwareCapabilityRegistryV1`'s three built-in
+classes and `PresencePolicyV2`'s bound constants against real ranging
+noise, and — as always — closing Gate #97 itself is founder/hardware-
+tester action this repository cannot substitute for.
+
+**Supersedes / superseded by:** none.

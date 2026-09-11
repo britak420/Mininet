@@ -4,8 +4,11 @@ use std::collections::HashSet;
 
 use did_mini::{verify_delegation, Capabilities, Did, Kel};
 
-use crate::attestation::{kel_digest, Party, PresenceAttestation, PRESENCE_VERSION};
+use crate::attestation::{kel_digest, Party, PresenceAttestation, TransportKind, PRESENCE_VERSION};
 use crate::error::{PresenceError, Result};
+use crate::evidence_v2::{
+    classify_ranging_evidence, HardwareCapabilityRegistryV1, PresenceAssuranceV2, RangingEvidenceV2,
+};
 
 /// Range/timing policy for accepting an attestation.
 #[derive(Debug, Clone)]
@@ -259,6 +262,77 @@ pub fn verify_presence(
         at_ms: f.finished_at_ms,
         hardware_ranged: f.uwb.is_some(),
     })
+}
+
+/// A verified co-presence with a derived hardware assurance level (Gate #97).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PresenceVerdictV2 {
+    /// Everything [`verify_presence`] already establishes.
+    pub verdict: PresenceVerdict,
+    /// The assurance level [`classify_ranging_evidence`] derived — never a
+    /// value the caller supplied, always recomputed here from raw evidence.
+    pub assurance: PresenceAssuranceV2,
+}
+
+/// Verify a presence attestation to the Gate #97 hardware-backed standard.
+///
+/// This **reuses every check [`verify_presence`] performs** — version,
+/// channel binding, time window, software RTT bound, nonce distinctness,
+/// KEL/delegation/signature verification for both parties, self-presence
+/// rejection, and replay recording — then adds, per the gate document's
+/// exact-code-change instruction (Section 33.2):
+///
+/// - unconditional rejection of [`TransportKind::InProcess`] (V1's
+///   [`TransportKind::is_proximity`] allows it for CI; the canonical
+///   personhood path must not);
+/// - when `evidence` is supplied, that it is cryptographically bound to
+///   *this* attestation's transcript ([`RangingEvidenceV2::session_binding_digest`]),
+///   so evidence from one session can never back a different one;
+/// - a freshly recomputed [`PresenceAssuranceV2`] via
+///   [`classify_ranging_evidence`] — never trusting any caller-side claim
+///   about the evidence's own quality, because [`RangingEvidenceV2`] has no
+///   such field to trust in the first place;
+/// - that the derived assurance meets `min_assurance`.
+///
+/// With no `evidence`, the base checks (which always enforce the software
+/// RTT bound) already establish [`PresenceAssuranceV2::WeakSoftware`]-level
+/// proximity, so that is the assurance used against `min_assurance`.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_presence_v2(
+    att: &PresenceAttestation,
+    evidence: Option<&RangingEvidenceV2>,
+    ctx: &VerifyContext<'_>,
+    replay: &mut dyn ReplayGuard,
+    registry: &HardwareCapabilityRegistryV1,
+    min_assurance: PresenceAssuranceV2,
+) -> Result<PresenceVerdictV2> {
+    if att.fields.transport == TransportKind::InProcess {
+        return Err(PresenceError::InProcessTransportRejectedByV2);
+    }
+
+    let transcript = att.fields.transcript();
+    let verdict = verify_presence(att, ctx, replay)?;
+
+    let assurance = match evidence {
+        Some(evidence) => {
+            let expected_binding = RangingEvidenceV2::bind_to_transcript(&transcript);
+            if evidence.session_binding_digest != expected_binding {
+                return Err(PresenceError::EvidenceSessionBindingMismatch);
+            }
+            let assurance = classify_ranging_evidence(evidence, registry);
+            if assurance == PresenceAssuranceV2::Unusable {
+                return Err(PresenceError::EvidenceUnusable);
+            }
+            assurance
+        }
+        None => PresenceAssuranceV2::WeakSoftware,
+    };
+
+    if assurance < min_assurance {
+        return Err(PresenceError::InsufficientAssurance);
+    }
+
+    Ok(PresenceVerdictV2 { verdict, assurance })
 }
 
 fn check_party(

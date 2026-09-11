@@ -60,6 +60,25 @@ pub enum PresenceError {
     /// An underlying cryptographic failure (e.g. entropy source) while
     /// generating a [`crate::active_range`] challenge.
     Crypto(CryptoError),
+    /// [`crate::verify::verify_presence_v2`] refuses the in-process test
+    /// transport unconditionally, unlike V1's [`TransportKind::is_proximity`]
+    /// (which treats it as proximity for CI). The canonical personhood path
+    /// must never accept a transport that evidences nothing physical.
+    ///
+    /// [`TransportKind::is_proximity`]: crate::attestation::TransportKind::is_proximity
+    InProcessTransportRejectedByV2,
+    /// A [`crate::evidence_v2::RangingEvidenceV2`] was supplied but its
+    /// `session_binding_digest` does not match the attestation transcript
+    /// being verified — the evidence was produced for (or forged against) a
+    /// different session and cannot back this one.
+    EvidenceSessionBindingMismatch,
+    /// [`crate::evidence_v2::classify_ranging_evidence`] derived
+    /// [`crate::evidence_v2::PresenceAssuranceV2::Unusable`] for the supplied
+    /// evidence.
+    EvidenceUnusable,
+    /// The evidence classified to a real assurance level, but below what the
+    /// verifier's policy required.
+    InsufficientAssurance,
 }
 
 impl core::fmt::Display for PresenceError {
@@ -99,6 +118,21 @@ impl core::fmt::Display for PresenceError {
             }
             PresenceError::Bearer(e) => write!(f, "bearer/channel error: {e}"),
             PresenceError::Crypto(e) => write!(f, "crypto error: {e}"),
+            PresenceError::InProcessTransportRejectedByV2 => {
+                write!(f, "in-process transport is never valid for V2 verification")
+            }
+            PresenceError::EvidenceSessionBindingMismatch => {
+                write!(f, "ranging evidence is not bound to this session")
+            }
+            PresenceError::EvidenceUnusable => {
+                write!(f, "ranging evidence classified as unusable")
+            }
+            PresenceError::InsufficientAssurance => {
+                write!(
+                    f,
+                    "ranging evidence assurance is below the required minimum"
+                )
+            }
         }
     }
 }

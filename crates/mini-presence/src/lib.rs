@@ -59,6 +59,7 @@
 mod active_range;
 mod attestation;
 mod error;
+mod evidence_v2;
 mod persisted;
 mod ranging;
 mod verify;
@@ -71,8 +72,14 @@ pub use attestation::{
     PRESENCE_VERSION,
 };
 pub use error::{PresenceError, Result};
+pub use evidence_v2::{
+    classify_ranging_evidence, AttackIndicatorV2, HardwareCapabilityClassV1,
+    HardwareCapabilityRegistryV1, MeasurementSidedness, PresenceAssuranceV2, PresencePolicyV2,
+    RangingEvidenceV2, RangingSecurityProfileV2, RangingTechnologyV2,
+};
 pub use persisted::FileReplayGuard;
 pub use ranging::{NoUwb, RangingError, RangingSource};
 pub use verify::{
-    verify_presence, InMemoryReplayGuard, PresenceVerdict, RangePolicy, ReplayGuard, VerifyContext,
+    verify_presence, verify_presence_v2, InMemoryReplayGuard, PresenceVerdict, PresenceVerdictV2,
+    RangePolicy, ReplayGuard, VerifyContext,
 };

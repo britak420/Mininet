@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 78,
-    "files": 981,
+    "files": 983,
     "headings": 3570,
-    "rust_symbols": 9959
+    "rust_symbols": 10024
   },
   "crates": {
     "did-mini": {
@@ -47722,38 +47722,38 @@
       "title": "use did_mini::{Controller, Did, IndexedSig, Kel};"
     },
     {
-      "bytes": 5193,
+      "bytes": 6926,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
         "presenceerror",
         "write",
-        "identity",
-        "replay",
-        "match",
-        "nonce",
-        "error",
+        "attestation",
+        "evidence",
         "result",
         "fmt",
-        "kel",
+        "policy",
+        "identity",
         "core",
         "presence",
-        "attestation",
-        "channel",
-        "policy",
-        "range",
+        "match",
+        "nonce",
+        "replay",
         "failure",
-        "evidence",
-        "device",
-        "does",
-        "root",
-        "exchange",
-        "bearer",
-        "identityerror"
+        "transport",
+        "cannot",
+        "channel",
+        "range",
+        "supplied",
+        "error",
+        "identityerror",
+        "physical",
+        "round-trip",
+        "exceeds"
       ],
-      "lines": 113,
+      "lines": 147,
       "path": "crates/mini-presence/src/error.rs",
-      "sha256": "82a609467e210c836fec5b62568f6490fb4f682dcb5abbddab55eee6daaf1967",
+      "sha256": "90031ba264f7ae9df05e7639a53e47405056585796d1ba5b401f924aff6335a6",
       "symbols": [
         {
           "kind": "type",
@@ -47767,34 +47767,306 @@
         },
         {
           "kind": "impl",
-          "line": 65,
+          "line": 84,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 66,
+          "line": 85,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 106,
+          "line": 140,
           "name": "std::error::Error"
         },
         {
           "kind": "impl",
-          "line": 108,
+          "line": 142,
           "name": "From<IdentityError>"
         },
         {
           "kind": "fn",
-          "line": 109,
+          "line": 143,
           "name": "from"
         }
       ],
       "title": "use did_mini::IdentityError;"
     },
     {
-      "bytes": 3961,
+      "bytes": 26590,
+      "group": "crate:mini-presence",
+      "headings": [],
+      "keywords": [
+        "ranging",
+        "evidence",
+        "uwb",
+        "gate",
+        "presencepolicyv2",
+        "rangingevidencev2",
+        "hardware",
+        "independently",
+        "assurance",
+        "channel",
+        "attack",
+        "hardwarecapabilityregistryv1",
+        "classify_ranging_evidence",
+        "sample_count",
+        "software",
+        "rtt",
+        "level",
+        "never",
+        "always",
+        "platform",
+        "technology",
+        "cannot",
+        "exchange",
+        "secure"
+      ],
+      "lines": 605,
+      "path": "crates/mini-presence/src/evidence_v2.rs",
+      "sha256": "51ad9dd96d2c76550d6d55a5bf127f0253b3e8d70177bea29bb35e4b5e489d3e",
+      "symbols": [
+        {
+          "kind": "fn",
+          "line": 45,
+          "name": "blake3_256"
+        },
+        {
+          "kind": "enum",
+          "line": 52,
+          "name": "RangingTechnologyV2"
+        },
+        {
+          "kind": "enum",
+          "line": 68,
+          "name": "RangingSecurityProfileV2"
+        },
+        {
+          "kind": "enum",
+          "line": 83,
+          "name": "MeasurementSidedness"
+        },
+        {
+          "kind": "type",
+          "line": 98,
+          "name": "AttackIndicatorV2"
+        },
+        {
+          "kind": "enum",
+          "line": 103,
+          "name": "PresenceAssuranceV2"
+        },
+        {
+          "kind": "struct",
+          "line": 124,
+          "name": "HardwareCapabilityClassV1"
+        },
+        {
+          "kind": "fn",
+          "line": 142,
+          "name": "class_id"
+        },
+        {
+          "kind": "struct",
+          "line": 154,
+          "name": "HardwareCapabilityRegistryV1"
+        },
+        {
+          "kind": "impl",
+          "line": 158,
+          "name": "HardwareCapabilityRegistryV1"
+        },
+        {
+          "kind": "fn",
+          "line": 161,
+          "name": "builtin"
+        },
+        {
+          "kind": "fn",
+          "line": 188,
+          "name": "id_for"
+        },
+        {
+          "kind": "fn",
+          "line": 193,
+          "name": "lookup"
+        },
+        {
+          "kind": "struct",
+          "line": 204,
+          "name": "PresencePolicyV2"
+        },
+        {
+          "kind": "impl",
+          "line": 206,
+          "name": "PresencePolicyV2"
+        },
+        {
+          "kind": "const",
+          "line": 209,
+          "name": "MAX_SECURE_DISTANCE_MM"
+        },
+        {
+          "kind": "const",
+          "line": 213,
+          "name": "MAX_P90_DISTANCE_MM"
+        },
+        {
+          "kind": "const",
+          "line": 215,
+          "name": "MIN_HARDWARE_SAMPLES"
+        },
+        {
+          "kind": "const",
+          "line": 218,
+          "name": "MIN_HARDWARE_WINDOW_MS"
+        },
+        {
+          "kind": "const",
+          "line": 222,
+          "name": "MAX_HARDWARE_WINDOW_MS"
+        },
+        {
+          "kind": "const",
+          "line": 225,
+          "name": "MIN_SOFTWARE_RTT_SAMPLES"
+        },
+        {
+          "kind": "const",
+          "line": 228,
+          "name": "MAX_SOFTWARE_RTT_MS"
+        },
+        {
+          "kind": "const",
+          "line": 231,
+          "name": "SECURE_NADM_MAX"
+        },
+        {
+          "kind": "struct",
+          "line": 240,
+          "name": "RangingEvidenceV2"
+        },
+        {
+          "kind": "impl",
+          "line": 291,
+          "name": "RangingEvidenceV2"
+        },
+        {
+          "kind": "fn",
+          "line": 294,
+          "name": "bind_to_transcript"
+        },
+        {
+          "kind": "fn",
+          "line": 302,
+          "name": "distances_are_ordered"
+        },
+        {
+          "kind": "fn",
+          "line": 321,
+          "name": "classify_ranging_evidence"
+        },
+        {
+          "kind": "mod",
+          "line": 377,
+          "name": "tests"
+        },
+        {
+          "kind": "fn",
+          "line": 380,
+          "name": "uwb_class_id"
+        },
+        {
+          "kind": "fn",
+          "line": 386,
+          "name": "good_uwb_evidence"
+        },
+        {
+          "kind": "fn",
+          "line": 407,
+          "name": "two_sided_certified_uwb_within_bounds_is_certified_secure"
+        },
+        {
+          "kind": "fn",
+          "line": 417,
+          "name": "one_sided_otherwise_identical_evidence_caps_at_certified_medium"
+        },
+        {
+          "kind": "fn",
+          "line": 428,
+          "name": "unrecognized_capability_class_id_is_unusable_even_if_everything_else_is_perfect"
+        },
+        {
+          "kind": "fn",
+          "line": 439,
+          "name": "a_device_cannot_self_report_secure_ranging_for_a_software_rtt_class"
+        },
+        {
+          "kind": "fn",
+          "line": 455,
+          "name": "unauthenticated_security_profile_never_reaches_certified"
+        },
+        {
+          "kind": "fn",
+          "line": 466,
+          "name": "attack_indicator_above_threshold_is_unusable"
+        },
+        {
+          "kind": "fn",
+          "line": 477,
+          "name": "too_few_hardware_samples_is_unusable"
+        },
+        {
+          "kind": "fn",
+          "line": 488,
+          "name": "distance_beyond_median_bound_is_unusable"
+        },
+        {
+          "kind": "fn",
+          "line": 501,
+          "name": "a_tight_median_cannot_hide_an_out_of_range_p90_tail"
+        },
+        {
+          "kind": "fn",
+          "line": 513,
+          "name": "self_inconsistent_distance_ordering_is_unusable"
+        },
+        {
+          "kind": "fn",
+          "line": 524,
+          "name": "zero_samples_is_unusable_for_any_technology"
+        },
+        {
+          "kind": "fn",
+          "line": 535,
+          "name": "plain_software_rtt_with_enough_samples_is_weak_software"
+        },
+        {
+          "kind": "fn",
+          "line": 551,
+          "name": "software_rtt_below_minimum_samples_is_unusable"
+        },
+        {
+          "kind": "fn",
+          "line": 563,
+          "name": "ble_channel_sounding_classifies_the_same_way_as_uwb"
+        },
+        {
+          "kind": "fn",
+          "line": 577,
+          "name": "assurance_levels_order_unusable_below_weak_below_certified"
+        },
+        {
+          "kind": "fn",
+          "line": 584,
+          "name": "registry_ids_are_stable_and_distinct"
+        }
+      ],
+      "title": "use mini_crypto::HashAlgorithm;"
+    },
+    {
+      "bytes": 4289,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
@@ -47809,6 +48081,7 @@
         "real",
         "active_range",
         "error",
+        "evidence_v2",
         "persisted",
         "verify",
         "honest",
@@ -47820,12 +48093,11 @@
         "rtt",
         "verify_presence",
         "never",
-        "nonce",
-        "fixed"
+        "nonce"
       ],
-      "lines": 79,
+      "lines": 86,
       "path": "crates/mini-presence/src/lib.rs",
-      "sha256": "4346e3f53b795f510a86e8bcefe49e500931e2669042b4c85744c69d155c1db1",
+      "sha256": "c0aa759412b2544cfbbb7d2a8467b79ec2c1f71c61c3d981bf48fc7ab7d61e6d",
       "symbols": [
         {
           "kind": "mod",
@@ -47845,16 +48117,21 @@
         {
           "kind": "mod",
           "line": 62,
-          "name": "persisted"
+          "name": "evidence_v2"
         },
         {
           "kind": "mod",
           "line": 63,
-          "name": "ranging"
+          "name": "persisted"
         },
         {
           "kind": "mod",
           "line": 64,
+          "name": "ranging"
+        },
+        {
+          "kind": "mod",
+          "line": 65,
           "name": "verify"
         }
       ],
@@ -48205,7 +48482,7 @@
       "title": "use crate::attestation::UwbRanging;"
     },
     {
-      "bytes": 11342,
+      "bytes": 14608,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
@@ -48213,119 +48490,129 @@
         "device",
         "rangepolicy",
         "nonce",
-        "self",
-        "replayguard",
-        "did",
         "attestation",
         "policy",
         "u64",
         "verifier",
+        "self",
         "identity",
         "presenceverdict",
+        "replayguard",
         "presence",
-        "derive",
-        "debug",
-        "struct",
+        "did",
         "bound",
         "rtt",
         "root",
         "seen",
         "is_seen",
-        "check_and_record",
-        "inmemoryreplayguard"
+        "inmemoryreplayguard",
+        "derive",
+        "debug",
+        "struct",
+        "round-trip"
       ],
-      "lines": 290,
+      "lines": 364,
       "path": "crates/mini-presence/src/verify.rs",
-      "sha256": "2d7ed60fa1f00cbff8f5dec825b9e59620deffadb07bdd6cb758e9c212193d9c",
+      "sha256": "64f38dbc9dc975ac8e58dcae798b5f4a624cfdc2c5bd961837c8c88241357534",
       "symbols": [
         {
           "kind": "struct",
-          "line": 12,
+          "line": 15,
           "name": "RangePolicy"
         },
         {
           "kind": "impl",
-          "line": 35,
+          "line": 38,
           "name": "RangePolicy"
         },
         {
           "kind": "fn",
-          "line": 39,
+          "line": 42,
           "name": "ble_default"
         },
         {
           "kind": "struct",
-          "line": 55,
+          "line": 58,
           "name": "VerifyContext"
         },
         {
           "kind": "struct",
-          "line": 75,
+          "line": 78,
           "name": "PresenceVerdict"
         },
         {
           "kind": "impl",
-          "line": 90,
+          "line": 93,
           "name": "PresenceVerdict"
         },
         {
           "kind": "fn",
-          "line": 93,
+          "line": 96,
           "name": "pair_key"
         },
         {
           "kind": "trait",
-          "line": 111,
+          "line": 114,
           "name": "ReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 113,
+          "line": 116,
           "name": "is_seen"
         },
         {
           "kind": "fn",
-          "line": 117,
+          "line": 120,
           "name": "check_and_record"
         },
         {
           "kind": "struct",
-          "line": 122,
+          "line": 125,
           "name": "InMemoryReplayGuard"
         },
         {
           "kind": "impl",
-          "line": 126,
+          "line": 129,
           "name": "InMemoryReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 128,
+          "line": 131,
           "name": "new"
         },
         {
           "kind": "impl",
-          "line": 133,
+          "line": 136,
           "name": "ReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 137,
           "name": "is_seen"
         },
         {
           "kind": "fn",
-          "line": 138,
+          "line": 141,
           "name": "check_and_record"
         },
         {
           "kind": "fn",
-          "line": 149,
+          "line": 152,
           "name": "verify_presence"
         },
         {
+          "kind": "struct",
+          "line": 269,
+          "name": "PresenceVerdictV2"
+        },
+        {
           "kind": "fn",
-          "line": 264,
+          "line": 301,
+          "name": "verify_presence_v2"
+        },
+        {
+          "kind": "fn",
+          "line": 338,
           "name": "check_party"
         }
       ],
@@ -48464,6 +48751,118 @@
           "kind": "fn",
           "line": 563,
           "name": "a_replay_guards_durable_write_failure_fails_the_whole_exchange_closed"
+        }
+      ],
+      "title": "use did_mini::{Capabilities, Controller};"
+    },
+    {
+      "bytes": 11468,
+      "group": "crate:mini-presence",
+      "headings": [],
+      "keywords": [
+        "controller",
+        "fixture",
+        "binding",
+        "unwrap",
+        "policy",
+        "kel",
+        "att",
+        "transport",
+        "initiator",
+        "kel_digest",
+        "presenceattestation",
+        "device",
+        "fields",
+        "a_dev",
+        "b_dev",
+        "test_nonce",
+        "human",
+        "capabilities",
+        "rangingevidencev2",
+        "transportkind",
+        "root",
+        "did",
+        "channel_binding",
+        "init_device"
+      ],
+      "lines": 347,
+      "path": "crates/mini-presence/tests/presence_v2.rs",
+      "sha256": "0d3dc909ea96ac6426f245c947df9deef7eb9181ea8635a9201acb0574b93f69",
+      "symbols": [
+        {
+          "kind": "fn",
+          "line": 18,
+          "name": "test_nonce"
+        },
+        {
+          "kind": "fn",
+          "line": 22,
+          "name": "human"
+        },
+        {
+          "kind": "fn",
+          "line": 35,
+          "name": "fresh_binding"
+        },
+        {
+          "kind": "fn",
+          "line": 46,
+          "name": "policy"
+        },
+        {
+          "kind": "fn",
+          "line": 50,
+          "name": "valid_attestation"
+        },
+        {
+          "kind": "fn",
+          "line": 81,
+          "name": "good_evidence_for"
+        },
+        {
+          "kind": "struct",
+          "line": 106,
+          "name": "Fixture"
+        },
+        {
+          "kind": "fn",
+          "line": 115,
+          "name": "fixture"
+        },
+        {
+          "kind": "fn",
+          "line": 131,
+          "name": "in_process_transport_is_always_rejected_by_v2"
+        },
+        {
+          "kind": "fn",
+          "line": 160,
+          "name": "no_evidence_at_or_below_weak_software_minimum_succeeds"
+        },
+        {
+          "kind": "fn",
+          "line": 193,
+          "name": "no_evidence_but_certified_minimum_required_is_refused"
+        },
+        {
+          "kind": "fn",
+          "line": 222,
+          "name": "well_formed_hardware_evidence_reaches_certified_secure"
+        },
+        {
+          "kind": "fn",
+          "line": 255,
+          "name": "evidence_bound_to_a_different_session_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 287,
+          "name": "unusable_evidence_is_rejected_even_though_no_evidence_would_have_passed"
+        },
+        {
+          "kind": "fn",
+          "line": 318,
+          "name": "one_sided_evidence_does_not_satisfy_a_certified_secure_minimum"
         }
       ],
       "title": "use did_mini::{Capabilities, Controller};"
@@ -82282,7 +82681,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1372450,
+      "bytes": 1381481,
       "group": "docs",
       "headings": [
         {
@@ -82712,9 +83111,9 @@
         "release",
         "first"
       ],
-      "lines": 22786,
+      "lines": 22934,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "35c3c700663d153b613dee59ad67a47c2aa08083a6df86ca93a5b74a63d9f599",
+      "sha256": "0e72144c2398c312458722b4c834617617e527f83d131bebab15a22e7616f53b",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -84050,7 +84449,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 200767,
+      "bytes": 202195,
       "group": "docs",
       "headings": [
         {
@@ -84085,82 +84484,82 @@
         },
         {
           "level": 2,
-          "line": 270,
+          "line": 291,
           "text": "3. Identity & key custody"
         },
         {
           "level": 2,
-          "line": 499,
+          "line": 520,
           "text": "4. Money & finality"
         },
         {
           "level": 2,
-          "line": 1024,
+          "line": 1045,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 1071,
+          "line": 1092,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1304,
+          "line": 1325,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1531,
+          "line": 1552,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1656,
+          "line": 1677,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1686,
+          "line": 1707,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 2033,
+          "line": 2054,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2568,
+          "line": 2589,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2659,
+          "line": 2680,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2739,
+          "line": 2760,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2839,
+          "line": 2860,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2856,
+          "line": 2877,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2892,
+          "line": 2913,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2973,
+          "line": 2994,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -84190,9 +84589,9 @@
         "design",
         "exists"
       ],
-      "lines": 3008,
+      "lines": 3029,
       "path": "docs/STATUS.md",
-      "sha256": "3ad3e1f93001793e2c6577a7219e99bd410f7179b6381468905047d9350a9135",
+      "sha256": "bcb42bebdd50b2bf972c4bc49a398cae71e5c1f3ab7cd48ff8245565045b383e",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -102724,7 +103123,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 88886,
+      "bytes": 89637,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -102753,9 +103152,9 @@
         "independently",
         "both"
       ],
-      "lines": 1368,
+      "lines": 1374,
       "path": "governance/work-claims.json",
-      "sha256": "f847e18b05401490a36ac53ba90e4b10890ea4f8e1830fe34f85791c7c21b40c",
+      "sha256": "1fad019a12838931b0de7a44cb1553a332f087780ce89121bf484db888419417",
       "symbols": [],
       "title": "{"
     },

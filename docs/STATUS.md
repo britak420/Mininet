@@ -252,6 +252,27 @@ given time.
   always a clean rejection, never a crash. A 64 MiB file-size cap now
   guards the eager read `open` performs. See `docs/DECISION_LOG.md`
   D-0487.
+  **Hardware classification architecture, engineering remediation only
+  (D-0510):** new `mini_presence::evidence_v2` module — `RangingEvidenceV2`
+  (technology/security-profile/sidedness/registry-class/session-binding/
+  distance-percentile/attack-indicator fields, with deliberately no
+  self-reported assurance field), `HardwareCapabilityRegistryV1` (a
+  versioned, in-code, capability-class registry, not a device allowlist,
+  no online lookup), `PresencePolicyV2` (fixed, non-caller-configurable
+  bound constants), and `classify_ranging_evidence` (a pure, deterministic
+  function deriving a `PresenceAssuranceV2` level from raw evidence plus
+  the registry — never from a caller's own claim). `verify::
+  verify_presence_v2` layers on top of the existing, unmodified
+  `verify_presence` (every KEL/signature/nonce/replay/software-RTT check
+  still applies), additionally rejecting `TransportKind::InProcess`
+  unconditionally (stricter than V1's `is_proximity()`, which allows it
+  for CI), requiring evidence to be cryptographically bound to the
+  specific attestation session, and always recomputing assurance itself.
+  This is architecture only, not gate closure or hardware validation —
+  see `docs/DECISION_LOG.md` D-0510 for the full honest-limits list
+  (no real UWB/Channel-Sounding stack wired in, registry classes
+  unvalidated against real devices, no platform shell produces
+  `RangingEvidenceV2` yet).
 - **doc-only** — `docs/design/credential-taxonomy.md` (D-0089, founder
   review's `credential-separation` finding) names and separates
   `ParticipantCredential`/`HumanEvidence`/`RoleCredential`/
