@@ -1,4 +1,4 @@
-# Pre-Go-Live Governance Pause and Anonymous Bootstrap Participation
+# Pre-Go-Live Governance Pause and Anonymous-Only Bootstrap Participation
 
 **Status:** Founder bootstrap decision; temporary operating override
 
@@ -10,9 +10,9 @@
 
 Mininet is still being built through a temporary GitHub bootstrap while its intended self-governance substrate, Mininet Forge, is not yet canonical. Governance machinery designed for a live, self-governing network must not become a circular dependency that prevents the engineering, independent review, audit, testing, and gate-closing work required to reach that live network.
 
-This decision therefore pauses pre-Go-Live **governance process requirements** and makes fully anonymous bootstrap contribution and review explicitly sufficient. The pause is temporary. It creates no permanent Founder office, no permanent GitHub authority, no identity registry, and no precedent that survives Go-Live.
+This decision therefore pauses Pre-Go-Live **governance process requirements** and establishes an **anonymous-only Mininet identity state** for bootstrap contributors, reviewers, researchers, testers, and auditors until Go-Live. No Mininet pseudonym, stable alias, DID, reputation handle, persistent reviewer identity, or cross-submission identity continuity is created or required before Go-Live.
 
-The purpose is not to lower technical correctness. It is to stop governance procedure from gating the work needed to make real governance possible.
+The pause is temporary. It creates no permanent Founder office, no permanent GitHub authority, no identity registry, and no precedent that survives Go-Live. Its purpose is not to lower technical correctness. It is to stop premature governance procedure and identity machinery from gating the work needed to build the live network and its real self-governance system.
 
 ## 2. Definitions
 
@@ -27,7 +27,17 @@ Go-Live occurs only when both facts are recorded canonically:
 1. `forge_canonical = true`; and
 2. `go_live = true` in the bootstrap operating state or its canonical Forge successor.
 
-A calendar date, contributor count, GitHub event, token event, funding event, or founder statement by itself is not Go-Live.
+A calendar date, contributor count, GitHub event, token event, funding event, or Founder statement by itself is not Go-Live.
+
+The implementation MUST make the Go-Live transition one-way: `false -> true`. Once activated, bootstrap authority and this procedural pause cannot be restored by a Founder action.
+
+### Anonymous-only bootstrap identity
+
+Before Go-Live, the only Mininet-level identity classification for a bootstrap contributor, reviewer, researcher, tester, auditor, or other external specialist is `anonymous`.
+
+A GitHub username, email address, commit author field, transport account, payment destination, network metadata, voluntarily disclosed name, or other third-party identifier is not a Mininet identity and MUST NOT be promoted into a Mininet pseudonym, reviewer identity, reputation handle, governance credential, gate qualification, or continuity record.
+
+This rule does not claim that GitHub, email, payment networks, hosting providers, or the Internet provide perfect anonymity. It says Mininet itself does not require, create, rely on, or canonically preserve a participant identity before Go-Live.
 
 ### Governance process requirements
 
@@ -52,28 +62,34 @@ The frozen-invariant amendment prohibition in `docs/governance/39_CONSTITUTIONAL
 
 This does not suspend the substantive protections in Section 7.
 
-## 4. Decision: bootstrap contributors and auditors may be fully anonymous
+## 4. Decision: Pre-Go-Live participation is canonically anonymous; no pseudonyms
 
-Until Go-Live, Mininet MUST NOT require a contributor, reviewer, researcher, tester, auditor, or other external specialist to provide or maintain any of the following as a condition of participation, acceptance, compensation eligibility, technical weight, or gate closure:
+Until Go-Live, Mininet MUST NOT require, create, issue, assign, preserve as canonical identity, or rely upon any of the following for a contributor, reviewer, researcher, tester, auditor, or other external specialist:
 
 - legal name;
 - public name;
-- pseudonym or stable alias;
+- pseudonym;
+- stable alias;
 - persistent DID or other persistent identifier;
-- persistent signing key;
+- persistent signing identity or reviewer key;
+- reputation handle;
 - institutional affiliation;
 - employer identity;
 - nationality or location;
 - KYC identity;
 - public biography or social account;
 - credential whose use would reveal identity;
-- continuity between separate pieces of work.
+- identity continuity between separate pieces of work.
 
-A participant may submit one piece of work fully anonymously and never return. A participant may use an ephemeral channel. A participant may route a report through another person. The project MUST NOT later require retroactive deanonymization of Pre-Go-Live contributors or auditors.
+The canonical record for such participation MUST use `anonymous`, an artifact identifier, or no participant field at all. Where a schema currently requires a person-like identifier, the Pre-Go-Live implementation MUST replace that dependency with an artifact hash, review identifier, issue/PR reference, or the literal value `anonymous`.
 
-If a hosting platform such as GitHub exposes account or network metadata, Mininet MUST NOT describe that platform limitation as a Mininet identity requirement or claim that the platform itself provides perfect anonymity.
+A participant may submit one piece of work fully anonymously and never return. A participant may use an ephemeral delivery channel. A participant may route a report through another person. Separate submissions MUST NOT be linked merely to build a hidden reputation profile or infer continuity.
 
-Pseudonymous and public participation remain permitted when voluntarily chosen. They are not required until or after Go-Live unless future Forge governance lawfully creates a narrowly scoped continuity requirement that still does not require legal-name disclosure.
+If a hosting or transport platform exposes an account name, email, commit author, IP-derived metadata, or other identifier, that information is transport metadata only. Mininet MUST NOT treat it as a pseudonym or use it for governance weight, gate qualification, compensation priority, reviewer continuity, personhood, or reputation.
+
+A participant who voluntarily discloses a public or legal name before Go-Live does not thereby acquire a Mininet identity. The canonical bootstrap record remains anonymous. The project MUST NOT require later disclosure, linking, or retroactive deanonymization.
+
+**Pseudonymous Mininet identity begins only after Go-Live, prospectively, under the live Forge and identity rules.** Nothing in Go-Live may retroactively attach a pseudonym, DID, account, or legal identity to Pre-Go-Live anonymous work.
 
 ## 5. Anonymous evidence can close a gate
 
@@ -90,9 +106,9 @@ For an audit or expert-review gate, a fully anonymous report MAY close the gate 
 - corrections or explicit residual risks; and
 - the exact disposition of every material finding.
 
-The report MAY state `reviewer: anonymous`. No stable pseudonym, signature, employment record, academic credential, or legal identity is required.
+The report MUST identify the reviewer as `anonymous` or omit a reviewer identity field. No stable pseudonym, signature identity, employment record, academic credential, legal identity, or continuity proof is required.
 
-Where anonymity prevents verification of a reviewer's biography, employment conflicts, or prior authorship, the project MUST state that limitation rather than inventing assurance. The technical artifact stands or falls on inspectable evidence.
+Where anonymity prevents verification of a reviewer's biography, employment conflicts, prior authorship, or institutional independence, the project MUST record that assurance as **unknown** rather than inventing it. The technical artifact stands or falls on inspectable, reproducible evidence.
 
 An anonymous reviewer receives no governance power, release authority, treasury authority, identity privilege, or continuing role merely because their work closes a gate.
 
@@ -100,11 +116,13 @@ An anonymous reviewer receives no governance power, release authority, treasury 
 
 During Pre-Go-Live, A1 and the corresponding external cryptography review gates are **unfrozen as governance invariants**. Their substantive security purpose remains: value-bearing cryptography must receive serious review and material findings must be resolved or explicitly dispositioned before the relevant production claim.
 
-The gate-closing mechanism, however, is evidence-based rather than identity- or governance-based. A fully anonymous cryptography audit may close the gate when it satisfies the scope and finding-disposition requirements above. `credentialed academic`, public firm identity, legal name, persistent pseudonym, or persistent signing key MUST NOT be interpreted as mandatory.
+The gate-closing mechanism, however, is evidence-based rather than identity-, credential-, institution-, or governance-based. A fully anonymous cryptography audit may close the gate when it satisfies the scope and finding-disposition requirements above. `credentialed academic`, public audit firm, legal name, pseudonym, persistent signing key, or public reputation MUST NOT be interpreted as mandatory.
+
+Nothing in this section permits Founder review, AI review, or passing tests by themselves to be misrepresented as an external cryptography audit. The external work must actually exist and satisfy the recorded technical scope; only the identity requirement is removed.
 
 ## 6. Bootstrap authority while governance is paused
 
-Until Go-Live, the Founder bootstrap custodian remains the mechanical canonical-integration authority for the GitHub mainline. This is a temporary central control point and therefore a deliberate bootstrap liability, not a model for the live network.
+Until Go-Live, the Founder bootstrap custodian remains the mechanical canonical-integration authority for the GitHub mainline. This is a temporary centralized control point and therefore a deliberate bootstrap liability, not a model for the live network.
 
 The bootstrap custodian MAY:
 
@@ -158,24 +176,27 @@ At Go-Live:
 3. the Founder bootstrap integration exception ends;
 4. GitHub becomes a mirror or non-authoritative adapter according to the Forge transition state;
 5. the governance and amendment rules adopted by the live Forge community apply prospectively;
-6. no Pre-Go-Live contributor or auditor is required to reveal an identity, adopt a pseudonym, create a persistent key, or establish continuity retroactively; and
-7. a gate validly closed under this decision remains part of the historical evidence set and does not automatically reopen merely because governance has activated. Forge may reopen a gate only because of a substantive new finding, changed code, changed scope, or an explicit new safety requirement applied prospectively.
+6. pseudonymous Mininet identity may begin prospectively under the live identity rules;
+7. no Pre-Go-Live contributor or auditor is required to reveal an identity, adopt a pseudonym, create a persistent key, or establish continuity retroactively; and
+8. a gate validly closed under this decision remains part of the historical evidence set and does not automatically reopen merely because governance has activated. Forge may reopen a gate only because of a substantive new finding, changed code, changed scope, or an explicit new safety requirement applied prospectively.
 
 The Founder has no unilateral power under this document after Go-Live.
 
 ## 10. Engineering implementation required by this decision
 
-Canonical implementation SHOULD make the pause machine-readable and fail clearly rather than relying on prose. The implementation work is:
+Canonical implementation SHOULD make the pause and anonymous-only state machine-readable and fail clearly rather than relying on prose. The implementation work is:
 
 1. replace the D-0083 calendar-based bootstrap profile with a Pre-Go-Live profile whose sunset is the explicit Go-Live/Forge-canonical transition;
-2. add an explicit `go_live` state bit or equivalent canonical Forge transition object;
+2. add an explicit `go_live` state bit or equivalent canonical Forge transition object and enforce a one-way `false -> true` transition;
 3. update governance validation so Pre-Go-Live governance quorum, amendment-process, cooling-period, and procedural frozen-domain checks do not gate candidate integration, while the Section 7 prohibitions and ordinary technical/security checks remain enforced;
-4. update `governance/exceptions.yml` so the Founder integration path does not expire merely by date or contributor count before Go-Live;
-5. update external-review templates to allow `reviewer: anonymous` with no persistent key or pseudonym requirement;
-6. update cryptography, DKG, legal, economic, hardware, and other gate documents so identity, public credentials, or pseudonymous continuity are not prerequisites for gate closure;
-7. update gate indexes and closure matrices so a completed anonymous review can be recorded as complete without misrepresenting what identity or independence evidence exists;
-8. preserve exact reviewed-state, findings, dispositions, tests, and residual-risk evidence even when the human source is fully anonymous; and
-9. encode Go-Live as the one-way transition that disables this bootstrap exception and activates Forge governance.
+4. update `governance/exceptions.yml` so the Founder integration path does not expire merely by date or contributor count before Go-Live and cannot be re-enabled after Go-Live;
+5. update external-review schemas/templates so Pre-Go-Live reviewer identity is `anonymous` or absent and no persistent key, pseudonym, DID, or continuity field is required;
+6. update cryptography, DKG, legal, economic, hardware, and other gate documents so identity, public credentials, pseudonymous continuity, or institutional status are not prerequisites for gate closure;
+7. replace person-oriented bootstrap identifiers with artifact hashes, review IDs, exact commit/release digests, and evidence references;
+8. update gate indexes and closure matrices so completed anonymous work can be recorded as complete without misrepresenting identity-derived competence or independence evidence;
+9. preserve exact reviewed-state, findings, dispositions, tests, and residual-risk evidence even when the human source is fully anonymous;
+10. ensure contribution/reward machinery does not convert an ephemeral payment destination or claim handle into a persistent identity or governance credential; and
+11. encode Go-Live as the one-way transition that disables this bootstrap exception, ends Founder canonical authority, and activates Forge governance and prospective identity rules.
 
 Until those machine changes are merged, this document records the intended operating decision but software that still implements older rules may continue to fail closed. Engineers should update those enforcement points rather than mislabeling the old failures as substantive gate failures.
 
@@ -183,22 +204,24 @@ Until those machine changes are merged, this document records the intended opera
 
 ### Benefit
 
-The project can finish its own governance substrate without requiring that unfinished governance substrate to authorize every step needed to build it. Experts can contribute without accepting identity exposure, institutional dependence, or a permanent reputation handle. Technical gates remain evidence-bearing instead of becoming status checks on who the reviewer is.
+The project can finish its own governance substrate without requiring that unfinished governance substrate to authorize every step needed to build it. Experts can contribute without accepting identity exposure, institutional dependence, a pseudonym, or a permanent reputation handle. Technical gates remain evidence-bearing instead of becoming status checks on who the reviewer is.
 
 ### Cost
 
-The Founder remains a centralized canonical-integration point during bootstrap. Fully anonymous review also makes biography, institutional competence, and conflicts of interest harder or impossible to verify.
+The Founder remains a centralized canonical-integration point during bootstrap. Fully anonymous review also makes biography, institutional competence, conflicts of interest, and repeat-reviewer independence harder or impossible to verify.
 
 ### Mitigation
 
-The centralization has one hard sunset: Go-Live. It grants no participant political weight, no permanent Founder authority, no forced adoption, and no hidden control path. Anonymous review must bind inspectable technical evidence and must state identity-derived assurance as unknown instead of pretending it was verified.
+The centralization has one hard protocol transition: Go-Live. It grants no participant political weight, no permanent Founder authority, no forced adoption, and no hidden control path. Anonymous review must bind inspectable technical evidence and must state identity-derived assurance as unknown instead of pretending it was verified.
 
-### Failure point
+### Exact failure point
 
-If Go-Live can be indefinitely avoided while the Founder continues to control canonical integration, this temporary pause becomes de facto permanent centralized governance. The long-term solution is therefore not another GitHub governance layer. It is to complete Forge, make it canonical, execute the one-way Go-Live transition, and remove Founder bootstrap authority.
+If Go-Live can be indefinitely avoided while the Founder continues to control canonical integration, this temporary pause becomes de facto permanent centralized governance. If pre-Go-Live transport metadata is accumulated and later converted into pseudonymous or real identities, the anonymous-only promise also fails.
+
+The long-term solution is therefore not another GitHub governance layer or an auditor registry. It is to complete Forge, make it canonical, execute the one-way Go-Live transition, remove Founder bootstrap authority, begin any pseudonymous identity system only prospectively, and prohibit retroactive linking of Pre-Go-Live anonymous work.
 
 ## 12. Overall judgment
 
-**PASS for the Pre-Go-Live bootstrap only.** The pause serves Mininet's free-Internet purpose because it removes premature governance bureaucracy and identity pressure while preserving substantive human-freedom protections and technical evidence requirements.
+**PASS for the Pre-Go-Live bootstrap.** This decision serves Mininet's free-Internet purpose by removing premature governance bureaucracy, pseudonymous identity pressure, and institutional gatekeeping while preserving substantive human-freedom protections and technical evidence requirements.
 
-**FAIL if retained after Go-Live.** Permanent Founder integration authority would contradict Mininet's anti-centralization purpose. The exact required end state is Forge-canonical governance with no unilateral Founder authority and no retroactive deanonymization of early contributors or auditors.
+**FAIL if retained after Go-Live.** Permanent Founder integration authority would contradict Mininet's anti-centralization purpose. The required end state is Forge-canonical governance with no unilateral Founder authority and no retroactive identity or pseudonym assignment to early contributors or auditors.
