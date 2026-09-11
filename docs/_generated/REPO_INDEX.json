@@ -101048,7 +101048,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 87070,
+      "bytes": 87072,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -101079,7 +101079,7 @@
       ],
       "lines": 1342,
       "path": "governance/work-claims.json",
-      "sha256": "8d9809217b75d1ba0f894a46e79bc38643e6c22b8714cfd37162d217ded9cd46",
+      "sha256": "783c493f532ccfb58152eadd589f4cab0599c6f81966adf4b01d0e6d6fb89017",
       "symbols": [],
       "title": "{"
     },

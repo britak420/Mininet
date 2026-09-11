@@ -95,8 +95,13 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
     private var advertiseCallback: AdvertiseCallback? = null
     private var txCharacteristic: BluetoothGattCharacteristic? = null
 
+    // The second parameter lets a caller whose handshake fails disconnect
+    // exactly this central (cancelConnection) rather than leaving its GATT
+    // connection and LinkState occupying a slot forever -- this class knows
+    // the device/gattServer needed to do that; the caller (mini_mesh's
+    // handshake, driven from BleMeshService) only ever sees the BleRadio.
     @Volatile
-    private var onLinkReady: ((BleRadio) -> Unit)? = null
+    private var onLinkReady: ((BleRadio, disconnect: () -> Unit) -> Unit)? = null
 
     // onServiceAdded fires once per start() call (a fresh GATT server and
     // service each time), so a fresh latch/flag pair per instance is
@@ -136,8 +141,17 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
      * to both send and receive). Returns `false` if the server or
      * advertising could not start; the caller should [close] rather than
      * retry an already-partially-started server.
+     *
+     * [onLinkReady] receives the new central's [BleRadio] plus a
+     * `disconnect` callback: call it if whatever the caller does with the
+     * radio next (e.g. a `Channel` handshake) fails, so a central that gets
+     * this far but never completes a real handshake does not keep
+     * occupying a GATT connection and a `links` entry forever.
      */
-    fun start(onLinkReady: (BleRadio) -> Unit, advertiseTimeoutMs: Long = DEFAULT_ADVERTISE_TIMEOUT_MS): Boolean {
+    fun start(
+        onLinkReady: (BleRadio, disconnect: () -> Unit) -> Unit,
+        advertiseTimeoutMs: Long = DEFAULT_ADVERTISE_TIMEOUT_MS,
+    ): Boolean {
         return try {
             startInternal(onLinkReady, advertiseTimeoutMs)
         } catch (_: SecurityException) {
@@ -152,7 +166,10 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
         }
     }
 
-    private fun startInternal(onLinkReady: (BleRadio) -> Unit, advertiseTimeoutMs: Long): Boolean {
+    private fun startInternal(
+        onLinkReady: (BleRadio, disconnect: () -> Unit) -> Unit,
+        advertiseTimeoutMs: Long,
+    ): Boolean {
         this.onLinkReady = onLinkReady
 
         val rx = BluetoothGattCharacteristic(
@@ -323,7 +340,10 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
             state.notificationsEnabled = true
             if (!state.readyDelivered) {
                 state.readyDelivered = true
-                onLinkReady?.invoke(PeripheralLinkRadio(state))
+                val readyDevice = state.device
+                onLinkReady?.invoke(PeripheralLinkRadio(state)) {
+                    runCatching { gattServer?.cancelConnection(readyDevice) }
+                }
             }
         }
         if (responseNeeded) {

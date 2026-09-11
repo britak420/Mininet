@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-11T08:11:03Z",
+  "updated_at": "2026-09-11T09:23:48Z",
   "claims": [
     {
       "issue": 122,
@@ -1200,33 +1200,6 @@
       "pull_request": 331
     },
     {
-      "issue": 201,
-      "status": "active",
-      "contributor": "claude-agent",
-      "branch": "claude/pr-merge-readiness-tkejaf",
-      "pull_request": null,
-      "lease_expires": "2026-09-18",
-      "paths": [
-        "crates/mini-bearer/",
-        "crates/mini-mesh/",
-        "crates/mini-ffi/",
-        "app/android/",
-        "docs/design/ble-mesh-relay.md",
-        "docs/DECISION_LOG.md",
-        "docs/STATUS.md",
-        "docs/BETA_STATUS.md",
-        "docs/ROADMAP_TO_RELEASE.md",
-        "governance/work-claims.json"
-      ],
-      "decision_ids": [
-        "D-0502",
-        "D-0503",
-        "D-0504",
-        "D-0505"
-      ],
-      "notes": "D-0502/D-0503/D-0504/D-0505: BLE mesh relay (docs/design/ble-mesh-relay.md), per the founder's 2026-09-11 direction that devices form a real network over BLE, not just pair one-to-one. D-0502: Kotlin BleRadio implementation (single-connection, later superseded by D-0505). D-0503: mini_bearer::EncryptedLink + new crate mini-mesh (MeshNode), hardware-free proven with in-process AND real-loopback-TCP multi-hop line-topology tests. D-0504: mini-ffi::mesh UniFFI boundary (MeshHandle). D-0505: Android BlePeripheralServer multi-central redesign, BleCentralRadio scan/connect split, BleMeshService orchestration -- unverified without a JDK/Android SDK/BLE hardware in this environment; Android CI assembleDebug is the first real check."
-    },
-    {
       "issue": 92,
       "status": "closed",
       "contributor": "claude-agent",
@@ -1336,6 +1309,33 @@
         "D-0501"
       ],
       "notes": "PR #332 review remediation. Overall F-01\u2013F-24 status is PARTIAL and real value / real people remain NO-GO. See docs/audits/PR332_REMEDIATION_STATUS.md for claim-to-executor evidence, unmet acceptance tests and external gates. Historical all-closed wording is not current implementation status. Closed 2026-09-11: PR #332 merged."
+    },
+    {
+      "issue": 201,
+      "status": "in_review",
+      "contributor": "claude-agent",
+      "branch": "claude/pr-merge-readiness-tkejaf",
+      "pull_request": 333,
+      "lease_expires": "2026-09-18",
+      "paths": [
+        "crates/mini-bearer/",
+        "crates/mini-mesh/",
+        "crates/mini-ffi/",
+        "app/android/",
+        "docs/design/ble-mesh-relay.md",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md",
+        "docs/BETA_STATUS.md",
+        "docs/ROADMAP_TO_RELEASE.md",
+        "governance/work-claims.json"
+      ],
+      "decision_ids": [
+        "D-0502",
+        "D-0503",
+        "D-0504",
+        "D-0505"
+      ],
+      "notes": "D-0502/D-0503/D-0504/D-0505: BLE mesh relay (docs/design/ble-mesh-relay.md), per the founder's 2026-09-11 direction that devices form a real network over BLE, not just pair one-to-one. D-0502: Kotlin BleRadio implementation (single-connection, later superseded by D-0505). D-0503: mini_bearer::EncryptedLink + new crate mini-mesh (MeshNode), hardware-free proven with in-process AND real-loopback-TCP multi-hop line-topology tests. D-0504: mini-ffi::mesh UniFFI boundary (MeshHandle). D-0505: Android BlePeripheralServer multi-central redesign, BleCentralRadio scan/connect split, BleMeshService orchestration -- unverified without a JDK/Android SDK/BLE hardware in this environment; Android CI assembleDebug is the first real check."
     }
   ]
 }

@@ -40,9 +40,10 @@ import org.mininet.core.MeshHandle
  * to -- a harmless redundant edge, not a correctness problem, since
  * `MeshHandle`'s dedup is content-based and does not care how many edges a
  * message arrives on. No permission *request* flow -- [start] fails closed
- * (returns `false`) if BLE permissions are not already granted; requesting
- * them from the user is the calling `Activity`'s job, kept separate on
- * purpose (this class has no `Activity` reference and never should). No
+ * (reports `false` to `onStarted`) if BLE permissions are not already
+ * granted; requesting them from the user is the calling `Activity`'s job,
+ * kept separate on purpose (this class has no `Activity` reference and
+ * never should). No
  * restart: [close] shuts its worker/poll executors down permanently (and
  * marks the instance closed so any callback already in flight backs off
  * rather than racing that shutdown), so a service instance is
@@ -102,7 +103,17 @@ class BleMeshService(context: Context) {
     private fun runOnWorker(block: () -> Unit) {
         if (closed) return
         try {
-            worker.execute(block)
+            worker.execute {
+                // Rechecked here, not just by the caller above: close() can
+                // run in the full gap between that check and this queued
+                // task actually starting (worker.shutdown() lets already-
+                // submitted tasks run to completion, it does not cancel
+                // them), which would otherwise let e.g. a discovery task
+                // call connectGatt or add a mesh link after close() has
+                // already closed and cleared everything.
+                if (closed) return@execute
+                block()
+            }
         } catch (_: RejectedExecutionException) {
             // Lost the race with close() between the check above and this
             // call -- not an error, just already shutting down.
@@ -116,24 +127,50 @@ class BleMeshService(context: Context) {
      * until some other caller happens to poll -- without this, a device in
      * the middle of a relay chain would only ever forward a message the
      * moment something else of its own called [MeshHandle.poll].
-     * [onMessage] is invoked (on the polling thread -- hop to your own
-     * thread if you touch UI) for every newly delivered message; the
-     * default no-op still keeps the mesh relaying, it just drops the
+     * [onMessage] is invoked (on this class's own worker thread -- hop to
+     * your own thread if you touch UI) for every newly delivered message;
+     * the default no-op still keeps the mesh relaying, it just drops the
      * payload for a caller that has nothing to do with it yet.
      *
-     * Returns `false` if either role could not start -- most commonly: BLE
-     * permissions not granted (including a fresh install with none granted
-     * yet, surfaced as a caught [SecurityException] rather than a crash),
-     * or no Bluetooth adapter. The caller should [close] rather than
-     * assume a partial start is safe to retry.
+     * Returns immediately; [onStarted] (also invoked on the worker thread)
+     * is called once with whether startup actually succeeded. This is
+     * deliberately async rather than blocking the caller: both
+     * [BlePeripheralServer.start] and [startScanning] block synchronously
+     * for real time (advertising/service registration, then confirming the
+     * scan actually started) -- doing that on whatever thread calls
+     * [start] would risk an ANR if that thread is Android's main thread,
+     * exactly the caller this class is built for. `false` most commonly
+     * means: BLE permissions not granted (including a fresh install with
+     * none granted yet, surfaced as a caught [SecurityException] rather
+     * than a crash), or no Bluetooth adapter. The caller should [close]
+     * rather than assume a partial start is safe to retry.
      */
-    fun start(onMessage: (List<UByte>) -> Unit = {}): Boolean {
+    fun start(onMessage: (List<UByte>) -> Unit = {}, onStarted: (Boolean) -> Unit = {}) {
+        if (closed) {
+            onStarted(false)
+            return
+        }
+        runOnWorker { onStarted(startBlocking(onMessage)) }
+    }
+
+    private fun startBlocking(onMessage: (List<UByte>) -> Unit): Boolean {
         // BlePeripheralServer.start() handles its own SecurityException
         // (a fresh install without BLUETOOTH_ADVERTISE/CONNECT granted)
         // and reports that the same way as any other failure: a clean
         // `false` with its own state already cleaned up.
-        val peripheralOk = peripheralServer.start(onLinkReady = { radio ->
-            runOnWorker { runCatching { mesh.addAcceptedLink(radio, DEFAULT_MTU) } }
+        val peripheralOk = peripheralServer.start(onLinkReady = { radio, disconnect ->
+            runOnWorker {
+                runCatching { mesh.addAcceptedLink(radio, DEFAULT_MTU) }
+                    .onFailure {
+                        // The handshake never completed (no hello, a
+                        // malformed one, or it timed out): without this,
+                        // the central stays connected and readyDelivered
+                        // stays true, so it occupies a GATT connection and
+                        // a `links` entry forever with nothing left to
+                        // retry the handshake.
+                        disconnect()
+                    }
+            }
         })
         if (!peripheralOk) {
             close()
@@ -143,17 +180,25 @@ class BleMeshService(context: Context) {
             close()
             return false
         }
-        pollTask = pollExecutor.scheduleWithFixedDelay({
-            // mesh.poll() has already drained and recorded every one of
-            // these in the seen cache by the time this runs -- a later
-            // poll() cannot recover them. Catching around the whole loop
-            // would let one throwing onMessage silently discard every
-            // later message in the same batch; catching per-message keeps
-            // one bad payload from taking the rest down with it.
-            runCatching { mesh.poll() }.getOrNull()?.forEach { message ->
-                runCatching { onMessage(message.payload) }
-            }
-        }, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
+        runCatching {
+            pollTask = pollExecutor.scheduleWithFixedDelay({
+                // mesh.poll() has already drained and recorded every one of
+                // these in the seen cache by the time this runs -- a later
+                // poll() cannot recover them. Catching around the whole loop
+                // would let one throwing onMessage silently discard every
+                // later message in the same batch; catching per-message keeps
+                // one bad payload from taking the rest down with it.
+                runCatching { mesh.poll() }.getOrNull()?.forEach { message ->
+                    runCatching { onMessage(message.payload) }
+                }
+            }, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
+        }.onFailure {
+            // Lost a race with a concurrent close() (pollExecutor already
+            // shut down) between the closed check above and here -- not a
+            // real failure of this startup, close() already tore down
+            // everything this call would otherwise report as started.
+            return false
+        }
         return true
     }
 
