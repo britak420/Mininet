@@ -79,6 +79,15 @@ pub enum PresenceError {
     /// The evidence classified to a real assurance level, but below what the
     /// verifier's policy required.
     InsufficientAssurance,
+    /// A [`crate::evidence_v2::SignedRangingEvidenceV2::signer_device`] named
+    /// a DID that is neither the attestation's initiator nor its responder
+    /// device — evidence must be attested by one of the two actual parties.
+    EvidenceSignerNotAParty,
+    /// A [`crate::evidence_v2::SignedRangingEvidenceV2`]'s signature does not
+    /// verify against its claimed signer's device KEL — the evidence is not
+    /// authenticated and must not be trusted, regardless of how plausible
+    /// its measurements look.
+    EvidenceSignatureInvalid,
 }
 
 impl core::fmt::Display for PresenceError {
@@ -132,6 +141,12 @@ impl core::fmt::Display for PresenceError {
                     f,
                     "ranging evidence assurance is below the required minimum"
                 )
+            }
+            PresenceError::EvidenceSignerNotAParty => {
+                write!(f, "ranging evidence signer is not a party to this session")
+            }
+            PresenceError::EvidenceSignatureInvalid => {
+                write!(f, "ranging evidence signature does not verify")
             }
         }
     }

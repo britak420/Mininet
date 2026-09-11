@@ -75,7 +75,7 @@ pub use error::{PresenceError, Result};
 pub use evidence_v2::{
     classify_ranging_evidence, AttackIndicatorV2, HardwareCapabilityClassV1,
     HardwareCapabilityRegistryV1, MeasurementSidedness, PresenceAssuranceV2, PresencePolicyV2,
-    RangingEvidenceV2, RangingSecurityProfileV2, RangingTechnologyV2,
+    RangingEvidenceV2, RangingSecurityProfileV2, RangingTechnologyV2, SignedRangingEvidenceV2,
 };
 pub use persisted::FileReplayGuard;
 pub use ranging::{NoUwb, RangingError, RangingSource};

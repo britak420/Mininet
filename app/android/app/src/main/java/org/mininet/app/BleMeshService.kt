@@ -17,6 +17,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import org.mininet.core.MeshHandle
 
 /**
@@ -35,9 +36,11 @@ import org.mininet.core.MeshHandle
  *
  * **What this class deliberately does not do.** No retry or reconnect for
  * a link that drops -- a caller wanting resilience restarts [start] itself.
- * No connection-count cap -- a real deployment needs one (BLE radios and
- * batteries have real limits `docs/gates/hardware-test-protocol.md` is the
- * place to actually measure, not guess at here). No de-duplication against
+ * No connection-count cap *tuned to real radio/battery behavior* -- `worker`
+ * bounds concurrent connection *attempts* (a resource-exhaustion floor, see
+ * its own doc), but a real deployment still needs a deliberately chosen
+ * steady-state link-count target `docs/gates/hardware-test-protocol.md` is
+ * the place to actually measure, not guess at here. No de-duplication against
  * a peripheral link to the same device this central role is also connected
  * to -- a harmless redundant edge, not a correctness problem, since
  * `MeshHandle`'s dedup is content-based and does not care how many edges a
@@ -87,12 +90,35 @@ class BleMeshService(context: Context) {
     @Volatile
     private var closed = false
 
+    // Guards start() itself against concurrent or repeated calls -- see
+    // start()'s own comment for what races without this.
+    private val started = AtomicBoolean(false)
+
     // add*Link performs a blocking Channel handshake (see MeshHandle's own
     // docs) and central scan/connect is itself blocking -- both happen off
     // the caller's thread here so start() itself returns quickly.
-    private val worker = Executors.newCachedThreadPool { runnable ->
-        Thread(runnable, "mininet-ble-mesh").apply { isDaemon = true }
-    }
+    //
+    // Bounded, not a newCachedThreadPool: a nearby advertiser can rotate
+    // BLE addresses, generating a fresh onDeviceDiscovered task (blocking
+    // in connectAndAwaitReady for up to CONNECT_TIMEOUT_MS) for every new
+    // address centralLinks has never seen -- an unbounded pool would keep
+    // spawning threads and GATT connection attempts until the process
+    // exhausts resources. CallerRunsPolicy (not Discard/Abort): every
+    // submitted task still eventually runs to completion and does its own
+    // centralLinks cleanup on failure, just on the submitting thread
+    // (the BLE scan callback thread, for discoveries) once the pool and
+    // its queue are saturated -- which also naturally throttles how fast
+    // new discoveries can be processed under load, capping concurrent
+    // connection attempts at WORKER_MAX_THREADS.
+    private val worker = ThreadPoolExecutor(
+        WORKER_CORE_THREADS,
+        WORKER_MAX_THREADS,
+        WORKER_KEEP_ALIVE_SECONDS,
+        TimeUnit.SECONDS,
+        LinkedBlockingQueue(WORKER_QUEUE_CAPACITY),
+        { runnable -> Thread(runnable, "mininet-ble-mesh").apply { isDaemon = true } },
+        ThreadPoolExecutor.CallerRunsPolicy(),
+    )
 
     // Separate from `worker`: polling must run on a fixed, short schedule
     // and must never queue behind a long blocking handshake call sharing
@@ -102,15 +128,30 @@ class BleMeshService(context: Context) {
     }
     private var pollTask: ScheduledFuture<*>? = null
 
-    // Bounded, unlike `worker`: message delivery is driven by mesh.poll()
-    // on a fixed schedule and can submit up to MAX_MESSAGES_PER_LINK_PER_
-    // POLL deliveries per link, every POLL_INTERVAL_MS, indefinitely. If
-    // the caller's onMessage is slow (disk/network I/O) or -- as its own
-    // contract explicitly allows -- simply never returns, an unbounded
-    // pool (`worker`'s newCachedThreadPool) would keep creating threads to
-    // run every new delivery until the process exhausts memory or native
-    // thread handles, exactly what moving delivery off the poll thread was
-    // supposed to prevent becoming a *different* resource exhaustion bug.
+    // Separate again from both `worker` and `pollExecutor`: mesh.poll()
+    // itself never blocks, but mesh.flushReflood() actually performs the
+    // queued sends, and a single one can wait seconds for a slow BLE
+    // peer's GATT acknowledgement (see MeshHandle.flushReflood's own
+    // docs). Running it on pollExecutor's thread would defeat the entire
+    // point of mini_mesh's poll/flush split -- one slow peer would again
+    // stall every other link's receive-and-dedup cycle.
+    private val refloodExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "mininet-ble-mesh-reflood").apply { isDaemon = true }
+    }
+    private var refloodTask: ScheduledFuture<*>? = null
+
+    // Bounded, with a different overload policy than `worker`: message
+    // delivery is driven by mesh.poll() on a fixed schedule and can submit
+    // up to MAX_MESSAGES_PER_LINK_PER_POLL deliveries per link, every
+    // POLL_INTERVAL_MS, indefinitely. If the caller's onMessage is slow
+    // (disk/network I/O) or -- as its own contract explicitly allows --
+    // simply never returns, an unbounded pool would keep creating threads
+    // to run every new delivery until the process exhausts memory or
+    // native thread handles, exactly what moving delivery off the poll
+    // thread was supposed to prevent becoming a *different* resource
+    // exhaustion bug. `worker`'s own CallerRunsPolicy would be wrong here
+    // too: running a slow/hung onMessage inline on the scheduled poll
+    // thread is exactly the hazard this executor exists to move off of.
     // A small fixed pool with a bounded queue gives delivery real
     // throughput without that unbounded growth; DiscardPolicy is the
     // explicit overload response once the queue is full: silently drop
@@ -194,6 +235,17 @@ class BleMeshService(context: Context) {
             onStarted(false)
             return
         }
+        // compareAndSet, not a plain closed-style check: this class is
+        // documented construct-start-close-once, but two concurrent (or
+        // simply repeated) start() calls before either's async
+        // startBlocking() finishes would otherwise both pass a bare check
+        // and race to overwrite peripheralServer/scanCallback/pollTask,
+        // leaving whichever ran first's advertisement, scan, GATT server,
+        // or polling task orphaned and unstoppable by a single close().
+        if (!started.compareAndSet(false, true)) {
+            onStarted(false)
+            return
+        }
         runOnWorker { onStarted(startBlocking(onMessage)) }
     }
 
@@ -258,6 +310,21 @@ class BleMeshService(context: Context) {
             }, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
         }.isSuccess
         if (!scheduled || closed) {
+            close()
+            return false
+        }
+        // Separate schedule, separate thread (refloodExecutor), from
+        // poll's: mesh.flushReflood() performs the actual sends
+        // mesh.poll() only queues, and a single one can block for seconds
+        // on a slow peer's GATT acknowledgement -- see mini_mesh's own
+        // poll()/flushReflood() split docs for why running it on
+        // pollExecutor's thread would defeat the whole point.
+        val refloodScheduled = runCatching {
+            refloodTask = refloodExecutor.scheduleWithFixedDelay({
+                runCatching { mesh.flushReflood() }
+            }, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
+        }.isSuccess
+        if (!refloodScheduled || closed) {
             close()
             return false
         }
@@ -344,13 +411,20 @@ class BleMeshService(context: Context) {
             }.getOrDefault(false)
             if (!ready) {
                 runCatching { radio.close() }
-                centralLinks.remove(device.address)
+                // Value-checked, like setOnFailed's own cleanup above: a
+                // bare remove(key) here could delete a *different*,
+                // already-connected BleCentralRadio that a later
+                // onDeviceDiscovered for the same (reused) address
+                // inserted after this attempt's own map entry was already
+                // superseded, orphaning that replacement's GATT connection
+                // with no map entry left to release it.
+                centralLinks.remove(device.address, radio)
                 return@runOnWorker
             }
             runCatching { mesh.addDialedLink(radio, DEFAULT_MTU) }
                 .onFailure {
                     runCatching { radio.close() }
-                    centralLinks.remove(device.address)
+                    centralLinks.remove(device.address, radio)
                 }
         }
     }
@@ -363,6 +437,8 @@ class BleMeshService(context: Context) {
         closed = true
         pollTask?.cancel(false)
         pollTask = null
+        refloodTask?.cancel(false)
+        refloodTask = null
         runCatching { scanCallback?.let { bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(it) } }
         scanCallback = null
         peripheralServer.close()
@@ -370,6 +446,7 @@ class BleMeshService(context: Context) {
         centralLinks.clear()
         worker.shutdown()
         pollExecutor.shutdown()
+        refloodExecutor.shutdown()
         deliveryExecutor.shutdown()
     }
 
@@ -383,6 +460,17 @@ class BleMeshService(context: Context) {
         private const val DEFAULT_MTU: UInt = 20u
         private const val CONNECT_TIMEOUT_MS = 15_000L
         private const val SCAN_START_CHECK_MS = 2_000L
+
+        // `worker`'s bounds -- see its own doc for why it must be bounded
+        // at all. Core threads stay warm for the common case (a handful of
+        // concurrent handshakes/connects); max threads is the real cap on
+        // concurrent connection attempts; the queue absorbs a short burst
+        // of discoveries before CallerRunsPolicy starts throttling the
+        // scan callback thread itself.
+        private const val WORKER_CORE_THREADS = 2
+        private const val WORKER_MAX_THREADS = 8
+        private const val WORKER_KEEP_ALIVE_SECONDS = 30L
+        private const val WORKER_QUEUE_CAPACITY = 32
 
         // How often the mesh is drained/relayed. Short enough that a
         // multi-hop relay chain stays responsive, long enough not to spin;

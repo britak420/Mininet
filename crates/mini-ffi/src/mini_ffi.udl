@@ -73,6 +73,10 @@ interface MeshHandle {
   sequence<u8> broadcast(sequence<u8> payload);
 
   sequence<MeshMessage> poll();
+
+  void flush_reflood();
+
+  sequence<MeshMessage> poll_and_flush();
 };
 
 interface RootCore {

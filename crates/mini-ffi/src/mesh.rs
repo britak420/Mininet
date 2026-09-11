@@ -97,8 +97,14 @@ impl MeshHandle {
             .map_err(|_| MeshError::PayloadTooLarge)
     }
 
-    /// Drain and dedup-flood-relay whatever has arrived on any link so far.
-    /// Never blocks.
+    /// Drain and dedup whatever has arrived on any link so far, queuing new
+    /// payloads to be reflooded — genuinely never blocks (unlike an earlier
+    /// revision): the actual, potentially slow sends are
+    /// [`Self::flush_reflood`]'s job. Call this often, from whatever thread
+    /// polls for new messages; call `flush_reflood` separately, ideally
+    /// from a different thread, since on a real platform bearer (Android
+    /// GATT) a single send can wait seconds for a peer's acknowledgement —
+    /// see `mini_mesh::MeshNode::poll`'s own docs for why the two are split.
     pub fn poll(&self) -> Vec<MeshMessage> {
         self.lock()
             .poll()
@@ -108,6 +114,27 @@ impl MeshHandle {
                 payload,
             })
             .collect()
+    }
+
+    /// Actually send every payload [`Self::poll`] has queued for reflooding.
+    /// This is the potentially **blocking** half — see
+    /// `mini_mesh::MeshNode::flush_reflood`'s own docs. Call it from a
+    /// dedicated thread/schedule separate from whatever calls [`Self::poll`],
+    /// so one slow peer's acknowledgement can never stall receiving and
+    /// delivering messages from every other link.
+    pub fn flush_reflood(&self) {
+        self.lock().flush_reflood();
+    }
+
+    /// Convenience: [`Self::poll`] immediately followed by
+    /// [`Self::flush_reflood`] on the same thread. Blocks like the
+    /// pre-split `poll()` used to — fine for tests or a bearer where sends
+    /// are always fast, but a real Android BLE deployment should call
+    /// [`Self::poll`] and [`Self::flush_reflood`] separately instead.
+    pub fn poll_and_flush(&self) -> Vec<MeshMessage> {
+        let messages = self.poll();
+        self.flush_reflood();
+        messages
     }
 }
 
@@ -218,7 +245,7 @@ mod tests {
         assert_eq!(mesh_b.link_count(), 1);
 
         let id = mesh_a.broadcast(b"hello mesh".to_vec()).unwrap();
-        let received = mesh_b.poll();
+        let received = mesh_b.poll_and_flush();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].id, id);
         assert_eq!(received[0].payload, b"hello mesh");
@@ -274,7 +301,7 @@ mod tests {
         // link -> the boxed AndroidBleBearer<RadioAdapter> (and so
         // RadioAdapter) is dropped -> RadioAdapter::drop() calls
         // radio_a.disconnect().
-        mesh_a.poll();
+        mesh_a.poll_and_flush();
         assert_eq!(mesh_a.link_count(), 0);
         assert!(disconnected.load(std::sync::atomic::Ordering::SeqCst));
     }
@@ -301,6 +328,6 @@ mod tests {
 
         // Still usable afterward.
         mesh_a.broadcast(b"fine".to_vec()).unwrap();
-        assert_eq!(mesh_b.poll().len(), 1);
+        assert_eq!(mesh_b.poll_and_flush().len(), 1);
     }
 }

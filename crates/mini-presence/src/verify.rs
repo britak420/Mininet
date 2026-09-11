@@ -7,7 +7,8 @@ use did_mini::{verify_delegation, Capabilities, Did, Kel};
 use crate::attestation::{kel_digest, Party, PresenceAttestation, TransportKind, PRESENCE_VERSION};
 use crate::error::{PresenceError, Result};
 use crate::evidence_v2::{
-    classify_ranging_evidence, HardwareCapabilityRegistryV1, PresenceAssuranceV2, RangingEvidenceV2,
+    classify_ranging_evidence, HardwareCapabilityRegistryV1, PresenceAssuranceV2, PresencePolicyV2,
+    RangingEvidenceV2, SignedRangingEvidenceV2,
 };
 
 /// Range/timing policy for accepting an attestation.
@@ -279,59 +280,94 @@ pub struct PresenceVerdictV2 {
 /// This **reuses every check [`verify_presence`] performs** — version,
 /// channel binding, time window, software RTT bound, nonce distinctness,
 /// KEL/delegation/signature verification for both parties, self-presence
-/// rejection, and replay recording — then adds, per the gate document's
-/// exact-code-change instruction (Section 33.2):
+/// rejection, and replay recording — but runs it **last**, after every
+/// V2-specific check below has already passed: `verify_presence` is what
+/// durably records the session's nonces in `replay`, and a V2-specific
+/// rejection (bad evidence, insufficient assurance) must never burn those
+/// nonces — a legitimate retry with corrected evidence would then fail as
+/// a replay of an attempt that never actually succeeded.
+///
+/// Per the gate document's exact-code-change instruction (Section 33.2),
+/// this adds:
 ///
 /// - unconditional rejection of [`TransportKind::InProcess`] (V1's
 ///   [`TransportKind::is_proximity`] allows it for CI; the canonical
 ///   personhood path must not);
-/// - when `evidence` is supplied, that it is cryptographically bound to
-///   *this* attestation's transcript ([`RangingEvidenceV2::session_binding_digest`]),
-///   so evidence from one session can never back a different one;
+/// - when `evidence` is supplied: that it is bound to *this* attestation's
+///   transcript ([`RangingEvidenceV2::session_binding_digest`], so evidence
+///   from one session can never back a different one), and that its
+///   signature verifies against the device KEL of whichever attested party
+///   it names as signer. The binding digest alone is not authentication —
+///   it is a hash of the *public* transcript, computable by anyone who
+///   merely observed a completed (even weak) attestation elsewhere — so the
+///   signature is what actually proves a real attested device produced
+///   this evidence, not an outside forger;
 /// - a freshly recomputed [`PresenceAssuranceV2`] via
 ///   [`classify_ranging_evidence`] — never trusting any caller-side claim
 ///   about the evidence's own quality, because [`RangingEvidenceV2`] has no
 ///   such field to trust in the first place;
-/// - that the derived assurance meets `min_assurance`.
-///
-/// With no `evidence`, the base checks (which always enforce the software
-/// RTT bound) already establish [`PresenceAssuranceV2::WeakSoftware`]-level
-/// proximity, so that is the assurance used against `min_assurance`.
+/// - that the derived assurance meets `min_assurance`;
+/// - with no `evidence`: [`PresencePolicyV2`]'s own fixed
+///   `MIN_SOFTWARE_RTT_SAMPLES`/`MAX_SOFTWARE_RTT_MS` bounds, checked
+///   directly against the attestation's RTT samples rather than trusting
+///   `ctx.policy` (caller-configurable, and a caller could set
+///   `min_rtt_samples` to `0` or `max_rtt_ms` arbitrarily high) — only then
+///   is [`PresenceAssuranceV2::WeakSoftware`] used against `min_assurance`.
 #[allow(clippy::too_many_arguments)]
 pub fn verify_presence_v2(
     att: &PresenceAttestation,
-    evidence: Option<&RangingEvidenceV2>,
+    evidence: Option<&SignedRangingEvidenceV2>,
     ctx: &VerifyContext<'_>,
     replay: &mut dyn ReplayGuard,
     registry: &HardwareCapabilityRegistryV1,
     min_assurance: PresenceAssuranceV2,
 ) -> Result<PresenceVerdictV2> {
-    if att.fields.transport == TransportKind::InProcess {
+    let f = &att.fields;
+
+    if f.transport == TransportKind::InProcess {
         return Err(PresenceError::InProcessTransportRejectedByV2);
     }
 
-    let transcript = att.fields.transcript();
-    let verdict = verify_presence(att, ctx, replay)?;
-
     let assurance = match evidence {
-        Some(evidence) => {
+        Some(signed) => {
+            let transcript = f.transcript();
             let expected_binding = RangingEvidenceV2::bind_to_transcript(&transcript);
-            if evidence.session_binding_digest != expected_binding {
+            if signed.evidence.session_binding_digest != expected_binding {
                 return Err(PresenceError::EvidenceSessionBindingMismatch);
             }
-            let assurance = classify_ranging_evidence(evidence, registry);
+            let signer_kel = if signed.signer_device.as_str() == f.initiator.device.as_str() {
+                ctx.initiator_device
+            } else if signed.signer_device.as_str() == f.responder.device.as_str() {
+                ctx.responder_device
+            } else {
+                return Err(PresenceError::EvidenceSignerNotAParty);
+            };
+            if !signed.verify(signer_kel) {
+                return Err(PresenceError::EvidenceSignatureInvalid);
+            }
+            let assurance = classify_ranging_evidence(&signed.evidence, registry);
             if assurance == PresenceAssuranceV2::Unusable {
                 return Err(PresenceError::EvidenceUnusable);
             }
             assurance
         }
-        None => PresenceAssuranceV2::WeakSoftware,
+        None => {
+            if (f.rtt_samples_ms.len() as u32) < PresencePolicyV2::MIN_SOFTWARE_RTT_SAMPLES {
+                return Err(PresenceError::NotEnoughRangeSamples);
+            }
+            let best = f.rtt_samples_ms.iter().copied().min().unwrap_or(u32::MAX);
+            if best > PresencePolicyV2::MAX_SOFTWARE_RTT_MS {
+                return Err(PresenceError::RangeExceeded);
+            }
+            PresenceAssuranceV2::WeakSoftware
+        }
     };
 
     if assurance < min_assurance {
         return Err(PresenceError::InsufficientAssurance);
     }
 
+    let verdict = verify_presence(att, ctx, replay)?;
     Ok(PresenceVerdictV2 { verdict, assurance })
 }
 

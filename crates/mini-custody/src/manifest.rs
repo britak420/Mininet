@@ -153,6 +153,16 @@ impl DkgSessionManifestV1 {
             return Err(CustodyError::InvalidManifest("unsupported suite"));
         }
         let roster_len = read_u16(&mut input)? as usize;
+        // Rejected immediately, before allocating or parsing a single
+        // roster entry: `validate()` rejects any length other than
+        // `SIGNER_COUNT` anyway, but only after every entry has already
+        // been parsed. Without this, an untrusted manifest can declare
+        // `roster_len = 65_535` and force tens of thousands of DID/key
+        // parses (each one real allocation and Ed25519 decoding work)
+        // before hitting that inevitable rejection.
+        if roster_len != SIGNER_COUNT as usize {
+            return Err(CustodyError::InvalidManifest("roster size != 11"));
+        }
         let mut roster = Vec::with_capacity(roster_len);
         for _ in 0..roster_len {
             roster.push(CustodyParticipantV1::decode(&mut input)?);
@@ -218,6 +228,25 @@ impl DkgSessionManifestV1 {
             if window[0].custody_did.as_str() >= window[1].custody_did.as_str() {
                 return Err(CustodyError::InvalidManifest(
                     "roster not in canonical lexicographic DID order",
+                ));
+            }
+        }
+        // `CustodyParticipantV1::encode`/`decode` only round-trip Ed25519
+        // key bytes (`decode` always reconstructs via
+        // `VerifyingKey::from_suite_bytes(SignatureSuite::Ed25519, ..)`,
+        // dropping whatever suite the key actually was). A roster built
+        // in-process with e.g. an `MlDsa65` key would validate fine here
+        // but fail to decode on every peer that receives the encoded wire
+        // bytes -- reject the mismatch immediately, at the same layer that
+        // already validates the roster, instead of letting it surface
+        // later as a confusing decode failure on someone else's node.
+        for participant in &self.roster {
+            if participant.device_verifying_key.suite() != mini_crypto::SignatureSuite::Ed25519
+                || participant.transport_identity_key.suite()
+                    != mini_crypto::SignatureSuite::Ed25519
+            {
+                return Err(CustodyError::InvalidManifest(
+                    "roster key suite is not Ed25519 -- the only suite this manifest's wire format can encode",
                 ));
             }
         }
@@ -333,6 +362,49 @@ mod tests {
     fn wrong_roster_size_is_rejected() {
         let mut manifest = sample_manifest();
         manifest.roster.pop();
+        assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn an_oversized_declared_roster_len_is_rejected_before_parsing_any_entry() {
+        // Regression test for a Codex finding: `decode` used to allocate and
+        // parse `roster_len` entries before ever checking that value
+        // against SIGNER_COUNT, so an untrusted manifest declaring
+        // roster_len = 65_535 forced real DID/key-parsing work for every
+        // one of them before the inevitable rejection. Hand-build a prefix
+        // matching `encode`'s exact field order, with a huge roster_len and
+        // zero actual roster bytes following it: the fix must reject with
+        // "roster size != 11" immediately, not some unrelated truncation
+        // error from trying (and failing) to parse a first entry.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"mininet-custody-dkg");
+        bytes.push(1u8); // version
+        bytes.extend_from_slice(&[7u8; 32]); // network_id
+        bytes.extend_from_slice(&1u16.to_be_bytes()); // custody_domain
+        bytes.extend_from_slice(&1u64.to_be_bytes()); // custody_epoch
+        bytes.extend_from_slice(&0u32.to_be_bytes()); // attempt
+        bytes.extend_from_slice(&SIGNER_COUNT.to_be_bytes());
+        bytes.extend_from_slice(&THRESHOLD.to_be_bytes());
+        crate::wire::push_str(&mut bytes, FROST_SUITE_ID);
+        bytes.extend_from_slice(&u16::MAX.to_be_bytes()); // roster_len: absurd
+                                                          // No roster entries, no trailing fields at all.
+
+        let err = DkgSessionManifestV1::decode(&bytes).unwrap_err();
+        assert_eq!(err, CustodyError::InvalidManifest("roster size != 11"));
+    }
+
+    #[test]
+    fn a_non_ed25519_roster_key_is_rejected() {
+        // Regression test for a Codex finding: encode/decode only round-trip
+        // Ed25519 key bytes, silently reconstructing anything else as
+        // Ed25519 on decode (which then fails on length alone on every real
+        // peer). Reject the mismatch here, at validate(), rather than
+        // letting a roster with a non-Ed25519 key look valid in-process.
+        let mut manifest = sample_manifest();
+        let ml_dsa = mini_crypto::SigningKey::generate_ml_dsa_65()
+            .unwrap()
+            .verifying_key();
+        manifest.roster[0].device_verifying_key = ml_dsa;
         assert!(manifest.validate().is_err());
     }
 

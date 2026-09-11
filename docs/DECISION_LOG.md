@@ -23141,3 +23141,176 @@ actually exercise the Kotlin changes in this entry, as every prior
 Android-side entry in this log already states.
 
 **Supersedes / superseded by:** none.
+
+### D-0512 — Second CI/CodeQL/Codex remediation batch on PR #333 head `c1de9af`: `SignedRangingEvidenceV2` device authentication for Gate #97, NADM/ordering/OOB-digest hardening, `mini-mesh` poll/flush split, `mini-custody` roster/rollback fixes, bounded BLE worker pool  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** GitHub CI and Codex automated review on
+PR #333, commit `c1de9af` (D-0511's own push, itself triggering a fresh
+review round); touches `crates/mini-presence/src/{evidence_v2,verify,
+error,lib}.rs`, `crates/mini-presence/tests/presence_v2.rs`;
+`crates/mini-mesh/src/lib.rs`, `crates/mini-mesh/tests/tcp_relay.rs`;
+`crates/mini-ffi/src/{mesh,mini_ffi.udl}`; `crates/mini-custody/src/
+{manifest,share_store}.rs`; `app/android/app/src/main/java/org/mininet/
+app/{BleMeshService,BlePeripheralServer}.kt`.
+
+**Decision:** every finding below was independently verified against the
+real code before being fixed, per this tree's standing discipline
+(D-0506/D-0507/D-0509/D-0510/D-0511's identical practice) — none was taken
+on the reviewing tool's word alone. The most significant finding was in
+code this same author had just shipped in D-0510: a genuine
+authentication bypass, not a cosmetic gap.
+
+1. **P1 — Gate #97 `RangingEvidenceV2` was not authenticated.**
+   D-0510's `session_binding_digest` was a hash of public transcript
+   bytes, not a signature — any party (including an outsider, not just
+   the two session participants) could fabricate ranging evidence that
+   `verify_presence_v2` would certify as hardware-backed, because nothing
+   tied the evidence to a specific signing device. Added
+   `SignedRangingEvidenceV2 { evidence, signer_device: Did, signature }`
+   over a new domain-separated `canonical_bytes()`/`EVIDENCE_SIGNATURE_
+   DOMAIN` construction (composing `did_mini`'s existing Ed25519 KEL
+   signing — no new cryptography), and rewrote `verify_presence_v2` to
+   require the signer be one of the two session parties
+   (`f.initiator.device`/`f.responder.device`) and for the signature to
+   verify against that party's KEL before the evidence is classified at
+   all. New `PresenceError::{EvidenceSignerNotAParty,
+   EvidenceSignatureInvalid}` variants.
+2. **P2 — `SECURE_NADM_MAX` accepted NADM=2 ("attack likely").** The
+   0-3 NADM scale (0=no attack, 1=possible, 2=likely, 3=unevaluated) had
+   the ceiling set to `0x02`, so evidence UWB/BLE hardware itself flagged
+   as a likely relay/spoofing attack could still certify as secure.
+   Corrected to `0x01`.
+3. **P2 — missing `p90_distance_mm <= max_distance_mm` check.**
+   `distances_are_ordered()` checked the low end of the ordering but not
+   the high end, so a `p90` reported above `max` (internally
+   inconsistent, physically meaningless) passed as usable.
+4. **P2 — zero `oob_config_digest` accepted for UWB/BLE Channel
+   Sounding.** An all-zero out-of-band configuration digest (the
+   uninitialized/never-set case) classified identically to a real one;
+   added an explicit rejection inside the `Uwb | BleChannelSounding`
+   branch of `classify_ranging_evidence`.
+5. **P2 — `verify_presence_v2` burned replay nonces on a rejected
+   attempt.** The base `verify_presence` call (which durably records
+   replay nonces) ran first, before the V2-specific evidence/assurance
+   checks; an attempt that failed a V2-only check (bad evidence,
+   insufficient assurance) had already consumed the session's nonce,
+   so a legitimate retry with corrected evidence would then fail replay
+   detection. Reordered so `verify_presence` runs last, after every V2
+   check that can reject independently of it. Also: the software-RTT
+   fallback path (`evidence: None`) was checking a caller-suppliable
+   `ctx` policy instead of the fixed `PresencePolicyV2::{MIN_SOFTWARE_
+   RTT_SAMPLES, MAX_SOFTWARE_RTT_MS}` floor, letting a loose `ctx` waive
+   the V2 policy entirely for the unauthenticated fallback path.
+6. **P1 — `mini-mesh::MeshNode::poll()` could block for the life of a
+   slow BLE peer**, violating poll's own documented non-blocking
+   contract: reflood sends happened inline inside `poll()`, and a GATT
+   write to an unresponsive peer has no bounded timeout at this layer.
+   Split into `poll()` (stages reflood payloads into a new bounded
+   `pending_reflood: VecDeque<Vec<u8>>`, `MAX_PENDING_REFLOOD = 4_096`,
+   drop-oldest on overflow) and a separate `flush_reflood()` that
+   performs the actual sends; added `poll_and_flush()` for callers that
+   want the old combined behavior. Propagated through `mini-ffi::mesh`
+   (`MeshHandle::{flush_reflood, poll_and_flush}`, `mini_ffi.udl`) and
+   into `BleMeshService.kt` via a dedicated single-thread
+   `refloodExecutor` running `flushReflood()` independently of the
+   non-blocking poll loop.
+7. **P2 — `mini-custody` manifest roster-size check ran after
+   allocation/parsing began**, not before, so an attacker-declared
+   `roster_len` could drive resource consumption proportional to a
+   value not yet checked against the fixed `SIGNER_COUNT`. Moved the
+   check immediately after reading the length prefix. Also added an
+   Ed25519-suite-only check on every roster participant's
+   `device_verifying_key`/`transport_identity_key` in `validate()`,
+   closing a key-suite-confusion gap the same review pass found.
+8. **P2 — `mini-custody::share_store::open_key_package` trusted the
+   `session_id` embedded in the sealed record.** AEAD associated data
+   protects a field from tampering in isolation, but not from an
+   attacker replacing the *entire* signed/encrypted record with an
+   older, still-internally-consistent one — silently rolling a signer
+   back to an obsolete share. Added a caller-supplied
+   `expected_session_id: &[u8; 32]` parameter, checked before any
+   decryption is attempted.
+9. **P2 — unbounded `BleMeshService.worker` thread pool.** A cached
+   thread pool let concurrent BLE connection attempts grow without
+   bound under a hostile/noisy radio environment. Replaced with a
+   bounded `ThreadPoolExecutor` (2-8 threads, 32-deep queue,
+   `CallerRunsPolicy` — chosen over `DiscardPolicy` because every
+   submitted task performs its own map cleanup on completion, so a
+   silently dropped task would leak that cleanup). Also fixed: a
+   `start()` double-invocation race (added `AtomicBoolean` guard), two
+   `centralLinks.remove(key)` call sites that could evict a newer entry
+   racing in for the same device address (changed to value-checked
+   `remove(key, value)`), and `BlePeripheralServer.PeripheralLinkRadio.
+   writeChunk`'s stale-radio check (was a null check on the map lookup,
+   changed to an identity check `links[address] !== state`) which could
+   let a stale radio's ciphertext write into a since-reconnected
+   central's new channel.
+
+**Reason:** same category as D-0511 — real gaps between what a check
+claims to enforce and what it actually enforces, found by the same CI/
+CodeQL/Codex review discipline this tree runs on every push, this time
+including a critical authentication gap in the author's own immediately
+preceding work (item 1). Finding and fixing that promptly, with the same
+rigor applied to every other finding, is the discipline this project asks
+for — not evidence the discipline failed.
+
+**Constitutional impact:** none. No dependency-edge change; `did_mini`
+already exposes the Ed25519 KEL signing composed here, no new
+cryptographic primitive or construction was added. All affected crates
+(`mini-presence`, `mini-mesh`, `mini-custody`, `mini-ffi`, the Android
+app) remain founder-overridden, AI-authored, unaudited prototypes per
+D-0036/D-0037/D-0047/D-0510 — this closes concrete defects without
+changing that status or claiming any gate closure. Gate #97 remains
+*shipped, unaudited, no physical validation* exactly as D-0510 stated;
+authenticating the evidence format is necessary, not sufficient, for that
+status to change.
+
+**Implementation status:** shipped. New/changed tests: `mini-presence`
+gains `evidence_v2::tests::{nadm_attack_likely_is_never_certified,
+nadm_attack_possible_can_still_certify,
+a_reported_max_below_p90_is_unusable,
+a_zero_oob_config_digest_is_unusable_for_hardware_ranging,
+signed_evidence_verifies_against_the_signer_and_rejects_tampering}` and a
+rewritten `tests/presence_v2.rs` (adds
+`no_evidence_below_the_fixed_v2_rtt_sample_floor_is_rejected_even_with_a_
+loose_ctx_policy`,
+`a_rejected_v2_attempt_never_burns_replay_nonces_for_a_legitimate_retry`,
+`evidence_signed_by_the_responder_is_also_accepted`,
+`evidence_with_a_forged_signature_is_rejected_even_with_a_correct_
+binding`,
+`evidence_signed_by_someone_who_is_not_a_party_to_this_session_is_
+rejected`); `mini-mesh` gains
+`poll_stages_a_relay_but_never_sends_it_until_flush_reflood_is_called` and
+`pending_reflood_drops_the_oldest_past_capacity_rather_than_growing_
+unbounded`; `mini-custody` gains
+`manifest::tests::{an_oversized_declared_roster_len_is_rejected_before_
+parsing_any_entry, a_non_ed25519_roster_key_is_rejected}` and
+`share_store::tests::a_whole_record_swapped_in_from_an_earlier_session_
+is_rejected`. `cargo fmt --all -- --check`, `cargo clippy --all-targets
+--all-features --workspace -- -D warnings`, and `cargo test --workspace
+--all-features` are all clean except the same pre-existing, sandbox-only
+`mini-build-runner-wasmtime` adversarial-suite failure D-0509/D-0510/
+D-0511 already recorded (missing `wasm32` rustc target, confirmed again
+this pass: `rustup target list --installed` shows only
+`x86_64-unknown-linux-gnu`). GitHub CI on PR #333 head `c1de9af` is fully
+green, including CodeQL, confirming the critical alert this batch closes
+(item 1) does not reproduce on the fixed code. The two Kotlin changes
+(`BleMeshService`/`BlePeripheralServer.kt`) compile by inspection only —
+no JDK/Android SDK in this environment, the same honest limit every prior
+Android-side decision in this log states.
+
+**Failure point:** this closes the specific findings above; it is not a
+general audit of `mini-presence`/`mini-mesh`/`mini-custody`/the BLE mesh
+stack. Gate #97 in particular still has zero physical hardware
+validation — an authenticated evidence format proves the *signer*
+produced the ranging numbers, not that the numbers came from real UWB/BLE
+Channel Sounding hardware rather than a compromised device lying about
+its own sensor readings; that gap is unrelated to this batch and remains
+open per D-0510.
+
+**Required follow-up:** none blocking; the same Gate #72/#93/#97
+follow-up items D-0506–D-0511 already name remain open. Real Android CI
+(`assembleDebug`) and a real two-device test remain the only gates that
+actually exercise the Kotlin changes in this entry.
+
+**Supersedes / superseded by:** none.

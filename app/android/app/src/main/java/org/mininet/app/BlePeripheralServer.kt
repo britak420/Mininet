@@ -384,7 +384,17 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
                 ?: throw BleRadioException.Failed("GATT server is closed")
             val characteristic = txCharacteristic
                 ?: throw BleRadioException.Failed("service not started yet")
-            if (links[state.device.address] == null) {
+            // Identity-checked (===), not just non-null: if this central
+            // disconnected and a *new* connection from the same address
+            // was accepted before this stale PeripheralLinkRadio's write
+            // runs, links[state.device.address] now points at that new
+            // LinkState, not this one. A bare null-check would let this
+            // radio "successfully" notifyCharacteristicChanged the device
+            // with ciphertext sealed under the old, superseded channel's
+            // keys -- Android addresses that call by BluetoothDevice, so it
+            // would reach the new connection and could corrupt its
+            // handshake, not just silently fail.
+            if (links[state.device.address] !== state) {
                 throw BleRadioException.Failed("central disconnected")
             }
 

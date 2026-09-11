@@ -87,7 +87,25 @@ pub fn seal_key_package(
 /// serialized `KeyPackage` bytes. Fails closed
 /// (`ShareStorageAuthenticationFailed`) on a wrong passphrase or any
 /// tampering with the ciphertext or `session_id`.
-pub fn open_key_package(sealed: &SealedKeyPackageV1, passphrase: &[u8]) -> Result<Vec<u8>> {
+///
+/// `expected_session_id` must be supplied by the caller from outside this
+/// record — never read from `sealed` itself. `session_id` is authenticated
+/// AEAD associated data, so it can't be tampered with in isolation, but a
+/// storage attacker doesn't need to: they can replace the *entire* stored
+/// object (session id, salt, nonce, and ciphertext together) with a
+/// still-genuine, still-decryptable record from an earlier ceremony,
+/// silently rolling this signer back to an obsolete share. Requiring the
+/// caller's own independently-known expected session id closes that gap —
+/// the caller decides which session's share it meant to open, not whatever
+/// the storage layer currently hands back.
+pub fn open_key_package(
+    sealed: &SealedKeyPackageV1,
+    expected_session_id: &[u8; 32],
+    passphrase: &[u8],
+) -> Result<Vec<u8>> {
+    if &sealed.session_id != expected_session_id {
+        return Err(CustodyError::ShareStorageAuthenticationFailed);
+    }
     let key = derive_wrapping_key(passphrase, &sealed.salt)?;
     let nonce = AeadNonce::from_bytes(&sealed.nonce)
         .map_err(|_| CustodyError::ShareStorageAuthenticationFailed)?;
@@ -105,7 +123,8 @@ mod tests {
         let payload = b"pretend serialized KeyPackage bytes";
         let sealed =
             seal_key_package(session_id, b"correct horse battery staple", payload).unwrap();
-        let opened = open_key_package(&sealed, b"correct horse battery staple").unwrap();
+        let opened =
+            open_key_package(&sealed, &session_id, b"correct horse battery staple").unwrap();
         assert_eq!(opened, payload);
     }
 
@@ -115,7 +134,7 @@ mod tests {
         let payload = b"pretend serialized KeyPackage bytes";
         let sealed =
             seal_key_package(session_id, b"correct horse battery staple", payload).unwrap();
-        assert!(open_key_package(&sealed, b"wrong passphrase").is_err());
+        assert!(open_key_package(&sealed, &session_id, b"wrong passphrase").is_err());
     }
 
     #[test]
@@ -125,7 +144,34 @@ mod tests {
         let mut sealed =
             seal_key_package(session_id, b"correct horse battery staple", payload).unwrap();
         sealed.session_id = [4u8; 32];
-        assert!(open_key_package(&sealed, b"correct horse battery staple").is_err());
+        // Caller still expects the original session -- the relabel is
+        // caught by the expected-session check before decryption is even
+        // attempted.
+        assert!(open_key_package(&sealed, &session_id, b"correct horse battery staple").is_err());
+    }
+
+    #[test]
+    fn a_whole_record_swapped_in_from_an_earlier_session_is_rejected() {
+        // Regression test for a Codex finding: session_id is authenticated
+        // AEAD associated data, so it can't be tampered with in isolation
+        // -- but a storage attacker doesn't need to tamper with one field,
+        // they can replace the *entire* stored object with a still-genuine,
+        // still-decryptable record from an earlier ceremony. Without an
+        // independently-supplied expected session id, that whole-record
+        // swap decrypts successfully and silently rolls the signer back to
+        // an obsolete share.
+        let old_session = [3u8; 32];
+        let new_session = [9u8; 32];
+        let old_payload = b"old, obsolete KeyPackage bytes";
+        let old_sealed =
+            seal_key_package(old_session, b"correct horse battery staple", old_payload).unwrap();
+
+        // The caller (who completed a *new* ceremony) expects to open the
+        // new session's share, but a compromised storage layer hands back
+        // the old, still-valid-on-its-own-terms record instead.
+        let err = open_key_package(&old_sealed, &new_session, b"correct horse battery staple")
+            .unwrap_err();
+        assert_eq!(err, CustodyError::ShareStorageAuthenticationFailed);
     }
 
     #[test]
@@ -136,7 +182,7 @@ mod tests {
             seal_key_package(session_id, b"correct horse battery staple", payload).unwrap();
         let last = sealed.ciphertext.len() - 1;
         sealed.ciphertext[last] ^= 0xff;
-        assert!(open_key_package(&sealed, b"correct horse battery staple").is_err());
+        assert!(open_key_package(&sealed, &session_id, b"correct horse battery staple").is_err());
     }
 
     #[test]

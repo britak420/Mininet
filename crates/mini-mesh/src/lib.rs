@@ -21,6 +21,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_debug_implementations)]
 
+use std::collections::VecDeque;
+
 use mini_bearer::{Bearer, BearerError, EncryptedLink, MAX_CHANNEL_PLAINTEXT_BYTES};
 use mini_crypto::HashAlgorithm;
 use mini_net::GossipRouter;
@@ -37,6 +39,14 @@ pub const DEFAULT_SEEN_CAPACITY: usize = 65_536;
 /// one `poll()` call's allocation without limit; a caller that needs more
 /// throughput from one link simply calls `poll()` again.
 pub const MAX_MESSAGES_PER_LINK_PER_POLL: usize = 64;
+
+/// How many not-yet-sent reflood payloads [`MeshNode::poll`] queues before it
+/// starts dropping the oldest. `poll()` itself only stages payloads here —
+/// see [`MeshNode::flush_reflood`] for why the *sending* is a separate,
+/// caller-scheduled step and this queue exists at all. Sized generously
+/// relative to one `poll()` batch's worst case
+/// (`MAX_MESSAGES_PER_LINK_PER_POLL` distinct new messages per link).
+pub const MAX_PENDING_REFLOOD: usize = 4_096;
 
 /// A content id for a mesh payload: the BLAKE3 digest of its raw bytes.
 /// Every hop computes the same id independently from the same bytes, so
@@ -56,6 +66,9 @@ pub fn message_id(payload: &[u8]) -> [u8; 32] {
 pub struct MeshNode {
     links: Vec<EncryptedLink<Box<dyn Bearer + Send>>>,
     seen: GossipRouter,
+    /// Payloads [`Self::poll`] has already deduped and needs reflooded, not
+    /// yet actually sent — see [`Self::flush_reflood`].
+    pending_reflood: VecDeque<Vec<u8>>,
 }
 
 impl std::fmt::Debug for MeshNode {
@@ -79,6 +92,7 @@ impl MeshNode {
         MeshNode {
             links: Vec::new(),
             seen: GossipRouter::new(seen_capacity),
+            pending_reflood: VecDeque::new(),
         }
     }
 
@@ -162,28 +176,50 @@ impl MeshNode {
     }
 
     /// Drain every link of up to [`MAX_MESSAGES_PER_LINK_PER_POLL`] waiting
-    /// messages (non-blocking) and dedup-flood-relay them: the first time
-    /// this node sees a given payload, it is re-sent across every
-    /// still-live link (so a non-adjacent device hears it via relay — what
-    /// makes any **connected** graph live, not just a full mesh) and
-    /// returned to the caller; a repeat is silently dropped. A link whose
-    /// `try_recv` fails (the bearer closed, the peer disconnected, a
-    /// decode/decrypt failure) is a **terminal** failure for that link — it
-    /// is dropped from the mesh in the same call, not retried on every
-    /// future `poll()` — so this never panics and never accumulates dead
-    /// links.
+    /// messages and dedup them: the first time this node sees a given
+    /// payload, it is queued for reflooding (see [`Self::flush_reflood`] —
+    /// **not** sent here) and returned to the caller; a repeat is silently
+    /// dropped. A link whose `try_recv` fails (the bearer closed, the peer
+    /// disconnected, a decode/decrypt failure) is a **terminal** failure for
+    /// that link — it is dropped from the mesh in the same call, not
+    /// retried on every future `poll()` — so this never panics and never
+    /// accumulates dead links.
+    ///
+    /// Genuinely non-blocking, unlike an earlier revision: every
+    /// [`Bearer::try_recv`] this calls is documented not to block, but
+    /// sending is a different story — on a real platform bearer (e.g.
+    /// Android GATT), one write can wait seconds for a peer's
+    /// acknowledgement, and a large relayed payload can be many chunks.
+    /// Calling `send` here for every reflooded payload would let one slow
+    /// or hostile peer stall this call — and with it, whatever caller-side
+    /// lock guards the whole `MeshNode` — for as long as that peer keeps
+    /// acking slowly. Queuing instead and leaving the actual sends to
+    /// [`Self::flush_reflood`] means a caller can run that on its own
+    /// thread/schedule, never blocking the fast receive-and-dedup path
+    /// this function's own contract promises.
     pub fn poll(&mut self) -> Vec<([u8; 32], Vec<u8>)> {
         let mut new_messages = Vec::new();
-        let mut to_reflood: Vec<Vec<u8>> = Vec::new();
 
         let seen = &mut self.seen;
+        let pending_reflood = &mut self.pending_reflood;
         self.links.retain_mut(|link| {
             for _ in 0..MAX_MESSAGES_PER_LINK_PER_POLL {
                 match link.try_recv() {
                     Ok(Some(payload)) => {
                         let id = message_id(&payload);
                         if seen.record_seen(id) {
-                            to_reflood.push(payload.clone());
+                            // Bounded: under sustained overload, the
+                            // oldest not-yet-reflooded payload is dropped
+                            // rather than growing this queue without
+                            // bound or making poll() itself start
+                            // blocking to keep up. The payload is still
+                            // returned to the caller below either way —
+                            // this only bounds the *relay* obligation to
+                            // other links, not local delivery.
+                            if pending_reflood.len() >= MAX_PENDING_REFLOOD {
+                                pending_reflood.pop_front();
+                            }
+                            pending_reflood.push_back(payload.clone());
                             new_messages.push((id, payload));
                         }
                         // A repeat: already relayed and delivered once, drop it.
@@ -197,32 +233,65 @@ impl MeshNode {
             true
         });
 
-        // Same terminal-on-send-failure pruning as broadcast() -- *except*
-        // for FrameTooLarge, which is never terminal: both
-        // Channel::seal's own MAX_CHANNEL_PLAINTEXT_BYTES check and
-        // EncryptedLink::send's bearer-capacity check
-        // (max_sendable_plaintext_bytes) run *before* seal, so a
-        // FrameTooLarge here means this link's AEAD counter never moved --
-        // it is simply too narrow (e.g. a BLE link's small MTU) to carry
-        // *this* relayed payload, which unlike a local broadcast() call
-        // was never checked against this link's capacity up front (it
-        // arrived from a *different*, possibly higher-capacity link, so
-        // no single preflight could have caught it). Pruning a perfectly
-        // healthy narrow link over one relayed message it cannot carry
-        // would partition it from the rest of the mesh for every future
-        // message too, including ones it easily could have carried; skip
-        // it for this message and keep it instead. Any other error still
-        // means the counter *did* advance (or the bearer itself failed)
-        // and the link really is desynced.
-        for payload in &to_reflood {
-            self.links.retain_mut(|link| match link.send(payload) {
+        new_messages
+    }
+
+    /// Actually send every payload [`Self::poll`] has queued for reflooding,
+    /// to every link still live at the time each send is attempted. This is
+    /// the potentially **blocking** half of relaying — call it from
+    /// whatever thread/schedule your platform can afford to have wait on a
+    /// slow peer, never from the same tight loop that calls [`Self::poll`].
+    ///
+    /// Same terminal-on-send-failure pruning `broadcast()` uses — *except*
+    /// for `FrameTooLarge`, which is never terminal: both `Channel::seal`'s
+    /// own [`MAX_CHANNEL_PLAINTEXT_BYTES`] check and `EncryptedLink::send`'s
+    /// bearer-capacity check (`max_sendable_plaintext_bytes`) run *before*
+    /// seal, so a `FrameTooLarge` here means this link's AEAD counter never
+    /// moved — it is simply too narrow (e.g. a BLE link's small MTU) to
+    /// carry *this* relayed payload, which unlike a local `broadcast()`
+    /// call was never checked against this link's capacity up front (it
+    /// arrived from a *different*, possibly higher-capacity link, so no
+    /// single preflight could have caught it). Pruning a perfectly healthy
+    /// narrow link over one relayed message it cannot carry would partition
+    /// it from the rest of the mesh for every future message too, including
+    /// ones it easily could have carried; skip it for this message and keep
+    /// it instead. Any other error still means the counter *did* advance
+    /// (or the bearer itself failed) and the link really is desynced.
+    ///
+    /// Returns the number of payloads actually drained from the queue (sent
+    /// to at least an attempt on every live link, whether or not every
+    /// individual send succeeded).
+    pub fn flush_reflood(&mut self) -> usize {
+        let mut flushed = 0;
+        while let Some(payload) = self.pending_reflood.pop_front() {
+            self.links.retain_mut(|link| match link.send(&payload) {
                 Ok(()) => true,
                 Err(BearerError::FrameTooLarge { .. }) => true,
                 Err(_) => false,
             });
+            flushed += 1;
         }
+        flushed
+    }
 
-        new_messages
+    /// How many payloads [`Self::poll`] has queued for reflooding but
+    /// [`Self::flush_reflood`] has not yet sent.
+    pub fn pending_reflood_count(&self) -> usize {
+        self.pending_reflood.len()
+    }
+
+    /// Convenience: [`Self::poll`] immediately followed by
+    /// [`Self::flush_reflood`] on the same thread, for a caller that either
+    /// doesn't need the split (tests, an in-process/TCP bearer where sends
+    /// are fast) or hasn't yet wired a separate send-flushing schedule.
+    /// Blocks exactly like the pre-split `poll()` used to. A platform bearer
+    /// where a single send can stall (e.g. Android GATT) should call
+    /// [`Self::poll`] and [`Self::flush_reflood`] separately, from
+    /// different threads, instead of this.
+    pub fn poll_and_flush(&mut self) -> Vec<([u8; 32], Vec<u8>)> {
+        let messages = self.poll();
+        self.flush_reflood();
+        messages
     }
 }
 
@@ -263,7 +332,7 @@ mod tests {
         link(&mut a, &mut b);
 
         a.broadcast(b"hello mesh").unwrap();
-        let received = b.poll();
+        let received = b.poll_and_flush();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].1, b"hello mesh");
     }
@@ -279,7 +348,7 @@ mod tests {
         link(&mut a, &mut b);
 
         a.broadcast(b"only once").unwrap();
-        let received = b.poll();
+        let received = b.poll_and_flush();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].1, b"only once");
     }
@@ -303,7 +372,7 @@ mod tests {
 
         // Round 1: B receives directly from A and re-floods (including back
         // toward C, its only other link).
-        let at_b = b.poll();
+        let at_b = b.poll_and_flush();
         assert_eq!(
             at_b,
             vec![(
@@ -313,7 +382,7 @@ mod tests {
         );
 
         // Round 2: C receives B's relay and re-floods toward D.
-        let at_c = c.poll();
+        let at_c = c.poll_and_flush();
         assert_eq!(
             at_c,
             vec![(
@@ -324,7 +393,7 @@ mod tests {
 
         // Round 3: D, three hops from A with no direct link to A at all,
         // receives it purely through relay.
-        let at_d = d.poll();
+        let at_d = d.poll_and_flush();
         assert_eq!(
             at_d,
             vec![(
@@ -348,9 +417,9 @@ mod tests {
         link(&mut x, &mut y);
 
         a.broadcast(b"never leaves this pair").unwrap();
-        assert!(b.poll().len() == 1);
-        assert!(x.poll().is_empty());
-        assert!(y.poll().is_empty());
+        assert!(b.poll_and_flush().len() == 1);
+        assert!(x.poll_and_flush().is_empty());
+        assert!(y.poll_and_flush().is_empty());
     }
 
     #[test]
@@ -360,12 +429,12 @@ mod tests {
         link(&mut a, &mut b);
 
         let id = a.broadcast(b"mine").unwrap();
-        let at_b = b.poll();
+        let at_b = b.poll_and_flush();
         assert_eq!(at_b, vec![(id, b"mine".to_vec())]);
 
         // b re-floods back toward a as part of poll()'s relay step; a must
         // not redeliver its own already-seen message.
-        assert!(a.poll().is_empty());
+        assert!(a.poll_and_flush().is_empty());
     }
 
     #[test]
@@ -412,7 +481,7 @@ mod tests {
         drop(c);
 
         a.broadcast(b"relay this").unwrap();
-        let received = b.poll();
+        let received = b.poll_and_flush();
         assert_eq!(received.len(), 1);
         assert_eq!(
             b.link_count(),
@@ -433,7 +502,7 @@ mod tests {
         // BLE connection.
         drop(b);
 
-        assert!(a.poll().is_empty());
+        assert!(a.poll_and_flush().is_empty());
         assert_eq!(
             a.link_count(),
             0,
@@ -450,12 +519,12 @@ mod tests {
         for i in 0..(MAX_MESSAGES_PER_LINK_PER_POLL + 10) {
             a.broadcast(format!("message {i}").as_bytes()).unwrap();
         }
-        let first_poll = b.poll();
+        let first_poll = b.poll_and_flush();
         assert_eq!(first_poll.len(), MAX_MESSAGES_PER_LINK_PER_POLL);
 
         // The remaining messages are still waiting, not lost -- a second
         // poll() picks up exactly the rest.
-        let second_poll = b.poll();
+        let second_poll = b.poll_and_flush();
         assert_eq!(second_poll.len(), 10);
     }
 
@@ -485,8 +554,8 @@ mod tests {
 
         // Both links are still genuinely usable afterward.
         a.broadcast(b"still works").unwrap();
-        assert_eq!(b.poll().len(), 1);
-        assert_eq!(c.poll().len(), 1);
+        assert_eq!(b.poll_and_flush().len(), 1);
+        assert_eq!(c.poll_and_flush().len(), 1);
     }
 
     /// Wraps an [`InProcessBearer`] with a caller-chosen
@@ -555,8 +624,8 @@ mod tests {
 
         // Both links still work afterward.
         a.broadcast(b"fits fine").unwrap();
-        assert_eq!(b.poll().len(), 1);
-        assert_eq!(c.poll().len(), 1);
+        assert_eq!(b.poll_and_flush().len(), 1);
+        assert_eq!(c.poll_and_flush().len(), 1);
     }
 
     #[test]
@@ -579,7 +648,7 @@ mod tests {
         let payload = vec![0u8; 100];
         a.broadcast(&payload).unwrap();
 
-        let received = b.poll();
+        let received = b.poll_and_flush();
         assert_eq!(received.len(), 1, "b still receives it from a");
         assert_eq!(
             b.link_count(),
@@ -589,7 +658,7 @@ mod tests {
              this one oversized message"
         );
         assert!(
-            c.poll().is_empty(),
+            c.poll_and_flush().is_empty(),
             "c genuinely never received the oversized relay -- that part is a real, honest \
              delivery gap, just not a reason to drop the connection"
         );
@@ -597,6 +666,54 @@ mod tests {
         // The link toward c is still genuinely usable for anything that
         // actually fits it.
         b.broadcast(b"fits fine").unwrap();
-        assert_eq!(c.poll().len(), 1);
+        assert_eq!(c.poll_and_flush().len(), 1);
+    }
+
+    #[test]
+    fn poll_stages_a_relay_but_never_sends_it_until_flush_reflood_is_called() {
+        // The core proof for the Codex finding this split closes: poll()
+        // must be safe to call from a tight, frequent loop even when a
+        // relay is due, because it never itself calls a possibly-blocking
+        // Bearer::send -- only flush_reflood does.
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        let mut c = MeshNode::new();
+        link(&mut a, &mut b);
+        link(&mut b, &mut c);
+
+        a.broadcast(b"relay me").unwrap();
+
+        // b receives and dedups a's broadcast via poll() alone...
+        let received = b.poll();
+        assert_eq!(received.len(), 1);
+        assert_eq!(received[0].1, b"relay me");
+        // ...but has not yet sent it onward to c.
+        assert_eq!(b.pending_reflood_count(), 1);
+        assert!(c.poll().is_empty());
+
+        // Only flush_reflood actually performs the (potentially blocking) send.
+        let flushed = b.flush_reflood();
+        assert_eq!(flushed, 1);
+        assert_eq!(b.pending_reflood_count(), 0);
+
+        // Now c's own poll() finally sees it.
+        let at_c = c.poll();
+        assert_eq!(at_c.len(), 1);
+        assert_eq!(at_c[0].1, b"relay me");
+    }
+
+    #[test]
+    fn pending_reflood_drops_the_oldest_past_capacity_rather_than_growing_unbounded() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        link(&mut a, &mut b);
+        // b has no other link to relay to, but poll() still queues every
+        // distinct payload for reflooding regardless of whether any link
+        // would actually receive it -- exercise the cap directly.
+        for i in 0..(MAX_PENDING_REFLOOD + 10) {
+            a.broadcast(format!("msg-{i}").as_bytes()).unwrap();
+            b.poll();
+        }
+        assert_eq!(b.pending_reflood_count(), MAX_PENDING_REFLOOD);
     }
 }

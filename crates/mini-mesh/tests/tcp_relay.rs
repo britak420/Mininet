@@ -25,7 +25,7 @@ fn boxed(bearer: TcpBearer) -> Box<dyn Bearer + Send> {
 /// loop forever; a test needs it bounded.
 fn poll_until_nonempty(mesh: &mut MeshNode, deadline: Instant) -> Vec<([u8; 32], Vec<u8>)> {
     loop {
-        let messages = mesh.poll();
+        let messages = mesh.poll_and_flush();
         if !messages.is_empty() || Instant::now() >= deadline {
             return messages;
         }
@@ -38,7 +38,7 @@ fn poll_until_nonempty(mesh: &mut MeshNode, deadline: Instant) -> Vec<([u8; 32],
 /// forwarding even though the test only asserts delivery at the far end.
 fn relay_until(mesh: &mut MeshNode, deadline: Instant) {
     while Instant::now() < deadline {
-        mesh.poll();
+        mesh.poll_and_flush();
         thread::sleep(Duration::from_millis(5));
     }
 }

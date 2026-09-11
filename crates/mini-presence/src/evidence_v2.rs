@@ -40,6 +40,7 @@
 //!   is the architecture the gate document asks for; closing the gate itself
 //!   requires real-device evidence this sandboxed environment cannot produce.
 
+use did_mini::{Controller, Did, IndexedSig, Kel};
 use mini_crypto::HashAlgorithm;
 
 fn blake3_256(data: &[u8]) -> [u8; 32] {
@@ -227,8 +228,12 @@ impl PresencePolicyV2 {
     /// [`crate::verify::RangePolicy::ble_default`]'s `max_rtt_ms`.
     pub const MAX_SOFTWARE_RTT_MS: u32 = 50;
     /// The highest (least confident) NADM-scale [`AttackIndicatorV2`] value
-    /// still accepted for a certified assurance level.
-    pub const SECURE_NADM_MAX: AttackIndicatorV2 = 0x02;
+    /// still accepted for a certified assurance level: `0` (no attack
+    /// detected) or `1` (attack possible) only. `2` ("attack likely") and
+    /// `3` ("not evaluated") are always rejected — an earlier revision set
+    /// this to `2`, which combined with a `>` comparison let "attack
+    /// likely" evidence itself pass as certified.
+    pub const SECURE_NADM_MAX: AttackIndicatorV2 = 0x01;
 }
 
 /// Hardware-backed ranging evidence for a presence session (Gate #97). Every
@@ -303,6 +308,100 @@ impl RangingEvidenceV2 {
         self.min_distance_mm <= self.p10_distance_mm
             && self.p10_distance_mm <= self.median_distance_mm
             && self.median_distance_mm <= self.p90_distance_mm
+            && self.p90_distance_mm <= self.max_distance_mm
+    }
+
+    /// Deterministic canonical byte encoding of every field, in declaration
+    /// order, length-prefixed nowhere it doesn't need to be (every field is
+    /// fixed-size) — what [`SignedRangingEvidenceV2`] actually signs, and
+    /// what a caller can hash to compare two evidence records for exact
+    /// equality without a `Hash` impl on the floating enums.
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut w = Vec::with_capacity(128);
+        w.push(match self.technology {
+            RangingTechnologyV2::Uwb => 1,
+            RangingTechnologyV2::BleChannelSounding => 2,
+            RangingTechnologyV2::SoftwareRtt => 3,
+        });
+        w.push(match self.security_profile {
+            RangingSecurityProfileV2::SecureSts => 1,
+            RangingSecurityProfileV2::Unauthenticated => 2,
+        });
+        w.push(match self.sidedness {
+            MeasurementSidedness::OneSided => 1,
+            MeasurementSidedness::TwoSided => 2,
+        });
+        w.extend_from_slice(&self.capability_class_id);
+        w.extend_from_slice(&self.oob_config_digest);
+        w.extend_from_slice(&self.session_binding_digest);
+        w.extend_from_slice(&self.sample_count.to_be_bytes());
+        w.extend_from_slice(&self.duration_ms.to_be_bytes());
+        w.extend_from_slice(&self.min_distance_mm.to_be_bytes());
+        w.extend_from_slice(&self.p10_distance_mm.to_be_bytes());
+        w.extend_from_slice(&self.median_distance_mm.to_be_bytes());
+        w.extend_from_slice(&self.p90_distance_mm.to_be_bytes());
+        w.extend_from_slice(&self.max_distance_mm.to_be_bytes());
+        w.push(self.attack_indicator);
+        w.extend_from_slice(&self.platform_quality_flags.to_be_bytes());
+        w
+    }
+}
+
+/// Domain-separated message a device signs to authenticate a
+/// [`RangingEvidenceV2`] record — see [`SignedRangingEvidenceV2`].
+const EVIDENCE_SIGNATURE_DOMAIN: &[u8] = b"mininet/presence/evidence-v2/v1";
+
+/// [`RangingEvidenceV2`] plus a signature from one of the two attested
+/// devices, over the evidence's own [`RangingEvidenceV2::canonical_bytes`].
+///
+/// Without this, evidence is just self-reported data: `session_binding_digest`
+/// is a hash of *public* transcript bytes (visible to anyone who observed —
+/// or was handed — a completed attestation), not something only a
+/// legitimate participant could produce. Hashing public data is not
+/// authentication. A device's signature over the evidence is: only the
+/// device holding a real device key (already verified, in
+/// [`crate::verify::verify_presence_v2`], to be a delegated `ATTEST`
+/// device of one of the two identity roots) can produce one, so evidence
+/// cannot be fabricated by anyone who merely observed a valid but weak
+/// attestation elsewhere.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedRangingEvidenceV2 {
+    pub evidence: RangingEvidenceV2,
+    /// Which of the attestation's two devices (`fields.initiator.device` or
+    /// `fields.responder.device`) produced/attests to this evidence.
+    pub signer_device: Did,
+    pub signature: Vec<IndexedSig>,
+}
+
+impl SignedRangingEvidenceV2 {
+    /// The exact bytes a device signs to authenticate `evidence`.
+    pub fn message_to_sign(evidence: &RangingEvidenceV2) -> Vec<u8> {
+        let mut w = Vec::with_capacity(EVIDENCE_SIGNATURE_DOMAIN.len() + 128);
+        w.extend_from_slice(EVIDENCE_SIGNATURE_DOMAIN);
+        w.extend_from_slice(&evidence.canonical_bytes());
+        w
+    }
+
+    /// Sign `evidence` as `signer_device`, using that device's own
+    /// controller. Encapsulates the exact message format so a real caller
+    /// never has to reconstruct [`Self::message_to_sign`] by hand.
+    pub fn sign(evidence: RangingEvidenceV2, signer_device: Did, device: &Controller) -> Self {
+        let message = Self::message_to_sign(&evidence);
+        let signature = device.sign_message(&message);
+        SignedRangingEvidenceV2 {
+            evidence,
+            signer_device,
+            signature,
+        }
+    }
+
+    /// Verify the signature against `signer_kel` (the caller must already
+    /// have confirmed this is really the KEL for `self.signer_device`, and
+    /// that it names one of the attestation's two parties — see
+    /// [`crate::verify::verify_presence_v2`]).
+    pub fn verify(&self, signer_kel: &Kel) -> bool {
+        let message = Self::message_to_sign(&self.evidence);
+        signer_kel.verify_message(&message, &self.signature).is_ok()
     }
 }
 
@@ -340,6 +439,14 @@ pub fn classify_ranging_evidence(
             }
         }
         RangingTechnologyV2::Uwb | RangingTechnologyV2::BleChannelSounding => {
+            // An all-zero digest means "no OOB config was ever agreed" per
+            // this field's own doc comment, which the field contract treats
+            // as absent -- hardware ranging evidence with no OOB
+            // configuration binding at all must not be certifiable, even if
+            // every other check passes.
+            if evidence.oob_config_digest == [0u8; 32] {
+                return PresenceAssuranceV2::Unusable;
+            }
             let Some(class) = registry.lookup(&evidence.capability_class_id) else {
                 return PresenceAssuranceV2::Unusable;
             };
@@ -474,6 +581,34 @@ mod tests {
     }
 
     #[test]
+    fn nadm_attack_likely_is_never_certified() {
+        // Regression test for a Codex finding: the documented NADM scale
+        // names 2 "attack likely" -- that must never pass, regardless of
+        // exactly where SECURE_NADM_MAX sits, and regardless of whether the
+        // comparison is `>` or `>=`.
+        let registry = HardwareCapabilityRegistryV1::builtin();
+        let mut evidence = good_uwb_evidence();
+        evidence.attack_indicator = 2;
+        assert_eq!(
+            classify_ranging_evidence(&evidence, &registry),
+            PresenceAssuranceV2::Unusable
+        );
+    }
+
+    #[test]
+    fn nadm_attack_possible_can_still_certify() {
+        // The floor is not so strict that it rejects everything short of
+        // a perfect "no attack detected" signal.
+        let registry = HardwareCapabilityRegistryV1::builtin();
+        let mut evidence = good_uwb_evidence();
+        evidence.attack_indicator = 1;
+        assert_eq!(
+            classify_ranging_evidence(&evidence, &registry),
+            PresenceAssuranceV2::CertifiedSecure
+        );
+    }
+
+    #[test]
     fn too_few_hardware_samples_is_unusable() {
         let registry = HardwareCapabilityRegistryV1::builtin();
         let mut evidence = good_uwb_evidence();
@@ -514,6 +649,35 @@ mod tests {
         let registry = HardwareCapabilityRegistryV1::builtin();
         let mut evidence = good_uwb_evidence();
         evidence.median_distance_mm = evidence.p90_distance_mm + 1; // median > p90
+        assert_eq!(
+            classify_ranging_evidence(&evidence, &registry),
+            PresenceAssuranceV2::Unusable
+        );
+    }
+
+    #[test]
+    fn a_reported_max_below_p90_is_unusable() {
+        // Regression test for a Codex finding: distances_are_ordered used to
+        // omit the final p90 <= max comparison, so a corrupted/fabricated
+        // record whose max is below its own p90 passed the consistency
+        // gate.
+        let registry = HardwareCapabilityRegistryV1::builtin();
+        let mut evidence = good_uwb_evidence();
+        evidence.max_distance_mm = evidence.p90_distance_mm - 1;
+        assert_eq!(
+            classify_ranging_evidence(&evidence, &registry),
+            PresenceAssuranceV2::Unusable
+        );
+    }
+
+    #[test]
+    fn a_zero_oob_config_digest_is_unusable_for_hardware_ranging() {
+        // Regression test for a Codex finding: the field contract says an
+        // all-zero digest means "no OOB configuration was ever agreed,"
+        // but classification never actually checked for it.
+        let registry = HardwareCapabilityRegistryV1::builtin();
+        let mut evidence = good_uwb_evidence();
+        evidence.oob_config_digest = [0u8; 32];
         assert_eq!(
             classify_ranging_evidence(&evidence, &registry),
             PresenceAssuranceV2::Unusable
@@ -578,6 +742,29 @@ mod tests {
         assert!(PresenceAssuranceV2::Unusable < PresenceAssuranceV2::WeakSoftware);
         assert!(PresenceAssuranceV2::WeakSoftware < PresenceAssuranceV2::CertifiedMedium);
         assert!(PresenceAssuranceV2::CertifiedMedium < PresenceAssuranceV2::CertifiedSecure);
+    }
+
+    #[test]
+    fn signed_evidence_verifies_against_the_signer_and_rejects_tampering() {
+        let mut root = Controller::incept_single_from_seeds(&[1u8; 32], &[2u8; 32]).unwrap();
+        let device =
+            Controller::incept_device_single_from_seeds(&root.did(), &[3u8; 32], &[4u8; 32])
+                .unwrap();
+        root.delegate_device(&device.did(), did_mini::Capabilities::primary())
+            .unwrap();
+        let device_kel = device.kel();
+
+        let evidence = good_uwb_evidence();
+        let signed = SignedRangingEvidenceV2::sign(evidence, device.did(), &device);
+        assert!(signed.verify(&device_kel));
+
+        let mut tampered = signed.clone();
+        tampered.evidence.median_distance_mm += 1;
+        assert!(!tampered.verify(&device_kel));
+
+        let mut wrong_sig = signed;
+        wrong_sig.signature.clear();
+        assert!(!wrong_sig.verify(&device_kel));
     }
 
     #[test]
