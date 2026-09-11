@@ -329,7 +329,8 @@ mod tests {
             let mut inbox = BTreeMap::new();
             for &old_index in old_participating {
                 let shares =
-                    dkg_generate_round2_shares(&session.secrets[&old_index], new_committee);
+                    dkg_generate_round2_shares(&session.secrets[&old_index], new_committee)
+                        .unwrap();
                 let share = shares[&new_index];
                 assert!(dkg_verify_received_share(
                     &session.packages[&old_index],
@@ -503,7 +504,8 @@ mod tests {
         // logic against a resharing transcript, since the math is
         // identical regardless of what the constant term represents).
         use crate::frost_dkg::dkg_generate_round2_shares;
-        let genuine_share = dkg_generate_round2_shares(&session.secrets[&1], &new_committee)[&10];
+        let genuine_share =
+            dkg_generate_round2_shares(&session.secrets[&1], &new_committee).unwrap()[&10];
         let complaints = vec![DkgComplaint {
             accuser: 10,
             accused: 1,

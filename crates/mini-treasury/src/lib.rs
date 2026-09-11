@@ -30,19 +30,31 @@
 //!   ever holding the full secret key. See `examples/frost_live_demo.rs`
 //!   for a runnable multi-device signing session over real (simulated)
 //!   message-passing.
-//! - [`frost_dkg`] — real distributed key generation (Pedersen DKG, RFC
-//!   9591 §4): every participant runs an independent Feldman VSS of their
-//!   own random value, so no single device — not even the "dealer," since
-//!   there is no dealer — ever holds the full group secret. Includes a
-//!   complaint/rebuttal exclusion mechanism so one misbehaving participant
-//!   cannot indefinitely block the honest majority from completing key
-//!   generation (D-0059/D-0060, closing D-0048's DKG half).
+//! - [`frost_dkg`] — real distributed key generation (Pedersen DKG with
+//!   Feldman VSS, following FROST KeyGen from the original FROST paper —
+//!   **not** RFC 9591, whose scope is signing and which excludes key
+//!   generation; see the module's own docs): every participant runs an
+//!   independent Feldman VSS of their own random value, so no single
+//!   device — not even the "dealer," since there is no dealer — ever
+//!   holds the full group secret. Includes a complaint/rebuttal exclusion
+//!   mechanism so one misbehaving participant cannot indefinitely block
+//!   the honest majority from completing key generation (D-0059/D-0060,
+//!   closing D-0048's DKG half; index-0 disclosure bug fixed by D-0506).
 //! - [`frost_reshare`] — committee rotation: an active old-committee subset
 //!   redistributes shares of the *same* group secret to a new committee,
 //!   without ever reconstructing that secret and without ever changing its
 //!   public key (checked directly, not just algebraically). Does **not**
 //!   revoke the old committee's shares — see the module's own honest
 //!   limit.
+//!
+//! **`frost_dkg`/`frost_reshare` are behind the `legacy-hand-rolled-dkg`
+//! feature, off by default (D-0507):** an external audit found this crate
+//! extending a second, bespoke DKG implementation finding by finding
+//! rather than composing an already-audited one. `mini-custody` is the
+//! production DKG ceremony layer now, wrapping `frost_ristretto255::keys
+//! ::dkg` (NCC-Group-audited). This feature exists only to keep the old
+//! implementation's own test/historical coverage buildable, not as a
+//! recommendation to reach for it in new work.
 //!
 //! **Still deliberately not built here (whitepaper: "a permanent honeypot
 //! by nature"; D-0035 point 5's external-audit requirement stands even
@@ -76,8 +88,14 @@
 
 mod curve;
 mod error;
+// Kept compiling unconditionally (own internal `#[cfg(test)]` coverage
+// runs regardless of the `legacy-hand-rolled-dkg` feature), but their
+// public items go unused by anything outside their own tests when that
+// feature -- and therefore the `pub use` re-export below -- is off.
+#[cfg_attr(not(feature = "legacy-hand-rolled-dkg"), allow(dead_code))]
 mod frost_dkg;
 mod frost_keygen;
+#[cfg_attr(not(feature = "legacy-hand-rolled-dkg"), allow(dead_code))]
 mod frost_reshare;
 mod frost_sign;
 mod rate;
@@ -85,6 +103,12 @@ mod receipt;
 mod signers;
 
 pub use error::{Result, TreasuryError};
+// Off by default (D-0507): see the crate docs' "legacy-hand-rolled-dkg"
+// section for why. `mod frost_dkg;`/`mod frost_reshare;` above stay
+// unconditional so their own internal test coverage keeps building and
+// running regardless of this feature -- only the *public, downstream-
+// visible* API is gated.
+#[cfg(feature = "legacy-hand-rolled-dkg")]
 pub use frost_dkg::{
     dkg_finalize, dkg_generate_round2_shares, dkg_resolve, dkg_round1, dkg_verify_received_share,
     verify_round1_package, AcknowledgedUnauditedDkg, DkgComplaint, DkgRebuttal, DkgResolution,
@@ -94,6 +118,7 @@ pub use frost_keygen::{
     trusted_dealer_keygen, AcknowledgedPrototypeOnly, KeyPackage, PublicKeyPackage,
     MAX_PARTICIPANTS as MAX_FROST_PARTICIPANTS,
 };
+#[cfg(feature = "legacy-hand-rolled-dkg")]
 pub use frost_reshare::{reshare_finalize, reshare_round1, verify_reshare_round1_package};
 pub use frost_sign::{
     aggregate, round1_commit, round2_sign, verify, verify_signature_share, DurableFrostSigner,

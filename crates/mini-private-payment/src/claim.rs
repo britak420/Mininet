@@ -567,8 +567,8 @@ pub fn build(
     let mut built = Vec::with_capacity(request.recipients.len());
     let mut claim_outputs = Vec::with_capacity(request.recipients.len());
     for recipient in &request.recipients {
-        let blinding =
-            mini_crypto::random_32().map_err(|_| PrivatePaymentError::CryptoUnavailable)?;
+        let blinding = mini_value::random_scalar_bytes()
+            .map_err(|_| PrivatePaymentError::CryptoUnavailable)?;
         let (output, shared) =
             mini_value::derive_output_with_secret(&recipient.spend_public, &recipient.view_public)
                 .ok_or(PrivatePaymentError::CryptoUnavailable)?;
@@ -688,7 +688,10 @@ pub fn build(
 fn pseudo_blindings_for(count: usize, output_blindings: &[[u8; 32]]) -> Result<Vec<[u8; 32]>> {
     let mut chosen = Vec::with_capacity(count);
     for _ in 0..count.saturating_sub(1) {
-        chosen.push(mini_crypto::random_32().map_err(|_| PrivatePaymentError::CryptoUnavailable)?);
+        chosen.push(
+            mini_value::random_scalar_bytes()
+                .map_err(|_| PrivatePaymentError::CryptoUnavailable)?,
+        );
     }
     chosen.push(mini_value::balancing_blinding(output_blindings, &chosen));
     Ok(chosen)

@@ -61,7 +61,7 @@ impl Ledger {
     pub fn fill(&mut self, count: usize) {
         for _ in 0..count {
             let key = StealthKeypair::generate().unwrap();
-            let blinding = mini_crypto::random_32().unwrap();
+            let blinding = mini_value::random_scalar_bytes().unwrap();
             let commitment = mini_value::pedersen_commitment(1_000, &blinding).unwrap();
             self.outputs
                 .push(key.spend_public_bytes().to_vec(), commitment);
@@ -77,7 +77,7 @@ impl Ledger {
     /// claim that created it and is not part of spending it.
     pub fn mint(&mut self, value_micro: u64) -> SpendableOutput {
         let key = StealthKeypair::generate().unwrap();
-        let blinding = mini_crypto::random_32().unwrap();
+        let blinding = mini_value::random_scalar_bytes().unwrap();
         let commitment = mini_value::pedersen_commitment(value_micro, &blinding).unwrap();
         self.outputs
             .push(key.spend_public_bytes().to_vec(), commitment);

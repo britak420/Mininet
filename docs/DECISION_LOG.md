@@ -22342,3 +22342,444 @@ measured rather than guessed at.
 `BlePeripheralRadio` (deleted, replaced by `BlePeripheralServer`); does
 not change D-0502's `BleCentralRadio`/manifest-permission work, only
 extends it.
+### D-0506 — `mini_treasury::frost_dkg`: reject FROST index/accuser `0` in Round-2 share generation and complaint resolution  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+External FROST DKG & Custody Audit Report", Gate #93 scope, reviewed
+revision `bc7da80f8817f856a96bcb3772232b080eef531d`), findings F93-01/
+F93-02; `crates/mini-treasury/src/frost_dkg.rs`,
+`crates/mini-treasury/src/frost_reshare.rs`.
+
+**Decision:** the report's two critical findings were independently
+verified against the real code before any change was made, per this
+tree's standing rule that founder/user assurance a document has been
+"triaged and verified" is not itself verification (see D-0507 below for
+why the report as a whole still does not close Gate #93). Both were
+confirmed accurate:
+
+1. `dkg_generate_round2_shares(secret, recipient_indices)` evaluated
+   `secret`'s Feldman/Shamir polynomial at every caller-supplied `u16` in
+   `recipient_indices` with no check. Index `0` is that polynomial's
+   constant term — the participant's actual DKG secret contribution —
+   so a caller (or a compromised/malicious peer able to influence the
+   recipient list) requesting index `0` received the raw secret in the
+   clear, not a share of it.
+2. `dkg_resolve`'s complaint-processing loop used `DkgComplaint.accuser`
+   directly as the Feldman evaluation index for the accused's public
+   rebuttal, with no check that it was nonzero. A complaint carrying
+   `accuser = 0` would, on rebuttal, disclose the accused's own secret
+   the same way.
+
+`dkg_round1` already rejected index `0` for a polynomial's *owner*; both
+gaps were on the *recipient*/*accuser* side of the same primitive.
+Fixed with a minimal boundary check at each call site (return
+`Err(TreasuryError::InvalidFrostParticipant)` for index/accuser `0`)
+rather than a broader rewrite — `accuser` is deliberately **not**
+required to already be a roster member (this module supports
+cross-roster resharing, where an accuser may not appear in the sharing
+roster), so the fix is exactly "reject zero," not "reject unknown."
+Two regression tests added:
+`requesting_a_round2_share_for_recipient_index_0_is_rejected` and
+`a_complaint_accusing_index_0_is_rejected_before_any_rebuttal_lookup`.
+
+**Reason:** in Shamir/Feldman secret sharing, the shared secret is the
+polynomial's value at `x = 0` (`f(0)`); every other evaluation point is,
+by construction, safe to disclose without revealing it (subject to the
+usual "fewer than `threshold` points" bound this module's own docs
+already state). An unchecked index/accuser of `0` is therefore not a
+generic input-validation gap but the exact, specific failure mode this
+class of cryptography is defined around — closing it is the minimal
+correct fix, not a design choice with tradeoffs to weigh.
+
+**Constitutional impact:** Invariant M2 (private key material must never
+be derivable by fewer than the declared threshold of participants) —
+this fix keeps that invariant from being violated by a single
+zero-index share request or complaint, in the module that produces
+`mini_treasury`'s FROST custody keys. Directive 14 (simplicity is
+security): the fix is a two-line boundary check per call site, not a new
+abstraction.
+
+**Implementation status:** shipped, `crates/mini-treasury/src/
+frost_dkg.rs` and `frost_reshare.rs`. All 71 `mini-treasury` tests pass
+(including the two new regression tests), `cargo clippy --all-targets
+--all-features -p mini-treasury -- -D warnings` clean. This is a narrow,
+verified boundary-check fix, not a claim that Gate #93 is closed, and not
+a claim that `frost_dkg.rs`'s design as a whole (the hand-rolled
+complaint/rebuttal mechanism itself) is the right long-term shape — see
+D-0507.
+
+**Failure point:** this fix closes the specific disclosure path the two
+findings named. It does not audit the rest of `frost_dkg.rs` line by
+line, and does not itself establish that no other input-validation gap
+exists in the same module — only that these two, independently
+confirmed against the real code, are closed.
+
+**Required follow-up:** D-0507 (below) is the follow-up: rather than
+continue hardening a second, hand-rolled DKG/complaint implementation
+finding by finding, `mini_custody` wraps the NCC-audited
+`frost_ristretto255::keys::dkg` for new production ceremonies. Gating
+`frost_dkg.rs`'s own production reachability (vs. keeping it for its
+existing test/example/cross-roster-resharing coverage) is separate,
+not-yet-done follow-up work.
+
+**Supersedes / superseded by:** none.
+
+### D-0507 — `mini-custody`: production threshold-custody DKG ceremony over `frost_ristretto255::keys::dkg`, engineering remediation for Gate #93 (not gate closure)  ·  *Shipped, unaudited*
+
+**Date:** 2026-09-11 · **Refs:** the same anonymous Gate #93 report as
+D-0506 above; `crates/mini-custody/` (new crate: `manifest.rs`,
+`session.rs`, `transport.rs`, `abort.rs`, `domains.rs`, `rotation.rs`,
+`share_store.rs`, `wire.rs`, `error.rs`, `lib.rs`,
+`tests/full_ceremony.rs`); a companion anonymous "Gate #72" report
+covering `mini-value`/`mini-bounty`/`mini-settlement` crypto is separate,
+unimplemented follow-on scope, tracked but not part of this entry.
+
+**Decision:** the report's central engineering recommendation — stop
+extending a second, bespoke Pedersen/Feldman DKG implementation
+finding-by-finding (D-0506 is exactly that pattern) and instead build the
+production custody ceremony on an independently audited DKG library — is
+adopted. New crate `mini-custody` wraps
+`frost_ristretto255::keys::dkg`'s `part1`/`part2`/`part3` (pinned
+`frost-ristretto255 = "=3.0.0"`; NCC-Group-audited; implements FROST
+KeyGen from the *original FROST paper* [Komlo & Goldberg, Figure 1], a
+Pedersen DKG variant — **not** RFC 9591, which is scoped to threshold
+*signing* and explicitly excludes key generation; `mini_treasury::
+frost_dkg`'s old module docs misattributed the construction to RFC 9591
+§4 and are corrected in the same commit as D-0506). Everything
+`frost_ristretto255::keys::dkg` does *not* provide, this crate adds:
+
+- `manifest::DkgSessionManifestV1` — one immutable, signed session
+  identity (network, custody domain, epoch, 11-member roster in
+  canonical DID order, threshold, authorization object, prior key) every
+  ceremony message binds to via its `session_id` hash.
+- `session` — the Phase A-G ceremony state machine: manifest acceptance
+  (11-of-11), DKG Round 1, a **consistent-broadcast barrier** (every
+  participant signs a Round-1 root hash and Round 2 must not start until
+  all 11 match — the exact hazard the ZF FROST Book's own docs warn a
+  naive point-to-point DKG implementation can miss), DKG Round 2/3, and
+  unanimous (11-of-11) completion attestation before a key is ever
+  treated as active.
+- `transport` — binds `mini_bearer::Channel` (the same anonymous,
+  forward-secret encrypted channel construction the BLE mesh relay work,
+  PR #333, already exercised over both in-process and real TCP sockets)
+  to a specific session/sender/receiver identity via a signed
+  channel-binding assertion and AAD-bound sealed envelopes, since
+  `Channel`'s own docs state it provides no endpoint authentication by
+  itself.
+- `abort` — the ceremony's only failure path: any invalid/missing/
+  mismatched input at any phase aborts and restarts the whole ceremony
+  with fresh randomness. Deliberately **no** complaint/rebuttal
+  exclusion mechanism (unlike `frost_dkg.rs`) — the report's own
+  reasoning (R93-05) is that for an infrequent, known-roster ceremony,
+  keeping the secret-handling surface minimal is worth more than the
+  liveness a rebuttal path buys, and D-0506's own findings lived
+  precisely in that mechanism's `accuser` field.
+- `share_store` — per-signer encrypted `KeyPackage` persistence
+  (Argon2id-stretched wrapping key over `mini_crypto`'s ChaCha20-
+  Poly1305 AEAD, `session_id` bound as associated data).
+- `domains`/`rotation` — the four named production custody domains
+  (BTC/XMR/XRPL/bounty-payout) as independent key-state chains, and the
+  fresh-key-per-rotation rule: same-key resharing is rejected outright
+  (`CustodyKeyTransitionV1::validate`), because a departing signer's old
+  share remains a mathematically valid share of the *same* secret for as
+  long as that secret exists — only a fresh key actually revokes it.
+
+Policy numbers (11 signers, 7-of-11 threshold, 180-day nominal rotation
+interval, four named domains) are adopted from the report's Section 5 as
+given, per explicit founder/user instruction to adopt the report's
+policy numbers unless told otherwise.
+
+**Reason:** Directive 14 (simplicity is security) and this tree's
+composition-not-invention cryptography rule both point the same
+direction here: `frost_ristretto255` is real, already-reviewed prior art
+implementing a real, published construction: composing it — and adding
+only the ceremony/transport/storage/rotation scaffolding no DKG library
+provides on its own — is the correct shape, not writing a third custom
+DKG (after `frost_dkg.rs` itself and, implicitly, whatever a from-scratch
+rewrite would have been). `crates/mini-custody/tests/full_ceremony.rs`
+proves this is not just well-typed plumbing: it drives phases A-G across
+all 11 synthetic participants and then uses the resulting `KeyPackage`s
+to produce and verify a real 7-of-11 FROST Schnorr signature against the
+ceremony's own group public key.
+
+**Constitutional impact:** Invariant M2 as in D-0506. No dependency edge
+between `mini-custody` and any governance/review crate — `mini-custody`
+depends only on `frost-ristretto255`, `mini-bearer`, `mini-crypto`,
+`did-mini`, `blake3`, `argon2`, `rand_core`, `zeroize` — so the P1 voice/
+value wall (Directive 16) is not implicated either direction. No
+generic `sign(bytes)`/`finalize(state)`: every signed ceremony message
+(`ManifestAcceptanceV1`, `Round1ViewAckV1`, `CompletionAttestationV1`,
+`AbortNoticeV1`, `TransportBindingV1`) has its own dedicated canonical
+byte-encoding function.
+
+**Implementation status:** shipped, new crate `mini-custody` (added to
+the workspace `Cargo.toml` members list). 30 unit tests plus one 11-party
+end-to-end integration test (`tests/full_ceremony.rs`) pass; `cargo fmt
+--all -- --check` and `cargo clippy --all-targets --all-features
+--workspace -- -D warnings` clean across the whole workspace as of this
+commit. **What this entry does NOT claim:**
+
+- **Gate #93 is not closed.** D-0047 states plainly that founder review
+  is not audit and neither is sufficient on its own; an anonymous,
+  unattributed report — however technically accurate its findings proved
+  on independent verification (D-0506) — is not a real, accountable
+  external audit and cannot substitute for one. This crate is
+  engineering remediation in response to that report's findings, not a
+  claim that the gate itself is satisfied.
+- **Not wired up.** `mini_treasury::frost_dkg` is not gated dev-only and
+  remains reachable in production call paths; nothing in `mini-treasury`
+  or elsewhere yet calls into `mini-custody`. That wiring, and actually
+  gating the old module, is separate follow-up work (tracked, not done
+  here).
+- **No network transport, no external chain integration**, stated
+  explicitly in the crate's own top-level docs — `transport`'s
+  `Channel`-binding logic is proven over in-process/real-TCP channels the
+  same way `mini-mesh` proved its own relay logic, but an actual
+  multi-machine 11-node ceremony, and any BTC/XMR/XRPL chain-specific
+  sweep/reconciliation/signing-authority-rotation integration, is
+  unstarted.
+- **Not externally audited.** Composing an already-audited library is
+  not the same as this new ceremony/transport/storage/rotation layer
+  itself having been reviewed by anyone outside this project.
+
+**Failure point:** the DKG math itself is `frost_ristretto255`'s, already
+independently audited; the risk surface this entry actually adds is the
+ceremony/transport/storage/rotation logic wrapped around it, none of
+which has external review yet. `full_ceremony.rs` proves the happy path
+produces a working key and a verifying signature; it does not exercise
+adversarial/Byzantine-participant scenarios (a lying Round-1 broadcaster,
+a malformed Round-2 package, a transport-layer replay) beyond the unit
+tests already covering each phase function's own input validation in
+isolation.
+
+**Required follow-up:** wire `mini-custody` into `mini-treasury` and gate
+`frost_dkg.rs`'s production reachability; a real multi-machine ceremony
+integration test over `mini_bearer::TcpBearer`; the Gate #72 report's
+separate `mini-value`/`mini-bounty`/`mini-settlement` recommendations
+(canonical scalar/point decoding, `frost_ristretto255` for signing math,
+vendored `bulletproofs`, `PrivatePaymentV3` wire format, calibrated decoy
+distribution) remain entirely unimplemented as of this entry; and, as
+always, a real external cryptography audit — engaging one remains
+founder action per `docs/gates/crypto-audit-scope.md`, not something any
+amount of engineering remediation on this side can substitute for.
+
+**Supersedes / superseded by:** none.
+
+### D-0508 — `mini_treasury`: `frost_dkg`/`frost_reshare`'s hand-rolled DKG API moved off the crate's default public surface, behind `legacy-hand-rolled-dkg`  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** D-0506/D-0507 above (same Gate #93
+report); `crates/mini-treasury/Cargo.toml`,
+`crates/mini-treasury/src/lib.rs`.
+
+**Decision:** D-0507's own "required follow-up" named this explicitly:
+gate `frost_dkg.rs`'s production reachability now that `mini-custody`
+exists as the recommended production DKG path. Concretely: `dkg_round1`,
+`dkg_generate_round2_shares`, `dkg_verify_received_share`, `dkg_resolve`,
+`dkg_finalize`, `verify_round1_package`, `AcknowledgedUnauditedDkg`,
+`DkgComplaint`, `DkgRebuttal`, `DkgResolution`, `DkgRound1Package`,
+`DkgRound1Secret` (from `frost_dkg`), and `reshare_round1`,
+`reshare_finalize`, `verify_reshare_round1_package` (from
+`frost_reshare`) are no longer re-exported from `mini_treasury`'s crate
+root by default; they require the new `legacy-hand-rolled-dkg` Cargo
+feature (default: off). `mod frost_dkg;`/`mod frost_reshare;` themselves
+stay unconditional, so each module's own `#[cfg(test)]` coverage keeps
+compiling and running exactly as before regardless of the feature —
+only the *downstream-visible* public API moved. A quick repo-wide check
+before making this change confirmed no real caller exists yet outside
+`mini-treasury` itself: `mini-airdrop`/`mini-airdrop-treasury` only
+*mention* `frost_sign`/`frost_dkg` in their own doc comments ("does not
+touch..."), they do not call into either module — so this is not a
+breaking change to any real consumer today, only a default-visibility
+change for future ones. `trusted_dealer_keygen`/`AcknowledgedPrototypeOnly`
+(`frost_keygen`) and `frost_sign`'s signing API are unaffected — signing
+and the trusted-dealer prototype path are unrelated to the DKG-specific
+findings this gates against.
+
+**Reason:** a Cargo feature flag, not a hard module removal, because
+`frost_dkg.rs`/`frost_reshare.rs` remain this crate's own historical
+implementation with real test coverage worth keeping buildable (and
+useful for comparison/regression work), and because removing them
+outright would be a larger, riskier, unreviewed change than this
+session's remaining budget should spend on a module that, per D-0506,
+has already been independently verified safe at its actual boundary
+condition. Default-off is what makes this a real gate rather than a
+cosmetic one: any new crate adding `mini-treasury` as a dependency will
+not see the hand-rolled DKG functions in its public API unless it
+explicitly opts in, which is the concrete "not reachable by accident"
+property D-0507 was missing.
+
+**Constitutional impact:** Directive 14 (simplicity is security) —
+reduces the crate's default attack/misuse surface without removing
+tested code outright. No invariant changes: `AcknowledgedUnauditedDkg`'s
+own typed-acknowledgment gate (existing, unchanged) still applies to
+every call site that *does* enable the feature.
+
+**Implementation status:** shipped. `cargo check -p mini-treasury`
+(default features) is warning-free (the two modules are marked
+`#[cfg_attr(not(feature = "legacy-hand-rolled-dkg"), allow(dead_code))]`
+so their still-unconditionally-compiled internal items don't trip
+`dead_code` when the public re-export is off). `cargo test -p
+mini-treasury` and `cargo test -p mini-treasury --all-features` both
+pass all 71 unit tests plus 3 doc-tests identically — the feature only
+changes what is publicly re-exported, not what compiles or runs.
+`cargo check --workspace` (default features) and `cargo clippy
+--all-targets --all-features --workspace -- -D warnings` are both clean.
+
+**Failure point:** this is a default-visibility change, not a runtime
+enforcement mechanism — a crate that deliberately opts into
+`legacy-hand-rolled-dkg` can still reach the old DKG path exactly as
+before (with `AcknowledgedUnauditedDkg` still required at the call
+site). That is intentional: the goal is "not reachable by accident,"
+not "impossible to reach," matching D-0507's own framing of this module
+as kept for test/historical coverage rather than deleted.
+
+**Required follow-up:** the harder half of D-0507's own follow-up list
+is still open — no code here yet actually constructs a `frost_dkg::
+KeyPackage`/`PublicKeyPackage` from a completed `mini-custody` ceremony,
+because `mini_treasury`'s signing stack (`frost_keygen`/`frost_sign`)
+uses its own hand-rolled `KeyPackage`/`PublicKeyPackage` types over
+`curve25519-dalek` directly rather than `frost_ristretto255`'s — exactly
+the Gate #72 finding (F72-14/F72-17: replace bespoke FROST signing math
+with `frost_ristretto255`) this entry's own scope did not attempt. Real
+interop between `mini-custody`'s DKG output and `mini_treasury`'s
+signing requires that migration first; attempting it without dedicated
+review time for a 1300+ line rewrite of security-critical signing math
+was judged too large and too risky to rush within this same pass.
+
+**Supersedes / superseded by:** none.
+
+### D-0509 — `mini-value`: canonical scalar/point decoding and semantic non-identity checks at every signature/proof verification boundary (Gate #72, F72-01/F72-04)  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+External Cryptography Audit Report", Gate #72 scope, reviewed revision
+`bc7da80f8817f856a96bcb3772232b080eef531d`), findings F72-01 and F72-04;
+new module `crates/mini-value/src/canonical.rs`;
+`crates/mini-value/src/{mlsag,ring_impl,stealth_impl,confidential_impl,
+bp_range,bp_ipa,curve}.rs`; `crates/mini-private-payment/src/{claim,scan}.rs`
+and `tests/support/mod.rs`.
+
+**Decision:** F72-01's core claim was independently verified against the
+real code before any change was made, per this tree's standing rule that
+"triaged and verified" from the report's own author is not itself
+verification (see D-0507's identical discipline for the Gate #93 report).
+It was accurate: `mlsag.rs`, `ring_impl.rs`, `stealth_impl.rs`,
+`confidential_impl.rs`, `bp_range.rs`, and `bp_ipa.rs` all decoded
+wire-supplied scalar fields (ring-signature challenge/responses, key
+images treated as scalars, Bulletproof folded scalars `t_hat`/`tau_x`/
+`mu`/IPA `a`/`b`, blinding factors) via `Scalar::from_bytes_mod_order`,
+which silently reduces *any* 32-byte input mod the group order `l ≈
+2^252.4` rather than rejecting the ~1-in-16 inputs that are not that
+value's unique canonical encoding. `curve25519-dalek`'s own scalar type
+provides the correct parser, `Scalar::from_canonical_bytes`, already used
+correctly at exactly one call site in the tree
+(`stealth_impl::view_public_from_secret`) before this fix — the pattern
+existed, it just was not applied everywhere the audit's Section 5.3 says
+it must be.
+
+New shared module `mini_value::canonical` centralizes the fix:
+`canonical_scalar`/`canonical_nonzero_scalar` wrap
+`Scalar::from_canonical_bytes`; `canonical_point`/
+`canonical_nonidentity_point` wrap `CompressedRistretto::decompress`
+(already a canonical decoder — verified directly against
+`curve25519-dalek`'s own `decompress()` implementation, which checks
+`s_encoding_is_canonical` before anything else — so F72-01's "canonical
+Ristretto decoding must succeed" requirement was already satisfied for
+points; the module exists mainly to collect four duplicated
+hand-rolled `decompress_point` helpers into one, and to add the
+non-identity variant). Every module above now imports `canonical_point`/
+`canonical_scalar` (aliased as `decompress_point`/`decompress_scalar` at
+each call site to keep the diff minimal) in place of its own
+hand-rolled, non-canonical helper. `mlsag.rs` and `ring_impl.rs`
+specifically import the *non-identity* point variant, since every point
+role they decode (one-time output keys, output/pseudo commitments, key
+images) is on the audit's Section 5.3 list of fields that must never be
+the identity element (F72-04) — an identity key image, for instance,
+would be indistinguishable across every degenerate spend that produced
+one, defeating the double-spend detection key images exist for.
+
+Fixing the decode side exposed a real, separate issue in the
+*generation* side: `mini-private-payment`'s blinding-factor generation
+(`claim.rs`'s two output/pseudo-commitment blinding sites, `scan.rs`'s
+and `tests/support/mod.rs`'s test fixtures) called
+`mini_crypto::random_32()` directly and used the raw uniform 32 bytes as
+a scalar encoding without ever reducing them — correct in the old,
+permissive decoder, but about 1-in-16 such values are not a canonical
+scalar encoding at all, so canonicalizing the decoder alone would have
+made genuine, honestly-generated blinding factors spuriously fail ~6% of
+the time. The audit's own permitted list ("modulo/wide reduction is
+restricted to... freshly generated random wide bytes") says the fix
+belongs at generation, not at the decoder: new `mini_value::
+random_scalar_bytes()` (`curve.rs`) does the same double-`random_32`-
+plus-wide-reduction `random_scalar()` already used elsewhere, returning
+its canonical byte encoding, and every blinding-factor-generation call
+site now uses it instead of raw `random_32()`.
+
+**Reason:** in Shamir/Feldman-adjacent elliptic-curve cryptography, a
+type whose encoding is wider than its value space (32 bytes for a
+~252.4-bit field) has multiple valid byte strings per logical value
+unless the decoder actively rejects the non-canonical ones. Accepting
+them anyway is a textbook malleability bug: the same signature, key
+image, or proof now has multiple valid wire encodings, breaking any
+assumption that encode/decode/encode is byte-identical and undermining
+exactly the "one canonical identity per object" property `claim_id`-style
+hashing (Gate #72 Section 10.3, not yet implemented — see D-0507/D-0508's
+own open-items list) depends on. Rejecting the identity element at
+specific semantic point roles (F72-04) closes the parallel degenerate-
+value class: a key image, output key, or commitment that is
+group-theoretically valid but semantically meaningless.
+
+**Constitutional impact:** none beyond what D-0036/D-0037 already state
+(`mini-value` is a founder-overridden, AI-authored prototype pending
+external audit — this fix does not change that status, only removes one
+concrete, independently-verified defect from it). No dependency-edge
+change: `mini-value`/`mini-private-payment` still have no edge to any
+governance/review crate.
+
+**Implementation status:** shipped. New tests added specifically
+demonstrating the fix, not just its absence of regression:
+`mlsag::tests::a_non_canonically_encoded_response_is_rejected_not_
+silently_reduced` constructs a genuine non-canonical re-encoding (raw
+little-endian byte addition of the group order, not `Scalar` arithmetic,
+which always renormalizes) of a valid response scalar and confirms it
+now fails verification where the old `from_bytes_mod_order` path would
+have accepted it identically to the original; `mlsag::tests::
+an_identity_key_image_is_rejected` and `ring_impl::tests::
+an_identity_key_image_is_rejected` cover F72-04. All 108 `mini-value`
+unit tests, all `mini-private-payment`/`mini-shielded-verify`/
+`mini-settlement`/`mini-bounty`/`mini-execution` tests, `cargo fmt --all
+-- --check`, and `cargo clippy --all-targets --all-features --workspace
+-- -D warnings` are clean. `cargo test --workspace --all-features`
+passes everywhere except the same pre-existing, unrelated
+`mini-build-runner-wasmtime` adversarial suite failure D-0507/D-0508
+already recorded (missing `wasm32` rustc target in this sandbox).
+
+**Failure point:** this closes F72-01 and F72-04 specifically. It does
+not touch F72-02 (bespoke Bulletproofs/IPA implementation itself, only
+its wire decoding), F72-03 (transcript/domain-separation framing
+consistency), F72-05 through F72-18 (canonical claim evidence in
+consensus, the transparent payment path, the duplicate bounty ring
+signature, uncalibrated decoy distribution, bespoke FROST signing math,
+optional proof verification, resource ceilings, untyped treasury
+signing, crypto-migration admin-switch risk) — all of those remain
+entirely unimplemented, as does the full `PrivatePaymentV3` wire format
+and three-digest scheme Section 9-10 describes. Composing an
+already-canonical `CompressedRistretto::decompress` and a correct
+`Scalar::from_canonical_bytes` is not itself new cryptography and carries
+low risk on its own terms, but the module composition around it
+(`mini-value`/`mini-private-payment` as a whole) remains unaudited.
+
+**Required follow-up:** the remaining Gate #72 findings, in the
+project's own working order: F72-14/F72-17 (replace bespoke FROST
+signing math with `frost_ristretto255`, also required before
+`mini-custody`'s DKG output can actually sign for `mini-treasury`, per
+D-0508), F72-02 (vendored `bulletproofs`/`curve25519-dalek` pinned
+per Section 5), the `PrivatePaymentV3` wire format and three-digest
+scheme (Section 9-10, F72-11/12/13), canonical claim bytes and derived
+key images in consensus (F72-05/06/15/16), removing the transparent
+`PaymentClaim` path and the duplicate bounty ring signature (F72-08/09),
+and the calibrated OSPEAD log-GB2 decoy distribution (F72-10) are all
+unstarted. As always, a real external cryptography audit — engaging one
+remains founder action per `docs/gates/crypto-audit-scope.md` — is not
+something engineering remediation on this side can substitute for.
+
+**Supersedes / superseded by:** none.
