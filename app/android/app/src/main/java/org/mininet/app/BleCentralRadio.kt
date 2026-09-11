@@ -35,7 +35,15 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
         appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val adapter = bluetoothManager.adapter
 
-    private val incoming = LinkedBlockingQueue<ByteArray>()
+    // Bounded, not unbounded: the peripheral this central connects to is an
+    // untrusted nearby device that can send notifications before the
+    // handshake completes or faster than polling drains them, and every
+    // notification is copied here regardless of whether anything is
+    // draining it yet. offer() (not put()) drops a notification past
+    // capacity instead of growing without bound or blocking the Binder
+    // callback thread -- the same discipline BlePeripheralServer.LinkState
+    // already applies to its own incoming queue.
+    private val incoming = LinkedBlockingQueue<ByteArray>(INCOMING_QUEUE_CAPACITY)
     private var gatt: BluetoothGatt? = null
     private var rxCharacteristic: BluetoothGattCharacteristic? = null
 
@@ -190,7 +198,16 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
         if (characteristic.uuid == MININET_BLE_TX_CHARACTERISTIC_UUID) {
-            incoming.put(characteristic.value?.copyOf() ?: ByteArray(0))
+            val value = characteristic.value?.copyOf() ?: ByteArray(0)
+            if (!incoming.offer(value)) {
+                // Nobody is draining fast enough -- most likely a peer that
+                // completed the connection but never lets mesh polling
+                // catch up, or is deliberately flooding notifications. Fail
+                // this link the same way a genuine disconnect does instead
+                // of growing memory without bound.
+                connectFailed = true
+                runCatching { g.disconnect() }
+            }
         }
     }
 
@@ -233,13 +250,32 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
             Thread.currentThread().interrupt()
             throw BleRadioException.Failed("interrupted while waiting for a chunk: ${e.message}")
         }
-        return (chunk ?: throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")).toUByteList()
+        if (chunk != null) return chunk.toUByteList()
+        if (connectFailed) throw BleRadioException.Failed("peripheral disconnected")
+        throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")
     }
 
-    override fun tryReadChunk(): List<UByte>? = incoming.poll()?.toUByteList()
+    // Buffered chunks are drained first regardless of failure state, same
+    // reasoning as BlePeripheralServer.PeripheralLinkRadio.tryReadChunk --
+    // only an empty queue on an already-failed link reports failure. This
+    // is the signal mini_mesh::MeshNode::poll depends on to prune a dead
+    // central-role link: it only ever calls the non-blocking try_recv path
+    // once a link is established.
+    override fun tryReadChunk(): List<UByte>? {
+        val chunk = incoming.poll()
+        if (chunk != null) return chunk.toUByteList()
+        if (connectFailed) throw BleRadioException.Failed("peripheral disconnected")
+        return null
+    }
 
     companion object {
         private const val WRITE_TIMEOUT_MS = 10_000L
         private const val READ_TIMEOUT_MS = 30_000L
+
+        // Same bound and reasoning as BlePeripheralServer's
+        // INCOMING_QUEUE_CAPACITY: generous relative to a real chunk,
+        // small enough that a peer nobody is draining is disconnected
+        // long before it costs meaningful memory.
+        private const val INCOMING_QUEUE_CAPACITY = 4096
     }
 }

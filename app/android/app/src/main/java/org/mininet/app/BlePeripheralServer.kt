@@ -333,15 +333,27 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
 
     override fun onNotificationSent(device: BluetoothDevice, status: Int) {
         synchronized(ackLock) {
+            // sendGate ensures at most one send is *started* at a time, but
+            // it does not cancel the underlying async notify when a send
+            // times out from writeChunk's perspective: sendGate is released
+            // either way, so a next send (possibly for a different central)
+            // can already be in flight by the time this late callback for
+            // the timed-out one arrives. Only complete the latch that is
+            // actually still waiting on *this* device's notification --
+            // never let a late callback for device A complete a pending
+            // send that has since moved on to device B.
+            if (pendingNotifyDevice?.address != device.address) return
             pendingNotifyStatus = status
             pendingNotifyAck?.countDown()
         }
     }
 
-    // At most one notify send is ever in flight across every connected
-    // central (sendGate enforces that), so a single pending-ack pair
-    // (rather than one per central) is always unambiguous. Only ever
-    // touched while holding ackLock.
+    // Only ever touched while holding ackLock. pendingNotifyDevice is what
+    // makes a stale onNotificationSent callback (for a send this method has
+    // already given up on and released sendGate for) identifiable and
+    // ignorable instead of silently completing whichever central's send
+    // happens to be pending now.
+    private var pendingNotifyDevice: BluetoothDevice? = null
     private var pendingNotifyAck: CountDownLatch? = null
     private var pendingNotifyStatus = BluetoothGatt.GATT_SUCCESS
 
@@ -364,11 +376,17 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
             }
             try {
                 val latch = CountDownLatch(1)
-                synchronized(ackLock) { pendingNotifyAck = latch }
+                synchronized(ackLock) {
+                    pendingNotifyDevice = state.device
+                    pendingNotifyAck = latch
+                }
                 characteristic.setValue(chunk.toByteArray())
                 val started = server.notifyCharacteristicChanged(state.device, characteristic, false)
                 if (!started) {
-                    synchronized(ackLock) { pendingNotifyAck = null }
+                    synchronized(ackLock) {
+                        pendingNotifyAck = null
+                        pendingNotifyDevice = null
+                    }
                     throw BleRadioException.Failed("notifyCharacteristicChanged failed to start")
                 }
                 // Not holding ackLock here: onNotificationSent runs on a
@@ -380,6 +398,7 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
                 val acked = latch.await(NOTIFY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 val status = synchronized(ackLock) {
                     pendingNotifyAck = null
+                    pendingNotifyDevice = null
                     pendingNotifyStatus
                 }
                 if (!acked) {

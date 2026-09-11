@@ -21,7 +21,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_debug_implementations)]
 
-use mini_bearer::{Bearer, EncryptedLink};
+use mini_bearer::{Bearer, BearerError, EncryptedLink, MAX_CHANNEL_PLAINTEXT_BYTES};
 use mini_crypto::HashAlgorithm;
 use mini_net::GossipRouter;
 
@@ -112,11 +112,27 @@ impl MeshNode {
     /// Returns the message id, so a caller can recognize its own broadcast
     /// if it comes back through [`Self::poll`] from elsewhere (deduped, not
     /// delivered twice, but the id is still useful to log).
-    pub fn broadcast(&mut self, payload: &[u8]) -> [u8; 32] {
+    ///
+    /// Rejects a `payload` over [`MAX_CHANNEL_PLAINTEXT_BYTES`] up front,
+    /// before touching any link: [`Channel::seal`][mini_bearer::Channel::seal]
+    /// would reject it identically on *every* link (it is a property of the
+    /// payload, not of any one connection), so without this check every
+    /// held link's `send` would fail together and the same
+    /// `retain_mut`-based pruning that correctly drops a genuinely
+    /// desynced link would instead empty the whole mesh over one oversized
+    /// local message. A rejected payload is never marked seen: it was never
+    /// actually sent, so nothing needs deduping against it.
+    pub fn broadcast(&mut self, payload: &[u8]) -> Result<[u8; 32], BearerError> {
+        if payload.len() > MAX_CHANNEL_PLAINTEXT_BYTES {
+            return Err(BearerError::FrameTooLarge {
+                max: MAX_CHANNEL_PLAINTEXT_BYTES,
+                got: payload.len(),
+            });
+        }
         let id = message_id(payload);
         self.seen.record_seen(id);
         self.links.retain_mut(|link| link.send(payload).is_ok());
-        id
+        Ok(id)
     }
 
     /// Drain every link of up to [`MAX_MESSAGES_PER_LINK_PER_POLL`] waiting
@@ -202,7 +218,7 @@ mod tests {
         let mut b = MeshNode::new();
         link(&mut a, &mut b);
 
-        a.broadcast(b"hello mesh");
+        a.broadcast(b"hello mesh").unwrap();
         let received = b.poll();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].1, b"hello mesh");
@@ -218,7 +234,7 @@ mod tests {
         // ever deliver one copy of an id it has already seen.
         link(&mut a, &mut b);
 
-        a.broadcast(b"only once");
+        a.broadcast(b"only once").unwrap();
         let received = b.poll();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].1, b"only once");
@@ -239,7 +255,7 @@ mod tests {
         link(&mut b, &mut c);
         link(&mut c, &mut d);
 
-        a.broadcast(b"from the far end");
+        a.broadcast(b"from the far end").unwrap();
 
         // Round 1: B receives directly from A and re-floods (including back
         // toward C, its only other link).
@@ -287,7 +303,7 @@ mod tests {
         let mut y = MeshNode::new();
         link(&mut x, &mut y);
 
-        a.broadcast(b"never leaves this pair");
+        a.broadcast(b"never leaves this pair").unwrap();
         assert!(b.poll().len() == 1);
         assert!(x.poll().is_empty());
         assert!(y.poll().is_empty());
@@ -299,7 +315,7 @@ mod tests {
         let mut b = MeshNode::new();
         link(&mut a, &mut b);
 
-        let id = a.broadcast(b"mine");
+        let id = a.broadcast(b"mine").unwrap();
         let at_b = b.poll();
         assert_eq!(at_b, vec![(id, b"mine".to_vec())]);
 
@@ -329,7 +345,7 @@ mod tests {
         // learn its peer is gone is through a failed send, not try_recv.
         drop(b);
 
-        a.broadcast(b"anyone there?");
+        a.broadcast(b"anyone there?").unwrap();
         assert_eq!(
             a.link_count(),
             0,
@@ -351,7 +367,7 @@ mod tests {
         // fail and prune that link too, not just the try_recv-failed ones.
         drop(c);
 
-        a.broadcast(b"relay this");
+        a.broadcast(b"relay this").unwrap();
         let received = b.poll();
         assert_eq!(received.len(), 1);
         assert_eq!(
@@ -388,7 +404,7 @@ mod tests {
         link(&mut a, &mut b);
 
         for i in 0..(MAX_MESSAGES_PER_LINK_PER_POLL + 10) {
-            a.broadcast(format!("message {i}").as_bytes());
+            a.broadcast(format!("message {i}").as_bytes()).unwrap();
         }
         let first_poll = b.poll();
         assert_eq!(first_poll.len(), MAX_MESSAGES_PER_LINK_PER_POLL);
@@ -397,5 +413,35 @@ mod tests {
         // poll() picks up exactly the rest.
         let second_poll = b.poll();
         assert_eq!(second_poll.len(), 10);
+    }
+
+    #[test]
+    fn an_oversized_broadcast_is_rejected_without_touching_any_link() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        let mut c = MeshNode::new();
+        link(&mut a, &mut b);
+        link(&mut a, &mut c);
+        assert_eq!(a.link_count(), 2);
+
+        // Every held link would reject a payload this large identically --
+        // it is a property of the payload, not of any one connection -- so
+        // this must fail up front, before ever touching a link, rather than
+        // calling send() on each one and having retain_mut's pruning treat
+        // that shared, non-link-specific rejection as if every link had
+        // independently gone bad.
+        let oversized = vec![0u8; MAX_CHANNEL_PLAINTEXT_BYTES + 1];
+        let result = a.broadcast(&oversized);
+        assert!(matches!(result, Err(BearerError::FrameTooLarge { .. })));
+        assert_eq!(
+            a.link_count(),
+            2,
+            "an oversized local payload must not prune any healthy link"
+        );
+
+        // Both links are still genuinely usable afterward.
+        a.broadcast(b"still works").unwrap();
+        assert_eq!(b.poll().len(), 1);
+        assert_eq!(c.poll().len(), 1);
     }
 }

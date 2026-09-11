@@ -84,8 +84,17 @@ impl MeshHandle {
     }
 
     /// Send `payload` to every held link. Returns its content id.
-    pub fn broadcast(&self, payload: Vec<u8>) -> Vec<u8> {
-        self.lock().broadcast(&payload).to_vec()
+    /// [`MeshError::PayloadTooLarge`] if `payload` exceeds
+    /// [`mini_bearer::MAX_CHANNEL_PLAINTEXT_BYTES`] -- rejected up front,
+    /// before touching any link, so an oversized local payload never
+    /// mistakenly prunes every healthy link the way a real post-seal send
+    /// failure legitimately does (see `mini_mesh::MeshNode::broadcast`'s
+    /// own docs).
+    pub fn broadcast(&self, payload: Vec<u8>) -> Result<Vec<u8>, MeshError> {
+        self.lock()
+            .broadcast(&payload)
+            .map(|id| id.to_vec())
+            .map_err(|_| MeshError::PayloadTooLarge)
     }
 
     /// Drain and dedup-flood-relay whatever has arrived on any link so far.
@@ -117,11 +126,16 @@ impl Default for MeshHandle {
 pub enum MeshError {
     /// The `Channel` handshake did not complete.
     HandshakeFailed,
+    /// A `broadcast` payload exceeded [`mini_bearer::MAX_CHANNEL_PLAINTEXT_BYTES`].
+    PayloadTooLarge,
 }
 
 impl core::fmt::Display for MeshError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str("mesh link handshake failed")
+        match self {
+            MeshError::HandshakeFailed => f.write_str("mesh link handshake failed"),
+            MeshError::PayloadTooLarge => f.write_str("mesh broadcast payload too large"),
+        }
     }
 }
 
@@ -195,10 +209,35 @@ mod tests {
         assert_eq!(mesh_a.link_count(), 1);
         assert_eq!(mesh_b.link_count(), 1);
 
-        let id = mesh_a.broadcast(b"hello mesh".to_vec());
+        let id = mesh_a.broadcast(b"hello mesh".to_vec()).unwrap();
         let received = mesh_b.poll();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].id, id);
         assert_eq!(received[0].payload, b"hello mesh");
+    }
+
+    #[test]
+    fn an_oversized_broadcast_surfaces_payload_too_large_without_dropping_links() {
+        let (radio_a, radio_b) = mock_pair();
+        let mesh_a = MeshHandle::new();
+        let mesh_b = std::sync::Arc::new(MeshHandle::new());
+        let mesh_b_accepter = std::sync::Arc::clone(&mesh_b);
+        let accepter =
+            std::thread::spawn(move || mesh_b_accepter.add_accepted_link(radio_b, 64).unwrap());
+        mesh_a.add_dialed_link(radio_a, 64).unwrap();
+        accepter.join().unwrap();
+
+        let oversized = vec![0u8; mini_bearer::MAX_CHANNEL_PLAINTEXT_BYTES + 1];
+        let err = mesh_a.broadcast(oversized).unwrap_err();
+        assert_eq!(err, MeshError::PayloadTooLarge);
+        assert_eq!(
+            mesh_a.link_count(),
+            1,
+            "the link must survive a rejected oversized payload"
+        );
+
+        // Still usable afterward.
+        mesh_a.broadcast(b"fine".to_vec()).unwrap();
+        assert_eq!(mesh_b.poll().len(), 1);
     }
 }

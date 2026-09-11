@@ -59,6 +59,7 @@ interface MeshHandle {
 
   u32 link_count();
 
+  [Throws=MeshError]
   sequence<u8> broadcast(sequence<u8> payload);
 
   sequence<MeshMessage> poll();
@@ -298,6 +299,7 @@ enum BleBearerError {
 [Error]
 enum MeshError {
   "HandshakeFailed",
+  "PayloadTooLarge",
 };
 
 [Error]

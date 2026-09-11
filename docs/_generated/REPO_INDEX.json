@@ -3,7 +3,7 @@
     "crates": 77,
     "files": 967,
     "headings": 3519,
-    "rust_symbols": 9777
+    "rust_symbols": 9779
   },
   "crates": {
     "did-mini": {
@@ -32918,38 +32918,38 @@
       "title": "use std::sync::Mutex;"
     },
     {
-      "bytes": 7710,
+      "bytes": 9458,
       "group": "crate:mini-ffi",
       "headings": [],
       "keywords": [
         "self",
         "meshhandle",
         "ble",
-        "new",
+        "payload",
         "link",
+        "new",
         "lock",
         "mesherror",
-        "connection",
-        "handshake",
-        "payload",
         "mini_mesh",
+        "connection",
         "radio",
         "bearer",
-        "mesh",
-        "fmt",
-        "box",
         "meshnode",
-        "channel",
+        "handshake",
+        "box",
+        "mesh",
         "encryptedlink",
         "vec",
         "mtu",
         "meshmessage",
+        "broadcast",
         "default",
-        "core"
+        "bleradio",
+        "central"
       ],
-      "lines": 205,
+      "lines": 244,
       "path": "crates/mini-ffi/src/mesh.rs",
-      "sha256": "a58bc2840ae3ee9b558e8c06bfb04804ed8591db642c3e171535f24b9a94f12e",
+      "sha256": "c09b3e597ee285a4bfcb301033491523b04d3e900e5f0bd588d68cc3dba74143",
       "symbols": [
         {
           "kind": "struct",
@@ -32993,83 +32993,88 @@
         },
         {
           "kind": "fn",
-          "line": 87,
+          "line": 93,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 93,
+          "line": 102,
           "name": "poll"
         },
         {
           "kind": "impl",
-          "line": 105,
+          "line": 114,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 106,
+          "line": 115,
           "name": "default"
         },
         {
           "kind": "enum",
-          "line": 117,
+          "line": 126,
           "name": "MeshError"
         },
         {
           "kind": "impl",
-          "line": 122,
+          "line": 133,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 123,
+          "line": 134,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 128,
+          "line": 142,
           "name": "std::error::Error"
         },
         {
           "kind": "mod",
-          "line": 131,
+          "line": 145,
           "name": "tests"
         },
         {
           "kind": "struct",
-          "line": 136,
+          "line": 150,
           "name": "MockRadio"
         },
         {
           "kind": "impl",
-          "line": 141,
+          "line": 155,
           "name": "BleRadio"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 156,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 145,
+          "line": 159,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 152,
+          "line": 166,
           "name": "try_read_chunk"
         },
         {
           "kind": "fn",
-          "line": 161,
+          "line": 175,
           "name": "mock_pair"
         },
         {
           "kind": "fn",
-          "line": 177,
+          "line": 191,
           "name": "two_meshes_linked_over_mock_radios_exchange_a_broadcast"
+        },
+        {
+          "kind": "fn",
+          "line": 220,
+          "name": "an_oversized_broadcast_surfaces_payload_too_large_without_dropping_links"
         }
       ],
       "title": "use std::sync::Mutex;"
@@ -40163,7 +40168,7 @@
       "title": "The transport (Bearer, EncryptedLink) this crate composes over."
     },
     {
-      "bytes": 15741,
+      "bytes": 17992,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
@@ -40171,19 +40176,19 @@
         "self",
         "links",
         "meshnode",
-        "encryptedlink",
         "fmt",
         "new",
         "poll",
         "mesh",
         "every",
         "same",
-        "send",
+        "encryptedlink",
         "relay",
         "bearer",
         "ble",
         "one",
         "payload",
+        "send",
         "seen",
         "default_seen_capacity",
         "std",
@@ -40192,9 +40197,9 @@
         "tree",
         "already"
       ],
-      "lines": 402,
+      "lines": 448,
       "path": "crates/mini-mesh/src/lib.rs",
-      "sha256": "3ef2d6e074b8aea4c0f8db6365c2a1401b24afdc6bbf1053279705679d8fd086",
+      "sha256": "6f353299070287b29d7d47bd3cd40ade1c297f9edf68fb88c60d3b8428476447",
       "symbols": [
         {
           "kind": "const",
@@ -40253,94 +40258,99 @@
         },
         {
           "kind": "fn",
-          "line": 115,
+          "line": 125,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 133,
+          "line": 149,
           "name": "poll"
         },
         {
           "kind": "impl",
-          "line": 169,
+          "line": 185,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 170,
+          "line": 186,
           "name": "default"
         },
         {
           "kind": "mod",
-          "line": 176,
+          "line": 192,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 180,
+          "line": 196,
           "name": "boxed"
         },
         {
           "kind": "fn",
-          "line": 191,
+          "line": 207,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 200,
+          "line": 216,
           "name": "two_directly_linked_nodes_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 212,
+          "line": 228,
           "name": "a_repeated_broadcast_is_deduped_not_delivered_twice"
         },
         {
           "kind": "fn",
-          "line": 233,
+          "line": 249,
           "name": "a_broadcast_from_one_end_of_a_line_topology_reaches_the_other_end_via_relay"
         },
         {
           "kind": "fn",
-          "line": 278,
+          "line": 294,
           "name": "a_disconnected_pair_never_hears_a_broadcast_from_the_other_side"
         },
         {
           "kind": "fn",
-          "line": 297,
+          "line": 313,
           "name": "a_node_recognizes_its_own_broadcast_echoed_back_and_does_not_redeliver_it"
         },
         {
           "kind": "fn",
-          "line": 312,
+          "line": 328,
           "name": "link_count_reflects_added_links"
         },
         {
           "kind": "fn",
-          "line": 322,
+          "line": 338,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_broadcast_not_just_poll"
         },
         {
           "kind": "fn",
-          "line": 341,
+          "line": 357,
           "name": "a_dead_link_is_pruned_during_polls_own_reflood_step_too"
         },
         {
           "kind": "fn",
-          "line": 365,
+          "line": 381,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever"
         },
         {
           "kind": "fn",
-          "line": 385,
+          "line": 401,
           "name": "poll_never_drains_more_than_the_per_link_cap_in_one_call"
+        },
+        {
+          "kind": "fn",
+          "line": 419,
+          "name": "an_oversized_broadcast_is_rejected_without_touching_any_link"
         }
       ],
-      "title": "use mini_bearer::{Bearer, EncryptedLink};"
+      "title": "use mini_bearer::{Bearer, BearerError, EncryptedLink, MAX_CHANNEL_PLAINTEXT_BYTES};"
     },
     {
-      "bytes": 5782,
+      "bytes": 5791,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
@@ -40371,7 +40381,7 @@
       ],
       "lines": 144,
       "path": "crates/mini-mesh/tests/tcp_relay.rs",
-      "sha256": "a52119f1b33bc79b754fec01c21e36f1c50426f64732fbb3168573f6338431c3",
+      "sha256": "06a75d6f7ce2378d15af62e50b3a8b42f3bdce6a1cb0dbc11806628658b4000f",
       "symbols": [
         {
           "kind": "fn",

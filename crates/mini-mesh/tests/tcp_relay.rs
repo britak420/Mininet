@@ -120,7 +120,7 @@ fn a_broadcast_from_one_end_of_a_real_tcp_line_topology_reaches_the_other_end_vi
         let ab_link = EncryptedLink::dial(boxed(ab_bearer)).unwrap();
         let mut mesh = MeshNode::new();
         mesh.add_link(ab_link);
-        mesh.broadcast(PAYLOAD);
+        mesh.broadcast(PAYLOAD).unwrap();
         // Keep the link alive long enough for B to finish reading it --
         // dropping `mesh` (and its TCP connection) immediately after
         // broadcast() queues the write could race the peer's read.
