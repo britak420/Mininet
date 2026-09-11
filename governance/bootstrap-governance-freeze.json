@@ -1,0 +1,44 @@
+{
+  "$schema": "./bootstrap-governance-freeze.schema.json",
+  "schema_version": 1,
+  "record_id": "github-bootstrap-governance-freeze-v1",
+  "status": "active",
+  "effective_condition": "canonical_on_main",
+  "frozen_exact_paths": [
+    "AGENTS.md",
+    "docs/FOUNDER_DIRECTIVES.md",
+    "docs/INVARIANTS.md",
+    "governance/policy.yml",
+    "governance/ai-charter-activation.json",
+    "governance/ai-charter-activation.schema.json",
+    "governance/ai-charter-activation-decision.schema.json"
+  ],
+  "frozen_directory_roots": [
+    "docs/governance"
+  ],
+  "allowed_dynamic_paths": [
+    "docs/DECISION_LOG.md",
+    "docs/STATUS.md",
+    "docs/audits/**",
+    "docs/design/**",
+    "docs/gates/**",
+    "governance/bootstrap-operating-state.json",
+    "governance/current-phase.json",
+    "governance/work-claims.json",
+    "implementation and test files outside frozen governance surfaces"
+  ],
+  "exit_condition": {
+    "state_path": "governance/bootstrap-operating-state.json",
+    "field": "forge_canonical",
+    "required_value": true,
+    "candidate_status": "sunset"
+  },
+  "preserves": [
+    "frozen invariants",
+    "existing production audit gates",
+    "voice/value separation",
+    "AI zero-approval weight",
+    "voluntary owner adoption",
+    "free forking and exit"
+  ]
+}
