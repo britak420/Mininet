@@ -2,7 +2,7 @@
   "counts": {
     "crates": 77,
     "files": 973,
-    "headings": 3527,
+    "headings": 3538,
     "rust_symbols": 9845
   },
   "crates": {
@@ -72250,7 +72250,7 @@
       "title": "use std::collections::HashMap;"
     },
     {
-      "bytes": 1183,
+      "bytes": 1961,
       "group": "crate:mini-treasury",
       "headings": [
         {
@@ -72282,37 +72282,92 @@
           "level": 1,
           "line": 19,
           "text": "depend on that staying true by accident."
+        },
+        {
+          "level": 1,
+          "line": 27,
+          "text": "`frost_dkg`/`frost_reshare`'s hand-rolled Pedersen/Feldman DKG API"
+        },
+        {
+          "level": 1,
+          "line": 28,
+          "text": "(`dkg_round1`, `dkg_generate_round2_shares`, `dkg_resolve`,"
+        },
+        {
+          "level": 1,
+          "line": 29,
+          "text": "`dkg_finalize`, `reshare_round1`, `reshare_finalize`,"
+        },
+        {
+          "level": 1,
+          "line": 30,
+          "text": "`AcknowledgedUnauditedDkg`, ...) is off the crate's default public API"
+        },
+        {
+          "level": 1,
+          "line": 31,
+          "text": "(D-0503, Gate #93 remediation): a real external audit found this crate"
+        },
+        {
+          "level": 1,
+          "line": 32,
+          "text": "was extending a second, bespoke DKG implementation finding by finding"
+        },
+        {
+          "level": 1,
+          "line": 33,
+          "text": "rather than composing an already-audited one. `mini-custody` is the"
+        },
+        {
+          "level": 1,
+          "line": 34,
+          "text": "production DKG ceremony now -- see its own crate docs. This feature"
+        },
+        {
+          "level": 1,
+          "line": 35,
+          "text": "keeps the old implementation reachable for its own test/historical"
+        },
+        {
+          "level": 1,
+          "line": 36,
+          "text": "coverage and any deliberate opt-in comparison work; it is not a"
+        },
+        {
+          "level": 1,
+          "line": 37,
+          "text": "recommendation to use it for a new production ceremony."
         }
       ],
       "keywords": [
         "true",
+        "own",
+        "dkg",
         "workspace",
         "frost",
         "zeroize",
+        "default",
+        "api",
+        "implementation",
+        "finding",
+        "production",
+        "ceremony",
+        "its",
         "threshold-signature",
         "d-0037",
         "explicitly",
         "here",
         "issue",
+        "external",
+        "audit",
         "path",
         "mini-treasury",
         "same",
-        "audited",
-        "primitive-layer",
-        "ed25519-dalek",
-        "x25519-dalek",
-        "already",
-        "build",
-        "d-0014",
-        "precedent",
-        "raw",
-        "ristretto",
-        "group",
-        "protocol"
+        "audited"
       ],
-      "lines": 25,
+      "lines": 39,
       "path": "crates/mini-treasury/Cargo.toml",
-      "sha256": "4de5464cebed0695753392d42257c3cda9fdf264560e457f01388ed3590b72d7",
+      "sha256": "a5d160a7048c7e92229be82a620d95fb088e93e07bed1613d60132772b914807",
       "symbols": [],
       "title": "Same audited primitive-layer crate ed25519-dalek/x25519-dalek already"
     },
@@ -73578,82 +73633,82 @@
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 5504,
+      "bytes": 7108,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
+        "dkg",
+        "committee",
+        "key",
         "frost_dkg",
         "rate",
-        "committee",
-        "frost_keygen",
-        "frost_sign",
+        "signing",
         "real",
-        "key",
-        "dkg",
-        "frost_reshare",
-        "receipt",
+        "frost_sign",
         "contribution",
         "bookkeeping",
         "custody",
-        "treasury",
         "ordinary",
-        "signing",
         "here",
         "signature",
         "threshold",
+        "frost",
         "ever",
         "secret",
-        "error",
-        "signers",
+        "own",
+        "frost_keygen",
+        "frost_reshare",
+        "receipt",
+        "treasury",
         "separate"
       ],
-      "lines": 107,
+      "lines": 132,
       "path": "crates/mini-treasury/src/lib.rs",
-      "sha256": "634be8cd33d5f85a4a850864fe411d8f43a72fa444e32ead84c760631e0f7383",
+      "sha256": "95a38b8e981d4859dbc9483dfb71ec48a8a39dd0959e7b3a929faf421c097baa",
       "symbols": [
         {
           "kind": "mod",
-          "line": 77,
+          "line": 89,
           "name": "curve"
         },
         {
           "kind": "mod",
-          "line": 78,
+          "line": 90,
           "name": "error"
         },
         {
           "kind": "mod",
-          "line": 79,
+          "line": 96,
           "name": "frost_dkg"
         },
         {
           "kind": "mod",
-          "line": 80,
+          "line": 97,
           "name": "frost_keygen"
         },
         {
           "kind": "mod",
-          "line": 81,
+          "line": 99,
           "name": "frost_reshare"
         },
         {
           "kind": "mod",
-          "line": 82,
+          "line": 100,
           "name": "frost_sign"
         },
         {
           "kind": "mod",
-          "line": 83,
+          "line": 101,
           "name": "rate"
         },
         {
           "kind": "mod",
-          "line": 84,
+          "line": 102,
           "name": "receipt"
         },
         {
           "kind": "mod",
-          "line": 85,
+          "line": 103,
           "name": "signers"
         }
       ],
@@ -81406,7 +81461,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1343784,
+      "bytes": 1348817,
       "group": "docs",
       "headings": [
         {
@@ -81836,9 +81891,9 @@
         "first",
         "new"
       ],
-      "lines": 22311,
+      "lines": 22394,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "7f1311d28756f4103f43a53ccff9c4571f51063d0a99985220442f7276fcb8be",
+      "sha256": "8d860c5fa3f191c1263605c4a711a564a1c1f87a2dbf1977f07fcba30af2043b",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -83174,7 +83229,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 196725,
+      "bytes": 197620,
       "group": "docs",
       "headings": [
         {
@@ -83219,72 +83274,72 @@
         },
         {
           "level": 2,
-          "line": 990,
+          "line": 1004,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 1037,
+          "line": 1051,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1270,
+          "line": 1284,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1497,
+          "line": 1511,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1596,
+          "line": 1610,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1626,
+          "line": 1640,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1973,
+          "line": 1987,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2508,
+          "line": 2522,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2599,
+          "line": 2613,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2679,
+          "line": 2693,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2779,
+          "line": 2793,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2796,
+          "line": 2810,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2832,
+          "line": 2846,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2913,
+          "line": 2927,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -83314,9 +83369,9 @@
         "design",
         "exists"
       ],
-      "lines": 2948,
+      "lines": 2962,
       "path": "docs/STATUS.md",
-      "sha256": "21f3fa37940e286b4749800651b3e625fdece249c6e6fca6f766a528bacb0f12",
+      "sha256": "c82b3ad64caabb3cdc9f76f07303916b66aeede2377ea7ef2fcca7f10c87a59b",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -101639,7 +101694,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 87366,
+      "bytes": 87423,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -101668,9 +101723,9 @@
         "independently",
         "both"
       ],
-      "lines": 1350,
+      "lines": 1352,
       "path": "governance/work-claims.json",
-      "sha256": "b4d6dc8ced46db73a74115c35407c6f0cefeab540eb9693355aa6a45633ae4b8",
+      "sha256": "a18f6e05eb2b1e2bd2a14ec75b61e438e7ab8cea08087d729fa775e8087ef570",
       "symbols": [],
       "title": "{"
     },

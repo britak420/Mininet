@@ -887,13 +887,27 @@ given time.
   rejected — old shares stay mathematically valid under it). 30 unit
   tests plus an 11-party end-to-end integration test that drives all
   seven DKG phases and then produces and verifies a real 7-of-11 FROST
-  signature over the resulting group key. **Not wired up yet:**
-  `frost_dkg.rs` is not gated dev-only and nothing calls into
-  `mini-custody` in production paths; **not externally audited** — an
-  anonymous, unattributed report does not establish that, and does not
-  close Gate #93 either way (D-0047). See D-0502/D-0503 for the full,
-  explicit list of what remains undone, and the companion "Gate #72"
-  report's `mini-value`/`mini-bounty`/`mini-settlement` recommendations
+  signature over the resulting group key.
+  **`frost_dkg`/`frost_reshare` gated off `mini_treasury`'s default
+  public API (D-0504):** the hand-rolled DKG functions
+  (`dkg_round1`/`dkg_generate_round2_shares`/`dkg_resolve`/
+  `dkg_finalize`/`AcknowledgedUnauditedDkg`/…, `reshare_round1`/
+  `reshare_finalize`/…) now require the `legacy-hand-rolled-dkg` Cargo
+  feature (default: off) to be visible from outside the crate; their own
+  internal test coverage keeps building/running unconditionally either
+  way. No real external caller existed to break (checked directly:
+  `mini-airdrop`/`mini-airdrop-treasury` only mention `frost_sign`/
+  `frost_dkg` in doc comments, never call them). **Still not wired up:**
+  nothing yet constructs `mini_treasury`'s own `KeyPackage`/
+  `PublicKeyPackage` from a completed `mini-custody` ceremony — those
+  types are `mini_treasury`'s own hand-rolled ones over
+  `curve25519-dalek`, not `frost_ristretto255`'s, so real interop needs
+  the Gate #72 signing-math migration (F72-14/17, unstarted) first; and
+  **not externally audited** — an anonymous, unattributed report does
+  not establish that, and does not close Gate #93 either way (D-0047).
+  See D-0502/D-0503/D-0504 for the full, explicit list of what remains
+  undone, and the companion "Gate #72" report's
+  `mini-value`/`mini-bounty`/`mini-settlement` recommendations
   (canonical scalar/point decoding, `frost_ristretto255` signing,
   vendored `bulletproofs`, `PrivatePaymentV3` wire format, calibrated
   decoy distribution), which remain entirely unimplemented.

@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-11T17:04:24Z",
+  "updated_at": "2026-09-11T17:10:15Z",
   "claims": [
     {
       "issue": 122,
@@ -1337,11 +1337,13 @@
         "docs/DECISION_LOG.md",
         "docs/_generated/REPO_INDEX.json",
         "docs/_generated/REPO_INDEX.jsonl",
-        "docs/_generated/REPO_MAP.md"
+        "docs/_generated/REPO_MAP.md",
+        "governance/work-claims.json"
       ],
       "decision_ids": [
         "D-0502",
-        "D-0503"
+        "D-0503",
+        "D-0504"
       ],
       "notes": "Gate #93 (and, in follow-up scope, Gate #72) engineering remediation from two anonymous external audit reports, adopted per explicit founder/user 'full scope now' instruction. D-0502 fixes the verified index-0 DKG vulnerability in mini_treasury::frost_dkg. D-0503 adds mini-custody, a production ceremony layer over frost_ristretto255's audited DKG. Per D-0047, neither report nor this remediation closes Gate #93/#72 -- see the decision log entries for the explicit non-claims."
     }

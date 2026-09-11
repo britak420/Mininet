@@ -22308,3 +22308,86 @@ founder action per `docs/gates/crypto-audit-scope.md`, not something any
 amount of engineering remediation on this side can substitute for.
 
 **Supersedes / superseded by:** none.
+
+### D-0504 — `mini_treasury`: `frost_dkg`/`frost_reshare`'s hand-rolled DKG API moved off the crate's default public surface, behind `legacy-hand-rolled-dkg`  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** D-0502/D-0503 above (same Gate #93
+report); `crates/mini-treasury/Cargo.toml`,
+`crates/mini-treasury/src/lib.rs`.
+
+**Decision:** D-0503's own "required follow-up" named this explicitly:
+gate `frost_dkg.rs`'s production reachability now that `mini-custody`
+exists as the recommended production DKG path. Concretely: `dkg_round1`,
+`dkg_generate_round2_shares`, `dkg_verify_received_share`, `dkg_resolve`,
+`dkg_finalize`, `verify_round1_package`, `AcknowledgedUnauditedDkg`,
+`DkgComplaint`, `DkgRebuttal`, `DkgResolution`, `DkgRound1Package`,
+`DkgRound1Secret` (from `frost_dkg`), and `reshare_round1`,
+`reshare_finalize`, `verify_reshare_round1_package` (from
+`frost_reshare`) are no longer re-exported from `mini_treasury`'s crate
+root by default; they require the new `legacy-hand-rolled-dkg` Cargo
+feature (default: off). `mod frost_dkg;`/`mod frost_reshare;` themselves
+stay unconditional, so each module's own `#[cfg(test)]` coverage keeps
+compiling and running exactly as before regardless of the feature —
+only the *downstream-visible* public API moved. A quick repo-wide check
+before making this change confirmed no real caller exists yet outside
+`mini-treasury` itself: `mini-airdrop`/`mini-airdrop-treasury` only
+*mention* `frost_sign`/`frost_dkg` in their own doc comments ("does not
+touch..."), they do not call into either module — so this is not a
+breaking change to any real consumer today, only a default-visibility
+change for future ones. `trusted_dealer_keygen`/`AcknowledgedPrototypeOnly`
+(`frost_keygen`) and `frost_sign`'s signing API are unaffected — signing
+and the trusted-dealer prototype path are unrelated to the DKG-specific
+findings this gates against.
+
+**Reason:** a Cargo feature flag, not a hard module removal, because
+`frost_dkg.rs`/`frost_reshare.rs` remain this crate's own historical
+implementation with real test coverage worth keeping buildable (and
+useful for comparison/regression work), and because removing them
+outright would be a larger, riskier, unreviewed change than this
+session's remaining budget should spend on a module that, per D-0502,
+has already been independently verified safe at its actual boundary
+condition. Default-off is what makes this a real gate rather than a
+cosmetic one: any new crate adding `mini-treasury` as a dependency will
+not see the hand-rolled DKG functions in its public API unless it
+explicitly opts in, which is the concrete "not reachable by accident"
+property D-0503 was missing.
+
+**Constitutional impact:** Directive 14 (simplicity is security) —
+reduces the crate's default attack/misuse surface without removing
+tested code outright. No invariant changes: `AcknowledgedUnauditedDkg`'s
+own typed-acknowledgment gate (existing, unchanged) still applies to
+every call site that *does* enable the feature.
+
+**Implementation status:** shipped. `cargo check -p mini-treasury`
+(default features) is warning-free (the two modules are marked
+`#[cfg_attr(not(feature = "legacy-hand-rolled-dkg"), allow(dead_code))]`
+so their still-unconditionally-compiled internal items don't trip
+`dead_code` when the public re-export is off). `cargo test -p
+mini-treasury` and `cargo test -p mini-treasury --all-features` both
+pass all 71 unit tests plus 3 doc-tests identically — the feature only
+changes what is publicly re-exported, not what compiles or runs.
+`cargo check --workspace` (default features) and `cargo clippy
+--all-targets --all-features --workspace -- -D warnings` are both clean.
+
+**Failure point:** this is a default-visibility change, not a runtime
+enforcement mechanism — a crate that deliberately opts into
+`legacy-hand-rolled-dkg` can still reach the old DKG path exactly as
+before (with `AcknowledgedUnauditedDkg` still required at the call
+site). That is intentional: the goal is "not reachable by accident,"
+not "impossible to reach," matching D-0503's own framing of this module
+as kept for test/historical coverage rather than deleted.
+
+**Required follow-up:** the harder half of D-0503's own follow-up list
+is still open — no code here yet actually constructs a `frost_dkg::
+KeyPackage`/`PublicKeyPackage` from a completed `mini-custody` ceremony,
+because `mini_treasury`'s signing stack (`frost_keygen`/`frost_sign`)
+uses its own hand-rolled `KeyPackage`/`PublicKeyPackage` types over
+`curve25519-dalek` directly rather than `frost_ristretto255`'s — exactly
+the Gate #72 finding (F72-14/F72-17: replace bespoke FROST signing math
+with `frost_ristretto255`) this entry's own scope did not attempt. Real
+interop between `mini-custody`'s DKG output and `mini_treasury`'s
+signing requires that migration first; attempting it without dedicated
+review time for a 1300+ line rewrite of security-critical signing math
+was judged too large and too risky to rush within this same pass.
+
+**Supersedes / superseded by:** none.
