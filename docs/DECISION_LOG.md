@@ -24015,12 +24015,108 @@ vendored `bulletproofs` crate (unlike this entry's signing swap, this one
 has real, wide external callers across `mini-private-payment`,
 `mini-bounty`, and `mini-shielded-verify` — a different Pedersen
 commitment basis is a breaking wire-format change across all of them,
-not an isolated swap, and needs its own dedicated decision); a
-`PrivatePaymentV3` wire format with a three-digest scheme and memo;
-canonical claim bytes wired into consensus plus derived key images;
-unifying the separate key-image/double-spend ledgers between the
+not an isolated swap, and needs its own dedicated decision — see D-0518,
+shipped immediately after this entry, for how that constraint was
+resolved); a `PrivatePaymentV3` wire format with a three-digest scheme
+and memo; canonical claim bytes wired into consensus plus derived key
+images; unifying the separate key-image/double-spend ledgers between the
 transparent and bounty ring-signature paths; and a calibrated (or
-honestly-labeled-as-uncalibrated) decoy distribution. None of these are
-started by this entry.
+honestly-labeled-as-uncalibrated) decoy distribution.
+
+**Supersedes / superseded by:** none.
+
+### D-0518 — Gate #72 remediation, part 2: `mini_value::bp_range_v2` adds a real Bulletproofs range-proof/Pedersen-commitment implementation over the vendored `bulletproofs` crate, additive alongside (not replacing) `bp_range`'s existing hand-rolled one  ·  *Shipped*
+
+**Decision:** D-0517's own "Required follow-up" flagged the obvious next
+Gate #72 item — `mini-value::bp_range`/`bp_ipa` hand-derive the entire
+Bulletproofs range-proof protocol (binding constraints, polynomial
+folding, the inner-product argument) from raw `curve25519-dalek`
+arithmetic, the same "bespoke re-implementation of an already-solved
+problem" pattern D-0517 just fixed for FROST signing — but also flagged
+why it cannot be fixed the same way: unlike `frost_sign`, `bp_range`'s
+Pedersen commitment basis (`bp_generators::{blinding_generator,
+value_generator, g_vec, h_vec}`) is real, load-bearing wire format for
+wide existing callers (`mini-private-payment`'s claim/amount/scan
+modules, `mini-bounty`, `mini-shielded-verify`), each with golden wire
+vectors whose own docs (`mini-private-payment/tests/vectors.rs`) say a
+wire-format change there "is a version bump and a decision entry, not a
+test update." The vendored `bulletproofs` crate's own `PedersenGens`/
+`BulletproofGens` are a *different* generator basis — commitments made
+under the two bases are not homomorphically comparable, so an in-place
+swap would silently break every existing balance check across those
+three crates rather than just changing which library proves the range.
+
+Resolution: `mini_value::bp_range_v2` (new module) is a complete,
+independent, real range-proof/commitment implementation over the vendored
+`bulletproofs = "=5.0.0"` crate (Bünz et al.'s original construction, MIT-
+licensed, widely deployed in Monero/Grin-adjacent tooling) and its own
+Merlin transcript, added *alongside* `bp_range` rather than replacing it.
+It provides the same shape of API `bp_range`/`confidential_impl` already
+established (`prove_range_v2`/`verify_range_v2`, `RangeProofV2` with
+`to_bytes`/`from_bytes`, `pedersen_commitment_v2` for a bare unproven
+commitment, `public_amount_commitment_v2` for a publicly-known amount
+such as a fee, `verify_balance_v2` for the additive-homomorphism balance
+check) but is not wired into `ConfidentialAmountScheme` or any existing
+consensus path — it is groundwork for a future `PrivatePaymentV3` wire
+format (this same Gate #72 batch's next item), not a migration of the
+current one. `mini-value` gained `bulletproofs = "=5.0.0"`, `merlin =
+"3"`, and `rand_core` (with `getrandom`, matching this tree's `OsRng`
+convention rather than the vendored crate's own `rand::thread_rng()`
+convenience default) as new dependencies; all three resolve to the
+existing workspace `curve25519-dalek` "4" line with no version conflict.
+
+**Reason:** the same audit-remediation discipline as D-0507/D-0508/
+D-0517: compose an already-published, already-audited construction
+instead of extending a second bespoke implementation of the same solved
+problem — but applied honestly to a case where the "just swap it" shape
+of D-0517 does not hold, by making the new implementation additive
+rather than forcing an unreviewed breaking migration onto three
+downstream crates' wire formats and golden test vectors in the same
+batch that introduces the new dependency.
+
+**Constitutional impact:** none. No dependency-edge change (`mini-value`
+is a value-layer crate; this adds a library dependency, not a crate
+dependency, and touches no governance/voting code). No new cryptographic
+primitive: `bulletproofs` is a real, published, peer-reviewed, widely-
+deployed construction (Directive 14, "simplicity is security" — the
+smaller, well-trodden library over a bespoke one) composed here exactly
+as the house rule permits, the same way `frost-ristretto255` was composed
+for D-0507/D-0517. Both `bp_range` and `bp_range_v2` remain founder-
+overridden, AI-authored, unaudited prototypes per D-0036/D-0037/D-0047 —
+this adds a second real option without claiming Gate #72 closed or
+changing either implementation's unaudited status.
+
+**Implementation status:** shipped. New tests in `mini-value::
+bp_range_v2::tests` (13): range-proof prove/verify round-trip, tampered-
+commitment and cross-value-proof rejection, encode/decode round-trip and
+truncation rejection, bare-commitment/proving-path equivalence, malformed-
+blinding rejection, balanced/unbalanced/empty/malformed-input balance
+checks, a fee-commitment balance case, and an explicit
+`v1_and_v2_commitments_to_the_same_value_and_blinding_do_not_match` test
+proving the two bases are genuinely incompatible (the entire reason this
+is a new module). Full workspace `cargo fmt --all`, `cargo clippy
+--all-targets --all-features --workspace -- -D warnings`, and `cargo test
+--workspace --all-features` are clean except the same pre-existing,
+sandbox-only `wasm32-wasip1`/`wasm32-wasip2`-target-missing failures every
+entry since D-0071 already records. `mini-value`'s downstream callers
+(`mini-private-payment`, `mini-bounty`, `mini-shielded-verify`) were
+re-run directly and are unaffected (124/124 `mini-value` tests pass, up
+from 111; all three downstream crates' existing suites pass unchanged).
+
+**Failure point:** this closes the "second bespoke Bulletproofs
+implementation exists" defect only for *new* code — it does not migrate,
+deprecate, or even mark `bp_range` legacy, because doing so honestly
+requires the wire-format decision this entry explicitly declines to make
+unilaterally. Nothing in this entry is reachable from any consensus-
+checked or currently-shipping payment path.
+
+**Required follow-up:** design and adopt `PrivatePaymentV3` (Gate #72's
+next item) as the real consumer of `bp_range_v2`, at which point
+`bp_range`/`bp_range_v2`'s coexistence period and `bp_range`'s eventual
+legacy-feature-gating (mirroring `legacy-hand-rolled-signing`/
+`legacy-hand-rolled-dkg`) should be decided explicitly rather than left
+implicit. The remaining Gate #72 items D-0517 already named (canonical
+claim bytes in consensus, unifying the transparent/bounty key-image
+ledgers, calibrated decoy distribution) are untouched by this entry.
 
 **Supersedes / superseded by:** none.

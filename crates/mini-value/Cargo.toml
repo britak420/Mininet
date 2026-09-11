@@ -17,6 +17,18 @@ publish = false
 curve25519-dalek = "4"
 blake3 = "1"
 mini-crypto = { path = "../mini-crypto" }
+# Gate #72 remediation (D-0517-series): a real, published, peer-reviewed
+# Bulletproofs implementation over the same Ristretto group this crate
+# already uses, composed here rather than maintaining `bp_range`/`bp_ipa`'s
+# hand-rolled second implementation of the same protocol indefinitely --
+# see `bp_range_v2`'s own module docs for what is and is not migrated yet.
+bulletproofs = "=5.0.0"
+merlin = "3"
+# `bp_range_v2::prove_range_v2` drives the vendored library's own
+# `prove_single_with_rng` explicitly with OS-entropy randomness (the same
+# `OsRng`-via-`getrandom` pattern `mini-custody` already uses), rather than
+# the convenience API's internal `rand::thread_rng()`.
+rand_core = { version = "0.6", features = ["getrandom"] }
 # Same best-effort scrubbing discipline mini-crypto already applies to its
 # own secret buffers: a stealth shared secret left in freed memory is a
 # decryptable payment memo.

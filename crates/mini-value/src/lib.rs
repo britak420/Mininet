@@ -51,6 +51,7 @@
 mod bp_generators;
 mod bp_ipa;
 mod bp_range;
+mod bp_range_v2;
 mod canonical;
 mod confidential;
 mod confidential_impl;
@@ -64,6 +65,10 @@ mod stealth;
 mod stealth_impl;
 
 pub use bp_range::{RangeProof, IPA_ROUNDS, RANGE_PROOF_BYTES};
+pub use bp_range_v2::{
+    pedersen_commitment_v2, prove_range_v2, public_amount_commitment_v2, verify_balance_v2,
+    verify_range_v2, RangeProofV2, BIT_LENGTH as BIT_LENGTH_V2,
+};
 pub use confidential::{ConfidentialAmountScheme, NoConfidentialAmount};
 pub use confidential_impl::{
     pedersen_commitment, public_amount_commitment, MininetConfidentialAmount,
