@@ -102,18 +102,20 @@ impl MeshNode {
     /// Send `payload` to every held link and mark it seen, so an echo of it
     /// flooded back by a peer is deduped rather than re-flooded — the same
     /// discipline `mini_consensus::net::handle_emits`'s `Emit::Broadcast`
-    /// case already applies. Best-effort: a dead link's send failure is
-    /// silently dropped, matching every other bearer-broadcast in this tree
-    /// (a wedged or gone peer must never be allowed to block or crash the
-    /// caller). Returns the message id, so a caller can recognize its own
-    /// broadcast if it comes back through [`Self::poll`] from elsewhere
-    /// (deduped, not delivered twice, but the id is still useful to log).
+    /// case already applies. A link whose `send` fails is dropped from the
+    /// mesh, not just best-effort-ignored: [`EncryptedLink::send`] seals
+    /// (and so advances its AEAD send counter) before handing ciphertext to
+    /// the bearer, so a bearer-level failure *after* a successful seal
+    /// leaves that link's counter ahead of what the peer actually received
+    /// — permanently desynced, the same terminal condition [`Self::poll`]
+    /// already prunes on a `try_recv` failure, just on the send side.
+    /// Returns the message id, so a caller can recognize its own broadcast
+    /// if it comes back through [`Self::poll`] from elsewhere (deduped, not
+    /// delivered twice, but the id is still useful to log).
     pub fn broadcast(&mut self, payload: &[u8]) -> [u8; 32] {
         let id = message_id(payload);
         self.seen.record_seen(id);
-        for link in &mut self.links {
-            let _ = link.send(payload);
-        }
+        self.links.retain_mut(|link| link.send(payload).is_ok());
         id
     }
 
@@ -153,10 +155,11 @@ impl MeshNode {
             true
         });
 
+        // Same terminal-on-send-failure pruning as broadcast(): a link that
+        // fails mid-reflood is desynced (its AEAD counter already advanced
+        // past what the peer received) and is dropped, not retried.
         for payload in &to_reflood {
-            for link in &mut self.links {
-                let _ = link.send(payload);
-            }
+            self.links.retain_mut(|link| link.send(payload).is_ok());
         }
 
         new_messages
@@ -313,6 +316,49 @@ mod tests {
         link(&mut a, &mut b);
         assert_eq!(a.link_count(), 1);
         assert_eq!(b.link_count(), 1);
+    }
+
+    #[test]
+    fn a_link_whose_peer_is_gone_is_pruned_by_broadcast_not_just_poll() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        link(&mut a, &mut b);
+        assert_eq!(a.link_count(), 1);
+
+        // Drop b before a ever calls poll(): the only way a's link can
+        // learn its peer is gone is through a failed send, not try_recv.
+        drop(b);
+
+        a.broadcast(b"anyone there?");
+        assert_eq!(
+            a.link_count(),
+            0,
+            "broadcast's own send failure must prune the dead link, not just poll()'s try_recv"
+        );
+    }
+
+    #[test]
+    fn a_dead_link_is_pruned_during_polls_own_reflood_step_too() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        let mut c = MeshNode::new();
+        link(&mut a, &mut b);
+        link(&mut b, &mut c);
+        assert_eq!(b.link_count(), 2);
+
+        // c is gone before b ever polls: b's receive from a will succeed
+        // (that link is fine), but the reflood step's send toward c must
+        // fail and prune that link too, not just the try_recv-failed ones.
+        drop(c);
+
+        a.broadcast(b"relay this");
+        let received = b.poll();
+        assert_eq!(received.len(), 1);
+        assert_eq!(
+            b.link_count(),
+            1,
+            "the reflood step must prune the link whose send failed, not just retain both"
+        );
     }
 
     #[test]

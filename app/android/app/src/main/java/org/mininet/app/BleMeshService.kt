@@ -144,10 +144,14 @@ class BleMeshService(context: Context) {
             return false
         }
         pollTask = pollExecutor.scheduleWithFixedDelay({
-            runCatching {
-                for (message in mesh.poll()) {
-                    onMessage(message.payload)
-                }
+            // mesh.poll() has already drained and recorded every one of
+            // these in the seen cache by the time this runs -- a later
+            // poll() cannot recover them. Catching around the whole loop
+            // would let one throwing onMessage silently discard every
+            // later message in the same batch; catching per-message keeps
+            // one bad payload from taking the rest down with it.
+            runCatching { mesh.poll() }.getOrNull()?.forEach { message ->
+                runCatching { onMessage(message.payload) }
             }
         }, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
         return true

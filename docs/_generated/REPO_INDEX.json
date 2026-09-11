@@ -3,7 +3,7 @@
     "crates": 77,
     "files": 967,
     "headings": 3519,
-    "rust_symbols": 9775
+    "rust_symbols": 9777
   },
   "crates": {
     "did-mini": {
@@ -40163,7 +40163,7 @@
       "title": "The transport (Bearer, EncryptedLink) this crate composes over."
     },
     {
-      "bytes": 13860,
+      "bytes": 15741,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
@@ -40171,30 +40171,30 @@
         "self",
         "links",
         "meshnode",
-        "every",
+        "encryptedlink",
         "fmt",
         "new",
         "poll",
-        "same",
-        "encryptedlink",
         "mesh",
+        "every",
+        "same",
+        "send",
         "relay",
         "bearer",
         "ble",
-        "tree",
         "one",
         "payload",
-        "send",
         "seen",
         "default_seen_capacity",
         "std",
         "mini_bearer",
         "see",
+        "tree",
         "already"
       ],
-      "lines": 356,
+      "lines": 402,
       "path": "crates/mini-mesh/src/lib.rs",
-      "sha256": "574205aacb0e91435cb01a6dec0beedd29d1405dbbae84224f21788af9896d86",
+      "sha256": "3ef2d6e074b8aea4c0f8db6365c2a1401b24afdc6bbf1053279705679d8fd086",
       "symbols": [
         {
           "kind": "const",
@@ -40253,77 +40253,87 @@
         },
         {
           "kind": "fn",
-          "line": 111,
+          "line": 115,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 131,
+          "line": 133,
           "name": "poll"
         },
         {
           "kind": "impl",
-          "line": 166,
+          "line": 169,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 167,
+          "line": 170,
           "name": "default"
         },
         {
           "kind": "mod",
-          "line": 173,
+          "line": 176,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 177,
+          "line": 180,
           "name": "boxed"
         },
         {
           "kind": "fn",
-          "line": 188,
+          "line": 191,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 197,
+          "line": 200,
           "name": "two_directly_linked_nodes_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 209,
+          "line": 212,
           "name": "a_repeated_broadcast_is_deduped_not_delivered_twice"
         },
         {
           "kind": "fn",
-          "line": 230,
+          "line": 233,
           "name": "a_broadcast_from_one_end_of_a_line_topology_reaches_the_other_end_via_relay"
         },
         {
           "kind": "fn",
-          "line": 275,
+          "line": 278,
           "name": "a_disconnected_pair_never_hears_a_broadcast_from_the_other_side"
         },
         {
           "kind": "fn",
-          "line": 294,
+          "line": 297,
           "name": "a_node_recognizes_its_own_broadcast_echoed_back_and_does_not_redeliver_it"
         },
         {
           "kind": "fn",
-          "line": 309,
+          "line": 312,
           "name": "link_count_reflects_added_links"
         },
         {
           "kind": "fn",
-          "line": 319,
+          "line": 322,
+          "name": "a_link_whose_peer_is_gone_is_pruned_by_broadcast_not_just_poll"
+        },
+        {
+          "kind": "fn",
+          "line": 341,
+          "name": "a_dead_link_is_pruned_during_polls_own_reflood_step_too"
+        },
+        {
+          "kind": "fn",
+          "line": 365,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever"
         },
         {
           "kind": "fn",
-          "line": 339,
+          "line": 385,
           "name": "poll_never_drains_more_than_the_per_link_cap_in_one_call"
         }
       ],

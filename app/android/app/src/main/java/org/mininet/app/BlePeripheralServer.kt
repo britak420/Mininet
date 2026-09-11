@@ -106,9 +106,24 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
     private var serviceAddedOk = false
 
     private class LinkState(val device: BluetoothDevice) {
-        val incoming = LinkedBlockingQueue<ByteArray>()
+        // Bounded: an untrusted central can write repeatedly to the
+        // write-without-response RX characteristic, and every value lands
+        // here regardless of whether anything is draining it yet (e.g. a
+        // handshake that never completes). An unbounded queue would let
+        // that grow without limit; offer() (not put()) drops writes past
+        // capacity instead of blocking the Binder callback thread.
+        val incoming = LinkedBlockingQueue<ByteArray>(INCOMING_QUEUE_CAPACITY)
         var notificationsEnabled = false
         var readyDelivered = false
+
+        // Set once, from onConnectionStateChange's disconnect branch, on
+        // the same LinkState instance a live PeripheralLinkRadio already
+        // holds a reference to -- removing the address from the outer
+        // `links` map alone does not reach a radio that was already handed
+        // out, so readChunk/tryReadChunk check this directly instead of
+        // relying on map membership.
+        @Volatile
+        var disconnected = false
     }
 
     /**
@@ -252,7 +267,11 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
     override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
         when (newState) {
             BluetoothGatt.STATE_CONNECTED -> links[device.address] = LinkState(device)
-            BluetoothGatt.STATE_DISCONNECTED -> links.remove(device.address)
+            // Mark the removed LinkState itself, not just the map entry --
+            // a PeripheralLinkRadio already handed out via onLinkReady
+            // holds a direct reference to this exact instance and has no
+            // other way to learn the central is gone.
+            BluetoothGatt.STATE_DISCONNECTED -> links.remove(device.address)?.let { it.disconnected = true }
         }
     }
 
@@ -268,9 +287,19 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
         val server = gattServer
         val state = links[device.address]
         if (characteristic.uuid == MININET_BLE_RX_CHARACTERISTIC_UUID && state != null) {
-            state.incoming.put(value.copyOf())
-            if (responseNeeded) {
-                server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, null)
+            // offer(), not put(): a full queue (nobody draining -- most
+            // likely a handshake that stalled or failed) drops this write
+            // and disconnects the peer instead of growing without bound or
+            // blocking this Binder callback thread.
+            if (state.incoming.offer(value.copyOf())) {
+                if (responseNeeded) {
+                    server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, null)
+                }
+            } else {
+                if (responseNeeded) {
+                    server?.sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
+                }
+                runCatching { server?.cancelConnection(device) }
             }
         } else if (responseNeeded) {
             server?.sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
@@ -383,15 +412,37 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
                 Thread.currentThread().interrupt()
                 throw BleRadioException.Failed("interrupted while waiting for a chunk: ${e.message}")
             }
-            return (chunk ?: throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")).toUByteList()
+            if (chunk != null) return chunk.toUByteList()
+            if (state.disconnected) throw BleRadioException.Failed("central disconnected")
+            throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")
         }
 
-        override fun tryReadChunk(): List<UByte>? = state.incoming.poll()?.toUByteList()
+        // Buffered chunks are drained first regardless of disconnect state
+        // (a central can disconnect right after its last legitimate write,
+        // and that write is still real data); only an empty queue on an
+        // already-disconnected link reports failure. This is the signal
+        // mini_mesh::MeshNode::poll actually depends on to prune a dead
+        // link -- it only ever calls the non-blocking try_recv path
+        // (this method), never the blocking readChunk, once a link is
+        // already established.
+        override fun tryReadChunk(): List<UByte>? {
+            val chunk = state.incoming.poll()
+            if (chunk != null) return chunk.toUByteList()
+            if (state.disconnected) throw BleRadioException.Failed("central disconnected")
+            return null
+        }
     }
 
     companion object {
         private const val NOTIFY_TIMEOUT_MS = 10_000L
         private const val READ_TIMEOUT_MS = 30_000L
         private const val DEFAULT_ADVERTISE_TIMEOUT_MS = 10_000L
+
+        // Generous relative to a real chunk (bounded by the negotiated ATT
+        // MTU, typically well under 512 bytes) -- large enough that normal
+        // mesh traffic never hits it, small enough that a peer that never
+        // lets anything drain this queue (a stalled/failed handshake, e.g.)
+        // is disconnected long before it costs meaningful memory.
+        private const val INCOMING_QUEUE_CAPACITY = 4096
     }
 }
