@@ -7,6 +7,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/mini-durable",
     "crates/mini-crypto",
     "crates/did-mini",
     "crates/mini-witness-service",
@@ -81,6 +82,7 @@ members = [
     "crates/mini-search-federation",
     "crates/mini-search-federation-net",
     "crates/mini-storage-fraud",
+    "crates/mini-shielded-verify",
     "crates/mini-mesh",
 ]
 

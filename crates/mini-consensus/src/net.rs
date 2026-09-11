@@ -9,24 +9,12 @@
 //!
 //! ## Honest limits
 //!
-//! - **Confidential and tamper-evident, but not peer-authenticated.** Every
-//!   link now runs a [`mini_bearer::Channel`] handshake (ephemeral X25519 +
-//!   HKDF-SHA256 + ChaCha20-Poly1305, forward-secret, no new cryptography —
-//!   the same construction `mini-sync`/`mini-cli`'s `sync connect`/`listen`
-//!   already use) before any consensus byte crosses the wire, so an on-path
-//!   observer can no longer read votes/proposals in cleartext or forge a
-//!   frame the AEAD tag won't catch (roadmap #44's sibling finding, the
-//!   founder's 2026-07-12 review's `5.3`/`5.4` "wire authenticated encrypted
-//!   channels into consensus now" ask). `Channel`'s handshake is, by its own
-//!   design, anonymous — it proves nothing about *which* validator is on the
-//!   other end, only that both ends share a fresh, private, authenticated
-//!   session. The *consensus payload* is still what carries real identity
-//!   (every vote/proposal is a real `did:mini` signature, re-verified on
-//!   receipt and again at apply time), so a tampering, lying, or merely
-//!   silent peer can still stall the protocol but can never forge a
-//!   finalized block. No discovery, so a malicious *first* connection from
-//!   an unknown address is still possible — this closes eavesdropping and
-//!   tampering, not Sybil connections.
+//! - **Mandatory static validator admission.** Every mesh link completes an
+//!   encrypted channel handshake followed by a validator signature binding
+//!   that session, network ID, and pinned validator set. Dialers verify the
+//!   expected root; listeners admit each configured inbound root only once.
+//!   Consensus messages remain independently verified. Dynamic membership
+//!   epochs and freshness of the configured public KELs remain host duties.
 //! - **No discovery, no NAT traversal, no reconnect.** Every peer's address
 //!   must be known up front and the mesh is built once, before consensus
 //!   starts. It need not be *fully connected*, though: [`TcpMesh::establish_topology`]
@@ -49,8 +37,9 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::time::{Duration, Instant};
 
+use did_mini::{Controller, Did};
 use mini_bearer::{encode_frame, Bearer, Channel, FrameReader, Initiator, Responder, TcpBearer};
-use mini_chain::ValidatorOracle;
+use mini_chain::{ValidatorOracle, ValidatorSet};
 
 use crate::catchup::{CatchupRequest, CatchupResponse};
 use crate::consequence::EquivocatorRegistry;
@@ -490,13 +479,14 @@ impl Link {
         stream
             .set_read_timeout(Some(HANDSHAKE_TIMEOUT))
             .map_err(mini_bearer::BearerError::from)?;
+        let mut reader = FrameReader::new();
         let channel = if is_initiator {
             let (initiator, hello) = Initiator::start()?;
             handshake_send(&stream, &hello)?;
-            let response = handshake_recv(&stream)?;
+            let response = handshake_recv(&stream, &mut reader)?;
             initiator.finish(&response)?
         } else {
-            let hello = handshake_recv(&stream)?;
+            let hello = handshake_recv(&stream, &mut reader)?;
             let (channel, response) = Responder::respond(&hello)?;
             handshake_send(&stream, &response)?;
             channel
@@ -506,7 +496,7 @@ impl Link {
             .map_err(mini_bearer::BearerError::from)?;
         Ok(Link {
             stream,
-            reader: FrameReader::new(),
+            reader,
             channel,
             outbound: Vec::new(),
             out_pos: 0,
@@ -601,13 +591,117 @@ impl Link {
     }
 }
 
-/// A full-mesh set of real TCP links to every other node. Peer identity is
-/// **not** tracked per link on purpose: consensus messages self-identify (a
-/// vote carries its signer's `did:mini`, a proposal its proposer), so the
-/// transport only needs to move bytes to everyone, not know who is who.
+/// Locally pinned credentials and admission policy for a mesh. `peer_roots`
+/// maps each address index to the expected root, including the local node.
+/// The fixed validator set and public KEL oracle must come from the same
+/// deployment configuration as the consensus node. This does not establish
+/// dynamic membership epochs or prove freshness of an externally supplied KEL.
+pub struct MeshAdmission<'a> {
+    pub network_id: [u8; 32],
+    pub local_root: &'a Did,
+    pub device: &'a Controller,
+    pub validators: &'a ValidatorSet,
+    pub oracle: &'a dyn ValidatorOracle,
+    pub peer_roots: &'a [Did],
+}
+
+impl std::fmt::Debug for MeshAdmission<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MeshAdmission")
+            .field("network_id", &self.network_id)
+            .field("local_root", self.local_root)
+            .field("validators", self.validators)
+            .field("peer_roots", &self.peer_roots)
+            .finish_non_exhaustive()
+    }
+}
+
+const MESH_ADMISSION_AAD: &[u8] = b"mini-consensus/mesh-admission/v1";
+
+fn mesh_admission_binding(channel: &Channel, admission: &MeshAdmission<'_>) -> [u8; 32] {
+    let mut transcript = MESH_ADMISSION_AAD.to_vec();
+    transcript.extend_from_slice(&channel.channel_binding());
+    transcript.extend_from_slice(&admission.network_id);
+    transcript.extend_from_slice(&(admission.validators.len() as u32).to_be_bytes());
+    for root in admission.validators.roots() {
+        transcript.extend_from_slice(&(root.as_str().len() as u32).to_be_bytes());
+        transcript.extend_from_slice(root.as_str().as_bytes());
+    }
+    mini_crypto::hash::blake3_256(&transcript)
+}
+
+fn authenticate_mesh_link(
+    link: &mut Link,
+    initiator: bool,
+    admission: &MeshAdmission<'_>,
+    expected: &[Did],
+) -> Result<Did> {
+    use crate::validator_channel::{
+        sign_validator_handshake, verify_validator_handshake, ValidatorHandshakeAttestation,
+    };
+    link.stream
+        .set_nonblocking(false)
+        .map_err(mini_bearer::BearerError::from)?;
+    link.stream
+        .set_write_timeout(Some(HANDSHAKE_TIMEOUT))
+        .map_err(mini_bearer::BearerError::from)?;
+    let binding = mesh_admission_binding(&link.channel, admission);
+    let own = sign_validator_handshake(binding, admission.local_root, admission.device);
+    // Check the local configuration too, before advertising any identity.
+    let root_kel = admission
+        .oracle
+        .kel(admission.local_root)
+        .ok_or(ConsensusError::ValidatorHandshakeIdentityMismatch)?;
+    let device_kel = admission
+        .oracle
+        .kel(&admission.device.did())
+        .ok_or(ConsensusError::ValidatorHandshakeIdentityMismatch)?;
+    verify_validator_handshake(&own, binding, admission.validators, root_kel, device_kel)?;
+    if initiator {
+        handshake_send(
+            &link.stream,
+            &link
+                .channel
+                .seal(&own.to_wire_bytes(), MESH_ADMISSION_AAD)?,
+        )?;
+    }
+    let ciphertext = handshake_recv(&link.stream, &mut link.reader)?;
+    let bytes = link.channel.open(&ciphertext, MESH_ADMISSION_AAD)?;
+    let peer = ValidatorHandshakeAttestation::from_wire_bytes(&bytes)?;
+    let root_kel = admission
+        .oracle
+        .kel(&peer.validator_root)
+        .ok_or(ConsensusError::ValidatorHandshakeIdentityMismatch)?;
+    let device_kel = admission
+        .oracle
+        .kel(&peer.validator_device)
+        .ok_or(ConsensusError::ValidatorHandshakeIdentityMismatch)?;
+    let root =
+        verify_validator_handshake(&peer, binding, admission.validators, root_kel, device_kel)?;
+    if !expected.contains(&root) {
+        return Err(ConsensusError::ValidatorHandshakeIdentityMismatch);
+    }
+    if !initiator {
+        handshake_send(
+            &link.stream,
+            &link
+                .channel
+                .seal(&own.to_wire_bytes(), MESH_ADMISSION_AAD)?,
+        )?;
+    }
+    link.stream
+        .set_nonblocking(true)
+        .map_err(mini_bearer::BearerError::from)?;
+    Ok(root)
+}
+
+/// A mesh whose links authenticate the expected admitted validator before
+/// exchanging consensus messages.
 #[derive(Debug)]
 pub struct TcpMesh {
     links: Vec<Link>,
+    network_id: [u8; 32],
+    validators: ValidatorSet,
 }
 
 impl TcpMesh {
@@ -628,10 +722,11 @@ impl TcpMesh {
         local_index: usize,
         addrs: &[SocketAddr],
         listener: &TcpListener,
+        admission: &MeshAdmission<'_>,
     ) -> Result<Self> {
         // A full mesh: adjacent to every other node.
         let neighbors: Vec<usize> = (0..addrs.len()).filter(|&j| j != local_index).collect();
-        Self::establish_topology(local_index, addrs, listener, &neighbors)
+        Self::establish_topology(local_index, addrs, listener, &neighbors, admission)
     }
 
     /// Build the local node's links for an arbitrary **partial** topology:
@@ -667,7 +762,27 @@ impl TcpMesh {
         addrs: &[SocketAddr],
         listener: &TcpListener,
         neighbors: &[usize],
+        admission: &MeshAdmission<'_>,
     ) -> Result<Self> {
+        if admission.peer_roots.len() != addrs.len()
+            || admission.peer_roots.get(local_index) != Some(admission.local_root)
+            || admission
+                .peer_roots
+                .iter()
+                .any(|root| !admission.validators.contains(root))
+            || neighbors
+                .iter()
+                .any(|&j| j >= addrs.len() || j == local_index)
+        {
+            return Err(ConsensusError::ValidatorHandshakeIdentityMismatch);
+        }
+        let unique_roots: std::collections::HashSet<_> = admission.peer_roots.iter().collect();
+        let unique_neighbors: std::collections::HashSet<_> = neighbors.iter().collect();
+        if unique_roots.len() != admission.peer_roots.len()
+            || unique_neighbors.len() != neighbors.len()
+        {
+            return Err(ConsensusError::ValidatorHandshakeIdentityMismatch);
+        }
         let mut links = Vec::with_capacity(neighbors.len());
         // Dial each higher-indexed neighbor -- we are the handshake initiator.
         let mut higher: Vec<usize> = neighbors
@@ -677,16 +792,34 @@ impl TcpMesh {
             .collect();
         higher.sort_unstable();
         for j in higher {
-            links.push(Link::new(connect_with_retry(&addrs[j])?, true)?);
+            let mut link = Link::new(connect_with_retry(&addrs[j])?, true)?;
+            authenticate_mesh_link(
+                &mut link,
+                true,
+                admission,
+                &[admission.peer_roots[j].clone()],
+            )?;
+            links.push(link);
         }
         // Accept one inbound connection for each lower-indexed neighbor --
         // we are the handshake responder.
-        let accept_count = neighbors.iter().filter(|&&j| j < local_index).count();
-        for _ in 0..accept_count {
+        let mut expected: Vec<_> = neighbors
+            .iter()
+            .filter(|&&j| j < local_index)
+            .map(|&j| admission.peer_roots[j].clone())
+            .collect();
+        while !expected.is_empty() {
             let (stream, _) = listener.accept().map_err(mini_bearer::BearerError::from)?;
-            links.push(Link::new(stream, false)?);
+            let mut link = Link::new(stream, false)?;
+            let root = authenticate_mesh_link(&mut link, false, admission, &expected)?;
+            expected.retain(|candidate| candidate != &root);
+            links.push(link);
         }
-        Ok(TcpMesh { links })
+        Ok(TcpMesh {
+            links,
+            network_id: admission.network_id,
+            validators: admission.validators.clone(),
+        })
     }
 
     /// Queue a message to every peer and flush what the sockets accept now.
@@ -727,9 +860,10 @@ fn handshake_send(mut stream: &TcpStream, msg: &[u8]) -> Result<()> {
 
 /// Receive one handshake message (blocking, bounded by whatever read timeout
 /// the caller already set on `stream` — [`Link::new`] sets
-/// [`HANDSHAKE_TIMEOUT`] before calling this).
-fn handshake_recv(mut stream: &TcpStream) -> Result<Vec<u8>> {
-    let mut reader = FrameReader::new();
+/// [`HANDSHAKE_TIMEOUT`] before calling this). The link retains this reader
+/// across anonymous handshake, admission, and application frames so a TCP read
+/// coalescing adjacent phases cannot discard bytes or desynchronize AEAD counters.
+fn handshake_recv(mut stream: &TcpStream, reader: &mut FrameReader) -> Result<Vec<u8>> {
     loop {
         if let Some(frame) = reader.next_frame()? {
             return Ok(frame);
@@ -802,6 +936,9 @@ pub fn run_to_height<O>(
 where
     O: ValidatorOracle,
 {
+    if mesh.network_id != node.state().network_id() || &mesh.validators != node.validators() {
+        return Err(ConsensusError::ValidatorHandshakeIdentityMismatch);
+    }
     let deadline = Instant::now() + timeout;
     let mut timers: Vec<Timer> = Vec::new();
     let mut seen = SeenCache::new(MAX_SEEN_MESSAGES);
@@ -931,6 +1068,30 @@ fn handle_emits<O: ValidatorOracle>(
 mod tests {
     use super::*;
 
+    #[test]
+    fn coalesced_handshake_and_application_frames_are_retained() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut sender = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (receiver, _) = listener.accept().unwrap();
+        receiver
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let first = encode_frame(b"admission").unwrap();
+        let second = encode_frame(b"first consensus frame").unwrap();
+        let mut coalesced = first;
+        coalesced.extend_from_slice(&second);
+        sender.write_all(&coalesced).unwrap();
+        drop(sender);
+        let mut reader = FrameReader::new();
+        assert_eq!(
+            handshake_recv(&receiver, &mut reader).unwrap(),
+            b"admission"
+        );
+        assert_eq!(
+            handshake_recv(&receiver, &mut reader).unwrap(),
+            b"first consensus frame"
+        );
+    }
     #[test]
     fn a_state_sync_client_is_not_held_forever_by_a_silent_peer() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();

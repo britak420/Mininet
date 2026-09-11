@@ -1,41 +1,9 @@
-//! F3: federated query — merge candidates from multiple providers while
-//! preserving provenance (`docs/research/
-//! MININET_NATIVE_INTAKE_PUBLIC_COMMONS_AND_OPEN_WEB_SEARCH_20260718.md`
-//! §29).
-//!
-//! This module runs the *unmodified* `mini_query::search` once per
-//! provider's own `(IndexSegment, Corpus, DocumentContextTable)`, then
-//! merges the resulting per-provider result lists into one list. It does
-//! not re-rank, re-score, or re-implement any of Track E6-E8's scoring,
-//! filtering, or provenance logic -- merging is the only new behavior
-//! here, and it is a pure, deterministic function of each provider's
-//! already-computed, already-provenanced results.
-//!
-//! ## The merge policy
-//!
-//! Every provider is queried with the identical `profile`, `parsed`
-//! query, and `now_ms`, so `relevance_score_bps` values are directly
-//! comparable across providers (D-0312's determinism guarantee holds
-//! per-call, and nothing here breaks it across calls). The merge:
-//!
-//! 1. Concatenates every provider's results, each tagged with the
-//!    [`mini_web_types::ProviderPseudonym`] that supplied it.
-//! 2. Deduplicates by canonical URL string: when two providers return the
-//!    same URL, the higher `relevance_score_bps` wins; ties break on the
-//!    smaller provider pseudonym bytes, so the outcome is deterministic
-//!    regardless of input provider order.
-//! 3. Sorts the deduplicated set by score descending, tie-breaking on
-//!    canonical URL string bytes (mirroring `mini_ranker::rank`'s own
-//!    `UrlId`-byte tiebreak discipline), and truncates to `max_results`.
-//!
-//! A provider cannot inflate its own influence by returning more results
-//! than it has documents for, or by duplicating one document under
-//! several URLs, without an accompanying score high enough to win the
-//! deduplication step under the *same* deterministic scoring
-//! [`mini_query::search`] already applies -- this module adds no new
-//! trust in what a provider claims about its own content beyond what
-//! `search`'s own D-0312 invariants (no pay-to-rank, no personalization,
-//! availability-filtered) already provide per provider.
+//! Federated merge with explicit score provenance. Local computation wins
+//! over remote assertions; remote self-scores confer no positive ranking
+//! authority. Remote-only URLs sort by URL and representatives by provider. Every distinct remote claim for a retained
+//! URL survives in `remote_claims`, including profile and observation links.
+//! Locally computed scores still depend on source-supplied metadata: recomputing
+//! a formula is not verification of the metadata's factual truth.
 
 use std::collections::HashMap;
 
@@ -60,13 +28,100 @@ pub struct FederationSource<'a> {
     pub index_segment: IndexSegmentId,
 }
 
+/// Whether a [`FederatedResult`]'s score was independently computed by
+/// this process over data it actually holds, or is a remote peer's own,
+/// unverified claim. See the module docs' "Score provenance" section.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResultOrigin {
+    /// Scored by this process's own `mini_query::search` call over a
+    /// [`FederationSource`] it actually holds.
+    LocallyComputed,
+    /// A remote peer's self-reported score, folded in without local
+    /// verification (`mini-search-federation-net`'s remote-query path).
+    RemoteAsserted,
+}
+
 /// One merged result: the same [`mini_query::ResultProvenance`] a single
 /// provider's `search` would have produced, plus which provider it came
-/// from.
+/// from and whether that score was locally verified or remotely
+/// asserted.
+///
+/// `origin` is deliberately not `pub`: if any caller could freely set it,
+/// a careless or hostile source could simply claim `LocallyComputed` for
+/// content it never independently verified and defeat [`better`]'s whole
+/// point. [`FederatedResult::remote_asserted`] is the only constructor
+/// available outside this module, and it can only ever produce
+/// [`ResultOrigin::RemoteAsserted`] -- [`federate_query`], in this same
+/// module, is the only code anywhere that can produce
+/// [`ResultOrigin::LocallyComputed`], because it is the only code that
+/// actually ran `mini_query::search` itself (PR #327 finding F-21; the
+/// same unforgeable-typed-domain discipline D-0490/D-0495 already apply
+/// elsewhere in this workspace).
+/// ```compile_fail
+/// use mini_search_federation::FederatedResult;
+/// fn relabel(local: &mut FederatedResult, remote: FederatedResult) {
+///     local.result = remote.result().clone();
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FederatedResult {
+    pub(crate) result: ResultProvenance,
+    provider: ProviderPseudonym,
+    origin: ResultOrigin,
+    remote_claims: Vec<RemoteClaim>,
+    pub(crate) reweighted: bool,
+}
+
+/// One preserved assertion, not verified ranking evidence. Source ids are
+/// locators until the signed observation/index material has been retrieved and
+/// checked. Conflicting titles, profiles, scores and source links are retained.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteClaim {
     pub result: ResultProvenance,
     pub provider: ProviderPseudonym,
+}
+
+impl FederatedResult {
+    /// Build a [`FederatedResult`] from a remote peer's self-reported
+    /// evidence. Always tagged [`ResultOrigin::RemoteAsserted`] --
+    /// callers cannot choose otherwise. Used by
+    /// `mini-search-federation-net`'s remote-query path; nothing in this
+    /// crate calls it, since [`federate_query`] already holds what it
+    /// needs to construct a `LocallyComputed` result directly.
+    pub fn remote_asserted(result: ResultProvenance, provider: ProviderPseudonym) -> Self {
+        let claim = RemoteClaim {
+            result: result.clone(),
+            provider: provider.clone(),
+        };
+        FederatedResult {
+            result,
+            provider,
+            origin: ResultOrigin::RemoteAsserted,
+            remote_claims: vec![claim],
+            reweighted: false,
+        }
+    }
+
+    pub fn result(&self) -> &ResultProvenance {
+        &self.result
+    }
+    pub fn provider(&self) -> &ProviderPseudonym {
+        &self.provider
+    }
+    pub fn remote_claims(&self) -> &[RemoteClaim] {
+        &self.remote_claims
+    }
+    /// True when profile weights were reapplied without recomputing the
+    /// order-dependent diversity signal. Never describe this as a fresh rank.
+    pub fn reuses_original_diversity(&self) -> bool {
+        self.reweighted
+    }
+
+    /// Whether this result's score was independently computed by this
+    /// process, or is an unverified remote claim.
+    pub fn origin(&self) -> ResultOrigin {
+        self.origin
+    }
 }
 
 /// Query every source and deterministically merge the results (see module
@@ -96,6 +151,9 @@ pub fn federate_query(
             candidates.push(FederatedResult {
                 result,
                 provider: source.provider.clone(),
+                origin: ResultOrigin::LocallyComputed,
+                remote_claims: Vec::new(),
+                reweighted: false,
             });
         }
     }
@@ -116,27 +174,41 @@ pub fn merge_federated_results(
     max_results: usize,
 ) -> Vec<FederatedResult> {
     let mut merged: HashMap<String, FederatedResult> = HashMap::new();
-    for candidate in results {
+    for mut candidate in results {
         let key = candidate.result.result.url.canonical_string();
-        match merged.get(&key) {
-            None => {
-                merged.insert(key, candidate);
-            }
-            Some(existing) => {
-                if better(&candidate, existing) {
-                    merged.insert(key, candidate);
-                }
-            }
+        if let Some(mut existing) = merged.remove(&key) {
+            let mut claims = std::mem::take(&mut existing.remote_claims);
+            claims.append(&mut candidate.remote_claims);
+            claims.sort_by(remote_claim_order);
+            claims.dedup();
+            let mut selected = if better(&candidate, &existing) {
+                candidate
+            } else {
+                existing
+            };
+            selected.remote_claims = claims;
+            merged.insert(key, selected);
+        } else {
+            merged.insert(key, candidate);
         }
     }
-
     let mut out: Vec<FederatedResult> = merged.into_values().collect();
     out.sort_by(|a, b| {
-        b.result
-            .result
-            .relevance_score_bps
-            .value()
-            .cmp(&a.result.result.relevance_score_bps.value())
+        // A remote maximum cannot crowd local evidence out of max_results,
+        // including when the hostile URL differs from every local URL.
+        origin_order(a.origin)
+            .cmp(&origin_order(b.origin))
+            .then_with(|| {
+                if a.origin == ResultOrigin::LocallyComputed {
+                    b.result
+                        .result
+                        .relevance_score_bps
+                        .value()
+                        .cmp(&a.result.result.relevance_score_bps.value())
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            })
             .then_with(|| {
                 a.result
                     .result
@@ -149,14 +221,42 @@ pub fn merge_federated_results(
     out
 }
 
-/// `a` wins over `b` if it scores strictly higher, or on a tie if its
-/// provider pseudonym bytes are smaller -- deterministic regardless of the
-/// order sources were queried in.
+fn origin_order(origin: ResultOrigin) -> u8 {
+    match origin {
+        ResultOrigin::LocallyComputed => 0,
+        ResultOrigin::RemoteAsserted => 1,
+    }
+}
+
+fn remote_claim_order(a: &RemoteClaim, b: &RemoteClaim) -> std::cmp::Ordering {
+    a.provider
+        .0
+        .to_bytes()
+        .cmp(&b.provider.0.to_bytes())
+        // This is a local display tiebreak, not a consensus encoding or a
+        // truth score. Include every claim field to make same-provider
+        // equivocation and repeated merges deterministic as well.
+        .then_with(|| format!("{:?}", a.result).cmp(&format!("{:?}", b.result)))
+}
+
 fn better(a: &FederatedResult, b: &FederatedResult) -> bool {
+    if a.origin != b.origin {
+        return a.origin == ResultOrigin::LocallyComputed;
+    }
+    if a.origin == ResultOrigin::RemoteAsserted {
+        return remote_claim_order(
+            &RemoteClaim {
+                result: a.result.clone(),
+                provider: a.provider.clone(),
+            },
+            &RemoteClaim {
+                result: b.result.clone(),
+                provider: b.provider.clone(),
+            },
+        )
+        .is_lt();
+    }
     let a_score = a.result.result.relevance_score_bps.value();
     let b_score = b.result.result.relevance_score_bps.value();
-    if a_score != b_score {
-        return a_score > b_score;
-    }
-    a.provider.0.to_bytes() < b.provider.0.to_bytes()
+    a_score > b_score || (a_score == b_score && a.provider.0.to_bytes() < b.provider.0.to_bytes())
 }

@@ -111,6 +111,11 @@ fn decompress_point(bytes: &[u8]) -> Option<RistrettoPoint> {
     CompressedRistretto(arr).decompress()
 }
 
+/// Validate a canonical, non-identity one-time Ristretto public key.
+pub fn one_time_key_is_well_formed(bytes: &[u8]) -> bool {
+    decompress_point(bytes).is_some_and(|point| point != RistrettoPoint::default())
+}
+
 fn decompress_scalar(bytes: &[u8]) -> Option<Scalar> {
     let arr: [u8; 32] = bytes.try_into().ok()?;
     Some(Scalar::from_bytes_mod_order(arr))

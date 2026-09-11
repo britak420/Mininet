@@ -10,6 +10,7 @@
 mod support;
 
 use mini_spacetime::verify_storage_challenge;
+
 use mini_storage_fraud::{
     capacity_units_of, ProviderStanding, ReplicaLifecycle, ReplicaState, StorageUnitPolicy,
     WindowPolicy,
@@ -37,19 +38,17 @@ fn prove_window(
     beacon: &[u8],
     policy: &WindowPolicy,
 ) -> bool {
-    let commitment = mini_porep::replica_commitment(replica);
-    for challenge in lifecycle.challenges_for(window, beacon, policy) {
-        let Some(response) = mini_porep::respond(replica, &challenge) else {
-            return false;
-        };
-        if response.leaf_index != challenge.leaf_index {
-            return false;
-        }
-        if !verify_storage_challenge(&commitment, &challenge, &response) {
-            return false;
-        }
-    }
-    lifecycle.record_proven_window(window, policy).is_ok()
+    let responses: Option<Vec<_>> = lifecycle
+        .challenges_for(window, beacon, policy)
+        .iter()
+        .map(|challenge| mini_porep::respond(replica, challenge))
+        .collect();
+    let Some(responses) = responses else {
+        return false;
+    };
+    lifecycle
+        .record_proven_window(window, beacon, &responses, policy)
+        .is_ok()
 }
 
 fn tracked() -> (ReplicaLifecycle, mini_porep::SealedReplica) {
@@ -248,6 +247,7 @@ fn challenges_depend_on_the_verifiers_beacon_and_the_window() {
     // and a beacon the verifier supplies; the provider contributes nothing.
     let (lifecycle, _) = tracked();
     let policy = WindowPolicy::new(1_000, 16, 2).unwrap();
+    let lifecycle = ReplicaLifecycle::begin(lifecycle.claim().clone(), GENESIS, GENESIS, &policy);
 
     let a = lifecycle.challenges_for(1, b"beacon-a", &policy);
     let b = lifecycle.challenges_for(1, b"beacon-b", &policy);
@@ -267,7 +267,10 @@ fn challenges_depend_on_the_verifiers_beacon_and_the_window() {
 fn every_drawn_challenge_is_in_range_and_answerable() {
     let (lifecycle, replica) = tracked();
     let policy = WindowPolicy::new(1_000, 64, 2).unwrap();
-    for challenge in lifecycle.challenges_for(7, b"beacon", &policy) {
+    let lifecycle = ReplicaLifecycle::begin(lifecycle.claim().clone(), GENESIS, GENESIS, &policy);
+    let challenges = lifecycle.challenges_for(7, b"beacon", &policy);
+    assert_eq!(challenges.len(), 64);
+    for challenge in challenges {
         assert!(challenge.leaf_index < replica.node_count());
         assert!(mini_porep::respond(&replica, &challenge).is_some());
     }
@@ -319,12 +322,14 @@ fn provider_capacity_is_the_sum_of_actively_proving_replicas() {
         let (claim, replica) = registered_claim(&provider, &[&first, &second], &ctx, &data(50));
         let verified = claim.verify(&directory, &policy()).unwrap();
         let root = verified.replica_root();
-        standing.track(ReplicaLifecycle::begin(
-            verified,
-            GENESIS,
-            GENESIS,
-            &windows(),
-        ));
+        standing
+            .track(ReplicaLifecycle::begin(
+                verified,
+                GENESIS,
+                GENESIS,
+                &windows(),
+            ))
+            .unwrap();
         replicas.push((root, replica));
     }
     assert_eq!(standing.len(), 3);
@@ -362,6 +367,111 @@ fn provider_capacity_is_the_sum_of_actively_proving_replicas() {
     assert_eq!(standing.proven_capacity(&units()).units(), 4);
 }
 
+// ---------------------------------------------------------------------------
+// D-0477: block-production weight, but only through the audited path
+// ---------------------------------------------------------------------------
+
+#[test]
+fn block_production_weight_matches_the_underlying_formula() {
+    // The integration point is a thin wrapper -- it must agree exactly with
+    // calling mini_spacetime::proposer_weight directly on the same proven
+    // capacity, never a different number.
+    let (mut lifecycle, replica) = tracked();
+    assert!(prove_window(
+        &mut lifecycle,
+        &replica,
+        1,
+        b"beacon-1",
+        &windows()
+    ));
+
+    let mut standing = ProviderStanding::new();
+    standing.track(lifecycle).unwrap();
+
+    let params = mini_storage_fraud::ProposerParams::default_params();
+    let direct = mini_spacetime::isqrt(standing.proven_capacity(&units()).units());
+    let wrapped = standing.block_production_weight(&units(), 1, &params);
+    assert_eq!(wrapped, direct);
+    assert!(
+        wrapped > 0,
+        "an actively proving replica must weigh something"
+    );
+}
+
+#[test]
+fn block_production_weight_is_zero_before_anything_is_proven() {
+    // Registration alone must not weigh anything -- the same guarantee
+    // proven_capacity already gives, now checked through the weight path a
+    // real caller would actually use.
+    let (lifecycle, _replica) = tracked();
+    let mut standing = ProviderStanding::new();
+    standing.track(lifecycle).unwrap();
+
+    let params = mini_storage_fraud::ProposerParams::default_params();
+    assert_eq!(standing.block_production_weight(&units(), 1, &params), 0);
+}
+
+#[test]
+fn block_production_weight_only_ever_sees_audited_capacity() {
+    // There is no argument to block_production_weight through which a
+    // caller could substitute a fabricated StorageCommitment -- its only
+    // capacity-bearing input is &self, and ProviderStanding can only ever
+    // hold ReplicaLifecycle values built from a verified claim. This test
+    // documents that structurally: two providers with identical sealed byte
+    // counts but different real audited registrations get independently
+    // correct weights, not a number either one could have typed in.
+    let provider_a = Party::provider(180);
+    let provider_b = Party::provider(181);
+    let (first, second) = (Party::auditor(182), Party::auditor(183));
+    let directory = directory_of(&[&provider_a, &provider_b, &first, &second]);
+
+    let (claim_a, replica_a) =
+        registered_claim(&provider_a, &[&first, &second], &context(70), &data(70));
+    let (claim_b, replica_b) =
+        registered_claim(&provider_b, &[&first, &second], &context(71), &data(70));
+
+    let mut lifecycle_a = ReplicaLifecycle::begin(
+        claim_a.verify(&directory, &policy()).unwrap(),
+        GENESIS,
+        GENESIS,
+        &windows(),
+    );
+    let mut lifecycle_b = ReplicaLifecycle::begin(
+        claim_b.verify(&directory, &policy()).unwrap(),
+        GENESIS,
+        GENESIS,
+        &windows(),
+    );
+    assert!(prove_window(
+        &mut lifecycle_a,
+        &replica_a,
+        1,
+        b"beacon-a",
+        &windows()
+    ));
+    assert!(prove_window(
+        &mut lifecycle_b,
+        &replica_b,
+        1,
+        b"beacon-b",
+        &windows()
+    ));
+
+    let mut standing_a = ProviderStanding::new();
+    standing_a.track(lifecycle_a).unwrap();
+    let mut standing_b = ProviderStanding::new();
+    standing_b.track(lifecycle_b).unwrap();
+
+    let params = mini_storage_fraud::ProposerParams::default_params();
+    // Same sealed byte count (data(70) both times) -> same real weight, each
+    // independently derived from its own audited registration rather than
+    // from any number either provider asserted.
+    assert_eq!(
+        standing_a.block_production_weight(&units(), 1, &params),
+        standing_b.block_production_weight(&units(), 1, &params),
+    );
+}
+
 #[test]
 fn three_ordinals_under_one_provider_are_three_distinct_replicas() {
     // The replica ordinal exists so a provider keeping several independent
@@ -380,4 +490,83 @@ fn three_ordinals_under_one_provider_are_three_distinct_replicas() {
     roots.sort();
     roots.dedup();
     assert_eq!(roots.len(), 3, "each ordinal must seal to its own replica");
+}
+
+// ---------------------------------------------------------------------------
+// F-08: tracking (or requesting weight for) the same replica twice must
+// never double-count its capacity
+// ---------------------------------------------------------------------------
+
+#[test]
+fn tracking_the_same_replica_twice_does_not_double_its_capacity() {
+    // ProviderStanding keys its replicas by replica root -- re-tracking the
+    // same root overwrites rather than adds a second entry, so a caller
+    // that (accidentally or maliciously) hands the same lifecycle to
+    // `track` more than once cannot inflate its own weight.
+    let (mut lifecycle, replica) = tracked();
+    assert!(prove_window(
+        &mut lifecycle,
+        &replica,
+        1,
+        b"beacon",
+        &windows()
+    ));
+    let root = lifecycle.claim().replica_root();
+
+    let mut standing = ProviderStanding::new();
+    standing.track(lifecycle).unwrap();
+    assert_eq!(standing.len(), 1);
+    let once = standing.proven_capacity(&units()).units();
+
+    // Re-track a lifecycle for the exact same replica root.
+    let (mut lifecycle_again, replica_again) = tracked();
+    assert_eq!(lifecycle_again.claim().replica_root(), root);
+    assert!(prove_window(
+        &mut lifecycle_again,
+        &replica_again,
+        1,
+        b"beacon",
+        &windows()
+    ));
+    assert!(standing.track(lifecycle_again).is_err());
+
+    assert_eq!(
+        standing.len(),
+        1,
+        "re-tracking the same replica root must not grow the count"
+    );
+    assert_eq!(
+        standing.proven_capacity(&units()).units(),
+        once,
+        "re-tracking the same replica root must not double its capacity"
+    );
+
+    // Confirms block_production_weight agrees with the dedup too, not
+    // just proven_capacity's own raw unit count.
+    let params = mini_storage_fraud::ProposerParams::default_params();
+    assert_eq!(
+        standing.block_production_weight(&units(), 1, &params),
+        mini_spacetime::isqrt(standing.proven_capacity(&units()).units()),
+    );
+}
+
+#[test]
+fn changing_the_registered_window_policy_cannot_grant_or_preserve_capacity() {
+    let (mut lifecycle, replica) = tracked();
+    let weakened = WindowPolicy::new(1_000, 1, u32::MAX).unwrap();
+    assert!(lifecycle.challenges_for(1, b"beacon", &weakened).is_empty());
+    assert!(lifecycle
+        .record_proven_window(1, b"beacon", &[], &weakened)
+        .is_err());
+    assert_eq!(lifecycle.proven_capacity(&units()).units(), 0);
+    assert!(prove_window(
+        &mut lifecycle,
+        &replica,
+        1,
+        b"beacon",
+        &windows()
+    ));
+    lifecycle.advance_to(5, &weakened);
+    assert_eq!(lifecycle.state(), ReplicaState::Suspended);
+    assert_eq!(lifecycle.proven_capacity(&units()).units(), 0);
 }

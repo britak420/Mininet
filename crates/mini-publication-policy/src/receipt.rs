@@ -1,8 +1,8 @@
-//! Protection quote and achieved-result receipt (D-0364, Track D2, founder
+//! Protection quote and publication routing plan (D-0364, Track D2, founder
 //! research `docs/research/MININET_NATIVE_INTAKE_PUBLIC_COMMONS_AND_OPEN_WEB_SEARCH_20260718.md`
 //! §27: "Connect to existing privacy and resource-pricing vocabulary.")
 //!
-//! [`achieved_result_receipt_for`] is the one function in this crate that
+//! [`publication_routing_plan_for`] is the one function in this crate that
 //! actually *does* anything beyond holding data: given a
 //! [`crate::PublicationProfile`] and the [`mini_privacy_policy::
 //! ProtectionProperty`]s a caller wants that publication to achieve, it
@@ -14,10 +14,23 @@
 //! D2 asks for, mirroring how Track C4's `service_quote_for` connected
 //! `mini-commons-policy` to the same pricing engine.
 //!
-//! **This is a quote and a routing decision, not proof that a publication
-//! happened.** No object is stored, no bytes move, no payment executes --
-//! see [`mini_transport_policy::route`] and [`mini_resource_pricing::quote`]'s
-//! own module docs for the same honesty boundary this crate inherits.
+//! **This is a quote and a routing decision, never proof that a
+//! publication happened (F-15).** Planning stores no object, moves no bytes,
+//! and executes no payment. `PublicationRoutingPlan::dispatch` is a separate
+//! step that invokes the checked transport executor. Its receipt proves only
+//! local bearer submission, not publication or remote delivery. See [`mini_transport_policy::route`] and
+//! [`mini_resource_pricing::quote`]'s own module docs for the same
+//! honesty boundary this crate inherits. [`PublicationRoutingPlan`] was
+//! previously named `AchievedResultReceipt`; that name is exactly the
+//! mistake this finding describes -- a caller skimming the type name
+//! alone, not the prose above, could reasonably read "receipt" as proof
+//! something was delivered. Renamed so the type's own name states its
+//! actual nature: a plan a caller *could* execute, not a report that it
+//! did. A UI that prints "source hidden" (or any other protection claim)
+//! from this value before a real transport executor has actually sent
+//! the bytes is making exactly the false claim the finding's concrete
+//! example describes -- this value is never sufficient evidence for
+//! that claim on its own, no matter how it is named.
 
 use mini_privacy_policy::{AchievedPrivacy, PrivacyRequest, PrivacyTier, ProtectionProperty};
 use mini_resource_pricing::{quote, PriceVector, Quote};
@@ -26,43 +39,80 @@ use mini_transport_policy::{route, PayloadSizeClass, TransportRequest};
 use crate::error::Result;
 use crate::profile::PublicationProfile;
 
-/// What was actually routable and payable for a given
-/// [`PublicationProfile`] and set of requested protection properties.
-/// `quote` is `None` exactly when [`PublicationProfile::transport`] is
+/// What tier/properties would be routable and payable for a given
+/// [`PublicationProfile`] and set of requested protection properties, and
+/// what it would cost -- a plan, not a report of what happened. `quote` is
+/// `None` exactly when [`PublicationProfile::transport`] is
 /// [`PrivacyTier::Direct`] -- the same "free base tier is never quoted"
 /// convention `mini-commons-policy`'s `service_quote_for` already
 /// established for Track C4.
+///
+/// `achievable` names what [`mini_transport_policy::route`]'s policy check
+/// says this tier is *capable* of, per its own `AchievedPrivacy` doc
+/// comment ("never itself a proof of anything claimed") -- not a report
+/// from a real transport that bytes actually moved this way, since none
+/// have.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AchievedResultReceipt {
+pub struct PublicationRoutingPlan {
     pub profile: PublicationProfile,
-    pub achieved: AchievedPrivacy,
+    pub achievable: AchievedPrivacy,
     pub quote: Option<Quote>,
+    request: TransportRequest,
 }
 
-/// Build an [`AchievedResultReceipt`] for `profile`, given the protection
+impl PublicationRoutingPlan {
+    /// Submit this plan through the actual checked executor. Only a successful
+    /// bearer send returns a receipt; routing/pricing alone cannot mint one.
+    pub fn dispatch<B: mini_bearer::Bearer>(
+        &self,
+        connection: &mut mini_transport_security::AuthenticatedConnection<B>,
+        target: mini_transport_security::TransportTarget<'_>,
+        plaintext: &[u8],
+        aad: &[u8],
+    ) -> Result<mini_transport_security::ObservedSendReceipt> {
+        // Public display fields may be edited by a UI. Never let those edits
+        // replace the immutable request selected at planning time.
+        if self.profile.transport != self.request.privacy.tier {
+            return Err(crate::PublicationPolicyError::Transport(
+                mini_transport_security::TransportSecurityError::TransportTargetMismatch,
+            ));
+        }
+        mini_transport_security::dispatch_transport(
+            &self.request,
+            connection,
+            target,
+            plaintext,
+            aad,
+        )
+        .map_err(crate::PublicationPolicyError::Transport)
+    }
+}
+
+/// Build a [`PublicationRoutingPlan`] for `profile`, given the protection
 /// properties the caller wants satisfied and the payload/storage this
 /// publication needs.
 ///
 /// **Fails closed**: if `profile.transport` cannot satisfy every property
 /// in `properties`, this returns [`crate::PublicationPolicyError::Routing`]
 /// (from `mini-transport-policy`'s own router) rather than silently
-/// returning a receipt that claims a protection level the chosen tier
-/// does not actually reach.
-pub fn achieved_result_receipt_for(
+/// returning a plan that claims a protection level the chosen tier does
+/// not actually reach.
+pub fn publication_routing_plan_for(
     profile: PublicationProfile,
     properties: Vec<ProtectionProperty>,
     payload_size_class: PayloadSizeClass,
     prices: &PriceVector,
     payload_mb: u64,
     storage_days: u64,
-) -> Result<AchievedResultReceipt> {
-    let decision = route(&TransportRequest {
+) -> Result<PublicationRoutingPlan> {
+    let request = TransportRequest {
         privacy: PrivacyRequest {
             tier: profile.transport,
             properties,
         },
         payload_size_class,
-    })?;
+    };
+    let decision = route(&request)?;
 
     let price_quote = if profile.transport == PrivacyTier::Direct {
         None
@@ -70,10 +120,11 @@ pub fn achieved_result_receipt_for(
         Some(quote(prices, profile.transport, payload_mb, storage_days)?)
     };
 
-    Ok(AchievedResultReceipt {
+    Ok(PublicationRoutingPlan {
         profile,
-        achieved: decision.achieved,
+        achievable: decision.achieved,
         quote: price_quote,
+        request,
     })
 }
 
@@ -99,8 +150,8 @@ mod tests {
     }
 
     #[test]
-    fn direct_tier_receipt_has_no_quote() {
-        let receipt = achieved_result_receipt_for(
+    fn direct_tier_plan_has_no_quote() {
+        let plan = publication_routing_plan_for(
             profile(PrivacyTier::Direct),
             vec![],
             PayloadSizeClass::Small,
@@ -109,13 +160,13 @@ mod tests {
             1,
         )
         .unwrap();
-        assert!(receipt.quote.is_none());
-        assert_eq!(receipt.achieved.tier, PrivacyTier::Direct);
+        assert!(plan.quote.is_none());
+        assert_eq!(plan.achievable.tier, PrivacyTier::Direct);
     }
 
     #[test]
-    fn relayed_tier_receipt_has_a_quote_that_requires_payment() {
-        let receipt = achieved_result_receipt_for(
+    fn relayed_tier_plan_has_a_quote_that_requires_payment() {
+        let plan = publication_routing_plan_for(
             profile(PrivacyTier::Relayed),
             vec![ProtectionProperty::CounterpartyIpHiding],
             PayloadSizeClass::Small,
@@ -124,14 +175,14 @@ mod tests {
             1,
         )
         .unwrap();
-        let quote = receipt.quote.unwrap();
+        let quote = plan.quote.unwrap();
         assert!(quote.requires_payment);
         assert_eq!(quote.tier, PrivacyTier::Relayed);
     }
 
     #[test]
     fn an_unsatisfiable_property_fails_closed_rather_than_under_delivering() {
-        let err = achieved_result_receipt_for(
+        let err = publication_routing_plan_for(
             profile(PrivacyTier::Direct),
             vec![ProtectionProperty::WhoTalksToWhomHiding],
             PayloadSizeClass::Small,
@@ -149,9 +200,9 @@ mod tests {
     }
 
     #[test]
-    fn the_receipt_carries_the_exact_profile_it_was_built_for() {
+    fn the_plan_carries_the_exact_profile_it_was_built_for() {
         let built_profile = profile(PrivacyTier::Mixed);
-        let receipt = achieved_result_receipt_for(
+        let plan = publication_routing_plan_for(
             built_profile,
             vec![],
             PayloadSizeClass::Medium,
@@ -160,12 +211,12 @@ mod tests {
             2,
         )
         .unwrap();
-        assert_eq!(receipt.profile, built_profile);
+        assert_eq!(plan.profile, built_profile);
     }
 
     #[test]
     fn quote_matches_calling_mini_resource_pricing_quote_directly() {
-        let receipt = achieved_result_receipt_for(
+        let plan = publication_routing_plan_for(
             profile(PrivacyTier::Burst),
             vec![],
             PayloadSizeClass::Large,
@@ -175,12 +226,12 @@ mod tests {
         )
         .unwrap();
         let direct_quote = quote(&prices(), PrivacyTier::Burst, 20, 3).unwrap();
-        assert_eq!(receipt.quote.unwrap(), direct_quote);
+        assert_eq!(plan.quote.unwrap(), direct_quote);
     }
 
     #[test]
     fn an_overflowing_payload_propagates_as_a_pricing_error() {
-        let err = achieved_result_receipt_for(
+        let err = publication_routing_plan_for(
             profile(PrivacyTier::Burst),
             vec![],
             PayloadSizeClass::Large,

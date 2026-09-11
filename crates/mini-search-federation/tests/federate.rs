@@ -133,15 +133,15 @@ fn results_from_every_provider_are_merged_and_tagged() {
     assert_eq!(merged.len(), 2);
     let hosts: Vec<&str> = merged
         .iter()
-        .map(|r| r.result.result.url.host.as_str())
+        .map(|r| r.result().result.url.host.as_str())
         .collect();
     assert!(hosts.contains(&"a.example"));
     assert!(hosts.contains(&"b.example"));
     for r in &merged {
-        if r.result.result.url.host.as_str() == "a.example" {
-            assert_eq!(r.provider, providers[0].id);
+        if r.result().result.url.host.as_str() == "a.example" {
+            assert_eq!(r.provider().clone(), providers[0].id);
         } else {
-            assert_eq!(r.provider, providers[1].id);
+            assert_eq!(r.provider().clone(), providers[1].id);
         }
     }
 }
@@ -172,7 +172,7 @@ fn a_shared_url_across_providers_keeps_the_higher_scoring_copy() {
     let merged = federate_query(&sources(&providers), &profile(), &parsed, 1_000, 10).unwrap();
 
     assert_eq!(merged.len(), 1);
-    assert_eq!(merged[0].provider, providers[1].id);
+    assert_eq!(merged[0].provider().clone(), providers[1].id);
 }
 
 #[test]
@@ -220,11 +220,11 @@ fn merging_is_deterministic_regardless_of_source_order() {
 
     let forward_urls: Vec<String> = forward
         .iter()
-        .map(|r| r.result.result.url.canonical_string())
+        .map(|r| r.result().result.url.canonical_string())
         .collect();
     let backward_urls: Vec<String> = backward
         .iter()
-        .map(|r| r.result.result.url.canonical_string())
+        .map(|r| r.result().result.url.canonical_string())
         .collect();
     assert_eq!(forward_urls, backward_urls);
 }
@@ -282,9 +282,9 @@ fn each_result_keeps_its_own_provenance() {
     let parsed = parse_query("rust programming");
     let merged = federate_query(&sources(&providers), &profile(), &parsed, 1_000, 10).unwrap();
     assert_eq!(merged.len(), 1);
-    assert_eq!(merged[0].result.index_segment, providers[0].segment);
+    assert_eq!(merged[0].result().index_segment, providers[0].segment);
     assert_eq!(
-        merged[0].result.source_observation,
+        merged[0].result().source_observation,
         CrawlObservationId(digest(b"prov-a"))
     );
 }

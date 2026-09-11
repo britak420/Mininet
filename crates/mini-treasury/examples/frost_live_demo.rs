@@ -107,7 +107,7 @@ fn device_thread(key_package: KeyPackage, rx: Receiver<ToDevice>, tx: Sender<ToC
                 let nonces = pending_nonces
                     .take()
                     .expect("coordinator must request round 1 before round 2");
-                let z = round2_sign(&key_package, &nonces, &signing_package)
+                let z = round2_sign(&key_package, nonces, &signing_package)
                     .expect("this device took part in round 1");
                 println!("  [device {index}] round 2: computed its signature share");
                 let _ = tx.send(ToCoordinator::Round2Response { index, z });

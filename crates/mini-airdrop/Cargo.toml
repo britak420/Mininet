@@ -19,3 +19,5 @@ mini-crypto = { path = "../mini-crypto" }
 # never an enforcement gate. See crate docs: identity root != verified
 # human, and this crate does not change that.
 mini-uniqueness = { path = "../mini-uniqueness" }
+
+mini-durable = { path = "../mini-durable" }

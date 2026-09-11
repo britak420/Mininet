@@ -21,3 +21,4 @@ curve25519-dalek = { version = "4", features = ["zeroize"] }
 blake3 = "1"
 mini-crypto = { path = "../mini-crypto" }
 zeroize = "1" # zeroizes FROST round-1 nonces on drop (issue #93)
+mini-durable = { path = "../mini-durable" }

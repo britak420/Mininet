@@ -46,7 +46,7 @@ code, and frozen. A full, code-mapped register is in
 
 ## What exists today — honestly
 
-This repository is the **self-contained Rust core**: 74 crates indexed by
+This repository is the **self-contained Rust core**: 77 crates indexed by
 `tools/mininet_nav.py`, with no external
 dependency on any single company's infrastructure to keep running. Nothing
 here is ready for real people, real money, or real custody yet — and it says
@@ -224,6 +224,49 @@ so, everywhere, on purpose.
   The key image is linkable by design, an audit reveals income but never
   amounts or spending, and network-level privacy is `mini-relay`'s job; see
   `docs/design/private-payment-path.md`
+- shielded-spend chain validity (`mini_execution::ClaimVerifier` +
+  `mini-shielded-verify`, D-0474, closes roadmap R8's last item): a
+  caller-injected, opt-in extension point lets a validator's own process
+  refuse to prevote, build, or commit a block whose shielded spends it
+  cannot independently verify, without `mini-execution`/`mini-consensus`/
+  `mini-chain` ever gaining a dependency on `mini-value` — the voice/value
+  wall holds unchanged. Still no claim-evidence gossip protocol and no
+  accountability trail for which validators actually verified.
+- unavailable-witness KEL recovery (`did_mini::witness_rotation`'s
+  `verify_dead_witness_recovery`, D-0475, closes research report §17.4 and
+  Phase 7 of the witness-receipts design doc in full): the deliberately
+  opposite case from §17.2/§17.3 — works *without* old-witness
+  cooperation, so a witness set gone permanently dark can never hold an
+  identity hostage. The controller self-signs a typed
+  `WitnessUnavailabilityAttestation` while its pre-rotation keys are
+  still current, verified against exactly that prior key state, gated by
+  a caller-set minimum distinct-witness count and waiting period
+  (`DeadWitnessRecoveryPolicy`); this is accountability, not
+  unforgeability, stated plainly rather than claimed as a stronger
+  guarantee. Still no real call site gating an authority decision on an
+  assurance level and no dispute-resolution consequence for a false
+  attestation — both founder-facing policy calls.
+- go-live punch-list closure (D-0476–D-0479): `tools/f5_phase2_model.py`'s
+  F5 retained-state gate (a plain configuration default over its own 8 MiB
+  ceiling, no adversarial content) is fixed (D-0476), while the two
+  genuine collusion/grinding gates stay `FAIL` on purpose — D-0428's own
+  Required follow-up forbids a production anti-collusion redesign without
+  external mechanism-design review, the same category as roadmap R16.
+  `ProviderStanding::block_production_weight` (D-0477) closes the
+  one-layer-up gap left after D-0448: `proposer_weight` only ever accepts
+  a `ProvenCapacity`, but nothing stopped a caller from building one from
+  a locally-fabricated `StorageCommitment` and skipping
+  `mini-storage-fraud`'s audit entirely — this wrapper's only
+  capacity-bearing input is `&self`, so a caller reaching for it cannot
+  substitute anything that skipped registration. A proposed self-reported
+  "operator diversity" mitigation for the audit's storage-independence
+  finding was investigated and explicitly declined (D-0478) as
+  unable to add real resistance against a deliberate colluding operator —
+  recorded in `docs/FAILURE_BOOK.md` so it is not re-proposed. A
+  "shared correctness infrastructure" backlog item was assessed
+  (D-0479): dependency-audit CI already existed; a 14-crate codec
+  unification is real but too large/risky for this PR; a real fuzzing
+  harness needs a toolchain this environment does not have.
 - deterministic D-0074 issuance envelopes and equal-allocation genesis
   manifests (`mini-economy`, D-0413), plus a cohort-based 200-year
   calibration harness (`mini-econ-sim`) — proposal code only; no mint,

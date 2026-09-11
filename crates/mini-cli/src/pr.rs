@@ -52,7 +52,7 @@ pub fn propose_pr(
         None => default_base(&store, home, &identity, &project_id),
     };
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let obj = propose(
         &mut store,
         &identity.human_did(),
@@ -83,7 +83,7 @@ pub fn approve_pr(
     let pr_id = ObjectId::parse(pr_ref).map_err(|e| CliError::Object(e.to_string()))?;
     let head = ObjectId::parse(head_ref).map_err(|e| CliError::Object(e.to_string()))?;
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let obj = approve(
         &mut store,
         &identity.human_did(),
@@ -107,7 +107,7 @@ pub fn approve_pr(
     );
 
     if let Some(text) = findings_text {
-        let seq2 = sequence::next(home)?;
+        let seq2 = sequence::next(home, store_path)?;
         let findings_obj = record_findings(
             &mut store,
             &identity.human_did(),
@@ -145,7 +145,7 @@ pub fn merge_pr(
         None => default_base(&store, home, &identity, &project_id),
     };
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let obj = merge(
         &mut store,
         &identity.human_did(),
@@ -174,7 +174,7 @@ pub fn set_ai_assisted(home: &Path, store_path: &Path, pr_ref: &str, owner: Did)
     let identity = crate::identity::load_or_init(home)?;
     let mut store = open_store(store_path)?;
     let pr_id = ObjectId::parse(pr_ref).map_err(|e| CliError::Object(e.to_string()))?;
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     declare_ai_assistance(
         &mut store,
         &identity.human_did(),

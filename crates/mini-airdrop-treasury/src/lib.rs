@@ -13,6 +13,11 @@
 //! signers` itself already use safely, composed here rather than
 //! reimplemented.
 //!
+//! [`PayoutJournal`] durably records approval and an independently signed
+//! settlement claim before dispatch, retries the exact recorded claim, and
+//! marks finalization only against verified canonical ledger history. It does
+//! not generate the settlement signature or bridge signature suites.
+//!
 //! ## What this crate deliberately does not do
 //!
 //! - **Does not touch `mini_treasury::frost_sign`.** That module's own
@@ -41,7 +46,9 @@
 
 mod approval;
 mod error;
+mod payout_journal;
 mod reconciliation;
+pub use payout_journal::{PayoutJournal, PayoutPhase};
 
 pub use approval::{
     payout_message, verify_payout_approvals, CandidateApproval, TreasuryApprovedPayout,

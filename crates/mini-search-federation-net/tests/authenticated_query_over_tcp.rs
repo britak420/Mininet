@@ -206,7 +206,7 @@ fn authenticated_search_response_carries_the_peer_bound_provider_label() {
 
     let merged = merge_authenticated_remote_results(Vec::new(), remote, 8).unwrap();
     assert_eq!(merged.len(), 1);
-    assert_eq!(merged[0].provider, expected_provider);
+    assert_eq!(merged[0].provider().clone(), expected_provider);
     server_thread.join().unwrap();
 }
 

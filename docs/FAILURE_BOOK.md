@@ -121,6 +121,47 @@ to be reverted; if signal (b) is ever actually solved (see issue #21),
 it becomes one more signal in the open-ended system, not a reason to go
 back to exactly three.
 
+### Self-reported network/operator-diversity tags as a storage-operator independence mechanism
+**Considered/tried:** giant go-live punch-list session, 2026-09-08, in
+response to the external audit reconstruction's "Independent
+replicas/operators — FAIL: one operator can still control many DIDs;
+requires independent-control mechanism" (`docs/audits/
+AUDIT_EVIDENCE_INDEX.md`).
+**What it was:** extending `mini-storage-fraud::registration`'s
+`RegistrationPolicy`/`AuditAttestation` so a verifier could require
+pairwise-distinct self-declared network prefixes or operator tags among
+an auditor quorum — modeled on `mini-transport-security::selection`'s
+real `NetworkPrefix` peer-dial diversity and `mini_spacetime::weight`'s
+`distinct_regions` bonus, both already-accepted precedents in this
+codebase.
+**Why it was rejected:** the precedents it would have copied are
+honest specifically because their diversity signal is bound to
+something real — `mini-transport-security`'s prefix comes from the IP
+address a live TCP dial actually connected to; `distinct_regions` is
+openly documented as self-reported and cost-raising only, never as
+identity proof. `mini-storage-fraud`'s audit attestations are signed
+statements with no live network session behind them, so any network- or
+operator-tag field added here would necessarily be self-reported by the
+auditor with nothing checking it — exactly as fabricable as minting one
+more DID, which the crate's own registration-quorum defense already
+requires and which the audit finding says is insufficient. Adding a
+field that *looks* like an independence check while providing no more
+resistance than the DID count it sits beside would be the "appears
+mechanically correct" failure mode this tree's own F5 doctrine (D-0428)
+explicitly warns against — security theater dressed as a fix, not a real
+increment. The gap is the same one `docs/design/
+storage-fraud-detection.md` and `docs/DECISION_LOG.md` already name
+plainly: a quorum of `n` roots may be one operator, and this crate "must
+never be cited as evidence that Sybil resistance exists." That is
+roadmap issue #18, not an engineering gap this crate can close alone.
+**Would it become viable again?** Only as a byproduct of solving
+personhood/Sybil resistance (#18) — a real unique-operator signal, once
+one exists, could bind auditor identity to it the same way `mini_
+storage_fraud` already binds replica ids to delegated device identity.
+Building the self-reported version first would not be a stepping stone
+toward that; it would need to be torn out and replaced, not extended,
+once a real signal exists. See D-0478 for the full investigation.
+
 ## Value & economics
 
 ### Protocol-native issuance, exchange, or custody of legacy currency

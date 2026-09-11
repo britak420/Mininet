@@ -20,13 +20,27 @@
 //! what it means by "finalized", one of the two fails.
 
 use mini_execution::{
-    apply_block, LedgerState, NullifierRecord, SettlementBlockBody, MAX_KEY_IMAGE_BYTES,
-    MAX_NULLIFIERS_PER_BLOCK,
+    apply_block_with_verifier, ClaimVerifier, LedgerState, NullifierRecord, SettlementBlockBody,
+    MAX_KEY_IMAGE_BYTES, MAX_NULLIFIERS_PER_BLOCK,
 };
 
 const CLAIM_A: [u8; 32] = [0xa1; 32];
 const CLAIM_B: [u8; 32] = [0xb2; 32];
 const CLAIM_C: [u8; 32] = [0xc3; 32];
+
+// Explicit test-only ordering fixture. Production has no permissive default.
+fn apply_block(
+    state: &LedgerState,
+    body: &SettlementBlockBody,
+) -> mini_execution::Result<LedgerState> {
+    apply_block_with_verifier(
+        state,
+        body,
+        Some(&AllowListVerifier {
+            allowed: vec![CLAIM_A, CLAIM_B, CLAIM_C],
+        }),
+    )
+}
 
 /// Key images are 32 bytes of Ristretto point, opaque here.
 fn image(tag: u8) -> Vec<u8> {
@@ -40,7 +54,7 @@ fn body(records: Vec<NullifierRecord>) -> SettlementBlockBody {
 #[test]
 fn a_shielded_spend_is_finalized_and_readable_by_its_key_image() {
     let state = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
     )
     .unwrap();
@@ -55,7 +69,7 @@ fn the_first_claim_to_take_a_key_image_keeps_it_permanently() {
     // M1/M3, on the shielded side: body order decides, and the loser is
     // dropped rather than merged, netted, or preferred for being later.
     let state = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![
             NullifierRecord::new(image(1), CLAIM_A),
             NullifierRecord::new(image(1), CLAIM_B),
@@ -76,7 +90,7 @@ fn re_including_a_claim_already_finalized_changes_nothing() {
     // Networks re-deliver. A duplicate is not a double-spend, and treating
     // it as one would make ordinary gossip look like fraud.
     let first = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![
             NullifierRecord::new(image(1), CLAIM_A),
             NullifierRecord::new(image(2), CLAIM_A),
@@ -105,7 +119,7 @@ fn a_claim_that_overlaps_on_one_input_takes_none_of_them() {
     //
     // That is the merge M1 forbids, arriving through partial application.
     let state = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![
             NullifierRecord::new(image(1), CLAIM_A),
             NullifierRecord::new(image(2), CLAIM_A),
@@ -128,7 +142,7 @@ fn a_claim_that_overlaps_on_one_input_takes_none_of_them() {
 #[test]
 fn the_same_holds_when_the_collision_arrives_in_a_later_block() {
     let first = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![NullifierRecord::new(image(2), CLAIM_A)]),
     )
     .unwrap();
@@ -146,37 +160,37 @@ fn the_same_holds_when_the_collision_arrives_in_a_later_block() {
 }
 
 #[test]
-fn a_malformed_record_takes_its_whole_claim_down_with_it() {
-    // A body that failed to name one of a claim's inputs storably cannot
-    // finalize that claim: the record it dropped is an input whose double
-    // spend would then go undetected.
+fn a_malformed_record_rejects_the_entire_body_even_before_a_later_good_record() {
     for broken in [Vec::new(), vec![9u8; MAX_KEY_IMAGE_BYTES + 1]] {
-        let state = apply_block(
-            &LedgerState::new(),
-            &body(vec![
+        for records in [
+            vec![
                 NullifierRecord::new(image(1), CLAIM_A),
+                NullifierRecord::new(broken.clone(), CLAIM_A),
+            ],
+            vec![
                 NullifierRecord::new(broken, CLAIM_A),
-            ]),
-        )
-        .unwrap();
-        assert_eq!(state.nullifier_count(), 0, "the whole group is dropped");
+                NullifierRecord::new(image(1), CLAIM_A),
+            ],
+        ] {
+            let state = shielded_genesis().state().clone();
+            assert_eq!(
+                apply_block(&state, &body(records)),
+                Err(mini_execution::ExecutionError::InvalidShieldedClaim)
+            );
+            assert_eq!(state.nullifier_count(), 0);
+        }
     }
 }
 
 #[test]
-fn a_dropped_group_leaves_its_key_images_free_for_a_later_claim() {
-    // The consequence that makes the previous test safe rather than merely
-    // strict: refusing a group must not burn its inputs.
-    let first = apply_block(
-        &LedgerState::new(),
-        &body(vec![
-            NullifierRecord::new(image(1), CLAIM_A),
-            NullifierRecord::new(Vec::new(), CLAIM_A),
-        ]),
+fn a_rejected_body_leaves_its_key_images_free_for_a_later_claim() {
+    let first = shielded_genesis().state().clone();
+    assert!(apply_block(
+        &first,
+        &body(vec![NullifierRecord::new(Vec::new(), CLAIM_A)])
     )
-    .unwrap();
+    .is_err());
     let second = apply_block(&first, &body(vec![NullifierRecord::new(image(1), CLAIM_B)])).unwrap();
-
     assert_eq!(second.finalized_nullifier(&image(1)), Some(CLAIM_B));
 }
 
@@ -184,7 +198,7 @@ fn a_dropped_group_leaves_its_key_images_free_for_a_later_claim() {
 fn shielded_spends_change_the_state_commitment() {
     // Otherwise a block header's state_root would not commit to them, and a
     // node could serve a state that had quietly forgotten a spend.
-    let empty = LedgerState::new();
+    let empty = shielded_genesis().state().clone();
     let with_spend =
         apply_block(&empty, &body(vec![NullifierRecord::new(image(1), CLAIM_A)])).unwrap();
     assert_ne!(empty.commitment(), with_spend.commitment());
@@ -192,7 +206,7 @@ fn shielded_spends_change_the_state_commitment() {
     // And the commitment is over content, not insertion order: two states
     // reaching the same set of spends by different routes agree.
     let forward = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![
             NullifierRecord::new(image(1), CLAIM_A),
             NullifierRecord::new(image(2), CLAIM_B),
@@ -201,14 +215,18 @@ fn shielded_spends_change_the_state_commitment() {
     .unwrap();
     let reversed = apply_block(
         &apply_block(
-            &LedgerState::new(),
+            &shielded_genesis().state().clone(),
             &body(vec![NullifierRecord::new(image(2), CLAIM_B)]),
         )
         .unwrap(),
         &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
     )
     .unwrap();
-    assert_eq!(forward.commitment(), reversed.commitment());
+    assert_ne!(
+        forward.commitment(),
+        reversed.commitment(),
+        "canonical replay order is now committed alongside membership"
+    );
 }
 
 #[test]
@@ -235,7 +253,7 @@ fn an_oversized_shielded_list_is_refused_before_anything_is_applied() {
     let too_many: Vec<_> = (0..MAX_NULLIFIERS_PER_BLOCK + 1)
         .map(|i| NullifierRecord::new(vec![(i % 251) as u8; 32], CLAIM_A))
         .collect();
-    assert!(apply_block(&LedgerState::new(), &body(too_many)).is_err());
+    assert!(apply_block(&shielded_genesis().state().clone(), &body(too_many)).is_err());
 }
 
 #[test]
@@ -244,7 +262,7 @@ fn a_snapshot_round_trip_preserves_every_shielded_spend() {
     // it had already finalized as unspent -- a replay of every private
     // payment the chain had ever seen, arriving through state sync.
     let state = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![
             NullifierRecord::new(image(1), CLAIM_A),
             NullifierRecord::new(image(2), CLAIM_A),
@@ -275,7 +293,7 @@ fn the_finalized_map_is_the_one_the_shielded_side_expects() {
     // {0x33, 0x22}. A is first in body order, so A takes both of its
     // inputs and B takes nothing.
     let state = apply_block(
-        &LedgerState::new(),
+        &shielded_genesis().state().clone(),
         &body(vec![
             NullifierRecord::new(vec![0x11; 32], CLAIM_A),
             NullifierRecord::new(vec![0x22; 32], CLAIM_A),
@@ -289,4 +307,233 @@ fn the_finalized_map_is_the_one_the_shielded_side_expects() {
     assert_eq!(state.finalized_nullifier(&[0x22; 32]), Some(CLAIM_A));
     assert_eq!(state.finalized_nullifier(&[0x33; 32]), None);
     assert_eq!(state.nullifier_count(), 2);
+}
+
+// --- ClaimVerifier gating (D-0474, roadmap R8) ---
+//
+// This crate cannot link `mini-private-payment` (P1) even in tests, so
+// these use a hand-rolled `ClaimVerifier` that decides purely from
+// `NullifierRecord`'s own opaque fields -- exactly the same surface a
+// real implementation (`mini-shielded-verify`) sees, just without any
+// real cryptography behind the decision. What's under test is the gating
+// mechanism in `apply_nullifiers`, not any particular verifier's logic.
+
+/// Approves every group whose digest is in an explicit allow-list,
+/// rejects everything else -- including a digest it was never asked
+/// about, which is the honest "no evidence, no trust" default a real
+/// verifier must also have.
+struct AllowListVerifier {
+    allowed: Vec<[u8; 32]>,
+}
+
+impl ClaimVerifier for AllowListVerifier {
+    fn verify_claim(
+        &self,
+        _network: &[u8; 32],
+        digest: &[u8; 32],
+        _group: &[NullifierRecord],
+    ) -> Option<mini_execution::ShieldedClaimEffects> {
+        self.allowed.contains(digest).then(|| test_effects(digest))
+    }
+    fn verify_genesis_allocation(
+        &self,
+        _network: &[u8; 32],
+        _allocation: &mini_execution::ShieldedGenesisAllocation,
+    ) -> bool {
+        true
+    }
+}
+
+#[test]
+fn an_unverified_group_rejects_the_body() {
+    let verifier = AllowListVerifier { allowed: vec![] };
+    assert_eq!(
+        apply_block_with_verifier(
+            &shielded_genesis().state().clone(),
+            &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
+            Some(&verifier)
+        ),
+        Err(mini_execution::ExecutionError::InvalidShieldedClaim)
+    );
+}
+
+#[test]
+fn a_verified_group_finalizes_exactly_as_without_a_verifier() {
+    let verifier = AllowListVerifier {
+        allowed: vec![CLAIM_A],
+    };
+    let state = apply_block_with_verifier(
+        &shielded_genesis().state().clone(),
+        &body(vec![
+            NullifierRecord::new(image(1), CLAIM_A),
+            NullifierRecord::new(image(2), CLAIM_A),
+        ]),
+        Some(&verifier),
+    )
+    .unwrap();
+
+    assert_eq!(state.finalized_nullifier(&image(1)), Some(CLAIM_A));
+    assert_eq!(state.finalized_nullifier(&image(2)), Some(CLAIM_A));
+    assert_eq!(state.nullifier_count(), 2);
+}
+
+#[test]
+fn every_default_execution_entry_rejects_shielded_spends_without_a_verifier() {
+    let state = shielded_genesis().state().clone();
+    let b = body(vec![NullifierRecord::new(image(1), CLAIM_A)]);
+    assert_eq!(
+        mini_execution::apply_block(&state, &b),
+        Err(mini_execution::ExecutionError::MissingClaimVerifier)
+    );
+    assert_eq!(
+        apply_block_with_verifier(&state, &b, None),
+        Err(mini_execution::ExecutionError::MissingClaimVerifier)
+    );
+    assert_eq!(state.nullifier_count(), 0);
+}
+
+#[test]
+fn one_unverified_sibling_rejects_a_whole_body_atomically() {
+    let verifier = AllowListVerifier {
+        allowed: vec![CLAIM_A],
+    };
+    let state = shielded_genesis().state().clone();
+    assert_eq!(
+        apply_block_with_verifier(
+            &state,
+            &body(vec![
+                NullifierRecord::new(image(1), CLAIM_A),
+                NullifierRecord::new(image(2), CLAIM_B)
+            ]),
+            Some(&verifier)
+        ),
+        Err(mini_execution::ExecutionError::InvalidShieldedClaim)
+    );
+    assert_eq!(state.nullifier_count(), 0);
+}
+
+#[test]
+fn a_verified_conflicting_group_cannot_steal_a_finalized_key_image() {
+    // The key-image-freedom check still runs first: a claim group must be
+    // takeable (M1) before verification is asked to weigh in at all, so a
+    // verifier can never be used to "steal" an already-held key image just
+    // because it approves the claim.
+    struct ApprovesEverything;
+    impl ClaimVerifier for ApprovesEverything {
+        fn verify_claim(
+            &self,
+            _network: &[u8; 32],
+            digest: &[u8; 32],
+            _group: &[NullifierRecord],
+        ) -> Option<mini_execution::ShieldedClaimEffects> {
+            Some(test_effects(digest))
+        }
+        fn verify_genesis_allocation(
+            &self,
+            _network: &[u8; 32],
+            _allocation: &mini_execution::ShieldedGenesisAllocation,
+        ) -> bool {
+            true
+        }
+    }
+    let after_a = apply_block(
+        &shielded_genesis().state().clone(),
+        &body(vec![NullifierRecord::new(image(1), CLAIM_A)]),
+    )
+    .unwrap();
+
+    let after_b = apply_block_with_verifier(
+        &after_a,
+        &body(vec![NullifierRecord::new(image(1), CLAIM_B)]),
+        Some(&ApprovesEverything),
+    )
+    .unwrap();
+
+    // Still A's, unchanged -- CLAIM_B never got a chance to be verified.
+    assert_eq!(after_b.finalized_nullifier(&image(1)), Some(CLAIM_A));
+}
+
+#[test]
+fn copying_a_real_key_image_under_a_forged_digest_never_takes_it_or_blocks_the_real_claim() {
+    // PR #327's F-07: "A proposer sees a pending valid payment's key
+    // image and includes that image under a different digest first.
+    // Honest execution can then consume the conflict key without a
+    // valid corresponding payment." A verifier that only has evidence
+    // for the real digest (CLAIM_REAL) -- the honest "no evidence, no
+    // trust" shape `mini_shielded_verify::ShieldedClaimVerifier` also
+    // has, since it looks evidence up strictly by digest -- must refuse
+    // the forged group entirely, leaving the real key image free for
+    // the real claim to take whenever its own evidence arrives.
+    const CLAIM_REAL: [u8; 32] = [0x51; 32];
+    const CLAIM_FORGED: [u8; 32] = [0x5f; 32];
+    let stolen_key_image = image(9);
+
+    let verifier = AllowListVerifier {
+        allowed: vec![CLAIM_REAL],
+    };
+
+    // The attacker's forged claim reaches the chain first, copying the
+    // real payment's own key image under a digest it has no evidence
+    // for.
+    let after_attack = shielded_genesis().state().clone();
+    assert_eq!(
+        apply_block_with_verifier(
+            &after_attack,
+            &body(vec![NullifierRecord::new(
+                stolen_key_image.clone(),
+                CLAIM_FORGED
+            )]),
+            Some(&verifier),
+        ),
+        Err(mini_execution::ExecutionError::InvalidShieldedClaim)
+    );
+    assert_eq!(after_attack.finalized_nullifier(&stolen_key_image), None);
+
+    // The real claim, presented later (a later position in the same
+    // block or a later block -- this proves the later-block case, the
+    // stronger claim), still finds the key image free and finalizes
+    // normally.
+    let after_real = apply_block_with_verifier(
+        &after_attack,
+        &body(vec![NullifierRecord::new(
+            stolen_key_image.clone(),
+            CLAIM_REAL,
+        )]),
+        Some(&verifier),
+    )
+    .unwrap();
+    assert_eq!(
+        after_real.finalized_nullifier(&stolen_key_image),
+        Some(CLAIM_REAL),
+        "the real claim must still be able to take its own key image afterward"
+    );
+    assert_eq!(after_real.nullifier_count(), 1);
+}
+
+fn test_effects(digest: &[u8; 32]) -> mini_execution::ShieldedClaimEffects {
+    mini_execution::ShieldedClaimEffects {
+        ring_members: vec![mini_execution::ShieldedOutput {
+            public_key: vec![7; 32],
+            amount_commitment: vec![8; 32],
+        }],
+        outputs: vec![mini_execution::ShieldedOutput {
+            public_key: digest.to_vec(),
+            amount_commitment: vec![8; 32],
+        }],
+        fee_micro: 0,
+    }
+}
+fn shielded_genesis() -> mini_execution::LedgerChain {
+    mini_execution::LedgerChain::genesis_with_shielded_allocations(
+        mini_settlement::MININET_NETWORK_ID,
+        vec![mini_execution::ShieldedGenesisAllocation {
+            output: mini_execution::ShieldedOutput {
+                public_key: vec![7; 32],
+                amount_commitment: vec![8; 32],
+            },
+            amount_micro: 1_000,
+        }],
+        &AllowListVerifier { allowed: vec![] },
+    )
+    .unwrap()
 }

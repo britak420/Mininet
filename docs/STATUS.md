@@ -16,6 +16,10 @@ for part of the claim, gap documented) · **prototype** (real code, but
 explicitly founder-reviewed only, pending external audit) · **design-only**
 (written design exists, no code yet) · **not started**.
 
+## PR #332 audit correction (2026-09-09)
+
+The original F-01–F-24 audit remains **PARTIAL**, and real value / real people remain **NO-GO**. Historical statements that all findings are closed are superseded as implementation status by the [current claim-to-executor evidence matrix](audits/PR332_REMEDIATION_STATUS.md). Passing structural checks does not establish semantic audit closure or external approval.
+
 ## The road to release (D-0453)
 
 What stands between today and a public release is now written down in one
@@ -165,7 +169,20 @@ given time.
   block suffix after it (a receiver may still need an ordinary
   `state_sync_over_tcp` call to close that last gap); no multi-peer
   sourcing, discovery/eclipse policy, external audit, or physical
-  weakest-device measurements. State-sync sockets have local I/O deadlines, but
+  weakest-device measurements. **(D-0497, PR #327 finding F-22)** the
+  finding's own concrete example -- a valid finalized header paired with a
+  different, internally self-consistent chunk tree -- is now covered by a
+  real adversarial test proving `finish()`'s final
+  `header.state_root == state.commitment()` check rejects it, not any
+  per-chunk proof. Snapshot-plus-suffix composition (closing the gap named
+  just above) was investigated and explicitly declined for now: the
+  chunked and un-chunked serving loops authenticate every message against
+  a fixed, protocol-specific AEAD domain from the first message on, so a
+  second ordinary `state_sync_over_tcp` call against a peer address
+  currently serving chunk-sync fails authentication outright rather than
+  composing -- closing this needs a real protocol-dispatch decision
+  (multiplexing, a combined wire message, or a documented two-address
+  convention), not a narrow fix. State-sync sockets have local I/O deadlines, but
   peer choice and retry remain host policy. The equivocation evidence is no longer silently dropped by
   the network driver (D-0088: `mini_consensus::EquivocatorRegistry`
   independently re-verifies and records every flagged root instead of
@@ -220,6 +237,21 @@ given time.
   from the caller (D-0367) instead of constructing a throwaway one
   internally, so a real app can supply `FileReplayGuard` and actually get
   that durability, closing `docs/BETA_STATUS.md` item 3.
+  **Durability hardened (D-0487):** `FileReplayGuard::check_and_record`
+  previously accepted a nonce into memory *before* attempting the durable
+  append, so a write failure (disk full, directory gone) still let the
+  exchange verify, remembered only in that process's memory -- a
+  crash/restart forgot it and the same nonce could be replayed and
+  accepted again. Now durably writes first and accepts in memory only on
+  success; `verify_presence` checks both parties' results and fails
+  closed (`PresenceError::ReplayGuardWriteFailed`) on either failure.
+  Separately, `decode_line`'s hex-field parser could panic on a corrupted
+  line carrying a non-ASCII multi-byte UTF-8 sequence (byte-index slicing
+  landing inside a character); it now validates ASCII hex digits byte-
+  wise and never re-slices the original string, so malformed input is
+  always a clean rejection, never a crash. A 64 MiB file-size cap now
+  guards the eager read `open` performs. See `docs/DECISION_LOG.md`
+  D-0487.
 - **doc-only** — `docs/design/credential-taxonomy.md` (D-0089, founder
   review's `credential-separation` finding) names and separates
   `ParticipantCredential`/`HumanEvidence`/`RoleCredential`/
@@ -317,7 +349,13 @@ given time.
   `open`/`open_with_capacity` rebuild exact in-memory state by replaying
   each persisted `(kel, observed_epoch)` through `WitnessJournal::
   observe_declared` unchanged, never a second, less-reviewed restore
-  path; bounded by an identity-count quota; 6 tests. **KEL head gossip
+  path; bounded by an identity-count quota; 7 tests (D-0481 added one: a
+  persistence failure now stages the observation against a journal
+  clone and only publishes it after a successful write, so a failed
+  persist can no longer leave the in-memory journal believing an
+  unwritten observation was accepted — the prior order let a retry see
+  `AlreadyAccepted` from memory alone and never attempt to persist
+  again). **KEL head gossip
   summaries shipped (Phase 5's first slice, D-0466):** `did_mini::
   gossip`'s `KelHeadSummary` — a compact, unsigned `(identity, sequence,
   event_digest, witness_policy_generation)` claim, buildable from a live
@@ -356,6 +394,15 @@ given time.
   gained an `accepted_policy` field (the *whole* old `WitnessPolicy`, not
   just its generation number) so a witness can know which policy, and
   which witnesses, it is certifying a transition away from; 12 tests.
+  **Anti-equivocation state added (D-0481):** `certify_policy_transition`
+  now remembers, per predecessor event and retiring generation, which
+  successor it already certified — a second, *different* successor
+  claimed from the same parent (the shape a compromised controller's
+  "ask each old witness separately" attack needs) is refused rather than
+  silently signed, while retrying the identical successor stays
+  idempotent; 5 new tests. Still in-memory only — a process restart
+  forgets prior certifications, reopening the window across a restart;
+  persisting this table is named follow-up.
   **§17.3's new-witness readiness threshold now also shipped (D-0471):**
   `verify_witness_rotation` AND-composes that same old-policy check with
   a new-policy one — enough *new* witnesses' own ordinary first receipts
@@ -368,22 +415,39 @@ given time.
   for — the only new code is the AND-composition, plus treating a full
   witness-policy retirement (no new witness set to prove readiness for)
   as vacuously satisfying the new-policy half; 6 tests.
-  **Not yet real:** no bounded/incremental re-verify
+  **§17.4's unavailable-witness recovery now also shipped (D-0475),
+  closing Phase 7 in full:** `verify_dead_witness_recovery` is the
+  deliberately opposite case from §17.2/§17.3 — it works *without* old-
+  witness cooperation, so a witness set going permanently dark can never
+  hold an identity hostage. The controller itself self-signs a typed
+  `WitnessUnavailabilityAttestation` (not a third-party proof — none is
+  available by construction) while its *pre-rotation* keys are still
+  current, documenting a minimum-length unreachability window for a
+  named old witness; the verifier checks that signature against exactly
+  that prior key state via `Kel::verify_message_at`, requires a
+  caller-set minimum number of *distinct* attested-unreachable witnesses
+  (`DeadWitnessRecoveryPolicy`, never hardcoded), and — if the recovery
+  installs a successor policy rather than retiring witnessing outright —
+  still requires that successor's own readiness certificate exactly as
+  §17.3 already does, reusing that check unchanged; full retirement
+  needs none, matching §17.3's own vacuous-retirement precedent; 10
+  tests. **Not yet real:** no bounded/incremental re-verify
   (`observe_verified`/`observe_declared` re-verify the whole chain from
   inception on every call, not just the new suffix), no fork-proof
   construction for the harder "conflicting descendant" case, no
-  recovery-aware handling (every rotation is treated identically), no
-  persistence for `DuplicityRegistry` (in-memory only), no automatic
-  evidence-fetch policy (a `Disagreement`/`Ahead` outcome is returned,
-  never auto-resolved — a host policy choice), no bounded
-  retention/pruning for gossip-summary objects, no unavailable-witness
-  recovery (§17.4, the last piece of Phase 7), no real call site yet gates an authority
-  decision on a `KelAssurance` level, requires old-policy certification
-  before trusting a rotation, or feeds real proofs into
-  `DuplicityRegistry`, no network transport for Phase 4's protocol
-  messages. Each remaining phase is its own later PR, gated behind
-  external review (D-0047) before any high-value authority decision may
-  depend on this layer.
+  recovery-aware handling (every ordinary rotation is treated
+  identically), no persistence for `DuplicityRegistry` (in-memory only),
+  no automatic evidence-fetch policy (a `Disagreement`/`Ahead` outcome is
+  returned, never auto-resolved — a host policy choice), no bounded
+  retention/pruning for gossip-summary objects, no dispute-resolution or
+  reputation consequence for a controller found to have attested falsely
+  under §17.4 (accountability, not unforgeability — stated plainly in
+  D-0475), no real call site yet gates an authority decision on a
+  `KelAssurance` level, requires old-policy certification before trusting
+  a rotation, or feeds real proofs into `DuplicityRegistry`, no network
+  transport for Phase 4's protocol messages. Each remaining phase is its
+  own later PR, gated behind external review (D-0047) before any
+  high-value authority decision may depend on this layer.
 - **partial** — post-quantum migration path ([#15](../../issues/15),
   D-0095/D-0322): `mini-crypto::SignatureSuite::MlDsa65` (FIPS 204, wire
   tag `0x02`) is real — `VerifyingKey`/`Signature` parse and verify
@@ -412,6 +476,25 @@ given time.
 - **not started** — device hierarchy beyond current single-tier
   delegation ([#14](../../issues/14)), on-chain pre-rotation anchoring
   (needs the chain).
+- **shipped (D-0485)** — 9 signature-bearing wire codecs across
+  `mini-chain`, `mini-consensus`, `mini-objects`, `mini-bridge`,
+  `mini-private-index`, and `mini-relay` had drifted below `did-mini`'s
+  own canonical `MAX_SIGNATURES`(64)/`MAX_SIGNATURE_BYTES`(4096, sized
+  for ML-DSA-65's real ~3.3 KiB signatures) bounds: 3 signature-count
+  caps were still hardcoded `16`, and 6 signature-byte caps were still
+  hardcoded `256` — a prior fix pass (#299/#301) caught most callers by
+  constant name but missed differently-named counterparts and never
+  caught a byte cap at all. A legitimate 17+-key threshold identity, or
+  an identity that migrates to ML-DSA-65 once `did-mini` wires that in,
+  would sign a message in memory and then fail to decode its own wire
+  encoding. All 9 now reference `did_mini::MAX_SIGNATURES`/
+  `MAX_SIGNATURE_BYTES` directly instead of restating a number. 9 new
+  regression tests prove the exact fix: 3 build genuine 17-current-key
+  `Controller`s and round-trip a real 17-signature vote/attestation/
+  proposal past the old count cap; 6 sign with a real ML-DSA-65 key
+  (`SigningKey::generate_ml_dsa_65`/`sign_ml_dsa_65`, already-shipped
+  Phase 2 above) and round-trip past the old byte cap. See
+  `docs/DECISION_LOG.md` D-0485.
 
 ## 4. Money & finality
 
@@ -463,6 +546,17 @@ given time.
   already has. 10 tests, including a real-socket end-to-end pass and a
   raw-ciphertext regression proving an attestation never crosses the wire
   unencrypted.
+  **Membership check added (D-0489):** `verify_validator_handshake`/
+  `recv_validator_handshake` checked delegation and `VOTE` capability but
+  never that the root was actually a member of any particular validator
+  set (F-14) — a real, validly-signed attestation from a never-admitted
+  or since-removed root passed every prior check. Both functions now
+  require a caller-supplied `mini_chain::ValidatorSet` and check
+  membership as a distinct step (new `ConsensusError::
+  ValidatorHandshakeNotAMember`). `discovery.rs`'s separate PEX adapter
+  needed no change — its own docs already correctly disclaim being
+  anything more than an unauthenticated hint. See
+  `docs/DECISION_LOG.md` D-0489.
 - **shipped (D-0462)** — `mini-consensus` gains **peer discovery over a real
   socket**, closing a second of roadmap R8's named gaps. `mini-net::pex`
   already had the request/response peer-exchange logic (`PexMessage`,
@@ -595,15 +689,62 @@ given time.
   format v2, state commitment v4, body hash v3; a v1 snapshot deliberately
   does not decode, since a state restored without its nullifiers would
   replay every private payment the chain had ever seen.
-  **What it does not do:** the chain finalizes a key image **on a proposer's
-  say-so**. It cannot check that a valid claim produced one — that is the
-  cryptography it deliberately cannot see — so a Byzantine proposer can burn
-  an output that is not theirs. The *ordering* is real; the ledger's
-  *contents* are not yet trustworthy, and that validity rule is roadmap R8's.
-  Nothing builds a block body's nullifier list from live traffic either,
-  because nothing has live traffic. 21 tests across both sides, including a
-  pair that assert the same finalized map from opposite sides of the wall —
-  no compiler can check that agreement, so two tests do.
+  **What it does not do by default:** the chain finalizes a key image **on a
+  proposer's say-so** unless a validator configures otherwise (see D-0474
+  immediately below) — the *ordering* was real from this decision on; the
+  *contents* half needed a validity rule the chain can check, which was
+  roadmap R8's last open item. Nothing builds a block body's nullifier list
+  from live traffic either, because nothing has live traffic. 21 tests
+  across both sides, including a pair that assert the same finalized map
+  from opposite sides of the wall — no compiler can check that agreement,
+  so two tests do.
+- **shipped (D-0474)** — **the shielded-spend validity rule**, closing
+  roadmap R8's last remaining item and the audit pack's (PR #321) most-cited
+  gap. `mini_execution::ClaimVerifier` is a new, caller-injected trait —
+  still opaque to this crate, operating only on `NullifierRecord` and raw
+  bytes it already exposes — that lets a validator's own process refuse to
+  prevote, build, or commit a block whose shielded spends it cannot
+  independently verify. New sibling functions
+  `apply_block_with_verifier`/`apply_finalized_block_with_verifier` take an
+  `Option<&dyn ClaimVerifier>` (`None` reproducing the pre-D-0474 behavior
+  exactly, so `apply_block`/`apply_finalized_block` and every existing
+  caller are unaffected); `mini_consensus::ConsensusNode` gained an optional
+  `claim_verifier` field via a new `with_claim_verifier` builder, threaded
+  into `validate_proposal`/`build_proposal`/`commit` — deliberately **not**
+  into state-sync/catch-up, which already trusts an already-formed quorum
+  certificate for historical blocks rather than re-deriving local agreement
+  on claims predating this node's own participation.
+  New crate `mini-shielded-verify` composes `ClaimVerifier` with
+  `mini_private_payment::verify`: `ClaimEvidencePool` (a local,
+  non-canonical claim-bytes store keyed by each claim's own transcript
+  digest — never part of the canonical block body or wire protocol) plus
+  `ShieldedClaimVerifier` (decodes, verifies, and confirms the result's key
+  images/digest exactly match what it's being asked to vouch for). Kept in
+  its own crate specifically so `mini-execution`/`mini-consensus`/
+  `mini-chain` never gain a dependency on `mini-private-payment`/
+  `mini-value` — the wall holds exactly as before.
+  Proven at every layer: state-level gating, a chain-level test where an
+  unverifiable claim produces a `StateRootMismatch` a validator with a
+  configured verifier correctly refuses, a consensus-level test where the
+  same scenario produces a real `nil` prevote (never silently dropped, the
+  same treatment an invalid timestamp already gets), and — in
+  `mini-shielded-verify`'s own tests — a genuine claim built with real
+  stealth derivation, a real MLSAG spend proof, and a real Bulletproof
+  range proof, verified end to end, plus a tampered claim correctly
+  rejected under its own resulting digest.
+  **What this does not close, stated plainly:** no claim-evidence gossip
+  protocol — how full claim bytes actually reach a validator (a dedicated
+  topic, a request/response protocol, an existing mempool) is not this
+  crate's job, only the shape a validator's own evidence-gathering
+  component must fill. No pruning/eviction policy for the evidence pool. No
+  accountability/measurement layer — roadmap R8 asks for a validator set
+  that "verifies claims and is measured for it"; this ships the
+  verification, not a trail recording *which* validators ran it (an
+  evidence structure analogous to `mini-consensus::evidence`'s
+  equivocation proofs remains unbuilt). The succinct-proof alternative
+  direction R8 also named remains entirely unbuilt — this commits to one of
+  R8's two named options, not both. Still gated behind D-0047/#72 before
+  any of this carries real value.
 - **shipped (D-0458)** — **amount disclosure**, closing roadmap R6. D-0451
   made an account's income enumerable and left it un-addable: a view key
   recognizes a stealth output, it does not open a Pedersen commitment, so an
@@ -713,6 +854,17 @@ given time.
   `AcknowledgedUnauditedDkg`; neither is externally audited yet — see
   `docs/gates/dkg-audit-scope.md` before treating this as production-viable
   at any value level.
+  **FROST signing hardened (D-0480):** `round2_sign` now consumes
+  `SigningNonces` by value (a second use is a compile error, not a
+  documented honest limit) and verifies the nonces derive the published
+  round-1 commitment; `verify_signature_share`/`aggregate` return typed
+  errors instead of panicking on a real group member absent from the
+  current signing round or an equal-sized substituted participant set;
+  `Signature::from_bytes` canonically decodes its response scalar instead
+  of reducing mod the group order, closing a decoder-aliasing hole where
+  two different byte strings could decode to the same signature. Fixes
+  API-level hazards only — the crate's overall D-0047/#72 gate and the
+  trusted-dealer-only prototype status are unchanged.
 - **policy kernel implemented; integration and external review open
   (proposed D-0413)** — the treasury economic model (D-0073,
   `docs/design/treasury-economic-model.md`: XRPL/XMR bridge split,
@@ -887,6 +1039,17 @@ given time.
   already-established key), traffic-analysis resistance, deterministic
   route-tag lookup, capability revocation — see D-0304's Required
   follow-up.
+  **Owner binding added (D-0488):** `CapabilityGrant::validate` checked
+  a grant's signature/scope/right/token/holder-proof but never that its
+  issuer actually owned the named resource -- any signer could produce a
+  perfectly valid grant naming someone else's object (F-13). `validate`
+  now requires a caller-supplied `resource_owner: &Did`, established
+  through the caller's own trusted channel, and refuses any grant whose
+  issuer does not match it (new `ObjectError::
+  CapabilityIssuerNotResourceOwner`). Confirmed zero real callers exist
+  in this workspace today (`mini-provider::EngagementGrant` is a
+  separate, still-unwired typed domain), so the signature change had no
+  coordinated-review cost. See `docs/DECISION_LOG.md` D-0488.
 - **design-only** — `docs/design/mixnet-sphinx-protocol.md` (D-0305,
   lane L3, `MN-204`): a Sphinx (Danezis & Goldberg 2009) + Loopix-style
   candidate specification for `mini_privacy_policy::Mechanism::
@@ -1234,19 +1397,36 @@ given time.
   and `ProvenCapacity` has **no constructor taking a number**, closing a
   hole where a provider could seal one 32-byte node and declare a million
   units into `mini_spacetime::proposer_weight`, which documents that it
-  "trusts its input completely".
+  "trusts its input completely" (D-0448 narrowed `proposer_weight`'s own
+  signature to accept nothing else). **D-0477 closes the layer above
+  that:** `ProvenCapacity::from_commitment` is still unconditional
+  arithmetic over whatever `StorageCommitment` it is handed, so a caller
+  could always construct one locally and call `proposer_weight` directly,
+  bypassing this crate entirely — `ProviderStanding::
+  block_production_weight` is the integration point that closes that gap
+  for real: its only capacity-bearing input is `&self`, and
+  `ProviderStanding` can only ever hold `ReplicaLifecycle` values built
+  from a claim that passed a real auditor quorum.
   **What it does not do:** it is not a clock (windows come from
   caller-supplied milliseconds), not a liveness signal (a missed window
   and a partition are the same observation, which is why lapse is
-  gradual and reversible), and not a reward — nothing consumes
-  `ProvenCapacity`, and `proposer_weight` still *accepts* a
-  caller-supplied figure, so the derived path is available rather than
-  mandatory. Window length, challenge count, grace allowance, and the
+  gradual and reversible), and not a reward — `block_production_weight`
+  is a real consumer of `ProvenCapacity` now, but weight is
+  block-production *selection*, not a payment, and nothing in this
+  workspace calls it yet: there is no networked consensus caller that
+  selects block producers by storage weight to wire it into, so this
+  remains an opt-in primitive a future caller reaches for, the same
+  honest limit already stated for `mini_execution::ClaimVerifier`
+  (D-0474). Window length, challenge count, grace allowance, and the
   beacon source are all open protocol questions, not derived figures.
-  17 integration tests, every possession proof running through the real
-  `mini_porep::respond` / `mini_spacetime::verify_storage_challenge`
-  primitives rather than simulated. Unaudited prototype cryptography
-  under the D-0047/#72 gate.
+  20 integration tests (17 plus D-0477's 3), every possession proof
+  running through the real `mini_porep::respond` /
+  `mini_spacetime::verify_storage_challenge` primitives rather than
+  simulated. Unaudited prototype cryptography under the D-0047/#72 gate.
+  Independent operator control behind a registration quorum remains
+  unsolved (roadmap #18) — see D-0478, which investigated and explicitly
+  declined a self-reported "diversity" mitigation as unable to close
+  that gap honestly.
 - **fixed (D-0445)** — `mini_spacetime::verify_storage_challenge` did not
   take the challenge it was verifying: it checked that a response's
   Merkle proof was internally consistent and correctly rooted, but never
@@ -1556,6 +1736,26 @@ horizontal roadmap breadth — is a founder priority call, not decided here.
   unchanged**: advisory findings still do not fail `dependency-audit` —
   `dependency-deny` is the job that blocks a vulnerable dependency, and
   it is the one that caught this.
+- **shipped (D-0486)** — `dependency-audit`'s scan step had a second,
+  narrower gap D-0450 above did not close: it checked only that
+  `cargo-audit`'s captured stdout was non-empty, parseable JSON, then
+  defaulted a *missing* `vulnerabilities` object to a zero count — never
+  actually using the exit status it captured into `$status`. A
+  `cargo-audit` operational failure (network/database down) that still
+  prints unrelated, well-formed JSON to stdout (`{"error": "database
+  unavailable"}`) passed both checks and read as "No advisories...
+  Scanner ran successfully." New `tools/dependency_scan_gate.py`
+  (`evaluate(report_text, exit_status)`) makes the exit status
+  load-bearing: only `cargo-audit`'s own documented exit codes (`0`
+  clean, `1` advisories found) are accepted, the report's
+  `vulnerabilities` object must have the right shape, and the two must
+  agree, or the job fails as an operational failure rather than a clean
+  scan. 17 tests in `tools/test_dependency_scan_gate.py` cover every
+  fixture named for this finding, including the exact
+  `{"error":...}`-at-a-nonzero-exit case. `.github/workflows/ci.yml`'s
+  step now calls this tested script instead of an untestable inline
+  heredoc. `dependency-deny` (the job that actually blocks a vulnerable
+  dependency) is unchanged. See `docs/DECISION_LOG.md` D-0486.
   The same run also exposed a **time bomb in the validator test suite**:
   four baseline tests copy the live repository and assert zero errors,
   and work-claim leases expire on a calendar, so once an open claim's
@@ -1938,9 +2138,20 @@ the top development priority.
   of a bounded protocol budget against a precommitted 10% ceiling. A
   second gate **fails**: when the realized audit seed is known while claim
   inputs remain variable, all 60 submitted IDs grind outside the 5% sample.
-  A third gate **fails** after measuring configured rather than friendly
-  observed capacity: 100,000 replay keys estimate to 9,600,000 bytes,
-  above the 8 MiB ceiling. A separate vector remains **partial** by design: two independently committed
+  A third gate, retained-state capacity (measuring configured rather than
+  friendly observed capacity), **was failing** — 100,000 replay keys
+  estimate to 9,600,000 bytes, above the 8 MiB ceiling — but that
+  specific gate carried no adversarial content (unlike the two above, its
+  own detail string named no attack) and was a plain configuration
+  default left over budget rather than a deliberate finding;
+  **D-0476 fixes it** (`make_policy`'s default drops to 80,000 keys,
+  7,680,000 bytes, under the ceiling) without touching the two genuine
+  collusion/grinding gates, which remain **fail** exactly as before —
+  `phase3_authorized` stays `false`. D-0476 also explicitly declines a
+  broader anti-collusion mechanism redesign: D-0428's own Required
+  follow-up requires external mechanism-design review before any such
+  proposal, the same category as roadmap R16 (Tokenomics, `outside`). A
+  separate vector remains **partial** by design: two independently committed
   policies can pay the same event because Mininet has no global activity
   registry; preventing unwanted overlap needs an explicit privacy-
   preserving policy-family rule. Issuer/auditor operational independence,
@@ -2038,10 +2249,12 @@ the top development priority.
   `docs/design/f6-private-query-transport.md`.
 - **shipped** — Track F6 Phase 2: wire remote query results into F3's
   federated merge (D-0436, roadmap #175). `mini-search-federation`'s
-  `federate_query` merge step (dedup by URL, higher score wins, ties break
-  on provider pseudonym bytes) is now a standalone public function,
-  `merge_federated_results`, with `federate_query` itself unchanged in
-  behavior. `mini-search-federation-net`'s new `remote_merge` module
+  `federate_query` merge step (dedup by URL; a locally-computed result
+  always beats a remote-asserted one for the same URL as of D-0496 below;
+  otherwise higher score wins, ties break on provider pseudonym bytes) is
+  now a standalone public function, `merge_federated_results`, with
+  `federate_query` itself unchanged in behavior beyond that origin
+  tiebreak. `mini-search-federation-net`'s new `remote_merge` module
   bridges a `remote_query` response into that same policy:
   `federated_result_from_wire` converts one `WireResult` into a typed
   `mini_query::ResultProvenance` and invokes the same canonical-field,
@@ -2056,6 +2269,25 @@ the top development priority.
   sealed merge that accepts no caller-selected replacement label. Endpoint
   rotation intentionally rotates the label; provider honesty and cross-rotation
   continuity remain unsolved. See `docs/design/f6-private-query-transport.md`.
+- **hardened (D-0496, PR #327 finding F-21)** — the federated merge no
+  longer lets a remote peer's self-reported `relevance_score_bps` silently
+  outrank this process's own independently-computed result for the same
+  URL merely by claiming a bigger number. `FederatedResult` now carries a
+  `ResultOrigin` (`LocallyComputed`/`RemoteAsserted`), private and only
+  settable via `federate_query` itself (`LocallyComputed`, real
+  `mini_query::search` output) or the new `FederatedResult::
+  remote_asserted` constructor (`RemoteAsserted`, always, regardless of
+  what a caller might otherwise want to claim) — no caller anywhere can
+  forge the origin label the merge tiebreak now depends on. A hostile
+  max-score remote assertion for a URL this process already scored for
+  real can no longer win; two competing remote, unverified assertions
+  still resolve by score as before (no local evidence exists to prefer
+  between them — no ranking truth oracle is claimed). `mini-ranker`'s
+  `rescore`/`local_rerank`'s documented, order-dependent diversity-signal
+  reuse was reviewed against this same finding and found already honestly
+  labeled (their own doc comments already say "callers wanting re-ranked
+  diversity need a fresh `rank` call" rather than silently claiming
+  freshness); no code change was needed there.
 - **shipped** — `mini-intake-types` (D-0313, Track B1): pure Mininet
   Intake vocabulary — `IntakeEnvelope`, `SourceRecord`,
   `DerivedRepresentation`, `AuthorityClass`, `ReviewState`, `IntakeLink`,
@@ -2174,6 +2406,16 @@ the top development priority.
   captured; a `mini-desktop` UI surface for the same workflow, and
   signed review attestations, both remain not built. See
   `docs/DECISION_LOG.md` D-0429.
+- **shipped (D-0484)** — the crash-recovery publish journal above now
+  verifies a recovered object is genuinely *this* envelope's own post
+  (same author, same exact text) before ever trusting it, via new
+  `mini_intake_social::verify_recovered_post_matches_intake`, closing a
+  founder-vision-review finding (F-09): previously any well-formed,
+  validly-signed `mini-social` object found at the journal path (keyed
+  only by intake id) was trusted unconditionally, so a stale journal
+  from an unrelated earlier run, a path-construction bug, or a
+  substituted file would have been silently inserted and linked. See
+  `docs/DECISION_LOG.md` D-0484.
 - **shipped, prototype (D-0363, Track C4)** — `mini-commons-policy`
   gains `service_quote_for(entitlement, tier, prices, payload_mb,
   storage_days)`, the paid-service boundary against `mini-resource-pricing`
@@ -2191,7 +2433,8 @@ the top development priority.
   choices" into a typed value with no cross-field validation of its own
   — every one of the 3 × 2 × 4 × 3 = 72 combinations constructs, so no
   future edit can silently couple two dimensions without a visible type
-  change. `achieved_result_receipt_for` (Track D2) is a thin
+  change. `publication_routing_plan_for` (Track D2, renamed from
+  `achieved_result_receipt_for` by D-0490 -- see below) is a thin
   composition of `mini-transport-policy::route` (fail-closed protection-
   property check) and `mini-resource-pricing::quote` (pricing), adding
   no new routing or pricing logic of its own; `quote` is `None` exactly
@@ -2220,6 +2463,20 @@ the top development priority.
   only — no relay identity is contacted, no `DeliveryAssignment` is
   produced; turning a role list into a real, discoverable relay path
   remains not-yet-scoped follow-up.
+  **Renamed for honesty (D-0490)** — the D-0364 type above was named
+  `AchievedResultReceipt`, which a caller reading only the type name
+  (not its own prose docs) could reasonably mistake for proof a
+  publication happened; it is, and always was, a routing plan and a
+  quote, produced before any bytes move. Renamed to
+  `PublicationRoutingPlan` (its `achieved` field to `achievable`, and
+  `SourceHidingPublicationPath`'s field to match) so the type's own
+  name states what it is (F-15). `mini-transport-security::
+  ExecutableTransport` gained the same discipline from the other side:
+  its variants now carry a private `Sealed` token, so no caller outside
+  `mini-transport-security` can construct one except by calling
+  `executable_transport` itself -- the Mixed/Burst rejection that gate
+  performs can no longer be silently bypassed by manufacturing the enum
+  value directly. See `docs/DECISION_LOG.md` D-0490.
 - **shipped, prototype (D-0372, Track D5)** — new crate
   `mini-replication-policy`: closes the distribution-planning gap
   `mini-erasure`'s own docs named as unstarted. `plan_placement` assigns
@@ -2419,8 +2676,8 @@ in `docs/INVARIANTS.md` also does not exist yet.
 `AirdropSnapshot` (one entry per identity root, bounded size, a
 BLAKE3-256 content digest a claim binds to) and `verify_and_resolve_claim`
 (campaign match → real `did-mini` KEL verification and scid match → KEL-
-threshold signature check → snapshot membership → `ClaimedRegistry`
-double-claim check → mark claimed). Returns a `ClaimOutcome` (amount +
+threshold signature check → snapshot membership → atomic
+`ClaimedRegistry::try_reserve`). Returns a `ClaimOutcome` (amount +
 recipient) only — never a `mini_settlement::PaymentClaim`, never holds
 treasury signing authority. Composes only already-reviewed primitives
 (`did-mini` KEL verification, `mini-crypto` BLAKE3); no new cryptography.
@@ -2434,13 +2691,34 @@ in this crate's own verification logic — one identity root claiming
 successfully proves control of that root's KEL keys, nothing about how
 many humans control it (roadmap #18, still open).
 
-**shipped, prototype (D-0355)** — `FileClaimedRegistry`: a real
-append-only, fsynced-on-write on-disk `ClaimedRegistry`. Tolerates a
-truncated trailing record (e.g. crash mid-write) by stopping there on
-replay rather than rejecting the whole file. `ClaimedRegistry::
-mark_claimed` is now fallible (`Result<()>`), so a genuine write failure
-propagates out of `verify_and_resolve_claim` instead of silently
-reporting a claim that was never durably recorded.
+**shipped, prototype (D-0355)** — `FileClaimedRegistry`: a real, fsynced
+on-disk `ClaimedRegistry`. Originally a single append-only log with a
+separate `already_claimed`-then-`mark_claimed` write path; superseded
+in shape (not in the crate it lives in) by D-0495 below.
+
+**hardened (D-0495, PR #327 finding F-20)** — `ClaimedRegistry`'s write
+side is now one atomic `try_reserve(identity_root, outcome_digest,
+at_ms)` call instead of a separate check-then-write pair, closing a real
+double-award race: two callers (two threads sharing a registry, or two
+processes each holding their own `FileClaimedRegistry` over the same
+path) could previously both observe "not yet claimed" before either
+persisted. `FileClaimedRegistry` now stores one exclusively-created
+(`O_EXCL`-equivalent) marker file per identity root — named by a content
+hash of the scid, never the raw scid text — inside a directory rather
+than a single shared log, so every read goes straight to disk instead of
+a per-instance in-memory cache; two independent instances over the same
+directory agree immediately, not only after a reopen. A retry that
+resolves to the *exact same* outcome (same identity root, amount,
+recipient) as an already-reserved claim now returns
+`ReservationOutcome::IdempotentRetry` and the same `ClaimOutcome`
+instead of erroring — the finding's other concrete example, "a valid
+claimant is marked claimed, then signing/submission fails; on retry the
+system refuses the claim although no funds arrived," no longer strands
+the claimant. A *different* outcome for an already-reserved root still
+fails closed as `AirdropError::AlreadyClaimed`, and an existing marker
+file this crate cannot decode (a truncated mid-write crash artifact)
+fails closed as a new `AirdropError::CorruptReservationRecord` rather
+than being silently trusted either way.
 
 **shipped, prototype (D-0356)** — `mini-airdrop-treasury`: bridges a
 `ClaimOutcome` to a `TreasuryApprovedPayout` by composing
@@ -2451,6 +2729,19 @@ Explicitly does **not** touch `mini_treasury::frost_sign` — that
 module's own docs name it the "permanent honeypot" component requiring
 external audit (D-0035) — and does **not** produce a signed
 `mini_settlement::PaymentClaim`.
+
+**hardened (D-0495)** — `TreasuryApprovedPayout`'s two fields are now
+private with read-only accessors (`outcome()`/`approving_signers()`);
+the type has no public constructor anywhere, so the only way to obtain
+one is `verify_payout_approvals` actually checking real KEL signatures
+against a real threshold. Previously every field was `pub`, so any
+caller could hand-construct one without ever calling verification — the
+finding's own words, "a public approval-shaped struct must not be
+accepted as proof merely because it can be constructed." Nothing
+downstream consumed the free-constructibility yet (no code anywhere
+builds a settlement claim from a `TreasuryApprovedPayout` today), so
+this closes the landmine before anything could step on it, not an
+active exploit.
 
 **Not built** — the actual settlement-claim construction/signing step
 that would turn a `TreasuryApprovedPayout` into moved value. This is
@@ -2582,6 +2873,22 @@ bootloader, hardware support, security patches, and package infrastructure.
   people meet too late: a dead disk without a backup is a permanently lost
   identity, and cheap hardware is exactly the hardware whose storage
   fails. Before this there was no backup path at all.
+- **hardened (D-0491, F-16)** — three real bugs fixed in `backup/
+  backup.sh`/`restore.sh`: the batch-mode passphrase reached `gpg` as a
+  process argument (`--passphrase`), visible to any local process via the
+  world-readable `/proc/<pid>/cmdline`, now `--passphrase-fd` instead;
+  `restore.sh` extracted a decrypted archive with no explicit path
+  validation, now rejects absolute paths, `..` traversal, and a
+  symlinked top-level entry before extracting anything; and the restore
+  sequence was `rm -rf` the old state then `mv` the new state in, so an
+  interruption between those two steps could lose both — now the old
+  state is staged aside (same filesystem, atomic rename) and only
+  removed once the new state is fully in place, so an interruption at
+  any point leaves one or the other fully recoverable, never neither.
+  New `deploy/backup/test_backup_restore.sh` (8 real checks: round trip,
+  wrong passphrase, missing `--force`, corrupted archive, path-traversal
+  archive, interrupted-restore recovery, no-argv-leak) wired into CI as
+  `deploy-backup-restore`. See `docs/DECISION_LOG.md` D-0491.
 - **not run end-to-end** — no real Debian Stable machine or VM ran the
   installer in this session; verification was manifest lint (unit syntax,
   firewall syntax, sysusers dry-run, live package-name resolution) plus

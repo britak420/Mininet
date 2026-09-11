@@ -220,16 +220,19 @@ capabilities the mesh performs on its own. Turning any of them into the
 mesh's default behavior (identity-gated admission, dynamic topology,
 automatic catch-up on startup, automatic exclusion adoption) is separate,
 later, host/deployment-level work — named here rather than hidden.
-**All four originally named gaps now have a shipped, tested answer** — the
-tests each of D-0207/D-0460/D-0462/D-0463 shipped with, each failing without
-its fix. **Closed by:** the one item still open in this row's territory,
-named by D-0457 rather than by the original four: a validity rule the chain
-itself can check on a shielded spend. Today the chain finalizes a key image
-on a proposer's say-so and cannot verify a valid claim produced it — that
-check is the cryptography `mini-chain` deliberately cannot see (see
-`mini_execution::nullifier`'s module docs). Closing it needs either a
-succinct proof the chain can cheaply verify, or a validator set that does
-verify claims and is measured for it.
+**R8 remains active.** These primitives do not close deployed admission,
+freshness, recovery and accountability requirements. PR #332 follow-up makes
+shielded verification fail closed: a missing verifier rejects a shielded body.
+Verification checks canonical key/commitment membership and applies outputs,
+nullifiers and fees atomically. Quorum-backed tests exercise a funded payment,
+recipient re-spend and Byzantine invented/rebound inputs. Snapshot replay binds
+the configured genesis and independently supplied claim evidence.
+
+Evidence gossip, bounded retention, audited issuance/withdrawal, approved state
+migration and external cryptographic review remain open. Validator admission
+and weak-device/partition evidence must be assessed separately. The
+[current audit matrix](audits/PR332_REMEDIATION_STATUS.md) records the actual
+PARTIAL findings; the existence of helpers is not their closure.
 
 ### R9 — KEL freshness and witnesses (M3) · `active`
 The stale-KEL revocation gap, audit #12 finding F4. A device whose delegation
@@ -278,11 +281,26 @@ threshold — enough new witnesses' own ordinary first receipts for the
 same rotation event, checked the same unchanged way. No new receipt type:
 a new witness's first observation already signs under the new generation,
 so existing Phase 1-4 machinery already produces what §17.3 needs.
-**Closed by:** the one remaining Phase 7 piece — unavailable-witness
-recovery (§17.4) — plus a real call site that *gates* an authority
-decision on an assurance level. That last one is a founder-facing policy
-call: which governance action requires which minimum level is not an
-engineering choice.
+**D-0475 closes Phase 7's last slice (§17.4) and the phase itself:**
+`verify_dead_witness_recovery` is the deliberately opposite case from
+§17.2/§17.3 — it works *without* old-witness cooperation, so a witness
+set that has gone permanently dark can never hold an identity hostage.
+The controller self-signs a typed `WitnessUnavailabilityAttestation`
+while its pre-rotation keys are still current, documenting a
+minimum-length unreachability window for a named old witness; the
+verifier checks that signature against exactly that prior key state,
+requires a caller-set minimum number of distinct attested-unreachable
+witnesses, and — unless the recovery retires witnessing outright — still
+requires the successor policy's own readiness certificate exactly as
+§17.3 already does. This is accountability, not unforgeability, and says
+so plainly: nothing can cryptographically prove a third party is
+unreachable from outside that party's own cooperation, so the honest
+tradeoff is a durable, non-repudiable, historically-anchored controller
+claim rather than a stronger guarantee this codebase cannot actually
+make. **Remaining:** a real call site that *gates* an authority decision
+on an assurance level, and any dispute-resolution consequence for a
+controller found to have attested falsely — both founder-facing policy
+calls, not engineering choices this phase can make for them.
 
 ### R10 — BLE and local-radio transport · `outside`
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap

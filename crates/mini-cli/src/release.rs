@@ -64,7 +64,7 @@ pub fn create(
     let bytes = std::fs::read(artifact_path).map_err(|e| CliError::Io(e.to_string()))?;
     let recipe_digest = parse_hex32(recipe_digest_hex, "--recipe-digest")?;
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let manifest = mini_media::publish_media(
         &mut store,
         &human,
@@ -76,7 +76,7 @@ pub fn create(
     )
     .map_err(|e| CliError::Media(e.to_string()))?;
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let obj = release(
         &mut store,
         &human,
@@ -114,7 +114,7 @@ pub fn attest_release(
     let release_id = ObjectId::parse(release_ref).map_err(|e| CliError::Object(e.to_string()))?;
     let digest = parse_hex32(artifact_digest_hex, "--artifact-digest")?;
 
-    let seq = sequence::next(home)?;
+    let seq = sequence::next(home, store_path)?;
     let obj = attest(
         &mut store,
         &identity.human_did(),

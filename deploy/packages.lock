@@ -43,6 +43,7 @@ libssl-dev
 # --- operational tooling the installer/verification scripts depend on ---
 curl
 gnupg
+python3
 jq
 # `ss`, for preflight's port-availability check.
 iproute2

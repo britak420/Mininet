@@ -23,6 +23,9 @@
 #   MININET_BACKUP_PASSPHRASE=... deploy/backup/restore.sh <archive> --batch
 
 set -euo pipefail
+umask 077
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARCHIVE_TOOL="${SCRIPT_DIR}/state_archive.py"
 
 STATE_DIR="${MININET_STATE_DIR:-/var/lib/mininet}"
 
@@ -46,6 +49,14 @@ fail() { printf '[mininet-restore] ERROR: %s\n' "$*" >&2; exit 1; }
 [[ "${EUID}" -eq 0 ]] || fail "must run as root (writes ${STATE_DIR} and /etc/mininet)"
 
 command -v gpg >/dev/null 2>&1 || fail "gpg not found (install the gnupg package)"
+command -v python3 >/dev/null 2>&1 || fail "python3 not found"
+command -v flock >/dev/null 2>&1 || fail "flock not found"
+[[ ! -L "${STATE_DIR}" ]] || fail "state directory must not be a symlink"
+state_parent="$(cd "$(dirname "${STATE_DIR}")" && pwd -P)"
+STATE_DIR="${state_parent}/$(basename "${STATE_DIR}")"
+# Updated mini CLI processes hold a shared lease at this stable sibling path.
+exec 9<> "${state_parent}/.mininet-maintenance-$(basename "${STATE_DIR}").lock"
+flock --exclusive --nonblock 9 || fail "node state is in use; stop the sync service and other mini commands first"
 
 # Integrity first, so a truncated download is distinguishable from a wrong
 # passphrase. Without this the operator sees "decryption failed" for both.
@@ -83,32 +94,40 @@ else
     [[ "${confirm}" == "restore" ]] || fail "aborted"
 fi
 
-workdir="$(mktemp -d)"
+# F-16: staged on the same filesystem as STATE_DIR's own parent (not the
+# system default temp filesystem, e.g. tmpfs at /tmp, which is very often
+# a different mount) so the final `mv` operations below are real,
+# same-filesystem atomic renames rather than a cross-filesystem copy that
+# a crash or power loss partway through could leave incomplete.
+install -d -m 0750 "$(dirname "${STATE_DIR}")"
+workdir="$(mktemp -d "$(dirname "${STATE_DIR}")/.mininet-restore.XXXXXX")"
 # shellcheck disable=SC2064 # expand workdir now, not at trap time
-trap "rm -rf -- '${workdir}'" EXIT
+trap 'rm -rf -- "${workdir}"' EXIT
 chmod 0700 "${workdir}"
 
 log "decrypting"
 if [[ "${BATCH}" -eq 1 ]]; then
+    # F-16: --passphrase-fd, not --passphrase -- see backup.sh's own
+    # comment on this. The archive is read as a plain positional argument
+    # (its path, not a secret) and is unaffected.
     gpg --batch --yes --quiet --decrypt \
-        --passphrase "${MININET_BACKUP_PASSPHRASE}" "${ARCHIVE}" \
+        --passphrase-fd 3 "${ARCHIVE}" \
         > "${workdir}/state.tar.gz" \
+        3< <(printf '%s' "${MININET_BACKUP_PASSPHRASE}") \
         || fail "decryption failed (wrong passphrase, or an archive this key does not open)"
 else
     gpg --quiet --decrypt "${ARCHIVE}" > "${workdir}/state.tar.gz" \
         || fail "decryption failed (wrong passphrase, or an archive this key does not open)"
 fi
 
-log "extracting"
-tar -xzf "${workdir}/state.tar.gz" -C "${workdir}"
-
 state_name="$(basename "${STATE_DIR}")"
-[[ -d "${workdir}/${state_name}" ]] \
-    || fail "archive does not contain a '${state_name}' directory — is this a Mininet node backup?"
-
-install -d -m 0750 "$(dirname "${STATE_DIR}")"
-rm -rf -- "${STATE_DIR}"
-mv "${workdir}/${state_name}" "${STATE_DIR}"
+log "validating and extracting bounded regular-file archive"
+python3 "${ARCHIVE_TOOL}" extract "${workdir}/state.tar.gz" "${workdir}/extracted" "${state_name}"
+previous="${STATE_DIR}.restore-previous"
+[[ ! -e "${previous}" && ! -L "${previous}" ]] \
+    || fail "an earlier restore left ${previous}; reconcile it before restoring again"
+python3 "${ARCHIVE_TOOL}" publish "${workdir}/extracted/${state_name}" "${STATE_DIR}" "${previous}"
+[[ ! -e "${previous}" ]] || log "previous state retained at ${previous} for recovery"
 
 # Ownership by NAME, not by the archived numeric uid: the mininet system
 # user may well have a different uid on this machine.
@@ -118,15 +137,16 @@ else
     log "the 'mininet' user does not exist yet; run the installer, then re-chown ${STATE_DIR}"
 fi
 chmod 0750 "${STATE_DIR}"
+python3 "${ARCHIVE_TOOL}" validate-tree "${STATE_DIR}"
 
-if [[ -f "${workdir}/appliance.conf" ]]; then
+if [[ -f "${workdir}/extracted/appliance.conf" ]]; then
     install -d -m 0755 /etc/mininet
     if [[ -f /etc/mininet/appliance.conf ]]; then
         log "/etc/mininet/appliance.conf already exists; archived copy left at ${STATE_DIR}/appliance.conf.restored"
-        install -m 0640 -o mininet -g mininet "${workdir}/appliance.conf" \
+        install -m 0640 -o mininet -g mininet "${workdir}/extracted/appliance.conf" \
             "${STATE_DIR}/appliance.conf.restored"
     else
-        install -m 0644 "${workdir}/appliance.conf" /etc/mininet/appliance.conf
+        install -m 0644 "${workdir}/extracted/appliance.conf" /etc/mininet/appliance.conf
     fi
 fi
 

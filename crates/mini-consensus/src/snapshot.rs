@@ -91,13 +91,33 @@ impl ConsensusSnapshot {
         validators: &ValidatorSet,
         oracle: &dyn ValidatorOracle,
     ) -> Result<LedgerChain> {
-        LedgerChain::from_finalized_snapshot(
+        self.into_chain_with_verifier(
+            expected_network_id,
+            validators,
+            oracle,
+            LedgerState::new().shielded_genesis_commitment(),
+            None,
+        )
+    }
+
+    /// Restore a checkpoint only after independently verifying shielded claims.
+    pub fn into_chain_with_verifier(
+        self,
+        expected_network_id: [u8; 32],
+        validators: &ValidatorSet,
+        oracle: &dyn ValidatorOracle,
+        expected_shielded_genesis: [u8; 32],
+        verifier: Option<&dyn mini_execution::ClaimVerifier>,
+    ) -> Result<LedgerChain> {
+        LedgerChain::from_finalized_snapshot_with_verifier(
             &self.header,
             self.state,
             &self.qc,
             validators,
             oracle,
             expected_network_id,
+            expected_shielded_genesis,
+            verifier,
         )
         .map_err(ConsensusError::Execution)
     }

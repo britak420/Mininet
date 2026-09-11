@@ -12,6 +12,13 @@ use mini_uniqueness::{
     VouchFields, VoucherParty, VOUCH_VERSION,
 };
 
+/// A deterministic, non-secret 32-byte test nonce -- see
+/// `mini-presence/tests/presence.rs`'s identical helper for why this is
+/// derived via a hash rather than written as a literal array.
+fn test_nonce(seed: u8) -> [u8; 32] {
+    mini_crypto::HashAlgorithm::Blake3.digest(&[seed])
+}
+
 fn human(
     root_c: [u8; 32],
     root_n: [u8; 32],
@@ -33,12 +40,12 @@ fn valid_vouch(a_device: &Controller, b_device: &Controller) -> VouchAttestation
         a: VoucherParty {
             device: a_device.did(),
             kel_digest: mini_presence::kel_digest(&a_device.kel()),
-            nonce: [1u8; 32],
+            nonce: test_nonce(1),
         },
         b: VoucherParty {
             device: b_device.did(),
             kel_digest: mini_presence::kel_digest(&b_device.kel()),
-            nonce: [2u8; 32],
+            nonce: test_nonce(2),
         },
         asserted_at_ms: 1_000,
     };

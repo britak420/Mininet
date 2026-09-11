@@ -51,6 +51,14 @@ pub enum AirdropError {
     /// original error type so `AirdropError` can stay `PartialEq`/`Eq`,
     /// matching every other error in this crate.
     RegistryWriteFailed(String),
+    /// [`crate::file_registry::FileClaimedRegistry`] found an existing
+    /// reservation record it cannot decode (wrong size or domain tag --
+    /// e.g. a crash truncated a write mid-flight). This identity root is
+    /// refused rather than either silently treated as a fresh claim
+    /// (which could double-award) or silently treated as an unconditional
+    /// duplicate (which could permanently strand a legitimate retry) --
+    /// PR #327 finding F-20's "truncated/malformed middle records" case.
+    CorruptReservationRecord,
 }
 
 impl core::fmt::Display for AirdropError {
@@ -95,6 +103,12 @@ impl core::fmt::Display for AirdropError {
             }
             AirdropError::RegistryWriteFailed(msg) => {
                 write!(f, "claimed-registry write failed: {msg}")
+            }
+            AirdropError::CorruptReservationRecord => {
+                write!(
+                    f,
+                    "an existing claim-reservation record could not be decoded; refusing rather than guessing"
+                )
             }
         }
     }

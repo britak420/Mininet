@@ -11,9 +11,10 @@
 //! or could hold that authority.
 
 use did_mini::{Did, IndexedSig, Kel};
+use mini_crypto::hash::blake3_256;
 
 use crate::error::{AirdropError, Result};
-use crate::registry::ClaimedRegistry;
+use crate::registry::{ClaimedRegistry, ReservationOutcome};
 use crate::snapshot::AirdropSnapshot;
 
 /// Hard limit on [`ClaimRequest::recipient`].
@@ -103,6 +104,23 @@ pub struct ClaimOutcome {
     pub recipient: Vec<u8>,
 }
 
+/// A content digest over every field of `outcome` -- the value
+/// [`ClaimedRegistry::try_reserve`] binds a reservation to, so a retry
+/// that resolves to the *identical* outcome (same identity root, amount,
+/// recipient) can be told apart from a genuinely conflicting claim
+/// against an already-reserved identity root (PR #327 finding F-20).
+pub fn outcome_digest(outcome: &ClaimOutcome) -> [u8; 32] {
+    let root_bytes = outcome.identity_root.as_str().as_bytes();
+    let mut msg = Vec::with_capacity(40 + 4 + root_bytes.len() + 8 + 4 + outcome.recipient.len());
+    msg.extend_from_slice(b"mini-airdrop/claim-outcome-digest/v1");
+    msg.extend_from_slice(&(root_bytes.len() as u32).to_be_bytes());
+    msg.extend_from_slice(root_bytes);
+    msg.extend_from_slice(&outcome.amount_micro.to_be_bytes());
+    msg.extend_from_slice(&(outcome.recipient.len() as u32).to_be_bytes());
+    msg.extend_from_slice(&outcome.recipient);
+    blake3_256(&msg)
+}
+
 /// Verify `request` against `snapshot`, `claimant_kel`, `sigs`, and
 /// `registry`, in order:
 ///
@@ -114,11 +132,18 @@ pub struct ClaimOutcome {
 ///    [`message_to_sign`] -- the claimant proved control with the same
 ///    keys `did-mini` already trusts.
 /// 4. `request.identity_root` must have an entry in `snapshot`.
-/// 5. `request.identity_root` must not already be in `registry`.
+/// 5. `request.identity_root` must atomically reserve against
+///    `registry` for this exact resolved outcome (see
+///    [`ClaimedRegistry::try_reserve`]).
 ///
-/// Only on success does this function call `registry.mark_claimed` --
-/// every failure path leaves `registry` untouched, so a caller can retry
-/// after fixing e.g. a malformed request without burning the claim.
+/// Every failure path up to step 5 leaves `registry` untouched, so a
+/// caller can retry after fixing e.g. a malformed request without
+/// burning the claim. Step 5 itself is idempotent: retrying with a
+/// request that resolves to the identical outcome as an already-reserved
+/// one (PR #327 finding F-20's "signing/submission failed, retry is
+/// refused although no funds arrived") succeeds again rather than
+/// erroring; only a *conflicting* outcome for an already-reserved
+/// identity root is rejected as [`AirdropError::AlreadyClaimed`].
 pub fn verify_and_resolve_claim(
     snapshot: &AirdropSnapshot,
     request: &ClaimRequest,
@@ -149,17 +174,20 @@ pub fn verify_and_resolve_claim(
         .entry_for(&request.identity_root)
         .ok_or(AirdropError::NotEligible)?;
 
-    if registry.already_claimed(&request.identity_root) {
-        return Err(AirdropError::AlreadyClaimed);
-    }
-
-    registry.mark_claimed(&request.identity_root, now_ms)?;
-
-    Ok(ClaimOutcome {
+    let outcome = ClaimOutcome {
         identity_root: entry.identity_root.clone(),
         amount_micro: entry.amount_micro,
         recipient: request.recipient.clone(),
-    })
+    };
+
+    match registry.try_reserve(
+        &request.campaign_id,
+        &request.identity_root,
+        outcome_digest(&outcome),
+        now_ms,
+    )? {
+        ReservationOutcome::Fresh | ReservationOutcome::IdempotentRetry => Ok(outcome),
+    }
 }
 
 #[cfg(test)]
@@ -212,8 +240,11 @@ mod tests {
         assert_eq!(outcome.identity_root, claimant.did());
         assert_eq!(outcome.amount_micro, 1_000);
         assert_eq!(outcome.recipient, b"payee-address");
-        assert!(registry.already_claimed(&claimant.did()));
-        assert_eq!(registry.claimed_at(&claimant.did()), Some(500));
+        assert!(registry.already_claimed(b"campaign-1", &claimant.did()));
+        assert_eq!(
+            registry.claimed_at(b"campaign-1", &claimant.did()),
+            Some(500)
+        );
     }
 
     #[test]
@@ -295,7 +326,7 @@ mod tests {
             AirdropError::NotEligible
         );
         // A failed verification must never mark anything claimed.
-        assert!(!registry.already_claimed(&claimant.did()));
+        assert!(!registry.already_claimed(b"campaign-1", &claimant.did()));
     }
 
     #[test]

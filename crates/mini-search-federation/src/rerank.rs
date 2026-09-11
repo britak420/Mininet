@@ -50,22 +50,8 @@ pub fn local_rerank(
         let mut rescored = r.clone();
         rescored.result.result.relevance_score_bps = new_score;
         rescored.result.result.ranking_profile = profile.id.clone();
+        rescored.reweighted = true;
         out.push(rescored);
     }
-    out.sort_by(|a, b| {
-        b.result
-            .result
-            .relevance_score_bps
-            .value()
-            .cmp(&a.result.result.relevance_score_bps.value())
-            .then_with(|| {
-                a.result
-                    .result
-                    .url
-                    .canonical_string()
-                    .cmp(&b.result.result.url.canonical_string())
-            })
-    });
-    out.truncate(max_results);
-    Ok(out)
+    Ok(crate::merge_federated_results(out, max_results))
 }

@@ -12,7 +12,7 @@
 //! and does not defend against. [`NoProof`] remains available as the
 //! fail-closed reference for anyone not opting into the interim scheme.
 
-use crate::storage_proof::ProvenCapacity;
+use crate::storage_proof::ObservedCapacity;
 
 /// A source of proof-of-space-time evidence for one identity's committed
 /// storage.
@@ -22,11 +22,9 @@ pub trait ProofOfSpaceTimeSource {
     /// for a node that hasn't completed a challenge-response round yet, or
     /// whose proof window has lapsed.
     ///
-    /// Returns a [`ProvenCapacity`] rather than a `u64` so an implementation
-    /// cannot hand a weighting layer a number it merely decided on. The
-    /// type has no numeric constructor; see its own documentation for the
-    /// hole that closes.
-    fn proven_capacity(&mut self, now_ms: u64) -> Option<ProvenCapacity>;
+    /// Returns a byte measurement, not an authorization token. A lower-level
+    /// possession source cannot confer audited proposer standing or rewards.
+    fn proven_capacity(&mut self, now_ms: u64) -> Option<ObservedCapacity>;
 }
 
 /// The reference [`ProofOfSpaceTimeSource`]: no protocol backs it, so
@@ -36,7 +34,7 @@ pub trait ProofOfSpaceTimeSource {
 pub struct NoProof;
 
 impl ProofOfSpaceTimeSource for NoProof {
-    fn proven_capacity(&mut self, _now_ms: u64) -> Option<ProvenCapacity> {
+    fn proven_capacity(&mut self, _now_ms: u64) -> Option<ObservedCapacity> {
         None
     }
 }

@@ -139,18 +139,43 @@ pub enum WitnessObservation {
     ControllerDuplicity(Box<ControllerDuplicityProof>),
 }
 
+/// Which specific successor this witness has already certified as a
+/// legitimate policy-changing transition away from one particular
+/// predecessor state (F-06) — keyed by (identity, predecessor event
+/// digest, retiring policy generation) so a second, *different* successor
+/// claimed from the exact same parent is recognized as a conflicting
+/// transition rather than silently signed. Two rival successors of the
+/// same parent share every field of this key except the successor digest
+/// this journal actually certified, which is exactly the discriminator a
+/// compromised controller's "ask each old witness separately" attack
+/// depends on this journal *not* remembering.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct TransitionKey {
+    identity: Did,
+    predecessor_digest: Vec<u8>,
+    retiring_generation: u64,
+}
+
 /// In-memory per-witness state, keyed by identity. Not persisted, not
-/// networked, not shared across processes — a single witness's local view
-/// (Phase 6's persistent/durable witness service is future work).
-#[derive(Debug, Default)]
+/// networked, not shared across processes — a single witness's local view.
+///
+/// `Clone` (F-05): `mini-witness-service::PersistentWitnessJournal` stages
+/// an observation against a clone of this journal, persists durably, and
+/// only then replaces its real journal with the staged one — so a
+/// persistence failure can never leave this journal believing it accepted
+/// something durable storage never actually recorded. Cloning is a plain
+/// `HashMap` copy; nothing here is a secret.
+#[derive(Debug, Default, Clone)]
 pub struct WitnessJournal {
     states: HashMap<Did, WitnessIdentityState>,
+    transition_certifications: HashMap<TransitionKey, Vec<u8>>,
 }
 
 impl WitnessJournal {
     pub fn new() -> Self {
         WitnessJournal {
             states: HashMap::new(),
+            transition_certifications: HashMap::new(),
         }
     }
 
@@ -158,6 +183,45 @@ impl WitnessJournal {
     /// anything for it yet.
     pub fn state_for(&self, identity: &Did) -> Option<&WitnessIdentityState> {
         self.states.get(identity)
+    }
+
+    /// The successor event digest this journal already certified (if any)
+    /// as the legitimate policy-changing transition away from `identity`'s
+    /// `predecessor_digest` state at `retiring_generation` (F-06). `None`
+    /// means no certification has been recorded yet for this exact
+    /// predecessor+generation.
+    pub(crate) fn transition_certification(
+        &self,
+        identity: &Did,
+        predecessor_digest: &[u8],
+        retiring_generation: u64,
+    ) -> Option<&[u8]> {
+        let key = TransitionKey {
+            identity: identity.clone(),
+            predecessor_digest: predecessor_digest.to_vec(),
+            retiring_generation,
+        };
+        self.transition_certifications.get(&key).map(Vec::as_slice)
+    }
+
+    /// Record that this journal certified `successor_digest` as the
+    /// legitimate transition away from `identity`'s `predecessor_digest`
+    /// state at `retiring_generation` (F-06). Overwrites any prior entry
+    /// for the same key — callers must check [`Self::transition_certification`]
+    /// first and refuse a conflicting successor before ever reaching this.
+    pub(crate) fn record_transition_certification(
+        &mut self,
+        identity: Did,
+        predecessor_digest: Vec<u8>,
+        retiring_generation: u64,
+        successor_digest: Vec<u8>,
+    ) {
+        let key = TransitionKey {
+            identity,
+            predecessor_digest,
+            retiring_generation,
+        };
+        self.transition_certifications.insert(key, successor_digest);
     }
 
     /// Observe `event` as witness `witness_id`, signing with `witness_key`
@@ -227,6 +291,20 @@ impl WitnessJournal {
                 Err(IdentityError::WitnessConflictingDescendant { sequence: event.sn })
             }
             Decision::Accept => {
+                // A separately certified transition reserves this successor
+                // even while the old accepted head is retained. Ordinary
+                // observation must not publish a rival successor afterward.
+                if let Some(previous) = self.states.get(&identity) {
+                    if let Some(certified) = self.transition_certification(
+                        &identity,
+                        &event.prior,
+                        previous.accepted_policy.generation,
+                    ) {
+                        if certified != event_digest.as_slice() {
+                            return Err(IdentityError::ConflictingPolicyTransitionCertification);
+                        }
+                    }
+                }
                 let statement = WitnessReceiptStatement {
                     version: crate::witness::WitnessReceiptVersion::V1,
                     identity: identity.clone(),

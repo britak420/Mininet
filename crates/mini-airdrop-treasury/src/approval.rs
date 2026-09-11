@@ -45,12 +45,38 @@ pub fn payout_message(campaign_id: &[u8], outcome: &ClaimOutcome) -> Vec<u8> {
 /// A payout the treasury signer set has approved -- not itself a
 /// settlement claim, only the evidence that enough authorized signers
 /// agreed to one.
+///
+/// Both fields are private and this type carries no public constructor:
+/// the only way to obtain one anywhere in the dependency graph is
+/// [`verify_payout_approvals`] actually checking real KEL signatures
+/// against a real [`TreasurySignerSet`] threshold. A struct shaped like
+/// approval evidence must not itself be acceptable as approval evidence
+/// merely because a caller can write out its field values (PR #327
+/// finding F-20's "a public approval-shaped struct must not be accepted
+/// as proof merely because it can be constructed") -- the same
+/// unforgeable-typed-domain discipline D-0490 already applied to
+/// `mini_transport_security::ExecutableTransport`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TreasuryApprovedPayout {
-    pub outcome: ClaimOutcome,
+    campaign_id: Vec<u8>,
+    outcome: ClaimOutcome,
+    approving_signers: Vec<Did>,
+}
+
+impl TreasuryApprovedPayout {
+    pub fn campaign_id(&self) -> &[u8] {
+        &self.campaign_id
+    }
+    /// The claim outcome this approval covers.
+    pub fn outcome(&self) -> &ClaimOutcome {
+        &self.outcome
+    }
+
     /// The distinct, verified, authorized signers whose approval counted
     /// toward the threshold, canonically sorted.
-    pub approving_signers: Vec<Did>,
+    pub fn approving_signers(&self) -> &[Did] {
+        &self.approving_signers
+    }
 }
 
 /// One candidate approval: a signer's real KEL plus signatures over
@@ -107,6 +133,7 @@ pub fn verify_payout_approvals(
     approving_signers.sort_by(|a, b| a.as_str().cmp(b.as_str()));
 
     Ok(TreasuryApprovedPayout {
+        campaign_id: campaign_id.to_vec(),
         outcome: outcome.clone(),
         approving_signers,
     })
@@ -157,7 +184,7 @@ mod tests {
         let candidates = vec![(&kel1, sigs.as_slice())];
 
         let approved = verify_payout_approvals(b"campaign-1", &outcome, &set, &candidates).unwrap();
-        assert_eq!(approved.approving_signers, vec![d1]);
+        assert_eq!(approved.approving_signers(), &[d1]);
     }
 
     #[test]
@@ -197,7 +224,7 @@ mod tests {
         let approved = verify_payout_approvals(b"campaign-1", &outcome, &set, &candidates).unwrap();
         let mut expected = vec![d1, d2];
         expected.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-        assert_eq!(approved.approving_signers, expected);
+        assert_eq!(approved.approving_signers(), expected.as_slice());
     }
 
     #[test]

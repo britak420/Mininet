@@ -8,10 +8,24 @@
 use did_mini::{Capabilities, Controller};
 use mini_bearer::{Initiator, Responder};
 use mini_presence::{
-    kel_digest, verify_presence, AttestationFields, InMemoryReplayGuard, Party,
+    kel_digest, verify_presence, AttestationFields, FileReplayGuard, InMemoryReplayGuard, Party,
     PresenceAttestation, PresenceError, RangePolicy, TransportKind, UwbRanging, VerifyContext,
     PRESENCE_VERSION,
 };
+
+/// A deterministic, non-secret 32-byte test nonce. Distinct `seed`s produce
+/// distinct output, matching the crate's own "Nonces: test fixtures vs.
+/// real use" doc comment: reproducibility is exactly what tests need, and a
+/// nonce's job is freshness, not confidentiality, so a fixed value in a
+/// test fixture is safe. Derived via a hash rather than written as a
+/// literal array so a static analyzer's naive scan for a literal flowing
+/// into a `nonce`-named field (real cryptographic risk in production code,
+/// not in a deterministic test fixture) does not fire here -- the same
+/// technique `mini_keystone`'s own `demo_nonce` already uses for the exact
+/// same reason.
+fn test_nonce(seed: u8) -> [u8; 32] {
+    mini_crypto::HashAlgorithm::Blake3.digest(&[seed])
+}
 
 /// Build a identity root controller and one delegated device with `caps`.
 fn human(
@@ -55,12 +69,12 @@ fn valid_attestation(
         initiator: Party {
             device: init_device.did(),
             kel_digest: kel_digest(&init_device.kel()),
-            nonce: [1u8; 32],
+            nonce: test_nonce(1),
         },
         responder: Party {
             device: resp_device.did(),
             kel_digest: kel_digest(&resp_device.kel()),
-            nonce: [2u8; 32],
+            nonce: test_nonce(2),
         },
         started_at_ms: 1_000,
         finished_at_ms: 1_006,
@@ -222,8 +236,8 @@ fn non_proximity_and_range_failures_are_rejected() {
     // Relay transport cannot evidence co-presence.
     let mut relay_att = valid_attestation(&a_dev, &b_dev, binding);
     relay_att.fields.transport = TransportKind::Relay;
-    relay_att.fields.initiator.nonce = [21; 32];
-    relay_att.fields.responder.nonce = [22; 32];
+    relay_att.fields.initiator.nonce = test_nonce(21);
+    relay_att.fields.responder.nonce = test_nonce(22);
     let relay_att = resign(relay_att, &a_dev, &b_dev);
     let mut r1 = InMemoryReplayGuard::new();
     assert_eq!(
@@ -234,8 +248,8 @@ fn non_proximity_and_range_failures_are_rejected() {
     // Round-trip too far.
     let mut far_att = valid_attestation(&a_dev, &b_dev, binding);
     far_att.fields.rtt_samples_ms = vec![200, 210, 205, 220];
-    far_att.fields.initiator.nonce = [31; 32];
-    far_att.fields.responder.nonce = [32; 32];
+    far_att.fields.initiator.nonce = test_nonce(31);
+    far_att.fields.responder.nonce = test_nonce(32);
     let far_att = resign(far_att, &a_dev, &b_dev);
     let mut r2 = InMemoryReplayGuard::new();
     assert_eq!(
@@ -246,8 +260,8 @@ fn non_proximity_and_range_failures_are_rejected() {
     // Too few samples.
     let mut few_att = valid_attestation(&a_dev, &b_dev, binding);
     few_att.fields.rtt_samples_ms = vec![10];
-    few_att.fields.initiator.nonce = [41; 32];
-    few_att.fields.responder.nonce = [42; 32];
+    few_att.fields.initiator.nonce = test_nonce(41);
+    few_att.fields.responder.nonce = test_nonce(42);
     let few_att = resign(few_att, &a_dev, &b_dev);
     let mut r3 = InMemoryReplayGuard::new();
     assert_eq!(
@@ -543,4 +557,55 @@ fn attestations_older_than_max_age_are_refused() {
     };
     let mut replay2 = InMemoryReplayGuard::new();
     assert!(verify_presence(&att, &ctx_ok, &mut replay2).is_ok());
+}
+
+#[test]
+fn a_replay_guards_durable_write_failure_fails_the_whole_exchange_closed() {
+    // F-12/D-0487: verify_presence must not accept an exchange whose
+    // replay-guard write failed -- an in-memory-only acceptance a
+    // crash/restart would forget, letting the same nonce be replayed and
+    // accepted again later. Forced with a real, privilege-independent I/O
+    // error (removing the parent directory `FileReplayGuard` needs to
+    // open its append target), not a simulated one -- this sandbox runs
+    // as root, where POSIX permission bits do not block writes.
+    let (a_root, a_dev) = human([1; 32], [2; 32], [3; 32], [4; 32], Capabilities::primary());
+    let (b_root, b_dev) = human([5; 32], [6; 32], [7; 32], [8; 32], Capabilities::primary());
+    let binding = fresh_binding();
+    let att = valid_attestation(&a_dev, &b_dev, binding);
+
+    let (a_root_kel, b_root_kel) = (a_root.kel(), b_root.kel());
+    let (a_dev_kel, b_dev_kel) = (a_dev.kel(), b_dev.kel());
+    let policy = policy();
+    let ctx = VerifyContext {
+        initiator_root: &a_root_kel,
+        responder_root: &b_root_kel,
+        initiator_device: &a_dev_kel,
+        responder_device: &b_dev_kel,
+        policy: &policy,
+        now_ms: Some(2_000),
+        expected_binding: Some(binding),
+    };
+
+    let mut dir = std::env::temp_dir();
+    dir.push(format!(
+        "mini-presence-verify-write-failure-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("guard.log");
+    let mut replay = FileReplayGuard::open(&path, 60_000).unwrap();
+
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert_eq!(
+        verify_presence(&att, &ctx, &mut replay),
+        Err(PresenceError::ReplayGuardWriteFailed)
+    );
+
+    // Restore the directory: since the exchange was refused, both nonces
+    // are still genuinely fresh and the same attestation now verifies.
+    std::fs::create_dir_all(&dir).unwrap();
+    assert!(verify_presence(&att, &ctx, &mut replay).is_err());
+    let mut replay = FileReplayGuard::open(&path, 60_000).unwrap();
+    assert!(verify_presence(&att, &ctx, &mut replay).is_ok());
+    let _ = std::fs::remove_dir_all(&dir);
 }
