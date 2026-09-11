@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 77,
-    "files": 973,
+    "files": 974,
     "headings": 3538,
-    "rust_symbols": 9845
+    "rust_symbols": 9860
   },
   "crates": {
     "did-mini": {
@@ -49399,7 +49399,7 @@
       "title": "use mini_crypto::HashAlgorithm;"
     },
     {
-      "bytes": 33806,
+      "bytes": 33865,
       "group": "crate:mini-private-payment",
       "headings": [],
       "keywords": [
@@ -49428,9 +49428,9 @@
         "stable",
         "signature"
       ],
-      "lines": 849,
+      "lines": 852,
       "path": "crates/mini-private-payment/src/claim.rs",
-      "sha256": "a77a279b45f3403a33f387f5a6b4ecf00bb9d5fb2d8bb5742df5bf43d63abaa0",
+      "sha256": "9e199507c4434dcc4a048d85050018d9abc68fe9e6a970a698aeb4603e2fa1b5",
       "symbols": [
         {
           "kind": "const",
@@ -49619,17 +49619,17 @@
         },
         {
           "kind": "fn",
-          "line": 715,
+          "line": 718,
           "name": "verify"
         },
         {
           "kind": "fn",
-          "line": 828,
+          "line": 831,
           "name": "canonicalize_ring"
         },
         {
           "kind": "fn",
-          "line": 846,
+          "line": 849,
           "name": "ring_is_canonical"
         }
       ],
@@ -50792,7 +50792,7 @@
       "title": "use mini_settlement::{CanonicalRejection, SettlementState};"
     },
     {
-      "bytes": 10048,
+      "bytes": 10057,
       "group": "crate:mini-private-payment",
       "headings": [],
       "keywords": [
@@ -50823,7 +50823,7 @@
       ],
       "lines": 251,
       "path": "crates/mini-private-payment/src/scan.rs",
-      "sha256": "e590f3a49309dd2636f243f46fd17d905b88b8422883178e3819005f5ac28b7d",
+      "sha256": "cba9ca4de7beae0e9246ba1e21e5e3e589445b3081d9184ac849784a7c06973a",
       "symbols": [
         {
           "kind": "struct",
@@ -51624,7 +51624,7 @@
       "title": "mod support;"
     },
     {
-      "bytes": 5954,
+      "bytes": 5972,
       "group": "crate:mini-private-payment",
       "headings": [],
       "keywords": [
@@ -51640,6 +51640,7 @@
         "new",
         "output",
         "one",
+        "mini_value",
         "stealthkeypair",
         "value_micro",
         "fill",
@@ -51650,12 +51651,11 @@
         "to_vec",
         "default",
         "mint",
-        "len",
-        "every"
+        "len"
       ],
       "lines": 168,
       "path": "crates/mini-private-payment/tests/support/mod.rs",
-      "sha256": "4ba0ca733471b90fa3191d1972f31df8a7e75bf489d239e4a40b5af5e65eac01",
+      "sha256": "95f8b246790b8f7288189f4a2bc9e3e1d34fe36cf211eb081f13317622278f6c",
       "symbols": [
         {
           "kind": "const",
@@ -75699,7 +75699,7 @@
       "title": "use crate::curve::{hash_to_point, RistrettoPoint};"
     },
     {
-      "bytes": 10064,
+      "bytes": 10094,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
@@ -75728,9 +75728,9 @@
         "identity",
         "round"
       ],
-      "lines": 269,
+      "lines": 271,
       "path": "crates/mini-value/src/bp_ipa.rs",
-      "sha256": "07908e71c76d1ad58dccd104e4975a04f78fb376e76c5cb8b2061586f619a467",
+      "sha256": "1d36cfab377be2707f2c2f9f92e9c767eed12004ea45405326b47739266936e1",
       "symbols": [
         {
           "kind": "struct",
@@ -75749,54 +75749,54 @@
         },
         {
           "kind": "mod",
-          "line": 170,
+          "line": 172,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 174,
+          "line": 176,
           "name": "setup"
         },
         {
           "kind": "fn",
-          "line": 184,
+          "line": 186,
           "name": "commit"
         },
         {
           "kind": "fn",
-          "line": 195,
+          "line": 197,
           "name": "a_valid_proof_verifies_for_various_sizes"
         },
         {
           "kind": "fn",
-          "line": 211,
+          "line": 213,
           "name": "a_wrong_commitment_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 223,
+          "line": 225,
           "name": "a_tampered_final_scalar_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 235,
+          "line": 237,
           "name": "a_tampered_l_point_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 247,
+          "line": 249,
           "name": "a_different_transcript_seed_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 258,
+          "line": 260,
           "name": "mismatched_l_r_lengths_are_rejected_without_panicking"
         }
       ],
       "title": "use curve25519_dalek::traits::Identity;"
     },
     {
-      "bytes": 19004,
+      "bytes": 19148,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
@@ -75825,9 +75825,9 @@
         "inner-product",
         "argument"
       ],
-      "lines": 485,
+      "lines": 491,
       "path": "crates/mini-value/src/bp_range.rs",
-      "sha256": "a55c4c737268fd8e1234104c19edc2b98e6cc374f2ed6baaa5a024fd69d0baaf",
+      "sha256": "47050d240017c9b3c5cb6b11701c058051065aa04d9298e31583cc48813bea9d",
       "symbols": [
         {
           "kind": "fn",
@@ -75876,86 +75876,193 @@
         },
         {
           "kind": "mod",
-          "line": 331,
+          "line": 337,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 335,
+          "line": 341,
           "name": "a_valid_proof_verifies_for_various_values"
         },
         {
           "kind": "fn",
-          "line": 347,
+          "line": 353,
           "name": "a_wrong_commitment_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 355,
+          "line": 361,
           "name": "a_tampered_t_hat_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 363,
+          "line": 369,
           "name": "a_tampered_tau_x_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 371,
+          "line": 377,
           "name": "a_tampered_mu_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 379,
+          "line": 385,
           "name": "a_tampered_a_commitment_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 387,
+          "line": 393,
           "name": "a_tampered_t1_or_t2_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 395,
+          "line": 401,
           "name": "a_tampered_ipa_component_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 403,
+          "line": 409,
           "name": "malformed_commitment_bytes_are_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 410,
+          "line": 416,
           "name": "different_blindings_for_the_same_value_produce_unlinkable_commitments"
         },
         {
           "kind": "fn",
-          "line": 421,
+          "line": 427,
           "name": "commitments_are_additively_homomorphic"
         },
         {
           "kind": "fn",
-          "line": 438,
+          "line": 444,
           "name": "a_range_proof_survives_a_wire_round_trip_and_still_verifies"
         },
         {
           "kind": "fn",
-          "line": 452,
+          "line": 458,
           "name": "a_range_proof_of_the_wrong_length_is_refused_rather_than_truncated"
         },
         {
           "kind": "fn",
-          "line": 462,
+          "line": 468,
           "name": "a_decodable_proof_is_not_necessarily_a_valid_one"
         },
         {
           "kind": "fn",
-          "line": 475,
+          "line": 481,
           "name": "the_encoding_is_fixed_width_for_every_value"
         }
       ],
       "title": "use curve25519_dalek::traits::Identity;"
+    },
+    {
+      "bytes": 8167,
+      "group": "crate:mini-value",
+      "headings": [],
+      "keywords": [
+        "scalar",
+        "bytes",
+        "canonical",
+        "one",
+        "key",
+        "canonical_scalar",
+        "non-canonical",
+        "field",
+        "byte",
+        "value",
+        "curve",
+        "canonical_point",
+        "scalars",
+        "audit",
+        "every",
+        "instead",
+        "strings",
+        "same",
+        "element",
+        "compressedristretto",
+        "decompress",
+        "keys",
+        "option",
+        "arr"
+      ],
+      "lines": 179,
+      "path": "crates/mini-value/src/canonical.rs",
+      "sha256": "af109ef7524ea729950737a28e89d2c9601f25d1959bc633393273e285522770",
+      "symbols": [
+        {
+          "kind": "fn",
+          "line": 61,
+          "name": "canonical_scalar"
+        },
+        {
+          "kind": "fn",
+          "line": 70,
+          "name": "canonical_nonzero_scalar"
+        },
+        {
+          "kind": "fn",
+          "line": 83,
+          "name": "canonical_point"
+        },
+        {
+          "kind": "fn",
+          "line": 92,
+          "name": "canonical_nonidentity_point"
+        },
+        {
+          "kind": "mod",
+          "line": 101,
+          "name": "tests"
+        },
+        {
+          "kind": "const",
+          "line": 109,
+          "name": "GROUP_ORDER_LE"
+        },
+        {
+          "kind": "fn",
+          "line": 116,
+          "name": "a_value_already_in_range_round_trips"
+        },
+        {
+          "kind": "fn",
+          "line": 123,
+          "name": "zero_is_canonical_but_rejected_by_the_nonzero_variant"
+        },
+        {
+          "kind": "fn",
+          "line": 136,
+          "name": "the_group_order_itself_is_rejected_not_reduced_to_zero"
+        },
+        {
+          "kind": "fn",
+          "line": 147,
+          "name": "one_past_the_group_order_is_also_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 154,
+          "name": "wrong_length_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 160,
+          "name": "the_identity_point_decodes_but_is_rejected_by_the_nonidentity_variant"
+        },
+        {
+          "kind": "fn",
+          "line": 168,
+          "name": "a_real_point_round_trips_through_the_nonidentity_variant"
+        },
+        {
+          "kind": "fn",
+          "line": 175,
+          "name": "malformed_point_bytes_are_rejected"
+        }
+      ],
+      "title": "use crate::curve::{CompressedRistretto, RistrettoPoint, Scalar};"
     },
     {
       "bytes": 4025,
@@ -76060,20 +76167,18 @@
       "title": "use crate::bp_range::RangeProof;"
     },
     {
-      "bytes": 8964,
+      "bytes": 8779,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
         "commitment",
-        "amount",
         "proof",
-        "arr",
+        "amount",
         "confidentialamountscheme",
         "blinding",
-        "point",
-        "scalar",
         "fee",
         "some",
+        "point",
         "mininetconfidentialamount",
         "commit_with_proof",
         "sum_commitments",
@@ -76082,30 +76187,32 @@
         "bp_generators",
         "balance",
         "self",
+        "scalar",
         "blinding_factor",
         "vec",
         "value",
         "sum",
         "verify_range_proof",
-        "verify_balance"
+        "verify_balance",
+        "pedersen_commitment"
       ],
-      "lines": 208,
+      "lines": 205,
       "path": "crates/mini-value/src/confidential_impl.rs",
-      "sha256": "d8e6d38a402164a7118d877e5099d3ee931814cd7608d13a745672fed427c774",
+      "sha256": "a5928b9d6b90d64d1c5a2245d2104c4f425c88cec3d16f7a9f4a79ffad6b248e",
       "symbols": [
         {
           "kind": "struct",
-          "line": 22,
+          "line": 23,
           "name": "MininetConfidentialAmount"
         },
         {
           "kind": "impl",
-          "line": 24,
+          "line": 25,
           "name": "ConfidentialAmountScheme"
         },
         {
           "kind": "fn",
-          "line": 25,
+          "line": 26,
           "name": "commit_with_proof"
         },
         {
@@ -76125,105 +76232,105 @@
         },
         {
           "kind": "fn",
-          "line": 91,
+          "line": 90,
           "name": "public_amount_commitment"
         },
         {
           "kind": "fn",
-          "line": 100,
+          "line": 99,
           "name": "sum_commitments"
         },
         {
           "kind": "mod",
-          "line": 111,
+          "line": 108,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 115,
+          "line": 112,
           "name": "a_committed_amount_verifies_its_own_range_proof"
         },
         {
           "kind": "fn",
-          "line": 123,
+          "line": 120,
           "name": "a_bare_commitment_is_the_same_point_the_proving_path_produces"
         },
         {
           "kind": "fn",
-          "line": 140,
+          "line": 137,
           "name": "a_bare_commitment_rejects_a_malformed_blinding_factor"
         },
         {
           "kind": "fn",
-          "line": 145,
+          "line": 142,
           "name": "bare_commitments_balance_exactly_as_proven_ones_do"
         },
         {
           "kind": "fn",
-          "line": 157,
+          "line": 154,
           "name": "malformed_blinding_factor_is_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 163,
+          "line": 160,
           "name": "malformed_commitment_bytes_fail_verification_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 171,
+          "line": 168,
           "name": "balanced_inputs_and_outputs_verify"
         },
         {
           "kind": "fn",
-          "line": 184,
+          "line": 181,
           "name": "unbalanced_inputs_and_outputs_fail_verification"
         },
         {
           "kind": "fn",
-          "line": 197,
+          "line": 194,
           "name": "empty_inputs_and_outputs_are_vacuously_balanced"
         },
         {
           "kind": "fn",
-          "line": 203,
+          "line": 200,
           "name": "malformed_commitment_in_balance_check_fails_without_panicking"
         }
       ],
       "title": "use curve25519_dalek::traits::Identity;"
     },
     {
-      "bytes": 3836,
+      "bytes": 4853,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
         "wide",
         "scalar",
-        "hasher",
         "group",
+        "hasher",
+        "random_scalar",
         "hash_to_scalar",
         "ristretto",
         "hello",
         "basepoint",
-        "random_scalar",
         "hash_to_point",
         "protocols",
         "ristrettopoint",
+        "mini_crypto",
+        "random_32",
+        "order",
+        "reduction",
+        "error",
+        "byte",
+        "bytes",
         "blake3",
         "parts",
         "part",
         "ring_impl",
-        "built",
-        "hash",
-        "used",
-        "curve25519_dalek",
-        "mini_crypto",
-        "random_32",
-        "error",
-        "world"
+        "built"
       ],
-      "lines": 101,
+      "lines": 119,
       "path": "crates/mini-value/src/curve.rs",
-      "sha256": "0ebfeab7b7871bd1fc1d5c5fe08a3b398ae0b3e462b59b7d851618fcef9e421b",
+      "sha256": "6d4392d1a2cd3c8ee773788eb35cad3b2d85a337ff0c08cd0ab5232a04547e8b",
       "symbols": [
         {
           "kind": "fn",
@@ -76237,37 +76344,42 @@
         },
         {
           "kind": "fn",
-          "line": 46,
+          "line": 56,
+          "name": "random_scalar_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 64,
           "name": "hash_to_scalar"
         },
         {
           "kind": "fn",
-          "line": 59,
+          "line": 77,
           "name": "hash_to_point"
         },
         {
           "kind": "mod",
-          "line": 70,
+          "line": 88,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 74,
+          "line": 92,
           "name": "hash_to_scalar_is_deterministic"
         },
         {
           "kind": "fn",
-          "line": 81,
+          "line": 99,
           "name": "hash_to_scalar_differs_for_different_input"
         },
         {
           "kind": "fn",
-          "line": 88,
+          "line": 106,
           "name": "hash_to_point_is_deterministic_and_on_the_curve"
         },
         {
           "kind": "fn",
-          "line": 95,
+          "line": 113,
           "name": "random_scalar_calls_differ"
         }
       ],
@@ -76468,7 +76580,7 @@
       "title": "use crate::error::{Result, ValueError};"
     },
     {
-      "bytes": 3753,
+      "bytes": 3804,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
@@ -76484,6 +76596,7 @@
         "bp_ipa",
         "bp_range",
         "confidential",
+        "curve",
         "error",
         "one",
         "cryptography",
@@ -76492,14 +76605,13 @@
         "address",
         "proof",
         "bp_generators",
-        "curve",
+        "canonical",
         "privacy",
-        "whitepaper",
-        "d-0035"
+        "whitepaper"
       ],
-      "lines": 84,
+      "lines": 86,
       "path": "crates/mini-value/src/lib.rs",
-      "sha256": "3a17be004af5cb6f8dca6d1608f65ee67c6fe8194032e9eeb542d2231c484ff8",
+      "sha256": "003f3098331c79fe3b4c9126ae02b7497bab3c4e824adac950ec769d65a6ea5e",
       "symbols": [
         {
           "kind": "mod",
@@ -76519,273 +76631,288 @@
         {
           "kind": "mod",
           "line": 54,
-          "name": "confidential"
+          "name": "canonical"
         },
         {
           "kind": "mod",
           "line": 55,
-          "name": "confidential_impl"
+          "name": "confidential"
         },
         {
           "kind": "mod",
           "line": 56,
-          "name": "curve"
+          "name": "confidential_impl"
         },
         {
           "kind": "mod",
           "line": 57,
-          "name": "error"
+          "name": "curve"
         },
         {
           "kind": "mod",
           "line": 58,
-          "name": "fee"
+          "name": "error"
         },
         {
           "kind": "mod",
           "line": 59,
-          "name": "mlsag"
+          "name": "fee"
         },
         {
           "kind": "mod",
           "line": 60,
-          "name": "ring"
+          "name": "mlsag"
         },
         {
           "kind": "mod",
           "line": 61,
-          "name": "ring_impl"
+          "name": "ring"
         },
         {
           "kind": "mod",
           "line": 62,
-          "name": "stealth"
+          "name": "ring_impl"
         },
         {
           "kind": "mod",
           "line": 63,
+          "name": "stealth"
+        },
+        {
+          "kind": "mod",
+          "line": 64,
           "name": "stealth_impl"
         }
       ],
       "title": "mod bp_generators;"
     },
     {
-      "bytes": 27015,
+      "bytes": 30829,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
         "ring",
         "column",
         "one",
-        "same",
         "key",
+        "same",
         "mlsag",
         "commitment",
         "value",
-        "vec",
-        "nothing",
         "commitments",
-        "member",
-        "spend",
-        "proves",
+        "nothing",
         "output",
+        "proves",
+        "every",
         "g_blind",
+        "member",
         "image",
-        "drop",
+        "spend",
         "proof",
         "conservation",
+        "one-time",
         "signature",
-        "every",
         "outputs",
+        "here",
         "pseudo-commitment"
       ],
-      "lines": 722,
+      "lines": 793,
       "path": "crates/mini-value/src/mlsag.rs",
-      "sha256": "ea0c1e2f9e3a0cd6cd86f568d86ce69677cc736f012518507d397b1e062bbcaa",
+      "sha256": "1e6a79054faf30905d03333a73fa8ae79736050d82f8407942f028c91a614e96",
       "symbols": [
         {
           "kind": "const",
-          "line": 83,
+          "line": 90,
           "name": "MLSAG_DOMAIN"
         },
         {
           "kind": "struct",
-          "line": 89,
+          "line": 96,
           "name": "MlsagSignature"
         },
         {
           "kind": "struct",
-          "line": 106,
+          "line": 113,
           "name": "SpendWitness"
         },
         {
           "kind": "impl",
-          "line": 116,
+          "line": 123,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 117,
+          "line": 124,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 124,
+          "line": 131,
           "name": "Drop"
         },
         {
           "kind": "fn",
-          "line": 125,
+          "line": 132,
           "name": "drop"
         },
         {
           "kind": "fn",
-          "line": 131,
-          "name": "decompress_point"
-        },
-        {
-          "kind": "fn",
-          "line": 136,
-          "name": "decompress_scalar"
-        },
-        {
-          "kind": "fn",
-          "line": 144,
+          "line": 141,
           "name": "challenge_hash"
         },
         {
           "kind": "fn",
-          "line": 162,
+          "line": 159,
           "name": "difference_ring"
         },
         {
           "kind": "fn",
-          "line": 187,
+          "line": 184,
           "name": "sign_spend"
         },
         {
           "kind": "fn",
-          "line": 262,
+          "line": 259,
           "name": "verify_spend"
         },
         {
           "kind": "fn",
-          "line": 327,
+          "line": 324,
           "name": "reblind"
         },
         {
           "kind": "fn",
-          "line": 353,
+          "line": 350,
           "name": "balancing_blinding"
         },
         {
           "kind": "mod",
-          "line": 366,
+          "line": 363,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 370,
+          "line": 367,
           "name": "commitment"
         },
         {
           "kind": "struct",
-          "line": 377,
+          "line": 374,
           "name": "Spend"
         },
         {
           "kind": "fn",
-          "line": 385,
+          "line": 382,
           "name": "spend_of"
         },
         {
           "kind": "fn",
-          "line": 421,
+          "line": 418,
           "name": "sign"
         },
         {
           "kind": "fn",
-          "line": 432,
+          "line": 429,
           "name": "verify"
         },
         {
           "kind": "fn",
-          "line": 443,
+          "line": 440,
           "name": "a_valid_spend_verifies"
         },
         {
           "kind": "fn",
-          "line": 450,
+          "line": 447,
           "name": "it_verifies_from_every_ring_position"
         },
         {
           "kind": "fn",
-          "line": 462,
+          "line": 459,
           "name": "a_tampered_message_fails"
         },
         {
           "kind": "fn",
-          "line": 469,
+          "line": 466,
           "name": "a_pseudo_commitment_to_a_different_value_cannot_be_signed"
         },
         {
           "kind": "fn",
-          "line": 501,
+          "line": 498,
           "name": "a_swapped_pseudo_commitment_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 517,
+          "line": 514,
           "name": "knowing_only_the_one_time_key_is_not_enough"
         },
         {
           "kind": "fn",
-          "line": 540,
+          "line": 537,
           "name": "knowing_only_the_blinding_difference_is_not_enough"
         },
         {
           "kind": "fn",
-          "line": 560,
+          "line": 557,
           "name": "the_key_image_is_deterministic_in_the_spent_output"
         },
         {
           "kind": "fn",
-          "line": 571,
+          "line": 568,
           "name": "different_outputs_produce_different_key_images"
         },
         {
           "kind": "fn",
-          "line": 578,
+          "line": 575,
           "name": "a_substituted_key_image_fails"
         },
         {
           "kind": "fn",
-          "line": 586,
+          "line": 583,
           "name": "a_tampered_response_fails"
         },
         {
           "kind": "fn",
-          "line": 598,
+          "line": 595,
           "name": "malformed_input_is_rejected_without_panicking"
         },
         {
+          "kind": "const",
+          "line": 653,
+          "name": "GROUP_ORDER_LE"
+        },
+        {
           "kind": "fn",
-          "line": 648,
+          "line": 663,
+          "name": "add_le_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 685,
+          "name": "a_non_canonically_encoded_response_is_rejected_not_silently_reduced"
+        },
+        {
+          "kind": "fn",
+          "line": 711,
+          "name": "an_identity_key_image_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 719,
           "name": "the_balancing_blinding_makes_the_sums_cancel"
         },
         {
           "kind": "fn",
-          "line": 680,
+          "line": 751,
           "name": "an_unbalanced_amount_does_not_cancel"
         },
         {
           "kind": "fn",
-          "line": 695,
+          "line": 766,
           "name": "a_witness_never_prints_its_secrets"
         },
         {
           "kind": "fn",
-          "line": 703,
+          "line": 774,
           "name": "a_signature_over_one_scheme_does_not_verify_as_the_other"
         }
       ],
@@ -76884,7 +77011,7 @@
       "title": "pub struct RingSignature {"
     },
     {
-      "bytes": 14194,
+      "bytes": 14928,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
@@ -76897,158 +77024,153 @@
         "ringsignaturescheme",
         "real",
         "secret",
-        "scalar",
         "fmt",
         "signer",
         "x_pi",
         "same",
         "alpha",
-        "ristrettopoint",
-        "bytes",
-        "option",
+        "scalar",
         "core",
         "verifier",
         "sign",
         "signature",
         "message",
-        "challenge"
+        "challenge",
+        "ristrettopoint",
+        "secret_key",
+        "secret_key_bytes"
       ],
-      "lines": 360,
+      "lines": 371,
       "path": "crates/mini-value/src/ring_impl.rs",
-      "sha256": "194e619f0f10591b38a3dea0c76bd6790ff9aaea2a48bff7887ab247adf491ea",
+      "sha256": "a7fb23e24fc412912a0b51ac3be5b16bd84ec84bf76374fa6ee375693d33c236",
       "symbols": [
         {
           "kind": "fn",
-          "line": 39,
-          "name": "decompress_point"
-        },
-        {
-          "kind": "fn",
-          "line": 44,
-          "name": "decompress_scalar"
-        },
-        {
-          "kind": "fn",
-          "line": 49,
+          "line": 45,
           "name": "challenge_hash"
         },
         {
           "kind": "struct",
-          "line": 68,
+          "line": 64,
           "name": "MininetRingSignature"
         },
         {
           "kind": "impl",
-          "line": 73,
+          "line": 69,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 74,
+          "line": 70,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 81,
+          "line": 77,
           "name": "MininetRingSignature"
         },
         {
           "kind": "fn",
-          "line": 85,
+          "line": 81,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 102,
+          "line": 98,
           "name": "verifier"
         },
         {
           "kind": "impl",
-          "line": 110,
+          "line": 106,
           "name": "RingSignatureScheme"
         },
         {
           "kind": "fn",
-          "line": 111,
+          "line": 107,
           "name": "sign"
         },
         {
           "kind": "fn",
-          "line": 154,
+          "line": 150,
           "name": "verify"
         },
         {
           "kind": "mod",
-          "line": 193,
+          "line": 189,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 199,
+          "line": 195,
           "name": "ring_with_real_key_at"
         },
         {
           "kind": "fn",
-          "line": 215,
+          "line": 211,
           "name": "a_valid_signature_verifies"
         },
         {
           "kind": "fn",
-          "line": 225,
+          "line": 221,
           "name": "verification_succeeds_regardless_of_which_index_was_real"
         },
         {
           "kind": "fn",
-          "line": 239,
+          "line": 235,
           "name": "a_tampered_message_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 249,
+          "line": 245,
           "name": "a_tampered_response_fails_verification"
         },
         {
           "kind": "fn",
           "line": 260,
+          "name": "an_identity_key_image_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 271,
           "name": "a_swapped_decoy_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 277,
+          "line": 288,
           "name": "the_same_real_key_produces_the_same_key_image_across_signings"
         },
         {
           "kind": "fn",
-          "line": 307,
+          "line": 318,
           "name": "different_real_keys_produce_different_key_images"
         },
         {
           "kind": "fn",
-          "line": 319,
+          "line": 330,
           "name": "signing_with_an_out_of_range_index_fails_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 326,
+          "line": 337,
           "name": "signing_an_empty_ring_fails_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 332,
+          "line": 343,
           "name": "malformed_ring_member_fails_verification_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 344,
+          "line": 355,
           "name": "a_verifier_instance_verifies_without_holding_any_secret"
         },
         {
           "kind": "fn",
-          "line": 352,
+          "line": 363,
           "name": "a_verifier_instance_cannot_sign"
         }
       ],
-      "title": "use crate::curve::{hash_to_point, hash_to_scalar, RistrettoPoint, Scalar};"
+      "title": "use crate::canonical::{"
     },
     {
       "bytes": 4029,
@@ -77143,262 +77265,252 @@
       "title": "pub struct StealthOutput {"
     },
     {
-      "bytes": 22323,
+      "bytes": 21744,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
         "self",
         "fmt",
-        "bytes",
         "recipient",
         "spend",
         "key",
         "stealthkeypair",
         "stealthaddressscheme",
-        "scalar",
         "core",
         "public",
         "spend_public",
         "view_public",
         "stealth",
         "view",
+        "scalar",
         "address",
-        "ristrettopoint",
         "spend_secret",
         "view_secret",
+        "bytes",
         "debug",
         "hex",
         "private",
-        "point",
-        "via"
+        "via",
+        "keypair",
+        "compress"
       ],
-      "lines": 574,
+      "lines": 560,
       "path": "crates/mini-value/src/stealth_impl.rs",
-      "sha256": "595912b56c1792772247813edfecc788776e63251d44fb53b3e77d750015e418",
+      "sha256": "9a3eef71105ddd0df00813c853fe7ed89084ad7c083f17dde26f88bc14a2b5b3",
       "symbols": [
         {
           "kind": "struct",
-          "line": 42,
+          "line": 45,
           "name": "StealthKeypair"
         },
         {
           "kind": "impl",
-          "line": 49,
+          "line": 52,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 50,
+          "line": 53,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 61,
+          "line": 64,
           "name": "StealthKeypair"
         },
         {
           "kind": "fn",
-          "line": 63,
+          "line": 66,
           "name": "generate"
         },
         {
           "kind": "fn",
-          "line": 75,
+          "line": 78,
           "name": "spend_public_bytes"
         },
         {
           "kind": "fn",
-          "line": 80,
+          "line": 83,
           "name": "view_public_bytes"
         },
         {
           "kind": "fn",
-          "line": 86,
+          "line": 89,
           "name": "view_secret_bytes"
         },
         {
           "kind": "fn",
-          "line": 95,
+          "line": 98,
           "name": "spend_secret_bytes"
         },
         {
           "kind": "fn",
-          "line": 100,
+          "line": 103,
           "name": "hex"
         },
         {
           "kind": "fn",
-          "line": 109,
-          "name": "decompress_point"
-        },
-        {
-          "kind": "fn",
-          "line": 115,
+          "line": 113,
           "name": "one_time_key_is_well_formed"
         },
         {
-          "kind": "fn",
-          "line": 119,
-          "name": "decompress_scalar"
-        },
-        {
           "kind": "struct",
-          "line": 126,
+          "line": 119,
           "name": "MininetStealthAddress"
         },
         {
           "kind": "impl",
-          "line": 128,
+          "line": 121,
           "name": "StealthAddressScheme"
         },
         {
           "kind": "fn",
-          "line": 129,
+          "line": 122,
           "name": "derive_output"
         },
         {
           "kind": "fn",
-          "line": 147,
+          "line": 140,
           "name": "recognizes"
         },
         {
           "kind": "struct",
-          "line": 183,
+          "line": 176,
           "name": "StealthSharedSecret"
         },
         {
           "kind": "impl",
-          "line": 185,
+          "line": 178,
           "name": "StealthSharedSecret"
         },
         {
           "kind": "fn",
-          "line": 188,
+          "line": 181,
           "name": "as_key_material"
         },
         {
           "kind": "impl",
-          "line": 193,
+          "line": 186,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 195,
+          "line": 188,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 200,
+          "line": 193,
           "name": "Drop"
         },
         {
           "kind": "fn",
-          "line": 201,
+          "line": 194,
           "name": "drop"
         },
         {
           "kind": "fn",
-          "line": 213,
+          "line": 206,
           "name": "derive_output_with_secret"
         },
         {
           "kind": "fn",
-          "line": 241,
+          "line": 234,
           "name": "recover_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 265,
+          "line": 255,
           "name": "view_public_from_secret"
         },
         {
           "kind": "fn",
-          "line": 287,
+          "line": 273,
           "name": "stealth_address_is_well_formed"
         },
         {
           "kind": "fn",
-          "line": 299,
+          "line": 285,
           "name": "derive_spend_scalar"
         },
         {
           "kind": "mod",
-          "line": 313,
+          "line": 299,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 317,
+          "line": 303,
           "name": "recipient_recognizes_their_own_output"
         },
         {
           "kind": "fn",
-          "line": 335,
+          "line": 321,
           "name": "a_different_recipient_does_not_recognize_the_output"
         },
         {
           "kind": "fn",
-          "line": 354,
+          "line": 340,
           "name": "two_outputs_to_the_same_recipient_are_unlinkable"
         },
         {
           "kind": "fn",
-          "line": 387,
+          "line": 373,
           "name": "derived_spend_scalar_actually_opens_the_one_time_address"
         },
         {
           "kind": "fn",
-          "line": 409,
+          "line": 395,
           "name": "malformed_keys_are_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 421,
+          "line": 407,
           "name": "sender_and_recipient_derive_the_same_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 438,
+          "line": 424,
           "name": "derive_output_with_secret_produces_a_recognizable_output"
         },
         {
           "kind": "fn",
-          "line": 458,
+          "line": 444,
           "name": "a_stranger_derives_a_different_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 473,
+          "line": 459,
           "name": "two_payments_to_one_recipient_share_no_secret"
         },
         {
           "kind": "fn",
-          "line": 493,
+          "line": 479,
           "name": "a_shared_secret_never_prints_its_bytes"
         },
         {
           "kind": "fn",
-          "line": 515,
+          "line": 501,
           "name": "malformed_inputs_to_the_shared_secret_helpers_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 521,
+          "line": 507,
           "name": "view_public_from_secret_matches_the_generated_keypair"
         },
         {
           "kind": "fn",
-          "line": 530,
+          "line": 516,
           "name": "view_public_from_secret_does_not_match_a_stranger"
         },
         {
           "kind": "fn",
-          "line": 540,
+          "line": 526,
           "name": "view_public_from_secret_rejects_non_canonical_and_degenerate_scalars"
         },
         {
           "kind": "fn",
-          "line": 552,
+          "line": 538,
           "name": "well_formed_stealth_addresses_are_accepted_and_broken_ones_are_not"
         }
       ],
@@ -81461,7 +81573,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1348817,
+      "bytes": 1357244,
       "group": "docs",
       "headings": [
         {
@@ -81891,9 +82003,9 @@
         "first",
         "new"
       ],
-      "lines": 22394,
+      "lines": 22530,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "8d860c5fa3f191c1263605c4a711a564a1c1f87a2dbf1977f07fcba30af2043b",
+      "sha256": "2f7ec09299f7c45fdca0de743bb62f2ff79525f8c4abca3517c2c2fdcb2766c9",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -83229,7 +83341,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 197620,
+      "bytes": 198960,
       "group": "docs",
       "headings": [
         {
@@ -83274,72 +83386,72 @@
         },
         {
           "level": 2,
-          "line": 1004,
+          "line": 1024,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 1051,
+          "line": 1071,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1284,
+          "line": 1304,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1511,
+          "line": 1531,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1610,
+          "line": 1630,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1640,
+          "line": 1660,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 1987,
+          "line": 2007,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2522,
+          "line": 2542,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2613,
+          "line": 2633,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2693,
+          "line": 2713,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2793,
+          "line": 2813,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2810,
+          "line": 2830,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2846,
+          "line": 2866,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2927,
+          "line": 2947,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -83369,9 +83481,9 @@
         "design",
         "exists"
       ],
-      "lines": 2962,
+      "lines": 2982,
       "path": "docs/STATUS.md",
-      "sha256": "c82b3ad64caabb3cdc9f76f07303916b66aeede2377ea7ef2fcca7f10c87a59b",
+      "sha256": "02985aa944ebfb70b7a7ad0293f10fae589ffa95face9efac52f3fc5e4ca8462",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -101694,7 +101806,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 87423,
+      "bytes": 88097,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -101723,9 +101835,9 @@
         "independently",
         "both"
       ],
-      "lines": 1352,
+      "lines": 1367,
       "path": "governance/work-claims.json",
-      "sha256": "a18f6e05eb2b1e2bd2a14ec75b61e438e7ab8cea08087d729fa775e8087ef570",
+      "sha256": "57071ced511998fb07a18ce904e5f406ff27971921447b09fdaedb1844d9dd7e",
       "symbols": [],
       "title": "{"
     },

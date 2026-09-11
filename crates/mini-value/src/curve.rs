@@ -39,6 +39,24 @@ pub fn random_scalar() -> crate::error::Result<Scalar> {
     Ok(Scalar::from_bytes_mod_order_wide(&wide))
 }
 
+/// [`random_scalar`]'s canonical 32-byte encoding — for a caller that wants
+/// to store or wire a freshly generated secret (a blinding factor) as
+/// bytes, where the `Scalar` type itself is not what's wanted.
+///
+/// Callers that generate a blinding factor via raw
+/// `mini_crypto::random_32()` and use those bytes directly as a scalar
+/// encoding get a value that is uniform over all `2^256` byte strings, not
+/// reduced mod the group order (`~2^252.4`) — about 1 in 16 such values
+/// exceeds the order and is not a canonical scalar encoding at all. This
+/// function is that missing reduction step, done once at generation time
+/// (matching the Gate #72 external audit report's F72-01 remediation: wide
+/// reduction belongs at generation, never at a wire-decode boundary) so
+/// every later canonical-decoding call site simply parses an
+/// already-valid value instead of needing its own leniency.
+pub fn random_scalar_bytes() -> crate::error::Result<[u8; 32]> {
+    Ok(random_scalar()?.to_bytes())
+}
+
 /// Hash arbitrary bytes to a scalar (BLAKE3's 64-byte extendable output,
 /// reduced mod the group order via the wide reduction). Used for every
 /// Fiat-Shamir challenge in [`crate::ring_impl`] and the shared-secret

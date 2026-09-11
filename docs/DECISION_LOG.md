@@ -22391,3 +22391,139 @@ review time for a 1300+ line rewrite of security-critical signing math
 was judged too large and too risky to rush within this same pass.
 
 **Supersedes / superseded by:** none.
+
+### D-0505 — `mini-value`: canonical scalar/point decoding and semantic non-identity checks at every signature/proof verification boundary (Gate #72, F72-01/F72-04)  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+External Cryptography Audit Report", Gate #72 scope, reviewed revision
+`bc7da80f8817f856a96bcb3772232b080eef531d`), findings F72-01 and F72-04;
+new module `crates/mini-value/src/canonical.rs`;
+`crates/mini-value/src/{mlsag,ring_impl,stealth_impl,confidential_impl,
+bp_range,bp_ipa,curve}.rs`; `crates/mini-private-payment/src/{claim,scan}.rs`
+and `tests/support/mod.rs`.
+
+**Decision:** F72-01's core claim was independently verified against the
+real code before any change was made, per this tree's standing rule that
+"triaged and verified" from the report's own author is not itself
+verification (see D-0503's identical discipline for the Gate #93 report).
+It was accurate: `mlsag.rs`, `ring_impl.rs`, `stealth_impl.rs`,
+`confidential_impl.rs`, `bp_range.rs`, and `bp_ipa.rs` all decoded
+wire-supplied scalar fields (ring-signature challenge/responses, key
+images treated as scalars, Bulletproof folded scalars `t_hat`/`tau_x`/
+`mu`/IPA `a`/`b`, blinding factors) via `Scalar::from_bytes_mod_order`,
+which silently reduces *any* 32-byte input mod the group order `l ≈
+2^252.4` rather than rejecting the ~1-in-16 inputs that are not that
+value's unique canonical encoding. `curve25519-dalek`'s own scalar type
+provides the correct parser, `Scalar::from_canonical_bytes`, already used
+correctly at exactly one call site in the tree
+(`stealth_impl::view_public_from_secret`) before this fix — the pattern
+existed, it just was not applied everywhere the audit's Section 5.3 says
+it must be.
+
+New shared module `mini_value::canonical` centralizes the fix:
+`canonical_scalar`/`canonical_nonzero_scalar` wrap
+`Scalar::from_canonical_bytes`; `canonical_point`/
+`canonical_nonidentity_point` wrap `CompressedRistretto::decompress`
+(already a canonical decoder — verified directly against
+`curve25519-dalek`'s own `decompress()` implementation, which checks
+`s_encoding_is_canonical` before anything else — so F72-01's "canonical
+Ristretto decoding must succeed" requirement was already satisfied for
+points; the module exists mainly to collect four duplicated
+hand-rolled `decompress_point` helpers into one, and to add the
+non-identity variant). Every module above now imports `canonical_point`/
+`canonical_scalar` (aliased as `decompress_point`/`decompress_scalar` at
+each call site to keep the diff minimal) in place of its own
+hand-rolled, non-canonical helper. `mlsag.rs` and `ring_impl.rs`
+specifically import the *non-identity* point variant, since every point
+role they decode (one-time output keys, output/pseudo commitments, key
+images) is on the audit's Section 5.3 list of fields that must never be
+the identity element (F72-04) — an identity key image, for instance,
+would be indistinguishable across every degenerate spend that produced
+one, defeating the double-spend detection key images exist for.
+
+Fixing the decode side exposed a real, separate issue in the
+*generation* side: `mini-private-payment`'s blinding-factor generation
+(`claim.rs`'s two output/pseudo-commitment blinding sites, `scan.rs`'s
+and `tests/support/mod.rs`'s test fixtures) called
+`mini_crypto::random_32()` directly and used the raw uniform 32 bytes as
+a scalar encoding without ever reducing them — correct in the old,
+permissive decoder, but about 1-in-16 such values are not a canonical
+scalar encoding at all, so canonicalizing the decoder alone would have
+made genuine, honestly-generated blinding factors spuriously fail ~6% of
+the time. The audit's own permitted list ("modulo/wide reduction is
+restricted to... freshly generated random wide bytes") says the fix
+belongs at generation, not at the decoder: new `mini_value::
+random_scalar_bytes()` (`curve.rs`) does the same double-`random_32`-
+plus-wide-reduction `random_scalar()` already used elsewhere, returning
+its canonical byte encoding, and every blinding-factor-generation call
+site now uses it instead of raw `random_32()`.
+
+**Reason:** in Shamir/Feldman-adjacent elliptic-curve cryptography, a
+type whose encoding is wider than its value space (32 bytes for a
+~252.4-bit field) has multiple valid byte strings per logical value
+unless the decoder actively rejects the non-canonical ones. Accepting
+them anyway is a textbook malleability bug: the same signature, key
+image, or proof now has multiple valid wire encodings, breaking any
+assumption that encode/decode/encode is byte-identical and undermining
+exactly the "one canonical identity per object" property `claim_id`-style
+hashing (Gate #72 Section 10.3, not yet implemented — see D-0503/D-0504's
+own open-items list) depends on. Rejecting the identity element at
+specific semantic point roles (F72-04) closes the parallel degenerate-
+value class: a key image, output key, or commitment that is
+group-theoretically valid but semantically meaningless.
+
+**Constitutional impact:** none beyond what D-0036/D-0037 already state
+(`mini-value` is a founder-overridden, AI-authored prototype pending
+external audit — this fix does not change that status, only removes one
+concrete, independently-verified defect from it). No dependency-edge
+change: `mini-value`/`mini-private-payment` still have no edge to any
+governance/review crate.
+
+**Implementation status:** shipped. New tests added specifically
+demonstrating the fix, not just its absence of regression:
+`mlsag::tests::a_non_canonically_encoded_response_is_rejected_not_
+silently_reduced` constructs a genuine non-canonical re-encoding (raw
+little-endian byte addition of the group order, not `Scalar` arithmetic,
+which always renormalizes) of a valid response scalar and confirms it
+now fails verification where the old `from_bytes_mod_order` path would
+have accepted it identically to the original; `mlsag::tests::
+an_identity_key_image_is_rejected` and `ring_impl::tests::
+an_identity_key_image_is_rejected` cover F72-04. All 108 `mini-value`
+unit tests, all `mini-private-payment`/`mini-shielded-verify`/
+`mini-settlement`/`mini-bounty`/`mini-execution` tests, `cargo fmt --all
+-- --check`, and `cargo clippy --all-targets --all-features --workspace
+-- -D warnings` are clean. `cargo test --workspace --all-features`
+passes everywhere except the same pre-existing, unrelated
+`mini-build-runner-wasmtime` adversarial suite failure D-0503/D-0504
+already recorded (missing `wasm32` rustc target in this sandbox).
+
+**Failure point:** this closes F72-01 and F72-04 specifically. It does
+not touch F72-02 (bespoke Bulletproofs/IPA implementation itself, only
+its wire decoding), F72-03 (transcript/domain-separation framing
+consistency), F72-05 through F72-18 (canonical claim evidence in
+consensus, the transparent payment path, the duplicate bounty ring
+signature, uncalibrated decoy distribution, bespoke FROST signing math,
+optional proof verification, resource ceilings, untyped treasury
+signing, crypto-migration admin-switch risk) — all of those remain
+entirely unimplemented, as does the full `PrivatePaymentV3` wire format
+and three-digest scheme Section 9-10 describes. Composing an
+already-canonical `CompressedRistretto::decompress` and a correct
+`Scalar::from_canonical_bytes` is not itself new cryptography and carries
+low risk on its own terms, but the module composition around it
+(`mini-value`/`mini-private-payment` as a whole) remains unaudited.
+
+**Required follow-up:** the remaining Gate #72 findings, in the
+project's own working order: F72-14/F72-17 (replace bespoke FROST
+signing math with `frost_ristretto255`, also required before
+`mini-custody`'s DKG output can actually sign for `mini-treasury`, per
+D-0504), F72-02 (vendored `bulletproofs`/`curve25519-dalek` pinned
+per Section 5), the `PrivatePaymentV3` wire format and three-digest
+scheme (Section 9-10, F72-11/12/13), canonical claim bytes and derived
+key images in consensus (F72-05/06/15/16), removing the transparent
+`PaymentClaim` path and the duplicate bounty ring signature (F72-08/09),
+and the calibrated OSPEAD log-GB2 decoy distribution (F72-10) are all
+unstarted. As always, a real external cryptography audit — engaging one
+remains founder action per `docs/gates/crypto-audit-scope.md` — is not
+something engineering remediation on this side can substitute for.
+
+**Supersedes / superseded by:** none.

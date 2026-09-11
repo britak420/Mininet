@@ -74,7 +74,14 @@
 use zeroize::Zeroize;
 
 use crate::bp_generators::blinding_generator;
-use crate::curve::{basepoint, hash_to_point, hash_to_scalar, CompressedRistretto, Scalar};
+// Every point role decoded in this module -- one-time output keys, output/
+// pseudo commitments, key images -- is on the audit's Section 5.3 list of
+// point fields that must be semantically non-identity, so `decompress_point`
+// rejects the identity element here, not just non-canonical encodings.
+use crate::canonical::{
+    canonical_nonidentity_point as decompress_point, canonical_scalar as decompress_scalar,
+};
+use crate::curve::{basepoint, hash_to_point, hash_to_scalar, Scalar};
 use crate::curve::{random_scalar, RistrettoPoint};
 
 /// Domain separator for this scheme's Fiat-Shamir challenges. Distinct
@@ -126,16 +133,6 @@ impl Drop for SpendWitness {
         self.one_time_secret.zeroize();
         self.blinding_difference.zeroize();
     }
-}
-
-fn decompress_point(bytes: &[u8]) -> Option<RistrettoPoint> {
-    let arr: [u8; 32] = bytes.try_into().ok()?;
-    CompressedRistretto(arr).decompress()
-}
-
-fn decompress_scalar(bytes: &[u8]) -> Option<Scalar> {
-    let arr: [u8; 32] = bytes.try_into().ok()?;
-    Some(Scalar::from_bytes_mod_order(arr))
 }
 
 /// One link of the challenge chain. Both columns' commitments enter the
@@ -356,7 +353,7 @@ pub fn balancing_blinding(
 ) -> [u8; 32] {
     let sum = |values: &[[u8; 32]]| {
         values.iter().fold(Scalar::ZERO, |acc, bytes| {
-            acc + Scalar::from_bytes_mod_order(*bytes)
+            acc + decompress_scalar(bytes).unwrap_or(Scalar::ZERO)
         })
     };
     (sum(output_blindings) - sum(chosen_pseudo_blindings)).to_bytes()
@@ -642,6 +639,80 @@ mod tests {
             ),
             None
         );
+    }
+
+    /// Gate #72 external audit report, F72-01: before the canonical-decode
+    /// fix, re-encoding a response scalar as `value + group_order` verified
+    /// identically to the original, because `Scalar::from_bytes_mod_order`
+    /// silently reduced both encodings to the same in-field value. That is
+    /// two different 32-byte wire strings both accepted as the one
+    /// signature's response -- exactly the malleability finding. Now the
+    /// non-canonical encoding is rejected outright.
+    /// The group order `l`, little-endian:
+    /// `2^252 + 27742317777372353535851937790883648493`.
+    const GROUP_ORDER_LE: [u8; 32] = [
+        0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde,
+        0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x10,
+    ];
+
+    /// Raw little-endian byte addition (not scalar arithmetic, which always
+    /// re-normalizes to canonical form and so can never produce the
+    /// non-canonical encoding this needs). `a + l` for `a < l` always fits
+    /// in 32 bytes, since `2l < 2^256`.
+    fn add_le_bytes(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
+        let mut out = [0u8; 32];
+        let mut carry = 0u16;
+        for i in 0..32 {
+            let sum = a[i] as u16 + b[i] as u16 + carry;
+            out[i] = sum as u8;
+            carry = sum >> 8;
+        }
+        assert_eq!(carry, 0, "overflowed 32 bytes");
+        out
+    }
+
+    /// Gate #72 external audit report, F72-01: before the canonical-decode
+    /// fix, re-encoding a response scalar's bytes as `value + group_order`
+    /// (a different 32-byte string, still numerically < 2^256, encoding the
+    /// same field element) verified identically to the original, because
+    /// `Scalar::from_bytes_mod_order` silently reduced both encodings to
+    /// the same in-field value. That is two different wire strings both
+    /// accepted as the one signature's response -- exactly the
+    /// malleability finding. Now the non-canonical encoding is rejected
+    /// outright instead of being reduced.
+    #[test]
+    fn a_non_canonically_encoded_response_is_rejected_not_silently_reduced() {
+        let spend = spend_of(1_000, 4, 0);
+        let mut signature = sign(&spend, b"m");
+
+        let original: [u8; 32] = signature.key_responses[0].clone().try_into().unwrap();
+        let noncanonical = add_le_bytes(&original, &GROUP_ORDER_LE);
+        // Confirms this really is a non-canonical re-encoding of the same
+        // value under the old (reducing) parser, not a different value
+        // that happens to still verify.
+        assert_eq!(
+            Scalar::from_bytes_mod_order(noncanonical),
+            Scalar::from_bytes_mod_order(original),
+        );
+        let canonical_check: Option<Scalar> = Scalar::from_canonical_bytes(noncanonical).into();
+        assert_eq!(canonical_check, None, "must actually be non-canonical");
+        signature.key_responses[0] = noncanonical.to_vec();
+
+        assert!(!verify(&spend, b"m", &signature));
+    }
+
+    /// Gate #72 external audit report, F72-04 (semantic non-identity
+    /// requirement): a key image is a group element that must never be the
+    /// identity point -- an identity key image would be indistinguishable
+    /// from every other degenerate spend sharing it, defeating the
+    /// double-spend detection key images exist for.
+    #[test]
+    fn an_identity_key_image_is_rejected() {
+        let spend = spend_of(1_000, 4, 0);
+        let mut signature = sign(&spend, b"m");
+        signature.key_image = RistrettoPoint::default().compress().to_bytes().to_vec();
+        assert!(!verify(&spend, b"m", &signature));
     }
 
     #[test]

@@ -29,7 +29,10 @@
 
 use zeroize::Zeroize;
 
-use crate::curve::{hash_to_scalar, random_scalar, CompressedRistretto, RistrettoPoint, Scalar};
+use crate::canonical::{
+    canonical_point as decompress_point, canonical_scalar as decompress_scalar,
+};
+use crate::curve::{hash_to_scalar, random_scalar, RistrettoPoint, Scalar};
 use crate::error::Result;
 use crate::stealth::{StealthAddressScheme, StealthOutput};
 
@@ -106,19 +109,9 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 
-fn decompress_point(bytes: &[u8]) -> Option<RistrettoPoint> {
-    let arr: [u8; 32] = bytes.try_into().ok()?;
-    CompressedRistretto(arr).decompress()
-}
-
 /// Validate a canonical, non-identity one-time Ristretto public key.
 pub fn one_time_key_is_well_formed(bytes: &[u8]) -> bool {
-    decompress_point(bytes).is_some_and(|point| point != RistrettoPoint::default())
-}
-
-fn decompress_scalar(bytes: &[u8]) -> Option<Scalar> {
-    let arr: [u8; 32] = bytes.try_into().ok()?;
-    Some(Scalar::from_bytes_mod_order(arr))
+    crate::canonical::canonical_nonidentity_point(bytes).is_some()
 }
 
 /// The prototype [`StealthAddressScheme`] implementation (D-0036).
@@ -255,19 +248,12 @@ pub fn recover_shared_secret(
 /// unrelated secret would produce an audit that finds nothing and is
 /// indistinguishable from an account that simply received nothing.
 ///
-/// Stricter than the scanning path on purpose: [`decompress_scalar`] reduces
-/// whatever 32 bytes it is handed mod the group order, so many byte strings
-/// denote the same scalar. That is harmless when scanning your own income,
-/// and not harmless for a value that gets published, hashed, and referred to
-/// afterwards — it would give one disclosure many equally valid encodings
-/// and many digests. So this rejects any non-canonical encoding, and rejects
-/// zero, which is a scalar but not a key.
+/// Additionally rejects the zero scalar, which [`decompress_scalar`] alone
+/// would accept as "a scalar" but which is not a meaningful key -- a
+/// published view key derived from it would be the identity point, and
+/// nothing should ever treat that as a real account.
 pub fn view_public_from_secret(view_secret: &[u8]) -> Option<[u8; 32]> {
-    let arr: [u8; 32] = view_secret.try_into().ok()?;
-    let b: Scalar = Option::from(Scalar::from_canonical_bytes(arr))?;
-    if b == Scalar::ZERO {
-        return None;
-    }
+    let b = crate::canonical::canonical_nonzero_scalar(view_secret)?;
     Some((b * crate::curve::basepoint()).compress().to_bytes())
 }
 

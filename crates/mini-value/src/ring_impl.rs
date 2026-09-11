@@ -33,18 +33,14 @@
 //! challenge and checks it returns to the same value — a check that holds
 //! regardless of which index was real, which is the anonymity property.
 
+// Every point role decoded here -- ring member public keys and the key
+// image -- is on the audit's Section 5.3 list of point fields that must be
+// semantically non-identity.
+use crate::canonical::{
+    canonical_nonidentity_point as decompress_point, canonical_scalar as decompress_scalar,
+};
 use crate::curve::{hash_to_point, hash_to_scalar, RistrettoPoint, Scalar};
 use crate::ring::{RingSignature, RingSignatureScheme};
-
-fn decompress_point(bytes: &[u8]) -> Option<RistrettoPoint> {
-    let arr: [u8; 32] = bytes.try_into().ok()?;
-    crate::curve::CompressedRistretto(arr).decompress()
-}
-
-fn decompress_scalar(bytes: &[u8]) -> Option<Scalar> {
-    let arr: [u8; 32] = bytes.try_into().ok()?;
-    Some(Scalar::from_bytes_mod_order(arr))
-}
 
 fn challenge_hash(
     message: &[u8],
@@ -251,6 +247,21 @@ mod tests {
         let mut signer = MininetRingSignature::new(1, &secret.to_bytes()).unwrap();
         let mut sig = signer.sign(&ring, b"message").unwrap();
         sig.responses[0] = random_scalar().unwrap().to_bytes().to_vec();
+
+        let verifier = MininetRingSignature::new(0, &[0u8; 32]).unwrap();
+        assert!(!verifier.verify(&ring, b"message", &sig));
+    }
+
+    /// Gate #72 external audit report, F72-04: a key image is a group
+    /// element that must never decode as the identity point -- an identity
+    /// key image would collide across every degenerate spend that produced
+    /// one, defeating double-spend detection.
+    #[test]
+    fn an_identity_key_image_is_rejected() {
+        let (ring, secret) = ring_with_real_key_at(4, 1);
+        let mut signer = MininetRingSignature::new(1, &secret.to_bytes()).unwrap();
+        let mut sig = signer.sign(&ring, b"message").unwrap();
+        sig.key_image = RistrettoPoint::default().compress().to_bytes().to_vec();
 
         let verifier = MininetRingSignature::new(0, &[0u8; 32]).unwrap();
         assert!(!verifier.verify(&ring, b"message", &sig));

@@ -14,8 +14,9 @@
 use curve25519_dalek::traits::Identity;
 
 use crate::bp_range::{self, RangeProof};
+use crate::canonical::{canonical_point, canonical_scalar};
 use crate::confidential::ConfidentialAmountScheme;
-use crate::curve::{CompressedRistretto, RistrettoPoint, Scalar};
+use crate::curve::{RistrettoPoint, Scalar};
 
 /// The prototype [`ConfidentialAmountScheme`] implementation (D-0036/D-0037).
 #[derive(Debug, Clone, Copy, Default)]
@@ -27,8 +28,7 @@ impl ConfidentialAmountScheme for MininetConfidentialAmount {
         amount: u64,
         blinding_factor: &[u8],
     ) -> Option<(Vec<u8>, RangeProof)> {
-        let arr: [u8; 32] = blinding_factor.try_into().ok()?;
-        let blinding = Scalar::from_bytes_mod_order(arr);
+        let blinding = canonical_scalar(blinding_factor)?;
         let (commitment, proof) = bp_range::prove_range(amount, blinding).ok()?;
         Some((commitment.to_vec(), proof))
     }
@@ -71,8 +71,7 @@ impl ConfidentialAmountScheme for MininetConfidentialAmount {
 /// minting value. Use this only where the proof is genuinely not part of
 /// what is being checked.
 pub fn pedersen_commitment(amount: u64, blinding_factor: &[u8]) -> Option<[u8; 32]> {
-    let arr: [u8; 32] = blinding_factor.try_into().ok()?;
-    let blinding = Scalar::from_bytes_mod_order(arr);
+    let blinding = canonical_scalar(blinding_factor)?;
     let point = blinding * crate::bp_generators::blinding_generator()
         + Scalar::from(amount) * crate::bp_generators::value_generator();
     Some(point.compress().to_bytes())
@@ -100,9 +99,7 @@ pub fn public_amount_commitment(amount: u64) -> [u8; 32] {
 fn sum_commitments(commitments: &[Vec<u8>]) -> Option<RistrettoPoint> {
     let mut sum = RistrettoPoint::identity();
     for c in commitments {
-        let arr: [u8; 32] = c.as_slice().try_into().ok()?;
-        let point = CompressedRistretto(arr).decompress()?;
-        sum += point;
+        sum += canonical_point(c)?;
     }
     Some(sum)
 }

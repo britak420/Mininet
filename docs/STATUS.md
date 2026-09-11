@@ -589,6 +589,26 @@ given time.
   returning the stealth shared point the derivation already computes and
   discarded, and a fail-closed `MininetRingSignature::verifier()` so
   verifying no longer requires inventing a secret key.
+  **Canonical wire decoding (D-0505, Gate #72 F72-01/F72-04):** an
+  anonymous external report found that every signature/proof verification
+  boundary (`mlsag.rs`, `ring_impl.rs`, `stealth_impl.rs`,
+  `confidential_impl.rs`, `bp_range.rs`, `bp_ipa.rs`) decoded wire-supplied
+  scalars via `Scalar::from_bytes_mod_order`, which silently accepts any
+  of the ~1-in-16 non-canonical byte encodings of a given field element
+  instead of rejecting them — real malleability, independently confirmed
+  against the code. New shared module `mini_value::canonical` fixes it
+  (`Scalar::from_canonical_bytes` at every such site) and additionally
+  rejects the identity point at every semantic point role the audit names
+  (one-time output keys, key images, commitments). Fixing the decoder
+  exposed that `mini-private-payment`'s blinding-factor generation used
+  raw `mini_crypto::random_32()` bytes directly as scalar encodings
+  (correct only under the old, lenient decoder) — new
+  `mini_value::random_scalar_bytes()` does the missing reduction at
+  generation time instead. 108 `mini-value` unit tests (2 new, proving
+  the fix concretely: a hand-constructed non-canonical re-encoding that
+  the old decoder accepted and the new one rejects, plus an identity key
+  image rejection), all downstream crate tests, `cargo fmt`/`clippy`
+  clean.
 - **prototype, not integrated (D-0447)** — `mini-private-payment`: the
   shielded settlement path, and the composition that was missing.
   `mini-value` had all three privacy primitives; **nothing composed them

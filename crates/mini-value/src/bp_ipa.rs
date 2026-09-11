@@ -158,10 +158,12 @@ pub fn verify(
         h = new_h;
     }
 
-    let arr_a: [u8; 32] = proof.a;
-    let arr_b: [u8; 32] = proof.b;
-    let a = Scalar::from_bytes_mod_order(arr_a);
-    let b = Scalar::from_bytes_mod_order(arr_b);
+    let Some(a) = crate::canonical::canonical_scalar(&proof.a) else {
+        return false;
+    };
+    let Some(b) = crate::canonical::canonical_scalar(&proof.b) else {
+        return false;
+    };
     let expected = g[0] * a + h[0] * b + (a * b) * q;
     expected == p
 }
