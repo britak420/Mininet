@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mininet.invalid/schemas/bootstrap-governance-freeze-v1.json",
+  "title": "Mininet bootstrap governance freeze",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_version",
+    "record_id",
+    "status",
+    "effective_condition",
+    "frozen_exact_paths",
+    "frozen_directory_roots",
+    "allowed_dynamic_paths",
+    "exit_condition",
+    "preserves"
+  ],
+  "properties": {
+    "$schema": {"const": "./bootstrap-governance-freeze.schema.json"},
+    "schema_version": {"const": 1},
+    "record_id": {"const": "github-bootstrap-governance-freeze-v1"},
+    "status": {"enum": ["active", "sunset"]},
+    "effective_condition": {"const": "canonical_on_main"},
+    "frozen_exact_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "frozen_directory_roots": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "allowed_dynamic_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "exit_condition": {
+      "type": "object",
+      "required": ["state_path", "field", "required_value", "candidate_status"],
+      "properties": {
+        "state_path": {"const": "governance/bootstrap-operating-state.json"},
+        "field": {"const": "forge_canonical"},
+        "required_value": {"const": true},
+        "candidate_status": {"const": "sunset"}
+      },
+      "additionalProperties": false
+    },
+    "preserves": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "additionalProperties": false
+}
