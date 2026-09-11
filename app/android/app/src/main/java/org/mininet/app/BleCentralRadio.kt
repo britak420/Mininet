@@ -23,7 +23,7 @@ import org.mininet.core.BleRadioException
 
 /**
  * The central (GATT client / scanner) half of the real Android `BleRadio`
- * (issue #201 Android beta slice 5). Pairs with [BlePeripheralRadio] on the
+ * (issue #201 Android beta slice 5). Pairs with [BlePeripheralServer] on the
  * other phone -- see that class's doc comment for the shared GATT profile,
  * chunk-only responsibility, and honest limits, all of which apply
  * identically here.
@@ -147,7 +147,17 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
         rxCharacteristic = rx
         servicesReadyLatch.countDown()
 
-        g.setCharacteristicNotification(tx, true)
+        // setCharacteristicNotification only enables *local* delivery of
+        // notifications this process already receives over the air; if it
+        // returns false, writing the CCCD to ask the peripheral to *send*
+        // them would still "succeed" while this side silently never
+        // surfaces them, leaving readChunk waiting for input that already
+        // arrived and was dropped. Fail the connection immediately instead.
+        if (!g.setCharacteristicNotification(tx, true)) {
+            connectFailed = true
+            notificationsReadyLatch.countDown()
+            return
+        }
         val cccd = tx.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_UUID)
         if (cccd == null) {
             connectFailed = true
@@ -210,11 +220,26 @@ class BleCentralRadio(context: Context) : BluetoothGattCallback(), BleRadio {
         }
     }
 
-    override fun readChunk(): List<UByte> = incoming.take().toUByteList()
+    // Bounded, not take() -- see BlePeripheralServer.PeripheralLinkRadio's
+    // own readChunk for why an unbounded wait here is a real hazard (a
+    // connected peer that never sends a Channel hello pins this thread
+    // forever) and why bounding it is safe for this class's actual usage
+    // (mini_mesh::MeshNode never calls the blocking recv/readChunk path
+    // again after the one-shot handshake read).
+    override fun readChunk(): List<UByte> {
+        val chunk = try {
+            incoming.poll(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw BleRadioException.Failed("interrupted while waiting for a chunk: ${e.message}")
+        }
+        return (chunk ?: throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")).toUByteList()
+    }
 
     override fun tryReadChunk(): List<UByte>? = incoming.poll()?.toUByteList()
 
     companion object {
         private const val WRITE_TIMEOUT_MS = 10_000L
+        private const val READ_TIMEOUT_MS = 30_000L
     }
 }

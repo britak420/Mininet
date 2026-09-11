@@ -92,10 +92,18 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
 
     private var gattServer: BluetoothGattServer? = null
     private var advertiser: BluetoothLeAdvertiser? = null
+    private var advertiseCallback: AdvertiseCallback? = null
     private var txCharacteristic: BluetoothGattCharacteristic? = null
 
     @Volatile
     private var onLinkReady: ((BleRadio) -> Unit)? = null
+
+    // onServiceAdded fires once per start() call (a fresh GATT server and
+    // service each time), so a fresh latch/flag pair per instance is
+    // correct -- this class is not meant to be started twice.
+    private val serviceAddedLatch = CountDownLatch(1)
+    @Volatile
+    private var serviceAddedOk = false
 
     private class LinkState(val device: BluetoothDevice) {
         val incoming = LinkedBlockingQueue<ByteArray>()
@@ -115,6 +123,21 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
      * retry an already-partially-started server.
      */
     fun start(onLinkReady: (BleRadio) -> Unit, advertiseTimeoutMs: Long = DEFAULT_ADVERTISE_TIMEOUT_MS): Boolean {
+        return try {
+            startInternal(onLinkReady, advertiseTimeoutMs)
+        } catch (_: SecurityException) {
+            // A fresh install with BLUETOOTH_ADVERTISE/CONNECT not yet
+            // granted reaches a protected call somewhere in the sequence
+            // below; this class's own documented contract is a clean
+            // `false`, not a crash, so clean up whatever partial state
+            // exists (an opened GATT server, e.g.) and report failure the
+            // same as any other missing-prerequisite case.
+            close()
+            false
+        }
+    }
+
+    private fun startInternal(onLinkReady: (BleRadio) -> Unit, advertiseTimeoutMs: Long): Boolean {
         this.onLinkReady = onLinkReady
 
         val rx = BluetoothGattCharacteristic(
@@ -140,7 +163,25 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
 
         val server = bluetoothManager.openGattServer(appContext, this) ?: return false
         gattServer = server
-        server.addService(service)
+
+        val started = System.currentTimeMillis()
+        fun remaining(): Long = (advertiseTimeoutMs - (System.currentTimeMillis() - started)).coerceAtLeast(0)
+
+        // addService is fire-and-forget-looking but is not actually
+        // synchronous: registration completes (or fails) asynchronously
+        // through onServiceAdded, below. A central that connects and tries
+        // service discovery before that completes would fail discovery
+        // even though this server looks "started" -- so wait for the real
+        // completion signal before ever advertising the service exists.
+        if (!server.addService(service)) {
+            close()
+            return false
+        }
+        val serviceReady = serviceAddedLatch.await(remaining(), TimeUnit.MILLISECONDS)
+        if (!serviceReady || !serviceAddedOk) {
+            close()
+            return false
+        }
 
         val advertiserInstance = adapter?.bluetoothLeAdvertiser
         if (advertiserInstance == null) {
@@ -161,7 +202,7 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
 
         val advertiseStarted = CountDownLatch(1)
         var advertiseOk = false
-        val advertiseCallback = object : AdvertiseCallback() {
+        val callback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
                 advertiseOk = true
                 advertiseStarted.countDown()
@@ -172,8 +213,13 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
                 advertiseStarted.countDown()
             }
         }
-        advertiserInstance.startAdvertising(settings, data, advertiseCallback)
-        advertiseStarted.await(advertiseTimeoutMs, TimeUnit.MILLISECONDS)
+        // Stored so close() can stop this exact callback instance -- Android
+        // matches stopAdvertising's callback by identity, so passing a
+        // freshly constructed one there is a silent no-op that leaves the
+        // radio advertising after "shutdown".
+        advertiseCallback = callback
+        advertiserInstance.startAdvertising(settings, data, callback)
+        advertiseStarted.await(remaining(), TimeUnit.MILLISECONDS)
         if (!advertiseOk) {
             close()
             return false
@@ -186,11 +232,21 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
 
     /** Stops advertising and releases the GATT server. Safe to call more than once. */
     fun close() {
-        runCatching { advertiser?.stopAdvertising(object : AdvertiseCallback() {}) }
+        // Must be the exact same callback instance startAdvertising was
+        // given -- Android identifies an in-flight advertisement by that
+        // identity, so a different (even functionally identical) instance
+        // here silently fails to stop anything.
+        advertiseCallback?.let { callback -> runCatching { advertiser?.stopAdvertising(callback) } }
+        advertiseCallback = null
         runCatching { gattServer?.close() }
         gattServer = null
         advertiser = null
         links.clear()
+    }
+
+    override fun onServiceAdded(status: Int, service: BluetoothGattService) {
+        serviceAddedOk = status == BluetoothGatt.GATT_SUCCESS
+        serviceAddedLatch.countDown()
     }
 
     override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
@@ -310,13 +366,32 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
             }
         }
 
-        override fun readChunk(): List<UByte> = state.incoming.take().toUByteList()
+        // Bounded, not take(): an unbounded block here is exactly how a
+        // central that completes the GATT connection/notification dance
+        // but never actually sends a Channel hello would pin this thread
+        // (and, via mesh.addAcceptedLink's own blocking handshake read,
+        // one of BleMeshService's worker threads) forever -- an untrusted
+        // nearby device could exhaust the pool that way. Bounding is safe
+        // for this class's actual usage: after the one-shot handshake
+        // read, mini_mesh::MeshNode only ever calls try_recv (never
+        // blocking recv/readChunk again), so no legitimate caller needs
+        // readChunk to block past a generous timeout.
+        override fun readChunk(): List<UByte> {
+            val chunk = try {
+                state.incoming.poll(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw BleRadioException.Failed("interrupted while waiting for a chunk: ${e.message}")
+            }
+            return (chunk ?: throw BleRadioException.Failed("no chunk received within $READ_TIMEOUT_MS ms")).toUByteList()
+        }
 
         override fun tryReadChunk(): List<UByte>? = state.incoming.poll()?.toUByteList()
     }
 
     companion object {
         private const val NOTIFY_TIMEOUT_MS = 10_000L
+        private const val READ_TIMEOUT_MS = 30_000L
         private const val DEFAULT_ADVERTISE_TIMEOUT_MS = 10_000L
     }
 }

@@ -3,7 +3,7 @@
     "crates": 77,
     "files": 967,
     "headings": 3519,
-    "rust_symbols": 9772
+    "rust_symbols": 9775
   },
   "crates": {
     "did-mini": {
@@ -1848,7 +1848,7 @@
       ],
       "lines": 447,
       "path": "README.md",
-      "sha256": "34c42b0203343da9c346c64390c54c41ec5d726051371cf48f4b381dff2336b1",
+      "sha256": "2a24f2013e904414df8502f53ddb2892b40b831757444485efa5a47826d01e0a",
       "symbols": [],
       "title": "Mininet"
     },
@@ -40163,38 +40163,38 @@
       "title": "The transport (Bearer, EncryptedLink) this crate composes over."
     },
     {
-      "bytes": 11621,
+      "bytes": 13860,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
-        "self",
         "link",
+        "self",
         "links",
         "meshnode",
-        "payload",
         "every",
         "fmt",
         "new",
+        "poll",
         "same",
         "encryptedlink",
-        "send",
-        "seen",
-        "broadcast",
         "mesh",
         "relay",
         "bearer",
         "ble",
+        "tree",
+        "one",
+        "payload",
+        "send",
+        "seen",
         "default_seen_capacity",
         "std",
         "mini_bearer",
-        "tree",
-        "already",
-        "gossiprouter",
-        "own"
+        "see",
+        "already"
       ],
-      "lines": 302,
+      "lines": 356,
       "path": "crates/mini-mesh/src/lib.rs",
-      "sha256": "41da94f65b29628ee09620f0deb911fb7f0d7767fb152adffd3c3e7cf3dc58d6",
+      "sha256": "574205aacb0e91435cb01a6dec0beedd29d1405dbbae84224f21788af9896d86",
       "symbols": [
         {
           "kind": "const",
@@ -40202,114 +40202,129 @@
           "name": "DEFAULT_SEEN_CAPACITY"
         },
         {
+          "kind": "const",
+          "line": 39,
+          "name": "MAX_MESSAGES_PER_LINK_PER_POLL"
+        },
+        {
           "kind": "fn",
-          "line": 37,
+          "line": 45,
           "name": "message_id"
         },
         {
           "kind": "struct",
-          "line": 48,
+          "line": 56,
           "name": "MeshNode"
         },
         {
           "kind": "impl",
-          "line": 53,
+          "line": 61,
           "name": "std::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 54,
+          "line": 62,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 62,
+          "line": 70,
           "name": "MeshNode"
         },
         {
           "kind": "fn",
-          "line": 65,
+          "line": 73,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 70,
+          "line": 78,
           "name": "with_seen_capacity"
         },
         {
           "kind": "fn",
-          "line": 80,
+          "line": 88,
           "name": "add_link"
         },
         {
           "kind": "fn",
-          "line": 86,
+          "line": 98,
           "name": "link_count"
         },
         {
           "kind": "fn",
-          "line": 99,
+          "line": 111,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 115,
+          "line": 131,
           "name": "poll"
         },
         {
           "kind": "impl",
-          "line": 150,
+          "line": 166,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 151,
+          "line": 167,
           "name": "default"
         },
         {
           "kind": "mod",
-          "line": 157,
+          "line": 173,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 161,
+          "line": 177,
           "name": "boxed"
         },
         {
           "kind": "fn",
-          "line": 172,
+          "line": 188,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 181,
+          "line": 197,
           "name": "two_directly_linked_nodes_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 193,
+          "line": 209,
           "name": "a_repeated_broadcast_is_deduped_not_delivered_twice"
         },
         {
           "kind": "fn",
-          "line": 214,
+          "line": 230,
           "name": "a_broadcast_from_one_end_of_a_line_topology_reaches_the_other_end_via_relay"
         },
         {
           "kind": "fn",
-          "line": 259,
+          "line": 275,
           "name": "a_disconnected_pair_never_hears_a_broadcast_from_the_other_side"
         },
         {
           "kind": "fn",
-          "line": 278,
+          "line": 294,
           "name": "a_node_recognizes_its_own_broadcast_echoed_back_and_does_not_redeliver_it"
         },
         {
           "kind": "fn",
-          "line": 293,
+          "line": 309,
           "name": "link_count_reflects_added_links"
+        },
+        {
+          "kind": "fn",
+          "line": 319,
+          "name": "a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever"
+        },
+        {
+          "kind": "fn",
+          "line": 339,
+          "name": "poll_never_drains_more_than_the_per_link_cap_in_one_call"
         }
       ],
       "title": "use mini_bearer::{Bearer, EncryptedLink};"
@@ -80718,7 +80733,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1345524,
+      "bytes": 1345853,
       "group": "docs",
       "headings": [
         {
@@ -81148,9 +81163,9 @@
         "release",
         "first"
       ],
-      "lines": 22340,
+      "lines": 22344,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "ca5ef3e1b9181e1c933b646d8c29171975f093bcf9ddba67845282ec81b16828",
+      "sha256": "993cbddf6a318d03acb22e9dfb0b9233b6de8fec0dcb408654664a7f9efd634b",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -101013,7 +101028,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 86987,
+      "bytes": 87070,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -101042,9 +101057,9 @@
         "independently",
         "both"
       ],
-      "lines": 1341,
+      "lines": 1342,
       "path": "governance/work-claims.json",
-      "sha256": "67c1f998196b776fb5dce556ed4cff0c863cfc63beacc17045118b6229283f1a",
+      "sha256": "8d9809217b75d1ba0f894a46e79bc38643e6c22b8714cfd37162d217ded9cd46",
       "symbols": [],
       "title": "{"
     },

@@ -19672,6 +19672,7 @@ running multi-node mesh both remain open, tracked in roadmap #24.
 **Supersedes / superseded by:** extends D-0472; supersedes nothing.
 
 ### D-0502 — Kotlin-side BLE GATT implementation of `BleRadio` (issue #201, Android beta slice 5)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** issue #201, D-0374, D-0375.
 
 **Decision:** Add `BlePeripheralRadio` (GATT server/advertiser) and
 `BleCentralRadio` (GATT client/scanner) under `app/android/app/src/main/
@@ -19753,6 +19754,7 @@ is code-only.
 nothing.
 
 ### D-0503 — Transport-generic dedup-flood mesh relay: `mini_bearer::EncryptedLink` + new crate `mini-mesh` (`docs/design/ble-mesh-relay.md`)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** `docs/design/ble-mesh-relay.md`, D-0205, D-0472, D-0473, roadmap R10/R11, issue #97.
 
 **Decision:** Add `mini_bearer::EncryptedLink<B: Bearer>` (any `Bearer` plus
 an already-established `Channel` handshake, dial/accept matching the
@@ -19815,7 +19817,8 @@ TCP sockets.
 **Supersedes / superseded by:** extends D-0205's relay proof and D-0374/
 D-0375's BLE/UniFFI chain off TCP-only/single-link; supersedes nothing.
 
-### D-0504 — `mini-ffi::mesh`: UniFFI boundary over `mini_mesh::MeshNode` (`MeshHandle`)
+### D-0504 — `mini-ffi::mesh`: UniFFI boundary over `mini_mesh::MeshNode` (`MeshHandle`)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** D-0503, D-0338, D-0375.
 
 **Decision:** Add `mini_ffi::mesh::MeshHandle` (constructor, `add_dialed_link`/
 `add_accepted_link` taking the existing `BleRadio` callback interface plus
@@ -19856,7 +19859,8 @@ and match `BleMeshService`'s usage.
 **Supersedes / superseded by:** extends D-0374/D-0375's `BleBearerHandle`
 UniFFI pattern to `MeshHandle`; supersedes nothing.
 
-### D-0505 — Android: multi-central `BlePeripheralServer`, split `BleCentralRadio`, and `BleMeshService` orchestration
+### D-0505 — Android: multi-central `BlePeripheralServer`, split `BleCentralRadio`, and `BleMeshService` orchestration  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** D-0502, D-0503, D-0504.
 
 **Decision:** Replace D-0502's single-connection `BlePeripheralRadio` with
 `BlePeripheralServer` — one `BluetoothGattServer` tracking many

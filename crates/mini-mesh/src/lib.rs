@@ -30,6 +30,14 @@ use mini_net::GossipRouter;
 /// stance every seen-cache in this tree already takes.
 pub const DEFAULT_SEEN_CAPACITY: usize = 65_536;
 
+/// How many messages [`MeshNode::poll`] drains from one link before moving
+/// on to the next, per call. Without this bound a single link that always
+/// has more waiting (a fast or hostile peer using a write-without-response
+/// characteristic, e.g.) could starve every other link's traffic and grow
+/// one `poll()` call's allocation without limit; a caller that needs more
+/// throughput from one link simply calls `poll()` again.
+pub const MAX_MESSAGES_PER_LINK_PER_POLL: usize = 64;
+
 /// A content id for a mesh payload: the BLAKE3 digest of its raw bytes.
 /// Every hop computes the same id independently from the same bytes, so
 /// nothing needs to carry an id on the wire — the payload *is* its own id,
@@ -81,8 +89,12 @@ impl MeshNode {
         self.links.push(link);
     }
 
-    /// How many links are currently held (including any that have gone
-    /// silent but have not yet failed a send/recv).
+    /// How many links are currently held. A link that has failed a
+    /// `try_recv` is pruned by [`Self::poll`] (see its own docs), so this
+    /// can only drop, never silently accumulate dead connections; it does
+    /// not shrink on a `send` failure alone (best-effort, matching every
+    /// other bearer-broadcast in this tree) until that link's next failed
+    /// `try_recv`.
     pub fn link_count(&self) -> usize {
         self.links.len()
     }
@@ -105,37 +117,41 @@ impl MeshNode {
         id
     }
 
-    /// Drain every link of whatever has arrived so far (non-blocking) and
-    /// dedup-flood-relay it: the first time this node sees a given payload,
-    /// it is re-sent across every link (so a non-adjacent device hears it
-    /// via relay — what makes any **connected** graph live, not just a full
-    /// mesh) and returned to the caller; a repeat is silently dropped.
-    /// Never blocks and never panics on a broken link (its traffic is just
-    /// skipped this round).
+    /// Drain every link of up to [`MAX_MESSAGES_PER_LINK_PER_POLL`] waiting
+    /// messages (non-blocking) and dedup-flood-relay them: the first time
+    /// this node sees a given payload, it is re-sent across every
+    /// still-live link (so a non-adjacent device hears it via relay — what
+    /// makes any **connected** graph live, not just a full mesh) and
+    /// returned to the caller; a repeat is silently dropped. A link whose
+    /// `try_recv` fails (the bearer closed, the peer disconnected, a
+    /// decode/decrypt failure) is a **terminal** failure for that link — it
+    /// is dropped from the mesh in the same call, not retried on every
+    /// future `poll()` — so this never panics and never accumulates dead
+    /// links.
     pub fn poll(&mut self) -> Vec<([u8; 32], Vec<u8>)> {
         let mut new_messages = Vec::new();
         let mut to_reflood: Vec<Vec<u8>> = Vec::new();
 
-        for link in &mut self.links {
-            loop {
+        let seen = &mut self.seen;
+        self.links.retain_mut(|link| {
+            for _ in 0..MAX_MESSAGES_PER_LINK_PER_POLL {
                 match link.try_recv() {
                     Ok(Some(payload)) => {
                         let id = message_id(&payload);
-                        if self.seen.record_seen(id) {
+                        if seen.record_seen(id) {
                             to_reflood.push(payload.clone());
                             new_messages.push((id, payload));
                         }
                         // A repeat: already relayed and delivered once, drop it.
                     }
-                    Ok(None) => break,
-                    // A broken/closed link this round: stop draining it, move
-                    // on to the next. It stays held (a caller decides whether
-                    // and when to prune a dead link) rather than being
-                    // silently removed here.
-                    Err(_) => break,
+                    Ok(None) => return true,
+                    // Terminal for this link: drop it from the mesh instead
+                    // of retrying a dead connection forever.
+                    Err(_) => return false,
                 }
             }
-        }
+            true
+        });
 
         for payload in &to_reflood {
             for link in &mut self.links {
@@ -297,5 +313,43 @@ mod tests {
         link(&mut a, &mut b);
         assert_eq!(a.link_count(), 1);
         assert_eq!(b.link_count(), 1);
+    }
+
+    #[test]
+    fn a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        link(&mut a, &mut b);
+        assert_eq!(a.link_count(), 1);
+
+        // b (and the bearer half its link holds) is gone: a's link is now
+        // permanently broken, the same as a real disconnected/decrypt-failed
+        // BLE connection.
+        drop(b);
+
+        assert!(a.poll().is_empty());
+        assert_eq!(
+            a.link_count(),
+            0,
+            "a dead link must be dropped, not retried on every future poll()"
+        );
+    }
+
+    #[test]
+    fn poll_never_drains_more_than_the_per_link_cap_in_one_call() {
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        link(&mut a, &mut b);
+
+        for i in 0..(MAX_MESSAGES_PER_LINK_PER_POLL + 10) {
+            a.broadcast(format!("message {i}").as_bytes());
+        }
+        let first_poll = b.poll();
+        assert_eq!(first_poll.len(), MAX_MESSAGES_PER_LINK_PER_POLL);
+
+        // The remaining messages are still waiting, not lost -- a second
+        // poll() picks up exactly the rest.
+        let second_poll = b.poll();
+        assert_eq!(second_poll.len(), 10);
     }
 }

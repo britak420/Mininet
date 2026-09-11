@@ -1219,11 +1219,12 @@
         "governance/work-claims.json"
       ],
       "decision_ids": [
+        "D-0502",
         "D-0503",
         "D-0504",
         "D-0505"
       ],
-      "notes": "D-0503/D-0504/D-0505: transport-generic dedup-flood BLE mesh relay (docs/design/ble-mesh-relay.md), per the founder's 2026-09-11 direction that devices form a real network over BLE, not just pair one-to-one. D-0503: mini_bearer::EncryptedLink + new crate mini-mesh (MeshNode), hardware-free proven with in-process AND real-loopback-TCP multi-hop line-topology tests. D-0504: mini-ffi::mesh UniFFI boundary (MeshHandle). D-0505: Android BlePeripheralServer multi-central redesign, BleCentralRadio scan/connect split, BleMeshService orchestration -- unverified without a JDK/Android SDK/BLE hardware in this environment; Android CI assembleDebug is the first real check."
+      "notes": "D-0502/D-0503/D-0504/D-0505: BLE mesh relay (docs/design/ble-mesh-relay.md), per the founder's 2026-09-11 direction that devices form a real network over BLE, not just pair one-to-one. D-0502: Kotlin BleRadio implementation (single-connection, later superseded by D-0505). D-0503: mini_bearer::EncryptedLink + new crate mini-mesh (MeshNode), hardware-free proven with in-process AND real-loopback-TCP multi-hop line-topology tests. D-0504: mini-ffi::mesh UniFFI boundary (MeshHandle). D-0505: Android BlePeripheralServer multi-central redesign, BleCentralRadio scan/connect split, BleMeshService orchestration -- unverified without a JDK/Android SDK/BLE hardware in this environment; Android CI assembleDebug is the first real check."
     },
     {
       "issue": 92,
