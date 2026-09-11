@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "publication_date": "2026-09-08",
+  "canonical_source": "684baa103c075299a375d1ed9a3327185c0ba02b",
+  "through_pr": 326,
+  "pr_count": 174,
+  "merged": 166,
+  "closed_unmerged": 8,
+  "files": [
+    {
+      "path": "MASTER_REVIEW.md",
+      "source_attachment": "Mininet_Executive_Review.md",
+      "bytes": 23774,
+      "sha256": "2dfba8da1d789c1abdd3b21de24abd1050ba1bc20ec317c597907aee6c8e8e95",
+      "git_blob_sha": "fef2864d80361686434a9c83ae5f4724892f25be"
+    },
+    {
+      "path": "FINDINGS_AND_IMPROVEMENTS.md",
+      "source_attachment": "Mininet_Findings_and_Improvements.md",
+      "bytes": 52216,
+      "sha256": "87d380b907c64f4be45ac6158d33927c10ddec31238c6fa4463f44d6f241f3fb",
+      "git_blob_sha": "5b92fd7c3a9899de72845a0ddfcf0d43ae276000"
+    },
+    {
+      "path": "ALL_174_PR_REVIEWS.md",
+      "source_attachment": "Mininet_All_174_PR_Reviews.md",
+      "bytes": 735097,
+      "sha256": "1391caedd1056256e5af7446a76d072eaee6d9d8c0683c653c4721827ffea769",
+      "git_blob_sha": "fb0734098452b599b33bca3832b26be1f80e0980"
+    },
+    {
+      "path": "EXHAUSTIVE_REVIEW.html",
+      "source_attachment": "Mininet_Exhaustive_Review.html",
+      "bytes": 956401,
+      "sha256": "f406d97485ad9fce44fe638a1a781a3ca5c264346bd3354499621a703ebdba0e",
+      "git_blob_sha": "16ce5ece328e8907279a6bd8440ff6c1bc9f437d"
+    },
+    {
+      "path": "EVIDENCE_MAP.json",
+      "source_attachment": null,
+      "bytes": 1764369,
+      "sha256": "755bc45c079ffa0408f5d70cef1838ad0e66559b249a0b66282df41431817a32",
+      "git_blob_sha": "2df39a0eed604ac7597d424f2549140fcac69b8b"
+    }
+  ],
+  "verification_scope": "Publication integrity and structural coverage only. No new substantive security review, Rust test run, external approval or production authorization.",
+  "transfer_verification_run": 34251797266,
+  "capture_artifact": 10045573430,
+  "capture_archive_sha256": "4dbb5b4f8f6e7911e5f048be3bbb34b8771503d6702a288854e534e6343774cd"
+}
