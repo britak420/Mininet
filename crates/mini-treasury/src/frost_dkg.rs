@@ -306,14 +306,26 @@ pub fn verify_round1_package(
 /// a smaller set if some participants have already dropped out). Each
 /// entry must be sent **privately** to that one recipient — see the module
 /// docs' transport note.
+///
+/// Rejects a recipient index of `0`: in Shamir/Feldman sharing the constant
+/// term of the polynomial *is* `f(0)` — the participant's own DKG secret
+/// contribution, the exact value [`DkgRound1Secret`]'s own docs say must
+/// never be exposed outside [`dkg_finalize`]'s sum. `dkg_round1` already
+/// refuses index `0` for a polynomial's *owner*; this closes the matching
+/// gap on the *recipient* side, where nothing previously stopped a caller
+/// (or a malicious coordinator relaying `recipient_indices`) from asking
+/// for evaluation at `0` and receiving the raw secret back.
 pub fn dkg_generate_round2_shares(
     secret: &DkgRound1Secret,
     recipient_indices: &[u16],
-) -> BTreeMap<u16, Scalar> {
-    recipient_indices
+) -> Result<BTreeMap<u16, Scalar>> {
+    if recipient_indices.contains(&0) {
+        return Err(TreasuryError::InvalidFrostParticipant);
+    }
+    Ok(recipient_indices
         .iter()
         .map(|&j| (j, eval_polynomial(&secret.coefficients, index_scalar(j))))
-        .collect()
+        .collect())
 }
 
 /// Feldman-verify a share this participant received from `from_package`'s
@@ -393,6 +405,20 @@ pub fn dkg_resolve(
 ) -> Result<DkgResolution> {
     let mut resolution = DkgResolution::default();
     for complaint in complaints {
+        // `accuser` is deliberately not required to be a key in
+        // `round1_packages` (see this function's own docs: resharing
+        // legitimately draws accusers from a different roster than
+        // `round1_packages`), but it is still used directly as a Feldman
+        // evaluation index below, and index `0` is never a valid
+        // participant identifier in *any* roster this crate constructs
+        // (`dkg_round1` already refuses it) -- so a rebuttal answering an
+        // `accuser: 0` complaint would disclose `f(0)`, the accused's raw
+        // DKG secret contribution, not an ordinary non-revealing
+        // evaluation point. Reject it before any rebuttal is even looked
+        // up, regardless of which roster this call is resolving for.
+        if complaint.accuser == 0 {
+            return Err(TreasuryError::InvalidFrostParticipant);
+        }
         let Some(accused_package) = round1_packages.get(&complaint.accused) else {
             return Err(TreasuryError::InvalidFrostParticipant);
         };
@@ -535,7 +561,7 @@ mod tests {
             let recipients: Vec<u16> = all_indices.iter().copied().filter(|&j| j != i).collect();
             outboxes.insert(
                 i,
-                dkg_generate_round2_shares(&session.secrets[&i], &recipients),
+                dkg_generate_round2_shares(&session.secrets[&i], &recipients).unwrap(),
             );
         }
 
@@ -656,9 +682,38 @@ mod tests {
     }
 
     #[test]
+    fn requesting_a_round2_share_for_recipient_index_0_is_rejected() {
+        // Index 0 is the polynomial's constant term -- the participant's
+        // own raw DKG secret contribution, not an ordinary share. Nothing
+        // may ever be allowed to ask for it back out.
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        assert_eq!(
+            dkg_generate_round2_shares(&secret, &[2, 0, 3]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
+    fn a_complaint_accusing_index_0_is_rejected_before_any_rebuttal_lookup() {
+        // A rebuttal answering an `accuser: 0` complaint would disclose
+        // f(0) -- the accused's raw secret -- not an ordinary Feldman
+        // evaluation point. This must be refused outright, independent of
+        // whether a rebuttal is even supplied.
+        let session = run_round1(5, 3, b"ctx");
+        let complaints = vec![DkgComplaint {
+            accuser: 0,
+            accused: 1,
+        }];
+        assert_eq!(
+            dkg_resolve(&session.packages, &complaints, &[]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
     fn a_tampered_share_fails_feldman_verification() {
         let (secret, package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
-        let mut share = dkg_generate_round2_shares(&secret, &[2])[&2];
+        let mut share = dkg_generate_round2_shares(&secret, &[2]).unwrap()[&2];
         share += Scalar::ONE;
         assert!(!dkg_verify_received_share(&package, 2, share));
     }
@@ -801,7 +856,8 @@ mod tests {
     #[test]
     fn an_equivocating_sender_is_caught_by_whichever_recipient_got_the_inconsistent_share() {
         let session = run_round1(5, 3, b"ctx");
-        let genuine_share_to_2 = dkg_generate_round2_shares(&session.secrets[&1], &[2])[&2];
+        let genuine_share_to_2 =
+            dkg_generate_round2_shares(&session.secrets[&1], &[2]).unwrap()[&2];
         let equivocated_share_to_3 = genuine_share_to_2 + Scalar::ONE; // deliberately different
 
         assert!(dkg_verify_received_share(
