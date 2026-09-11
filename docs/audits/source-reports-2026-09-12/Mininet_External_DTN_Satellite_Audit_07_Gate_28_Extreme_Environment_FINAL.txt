@@ -1,0 +1,5770 @@
+MININET EXTREME-ENVIRONMENT / DTN ARCHITECTURE AUDIT 7/8
+Gate #28 — Disaster, Satellite, Lunar, Mars, and Interplanetary Operation
+
+EXTERNAL DOMAIN-EXPERT DESIGN DECISION
+RFC 9171 BPv7 / BPSec / TCPCLv4 / LTP / SABR interoperability profile
+Store-carry-forward, partition semantics, delayed settlement, routing,
+privacy, resource exhaustion, weak-device operation, and century-scale limits
+
+Report date: 2026-09-11
+Repository: mininet-labs/Mininet
+Exact main revision reviewed:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+AUDIT DISPOSITION
+
+  EXTERNAL DTN / SATELLITE DOMAIN RESEARCH: PASS / COMPLETE
+  GATE #28 DESIGN QUESTION:                  PASS / COMPLETE
+  CURRENT NATIVE DTN IMPLEMENTATION:         NOT IMPLEMENTED
+  TERRESTRIAL REAL-VALUE LAUNCH IMPACT:      NON-BLOCKING
+  GATE #28:                                  CLOSE ON HUMAN AUDITOR ADOPTION
+
+A second generic DTN/satellite expert review is NOT required.
+
+This is important.
+
+Roadmap #28 asked for a domain expert to determine:
+  * which operating regimes are in scope;
+  * whether RFC 9171 fits Mininet;
+  * what transport / retry / expiry model is correct;
+  * what to do about custody transfer;
+  * how long delay interacts with offline payment claims.
+
+This report answers those questions.
+
+It does NOT pretend Mininet already ships a satellite modem, a lunar link, or a
+Mars relay.
+
+Those are implementation/deployment capabilities.
+
+They are not a reason to keep the architecture question open.
+
+The terrestrial real-value network may launch without `mini-dtn` provided that:
+
+  1. no release claims DTN/satellite/interplanetary support that does not exist;
+  2. ordinary local-first/BLE/Wi-Fi/Internet launch gates pass independently;
+  3. no terrestrial monetary or governance invariant depends on DTN;
+  4. future DTN implementation conforms to this report before its capability is
+     advertised as supported.
+
+That is the correct meaning of a NON-BLOCKING extreme-environment gate.
+
+
+======================================================================
+0. EXECUTIVE ANSWER
+======================================================================
+
+YES — RFC 9171 Bundle Protocol Version 7 fits Mininet's architecture.
+
+It fits unusually well because Mininet already has:
+
+  * immutable content-addressed objects;
+  * opaque encrypted private object envelopes;
+  * local-first application state;
+  * a direct bearer abstraction;
+  * a strict split between pending local payment claims and canonical finality.
+
+The architecture should NOT turn `mini_bearer::Bearer` into a magical link that
+blocks for six months.
+
+Instead, add a separate asynchronous `mini-dtn` store-carry-forward layer above
+the object/operation layer and alongside the live bearer/session layer.
+
+The central design decision is:
+
+  LIVE TRANSPORT and DEFERRED TRANSPORT are different semantics.
+
+Live:
+  send/recv;
+  duplex;
+  session;
+  ordered cryptographic channel;
+  useful for Internet/BLE/Wi-Fi contacts that currently exist.
+
+Deferred:
+  enqueue immutable object/operation;
+  persist;
+  carry;
+  forward during future contact;
+  deliver at least once;
+  reorder/duplicate freely;
+  no end-to-end session assumed.
+
+RFC 9171 BPv7 is the V1 interoperability wire protocol for the deferred path.
+
+Mininet implements its own narrow Rust BPv7 profile and uses NASA ION/HDTN or
+other standards-compliant BPv7 nodes as INTEROPERABILITY TEST PEERS, not as
+runtime authorities and not as required hosted services.
+
+No local region is ever allowed to finalize the SAME global MINI ledger while
+cut off and later "merge" money.
+
+That idea is rejected.
+
+Content and CRDT application state may merge.
+
+Global MINI ownership, global constitutional governance execution, and global
+monetary parameters do not merge.
+
+A disconnected region may:
+  communicate;
+  create signed objects;
+  create queued transactions;
+  receive locally accepted payment promises;
+  coordinate locally;
+  maintain content;
+  prepare votes/proposals;
+  carry canonical proofs it already has.
+
+It may not claim:
+  new global monetary finality;
+  global governance finality;
+  canonical treasury authority
+without the globally valid chain state required by those operations.
+
+That single rule removes the most dangerous ambiguity in the previous gate
+document.
+
+
+======================================================================
+1. CURRENT SOURCE VERDICT
+======================================================================
+
+D7-F01 — PASS
+Current `mini-settlement` already has the correct finality split.
+
+Mechanism:
+  `SettlementState` contains:
+    SignedLocal
+    AcceptedLocal
+    PendingCanonical
+    Finalized
+    RejectedConflict
+    RejectedCanonical
+    Expired
+
+Only:
+  Finalized
+returns:
+  is_final() == true.
+
+This is exactly the right basis for disruption-tolerant money.
+
+D7-F02 — PASS
+Canonical ordering alone decides conflicting spends.
+
+Location:
+  `crates/mini-settlement/src/reconcile.rs`
+
+Mechanism:
+  `reconcile()` can return Finalized only from a `CanonicalLedgerView`.
+
+A local relay:
+  cannot finalize.
+
+A hotspot:
+  cannot finalize.
+
+A partition committee:
+  cannot finalize.
+
+A DTN gateway:
+  cannot finalize.
+
+Preserve this.
+
+D7-F03 — PARTIAL
+Current `PaymentClaim` is signed and bounded but its expiry semantics are
+Internet/device-clock shaped.
+
+Location:
+  `crates/mini-settlement/src/claim.rs`
+
+Current fields include:
+  `valid_until_ms`
+and the source describes it as:
+  device-clock milliseconds.
+
+Local acceptance and reconciliation compare caller `now_ms` against it.
+
+Exact failure:
+  a wall/device clock is not a robust canonical validity boundary for a claim
+  that may spend days or months in a disconnected store-carry-forward network.
+
+Decision:
+  PaymentClaimV2 uses canonical chain anchoring and canonical economic-epoch
+  expiry, Section 15.
+
+D7-F04 — PASS AS LIVE BEARER / FAIL AS DTN API
+Current `mini_bearer::Bearer` is correctly documented as:
+  frame-oriented;
+  best-effort;
+  live send/recv.
+
+Its own documentation says:
+  delay-tolerant users must add retransmission/reordering above it.
+
+That is a good boundary.
+
+Do NOT distort the trait to make a live bearer impersonate persistent mail.
+
+D7-F05 — FAIL FOR ASYNCHRONOUS E2E SESSION USE
+Current `mini_bearer::Channel` performs a two-message live handshake and uses
+monotonic in-order AEAD counters.
+
+That is correct for an active connection.
+
+It is not the end-to-end security format for an object that may be:
+  stored for 30 days;
+  copied through 12 relays;
+  delivered after both original sessions disappeared.
+
+Decision:
+  DTN transports independently verifiable Mininet object/operation bytes.
+  Live Channel may secure a current contact, but it is never required to decrypt
+  the stored object at the final destination.
+
+D7-F06 — PASS / STRONG FIT
+Current `mini-objects::ObjectEnvelopeV2` already provides an excellent private
+DTN payload substrate.
+
+Mechanism:
+  outer envelope contains only:
+    version;
+    AEAD suite;
+    opaque routing tag;
+    coarse retention class;
+    nonce;
+    ciphertext.
+
+The content ID covers canonical outer bytes.
+
+Tampering is detectable.
+
+The relay need not decrypt.
+
+Exact residual:
+  the envelope itself does not hide:
+    source IP;
+    timing;
+    ciphertext length;
+    repeated route access.
+
+DTN therefore still needs routing-metadata privacy policy.
+
+D7-F07 — PASS / STRONG FIT
+Current unified object model has:
+  signed immutable objects;
+  content IDs;
+  sequence/timestamp;
+  typed links.
+
+Current `MAX_PAYLOAD_BYTES` is:
+  8 MiB.
+
+For DTN V1:
+  the global object cap may remain 8 MiB;
+  the deferred-transport profile uses a stricter 1 MiB bundle payload ceiling
+  and requires large data to use storage-fabric chunks/manifests.
+
+D7-F08 — PASS / STRONG FIT
+`mini-messaging` already stores private messages as opaque V2 object envelopes.
+
+It explicitly does not claim key establishment is solved by the storage layer.
+
+That is the correct security layering.
+
+For DTN:
+  a stored private message envelope can be carried unchanged.
+
+D7-F09 — PASS
+SPEC-04 already says large content is chunked into a Merkle DAG and each chunk
+is content-verifiable.
+
+That directly solves the application-level segmentation problem better than
+asking BP to fragment huge encrypted application objects.
+
+D7-F10 — PASS
+SPEC-09 already declares:
+  signed immutable objects;
+  CRDT collaborative state;
+  offline-first reconciliation.
+
+Those objects are natural DTN ADUs.
+
+D7-F11 — FAIL / ABSENT
+No `mini-dtn` crate exists in the reviewed main crate set.
+
+No BPv7:
+  parser;
+  serializer;
+  persistent bundle queue;
+  convergence layer;
+  contact plan;
+  bundle age;
+  hop-count;
+  ION interoperability harness
+was found in current main.
+
+This is an implementation absence, not a design failure.
+
+D7-F12 — PARTIAL
+The existing gate draft sketches:
+
+  `DelayTolerantTransport::custody_transfer()`
+
+as if custody transfer were a basic BPv7 requirement.
+
+That is no longer the right V1 abstraction.
+
+RFC 9171 does not make old BP custody-transfer semantics part of its core
+service.
+
+CCSDS published a separate experimental custody-transfer specification in 2026.
+
+Decision:
+  remove mandatory custody transfer from the base Mininet DTN interface.
+  Optional custody capability is an extension only.
+
+
+======================================================================
+2. SOURCE-DERIVED MININET REQUIREMENTS
+======================================================================
+
+This section states what Mininet itself requires before outside DTN research is
+applied.
+
+2.1 SPEC-03
+
+The connectivity specification defines Mininet as:
+  a true network of networks.
+
+Its frozen direction requires:
+  key/self-certifying addressing;
+  bearer swappability;
+  content-blind relay;
+  local-first operation;
+  continued function inside mesh range when wider Internet is cut.
+
+It explicitly says:
+  off-grid transactions queue and finalize on reconnection.
+
+That is the governing monetary constraint for this report.
+
+2.2 SPEC-04
+
+Storage is:
+  content-addressed;
+  tamper-evident;
+  chunked for large objects;
+  blind/encrypted when desired;
+  weak-device friendly.
+
+A DTN relay should therefore carry:
+  existing Mininet bytes
+rather than inventing a second content system.
+
+2.3 SPEC-09
+
+Application state is built from:
+  signed immutable objects;
+  signed pointers;
+  CRDT operation logs;
+  local views.
+
+It explicitly describes app state as:
+  offline-first.
+
+This report preserves CRDT reconciliation for content/social/code state.
+
+It does NOT extend CRDT merge semantics into canonical money.
+
+2.4 Constitution / sovereignty
+
+Mininet cannot force a user to replicate their data.
+
+DTN store-and-forward is therefore:
+  opt-in for locally authored private data;
+  subject to application retention policy;
+  never a protocol power to seize/copy plaintext.
+
+A user may choose:
+  device-only.
+
+They accept:
+  no delayed delivery while device remains unreachable.
+
+2.5 Later project direction
+
+The current project has removed LoRa/radio as a required Mininet platform
+dependency.
+
+This report therefore does NOT reintroduce:
+  RNode;
+  LoRa;
+  packet radio
+as mandatory components.
+
+BPv7 remains bearer-neutral and can use any future permitted link.
+
+Near-term Mininet DTN work uses:
+  IP;
+  BLE/local mesh contacts;
+  Wi-Fi;
+  ordinary satellite IP;
+  standards-compatible space links through adapters.
+
+
+======================================================================
+3. EXTERNAL STANDARDS RESEARCH — DECISIONS
+======================================================================
+
+3.1 RFC 9171 BPv7
+
+RFC 9171 is the IETF Standards Track Bundle Protocol Version 7.
+
+It is specifically designed for:
+  intermittent connectivity;
+  long/variable delay;
+  high loss;
+  store-carry-forward operation.
+
+It supplies:
+  Endpoint Identifiers;
+  creation timestamps;
+  bundle lifetimes;
+  Bundle Age extension;
+  Hop Count extension;
+  forwarding/deletion semantics;
+  optional fragmentation;
+  application delivery status.
+
+DECISION:
+  BPv7 is Mininet's DTN interoperability protocol.
+
+Do not invent:
+  "MINI Bundle Protocol."
+
+3.2 Bundle Age
+
+RFC 9171 provides Bundle Age specifically for nodes without accurate clocks.
+
+DECISION:
+  every Mininet DTN bundle created with a zero DTN creation time MUST carry
+  Bundle Age per RFC 9171.
+
+Mininet relay expiration must be able to operate without:
+  NTP;
+  GPS;
+  cellular clock;
+  centralized time server.
+
+3.3 Hop count
+
+BPv7 allows a hop limit in the range 1..255.
+
+Mininet profile:
+
+  normal/disaster default: 32
+  scheduled/deep-space default: 64
+  Mininet-generated maximum: 64
+
+A receiving interoperable BP node may still accept standards-compliant bundles
+with a larger limit subject to local policy.
+
+Why Mininet caps its own:
+  route loops must not become infinite storage/bandwidth debt.
+
+3.4 Lifetime
+
+BPv7 nodes may impose a shorter effective local lifetime if a bundle threatens
+local resources.
+
+DECISION:
+  transport retention is a best-effort network resource promise.
+
+It is NOT:
+  application ownership;
+  money validity;
+  governance deadline;
+  global content deletion.
+
+A relay may delete its local copy and the protocol remains correct.
+
+3.5 RFC 9172 BPSec
+
+BPSec provides:
+  integrity;
+  confidentiality
+for Bundle Protocol blocks.
+
+It explicitly assumes:
+  untrusted DTN paths;
+  stored data;
+  no guaranteed regular access to a centralized certificate/security oracle.
+
+This aligns with Mininet's anti-centralization values.
+
+DECISION:
+  a native Mininet BP agent MUST implement the BPSec processing model before it
+  advertises BPSec support.
+
+However:
+  Mininet private application data remains independently end-to-end encrypted
+  at the Mininet object/message layer.
+
+BPsec is additional bundle-layer protection.
+
+It is not allowed to become:
+  the only reason a stored private Mininet message is confidential.
+
+3.6 RFC 9173 default BPSec contexts
+
+RFC 9173 specifies:
+  BIB-HMAC-SHA2;
+  BCB-AES-GCM.
+
+DECISION:
+  support these for interoperability when BPSec is enabled.
+
+Do not make their symmetric key distribution:
+  a central CA;
+  a hosted Mininet key server;
+  a universal network root.
+
+BPSec peer/endpoint policy may use:
+  locally provisioned keys;
+  pairwise capabilities;
+  mission-specific keys
+at the DTN edge.
+
+Mininet object's own author/recipient trust remains did:mini/object-layer trust.
+
+3.7 RFC 9174 TCPCLv4
+
+TCPCLv4 is the standardized reliable TCP convergence layer for BPv7.
+
+DECISION:
+  TCPCLv4 is REQUIRED for Mininet's first native IP DTN interoperability
+  profile.
+
+This gives a stable test target.
+
+It does not mean:
+  every BLE contact is tunnelled through TCP.
+
+Convergence layers remain pluggable.
+
+3.8 LTP
+
+RFC 5326 Licklider Transmission Protocol is designed for:
+  extremely long RTT;
+  frequent interruption;
+  retransmission-based reliability.
+
+It is not an IETF Standards Track Internet transport.
+
+It is nevertheless established DTN/space prior art and CCSDS has standardized
+its space profile separately.
+
+DECISION:
+  Mininet does NOT reimplement LTP in the first DTN milestone.
+
+For actual long-delay scheduled space-link interoperability:
+  support an LTP-capable external BP peer/gateway during testing;
+  later a Rust LTP adapter may be added if Mininet must directly terminate the
+  link.
+
+The Mininet core does not depend on LTP.
+
+3.9 Raw UDP BP
+
+RFC 7122 discourages direct BP-over-datagram use in ordinary IP networks because
+BP itself does not provide the retransmission/congestion-control behavior needed
+there.
+
+DECISION:
+  raw UDP BP is NOT the default Mininet DTN convergence layer.
+
+Use:
+  TCPCLv4 for ordinary IP;
+  a fit-for-link reliable convergence layer for stressed links.
+
+3.10 CCSDS SABR
+
+CCSDS 734.3-B-1 Schedule-Aware Bundle Routing uses known future contact plans for
+scheduled space communications.
+
+DECISION:
+  scheduled satellite/lunar/Mars deployments MAY use SABR/CGR-compatible
+  routing.
+
+But:
+  a contact plan is routing advice.
+
+It is never:
+  identity authority;
+  authorization;
+  payment finality;
+  governance legitimacy.
+
+No NASA/operator contact-plan server is required by Mininet.
+
+3.11 CCSDS BPv7 status
+
+As of this report:
+  CCSDS 734.20-O-1 (April 2025) is an EXPERIMENTAL BPv7 specification based on
+  RFC 9171.
+
+The older CCSDS 734.2-B-1 Blue Book is based on RFC 5050/BPv6.
+
+DECISION:
+  RFC 9171 is the Mininet normative BPv7 baseline.
+
+Do not claim:
+  the old BPv6 Blue Book is a BPv7 authority.
+
+3.12 CCSDS custody transfer status
+
+As of June 2026:
+  CCSDS 734.6-O-1 is an Orange Book experimental specification for Custody
+  Transfer and Compressed Bundle Status Reporting.
+
+DECISION:
+  custody transfer is OPTIONAL / EXPERIMENTAL in Mininet.
+
+No correctness property may depend on a relay promising custody.
+
+3.13 Current IETF work in 2026
+
+The DTN WG/working ecosystem currently includes:
+  reliability guidance;
+  BTP-U for unidirectional unreliable frame links;
+  a new QUIC convergence-layer draft;
+  renewed BIBE work.
+
+These are still Internet-Drafts / work in progress where not published as RFCs.
+
+DECISION:
+  design adapters for them.
+
+Do not make V1 correctness depend on a draft.
+
+3.14 BTP-U
+
+The 2026 BTP-U draft is directly relevant to:
+  unidirectional;
+  unreliable;
+  frame-based;
+  non-IP links;
+  no-return-path operation.
+
+DECISION:
+  experimental feature only until the standards status is suitable.
+
+This is exactly the kind of future satellite adapter Mininet should be able to
+add without changing its application semantics.
+
+3.15 QUICCL
+
+The July 2026 QUICCL draft maps BPv7 onto:
+  QUIC streams;
+  QUIC datagrams;
+  multiple delivery modes;
+  priorities.
+
+DECISION:
+  experimental adapter.
+
+TCPCLv4 remains the V1 required IP interop target because it is already an RFC.
+
+3.16 BIBE
+
+Current 2026 BIBE work focuses on bundle-in-bundle encapsulation and optional
+segmentation.
+
+DECISION:
+  keep a future BIBE tunnel adapter seam.
+
+Do not require it for V1.
+
+3.17 Operational evidence
+
+NASA states that its DTN project completed in January 2026 and DTN is now an
+operational service in both:
+  Near Space Network;
+  Deep Space Network.
+
+NASA reports PACE has transmitted more than 34 million bundles with a 100%
+reported success rate to date.
+
+This does NOT prove Mininet implementation correctness.
+
+It does prove:
+  DTN/BPv7 is not merely a hypothetical Mars paper architecture in 2026.
+
+3.18 ION / HDTN / DTNME
+
+NASA publishes/points to multiple DTN implementations including:
+  ION;
+  HDTN;
+  DTNME;
+  BPv7 cFS components.
+
+DECISION:
+  use at least two independent BPv7 implementations as interoperability peers
+  where practical.
+
+They are test counterparts.
+
+Mininet does NOT require:
+  NASA infrastructure;
+  a NASA account;
+  one vendor daemon;
+  one hosted BP gateway.
+
+
+======================================================================
+4. FINAL SCOPE DECISION
+======================================================================
+
+D28-01 — FOUR REGIMES ARE ARCHITECTURALLY IN SCOPE.
+
+R0 — ordinary connected transport
+  Existing live bearer path.
+  DTN not normally selected.
+
+R1 — disaster / opportunistic terrestrial partition
+  Minutes to days without end-to-end path.
+  Unscheduled peer contacts.
+  Primary near-term DTN implementation target.
+
+R2 — scheduled satellite / near-space / lunar
+  Seconds-scale propagation plus scheduled outage/contact windows.
+  BPv7 + standards-compatible scheduled routing.
+  Second implementation target.
+
+R3 — deep-space / Mars / interplanetary
+  minutes to hours one-way;
+  long no-contact periods;
+  severe asymmetry.
+
+Architecture and emulation:
+  in scope now.
+
+Actual mission integration:
+  not a terrestrial launch gate.
+
+D28-02 — LEO INTERNET IS NOT AUTOMATICALLY "DTN MODE."
+
+A continuous Starlink-class or other satellite Internet path is simply:
+  an Internet bearer
+when it behaves like one.
+
+Do not impose BP store-carry-forward overhead merely because photons touched a
+satellite.
+
+DTN activates because of:
+  disruption;
+  intermittent contact;
+  long delay;
+  asymmetry;
+  store-carry requirement,
+not a vendor label.
+
+D28-03 — DISASTER MODE IS THE FIRST REAL IMPLEMENTATION TARGET.
+
+Reason:
+  it immediately strengthens the founding local-first promise and is testable
+  without owning a spacecraft.
+
+D28-04 — DEEP-SPACE COMPATIBILITY IS AN ARCHITECTURAL TEST, NOT A SYNCHRONOUS
+CONSENSUS PROJECT.
+
+No:
+  "Mars CometBFT round-trip mode";
+  "planet-wide synchronous ceremony";
+  "global session that waits 44 minutes per message."
+
+Applications enqueue immutable operations and proofs.
+
+The canonical chain continues wherever its required validator network can
+communicate.
+
+A remote region learns/submits state asynchronously.
+
+D28-05 — NO SAME-ASSET LOCAL CANONICAL ZONES.
+
+The prior gate draft called local settlement zones a likely future answer.
+
+This audit rejects that for canonical MINI.
+
+Reason:
+  two disconnected zones that both finalize spends from the same global
+  ownership namespace create exactly the state-merge/double-spend ambiguity
+  `mini-settlement` correctly avoids.
+
+If humanity eventually wants independent planetary currencies/chains:
+  they are independent ledgers connected through explicit bridge/finality rules.
+
+They are NOT:
+  invisible local forks of the same MINI state that magically merge later.
+
+D28-06 — LOCAL ECONOMIC FUNCTION REMAINS POSSIBLE.
+
+Allowed:
+  signed PaymentClaim;
+  local bilateral risk acceptance;
+  payment/channel protocols whose security model explicitly permits offline use;
+  local barter/credit outside canonical MINI;
+  queued canonical transactions.
+
+UI must say:
+  Pending
+or:
+  Accepted locally — not final.
+
+Never:
+  Final
+until canonical chain proves it.
+
+D28-07 — CONTENT/SOCIAL/CODE STATE MAY MERGE.
+
+CRDT-safe application state:
+  comments;
+  issue operations;
+  messages;
+  collaborative document operations
+can merge under their own signed-object semantics.
+
+Canonical value:
+  does not CRDT-merge.
+
+Canonical governance execution:
+  does not CRDT-merge.
+
+D28-08 — DTN GATE #28 IS NON-BLOCKING FOR TERRESTRIAL MAINNET.
+
+The design gate exists to prevent architecture that fails catastrophically under
+long delay.
+
+It is not a requirement that Earth mainnet have a live Mars relay before value
+exists.
+
+On adoption of this report:
+  #28 may close.
+
+Future implementation is tracked as an implementation milestone, not an
+unresolved domain-research gate.
+
+
+======================================================================
+5. RUST LAYERING DECISION
+======================================================================
+
+D28-09 — ADD `crates/mini-dtn`.
+
+Do not put BPv7 into:
+  `mini-bearer`.
+
+Reason:
+  `Bearer` models a live neighboring link.
+
+BP models:
+  persistent asynchronous forwarding over zero or many future links.
+
+Suggested crate boundary:
+
+  mini-dtn
+    bpv7/
+      primary.rs
+      canonical_block.rs
+      endpoint.rs
+      bundle_age.rs
+      hop_count.rs
+      bps​ec.rs
+      codec.rs
+    queue/
+      record.rs
+      durable.rs
+      admission.rs
+      scheduler.rs
+      gc.rs
+    route/
+      direct.rs
+      opportunistic.rs
+      contact_plan.rs
+      sabr_adapter.rs
+    cla/
+      tcpcl4.rs
+      bearer_contact.rs
+      test.rs
+    app/
+      parcel.rs
+      dispatch.rs
+      receipt.rs
+    interop/
+      vectors.rs
+
+D28-10 — BASE API IS ASYNCHRONOUS.
+
+Conceptual interface:
+
+  pub trait DeferredTransport {
+      fn enqueue(
+          &mut self,
+          parcel: DeferredParcel
+      ) -> Result<DeferredId, DtnError>;
+
+      fn poll_delivered(
+          &mut self,
+          limit: usize
+      ) -> Result<Vec<DeliveredParcel>, DtnError>;
+
+      fn status(
+          &self,
+          id: &DeferredId
+      ) -> Result<DeferredStatus, DtnError>;
+
+      fn cancel_local(
+          &mut self,
+          id: &DeferredId
+      ) -> Result<(), DtnError>;
+  }
+
+No mandatory:
+  `custody_transfer()`.
+
+D28-11 — DELIVERY SEMANTICS ARE AT-LEAST-ONCE.
+
+A bundle may be:
+  duplicated;
+  retransmitted;
+  received more than once;
+  arrive out of order.
+
+Every application payload type must be:
+  content-addressed;
+  sequence-aware;
+  transaction-ID/nullifier-aware;
+  otherwise idempotent.
+
+Exactly-once transport is NOT promised.
+
+D28-12 — DELIVERY RECEIPT IS NOT APPLICATION FINALITY.
+
+RFC 9171's delivery status means:
+  payload reached the application agent.
+
+It does not mean:
+  the application processed it successfully.
+
+Mininet maps states explicitly:
+
+  QueuedLocal
+  StoredLocal
+  Forwarded
+  BundleDelivered
+  ObjectAccepted
+  SubmittedCanonical
+  IncludedCanonical
+  FinalizedCanonical
+  ExpiredTransport
+  RejectedApplication
+
+For money:
+  only FinalizedCanonical is monetary finality.
+
+D28-13 — THE BP AGENT IS NOT A TRUST ROOT.
+
+Even if the local BP queue process is compromised, the app must verify:
+  content ID;
+  object signature/provenance;
+  transaction signature;
+  chain proof;
+  nullifier;
+  policy
+as appropriate.
+
+A BP daemon may:
+  drop;
+  delay;
+  duplicate;
+  reorder.
+
+It may not forge a valid Mininet object merely by returning bytes.
+
+
+======================================================================
+6. MININET DTN PAYLOAD PROFILE
+======================================================================
+
+D28-14 — TRANSPORT MININET OBJECT/OPERATION BYTES, NOT LIVE SESSION STATE.
+
+Eligible:
+
+  public signed object;
+  ObjectEnvelopeV2;
+  private message object envelope;
+  CRDT operation;
+  KEL / identity event;
+  block header / finality proof;
+  canonical transaction submission;
+  PaymentClaimV2;
+  storage/content chunk;
+  storage manifest;
+  forge object;
+  governance proposal/vote object subject to canonical deadline.
+
+Not eligible as deferred semantic truth:
+
+  live presence-ranging exchange;
+  active BLE RTT;
+  live Noise/X25519 Channel handshake transcript;
+  ephemeral TCP/QUIC stream state;
+  "local finality";
+  a relay's opinion that payment is settled.
+
+D28-15 — CONTENT ADDRESS IS THE APPLICATION DEDUP KEY.
+
+Bundle ID:
+  transport identity.
+
+Object ID / transaction ID:
+  application semantic identity.
+
+Two bundles carrying the same Mininet object:
+  may have different BP bundle IDs.
+
+Application stores/processes the object once.
+
+D28-16 — PRIVATE PAYLOADS REMAIN OPAQUE TO DTN RELAYS.
+
+For existing private object/message path:
+  carry `ObjectEnvelopeV2::to_bytes()` unchanged.
+
+Do not decrypt and re-encrypt at every DTN relay.
+
+No gateway:
+  needs conversation key.
+
+D28-17 — PUBLIC OBJECTS REMAIN SELF-VERIFYING.
+
+A public signed object does not need to become secret merely because BP carries
+it.
+
+On receipt:
+  verify object ID;
+  verify object signature/provenance if the application relies on authorship.
+
+D28-18 — DTN DOES NOT SOLVE KEY DISTRIBUTION.
+
+The current messaging source correctly says an authenticated conversation key
+must already exist.
+
+A delayed transport adapter must not introduce:
+  a central prekey directory
+merely because messages are asynchronous.
+
+Key establishment remains the messaging/identity security lane.
+
+
+======================================================================
+7. SIZE / CHUNKING / FRAGMENTATION DECISION
+======================================================================
+
+D28-19 — MININET V1 DOES NOT RELY ON BP REACTIVE FRAGMENTATION.
+
+BPv7 supports fragmentation.
+
+Mininet deliberately does not use it for normal security-bearing Mininet V1
+payloads.
+
+Reason:
+
+  * application objects already have integrity/content identity;
+  * storage fabric already has chunked Merkle DAGs;
+  * retransmitting one huge fragment tree increases resource-abuse complexity;
+  * BPSec and fragmentation have additional processing complexity;
+  * small independently verifiable chunks fit intermittent contacts better.
+
+D28-20 — 1 MiB MAXIMUM MININET DTN APPLICATION PAYLOAD.
+
+  MAX_DTN_PAYLOAD_BYTES = 1_048_576
+
+This is stricter than:
+  mini-objects MAX_PAYLOAD_BYTES = 8 MiB.
+
+It does NOT reduce the global object limit.
+
+It means:
+  an object larger than the DTN profile must be represented through a manifest /
+  chunked storage structure for deferred transport.
+
+D28-21 — CONTROL / MONEY / GOVERNANCE OBJECT MAXIMUM 64 KiB.
+
+  MAX_DTN_CONTROL_PAYLOAD_BYTES = 65_536
+
+Includes:
+  payment claim;
+  vote;
+  proposal action;
+  KEL update;
+  finality proof envelope where format permits.
+
+If a proof is inherently larger:
+  it uses a signed manifest/chunk form instead of increasing an unbounded
+  "critical packet" class.
+
+D28-22 — MESSAGE BODY STAYS AT CURRENT 64 KiB LIMIT.
+
+Attachments:
+  content-addressed separately.
+
+Do not put:
+  2 GiB video
+inside an urgent chat bundle.
+
+D28-23 — WHY 1 MiB.
+
+At 8 kbit/s, ignoring overhead:
+
+  64 KiB requires approximately 65.5 seconds.
+
+  1 MiB requires approximately 17.5 minutes.
+
+  8 MiB requires approximately 2.33 hours.
+
+A 1 MiB upper payload limit makes a single interrupted transfer survivable on
+very low-rate links while still being efficient on terrestrial contacts.
+
+D28-24 — PRE-CHUNK BEFORE SIGNING THE MANIFEST.
+
+Large data:
+  chunk first;
+  hash each chunk;
+  build signed/content-addressed manifest;
+  transport chunks independently.
+
+The receiver never accepts a partial giant application object as complete.
+
+D28-25 — INTEROPERABILITY FRAGMENTS MAY BE RECEIVED SAFELY.
+
+A standards-compliant external BP node may send a fragmented BPv7 bundle.
+
+A Mininet BP parser:
+  may support reassembly for interoperability
+only under:
+  strict byte quota;
+  fragment-count quota;
+  lifetime;
+  authenticated/integrity policy.
+
+Mininet does not SOURCE fragments in V1.
+
+Hard local reassembly limits:
+
+  <= 1 MiB assembled Mininet payload
+  <= 64 fragments
+  <= local queue quota
+
+Anything larger:
+  reject for the Mininet DTN service.
+
+
+======================================================================
+8. TRANSPORT LIFETIME / AGE DECISION
+======================================================================
+
+D28-26 — TRANSPORT EXPIRY AND APPLICATION VALIDITY ARE SEPARATE.
+
+Never compare:
+
+  BP bundle lifetime
+with:
+  canonical payment validity
+as if they were the same rule.
+
+Bundle lifetime:
+  how long relays should try carrying these bytes.
+
+Payment validity:
+  whether canonical chain can still include the signed claim.
+
+Governance deadline:
+  whether canonical governance epoch can still accept the vote.
+
+Object retention:
+  how long storage participants choose to seed an object.
+
+Four different semantics.
+
+D28-27 — MININET BUNDLE LIFETIME CLASSES.
+
+  Ephemeral:
+    1 hour
+
+  Short:
+    24 hours
+
+  Standard:
+    30 days
+
+  Archival:
+    180 days
+
+  DeepSpace:
+    365 days
+
+The source application selects from these bounded classes.
+
+No arbitrary:
+  "retain forever."
+
+D28-28 — LOCAL RELAYS MAY SHORTEN THEIR EFFECTIVE RETENTION.
+
+This follows RFC 9171's resource-protection model.
+
+A weak phone is not obligated to sacrifice all disk because another node put
+"365 days" in a bundle.
+
+Deletion by one relay:
+  is not global deletion.
+
+D28-29 — ZERO-CLOCK MODE USES BUNDLE AGE.
+
+A node without trustworthy wall time:
+  creation time may be zero as permitted by BPv7;
+  Bundle Age becomes mandatory.
+
+No NTP server:
+  is a correctness authority.
+
+D28-30 — TRANSPORT EXPIRY NEVER UN-FINALIZES MONEY.
+
+If a bundle containing a transaction expires at one relay after the transaction
+already became canonical elsewhere:
+  the transaction stays canonical.
+
+Likewise:
+  a finalized transaction remains final after all transport copies disappear.
+
+
+======================================================================
+9. PRIORITY / FAIRNESS DECISION
+======================================================================
+
+D28-31 — PRIORITY IS FUNCTIONAL, NEVER PURCHASED.
+
+No:
+  MINI balance;
+  fee size;
+  founder status;
+  institutional role;
+  hardware capacity
+changes DTN scheduling class.
+
+D28-32 — FOUR LOCAL QUEUE CLASSES.
+
+P0 — protocol-critical bounded control
+  finality/header safety proofs;
+  identity key-revocation events where structurally valid;
+  narrowly defined safety/control objects.
+
+P1 — human-control / canonical-submission
+  governance vote/proposal submissions;
+  canonical transaction submissions;
+  PaymentClaim delivery;
+  small identity continuity objects.
+
+P2 — interactive
+  direct messages;
+  CRDT ops;
+  ordinary small posts;
+  emergency coordination messages.
+
+P3 — bulk
+  content chunks;
+  repository history;
+  archival synchronization;
+  non-urgent storage replication.
+
+D28-33 — USER CANNOT SELF-LABEL ARBITRARY BYTES P0.
+
+P0 qualification comes from:
+  parseable object type;
+  valid signature/proof where cheap;
+  size <=64 KiB;
+  local admission policy.
+
+An unknown blob claiming:
+  "EMERGENCY!!!"
+does not get unlimited critical priority.
+
+D28-34 — WORK-CONSERVING DEFICIT ROUND ROBIN.
+
+When all queues are non-empty, scheduling weights:
+
+  P0: 4
+  P1: 3
+  P2: 2
+  P3: 1
+
+Nominal shares under continuous contention:
+
+  P0 40%
+  P1 30%
+  P2 20%
+  P3 10%
+
+Unused share:
+  is immediately borrowable by other non-empty queues.
+
+No reserved bandwidth sits idle.
+
+D28-35 — PRIORITY DOES NOT CHANGE APPLICATION LEGITIMACY.
+
+A P0 bundle does not:
+  gain a vote;
+  gain finality;
+  become trusted;
+  bypass signature checks.
+
+It only gets earlier forwarding opportunity.
+
+D28-36 — BULK CANNOT STARVE FOREVER.
+
+Under continuous valid P0/P1/P2 load:
+  P3 still receives its DRR share.
+
+This prevents an administrative/control class from turning into a permanent
+content censor.
+
+
+======================================================================
+10. STORAGE / RESOURCE-EXHAUSTION DECISION
+======================================================================
+
+D28-37 — RELAY STORAGE IS VOLUNTARY AND BOUNDED.
+
+Default mobile DTN relay:
+  OFF until user enables relay/store-carry participation.
+
+Receiving bundles addressed to the local user:
+  remains possible when DTN is enabled.
+
+Default opt-in mobile relay disk budget:
+
+  min(
+    512 MiB,
+    10% of currently available free local storage
+  )
+
+with a minimum operational floor:
+  if configured budget <64 MiB,
+  transit relaying stays disabled.
+
+Node/server operators may configure larger budgets.
+
+D28-38 — PRESERVE USER SPACE.
+
+Hard free-space floor:
+  do not allocate new transit bundles if doing so would leave less than:
+    max(1 GiB, 5% filesystem capacity)
+  free.
+
+Locally authored/user-addressed application storage is governed separately.
+
+D28-39 — GLOBAL QUEUE IS BOUNDED.
+
+No:
+  Vec of unlimited bundles;
+  unbounded fragment table;
+  unbounded status-report queue.
+
+Every table has:
+  byte limit;
+  entry limit;
+  expiry/GC.
+
+D28-40 — UNTRUSTED SOURCE ADMISSION IS GLOBAL + PER-NEIGHBOR.
+
+Suggested V1 default on mobile relay:
+
+  one currently connected untrusted neighbor may contribute at most:
+    16 MiB
+  of uncommitted new transit data during one encounter
+  before application-level/peer policy grants more.
+
+Global new-untrusted ingress token bucket:
+  4 MiB/minute
+  burst 16 MiB
+on mobile.
+
+Operators may raise these.
+
+They may not configure:
+  an unbounded allocation.
+
+D28-41 — DEDUP BEFORE DURABLE SECOND COPY WHERE POSSIBLE.
+
+Check:
+  bundle ID;
+  Mininet application object/transaction ID
+before spending storage on duplicate payload.
+
+A duplicate may refresh:
+  route knowledge
+but does not need another full application blob.
+
+D28-42 — VALIDATE CHEAPLY BEFORE EXPENSIVE WORK.
+
+Order:
+
+  framing / length
+  BP structural parse
+  bundle age/lifetime
+  hop count
+  duplicate ID
+  service EID
+  cheap content ID / envelope bounds
+  then expensive signatures/BPSec/application proof.
+
+DoS attacker does not get free expensive cryptography before basic bounds.
+
+D28-43 — STATUS REPORTS OFF BY DEFAULT.
+
+Reasons:
+  extra traffic;
+  metadata leakage;
+  reflection/amplification surface.
+
+Enable:
+  only per application/diagnostic policy.
+
+A delivery status report never counts as money finality.
+
+
+======================================================================
+11. ROUTING DECISION
+======================================================================
+
+D28-44 — ROUTING POLICY IS LOCAL, NOT CONSENSUS.
+
+Two honest nodes may choose different:
+  next hops;
+  contact plans;
+  queue strategies
+and still agree on Mininet application truth.
+
+Routing does not enter:
+  chain consensus.
+
+D28-45 — DIRECT DELIVERY FIRST.
+
+If destination is currently reachable:
+  forward directly unless user privacy tier requires a different path.
+
+DTN is not an excuse to add unnecessary hops.
+
+D28-46 — OPPORTUNISTIC TERRESTRIAL BASELINE: BOUNDED SPRAY-AND-WAIT.
+
+For networks without a contact schedule:
+
+  P0:
+    initial copy budget 4
+
+  P1:
+    initial copy budget 4
+
+  P2:
+    initial copy budget 4
+
+  P3:
+    initial copy budget 2
+
+Copy budget is transport metadata/local routing state.
+
+It does not modify application payload.
+
+When only one forwarding copy remains:
+  wait for destination or a clearly better local route.
+
+This prevents:
+  full epidemic replication.
+
+A deployment may use a better open routing algorithm without changing the wire
+truth.
+
+D28-47 — SCHEDULED SPACE BASELINE: SABR/CGR-COMPATIBLE ROUTING.
+
+For known contacts:
+  use contact plan:
+    start;
+    end;
+    sender;
+    receiver;
+    expected rate;
+    one-way range
+to compute earliest feasible forwarding opportunities.
+
+D28-48 — CONTACT PLANS ARE ADVISORY.
+
+A malicious plan can:
+  waste bandwidth;
+  cause delay;
+  route into dead ends.
+
+It cannot:
+  sign an object;
+  finalize money;
+  authorize governance;
+  revoke identity.
+
+D28-49 — NO SINGLE CONTACT-PLAN PUBLISHER.
+
+Accept plans from:
+  local operator;
+  peer;
+  mission source;
+  multiple configured feeds.
+
+The operator decides which schedules to use.
+
+No Mininet-global:
+  "official satellite timetable server."
+
+D28-50 — ROUTE CHURN MUST NOT REWRITE OBJECT ID.
+
+Changing:
+  next hop;
+  scheduled link;
+  convergence layer
+does not alter the Mininet application object.
+
+The same bytes can travel through a different path.
+
+
+======================================================================
+12. ENDPOINT NAMING / CENTRALIZATION DECISION
+======================================================================
+
+D28-51 — BP EID IS NOT DID:MINI IDENTITY.
+
+Never set a private user's public BP endpoint to:
+  their stable root did:mini
+by default.
+
+That would create:
+  cross-path metadata linkage.
+
+D28-52 — PRIVATE MININET ENDPOINTS USE OPAQUE / ROTATABLE DTN ROUTE EIDS.
+
+The DTN service maintains:
+  an opaque route capability / EID mapping.
+
+The peer learns it through:
+  an authenticated Mininet relationship;
+  a signed capability object;
+  another already-secure path.
+
+It is not a global legal-name directory.
+
+D28-53 — IPN URI IS AN INTEROPERABILITY EDGE, NOT THE HUMAN NAMESPACE.
+
+RFC 9758's public `ipn` allocator structure involves allocator identifiers and
+registries.
+
+That is acceptable for:
+  spacecraft;
+  public gateway;
+  mission node interoperability.
+
+It is NOT acceptable as:
+  Mininet human identity authority.
+
+For private/non-interoperable tests:
+  use the RFC-defined private-use ranges where appropriate.
+
+For Mininet-native private people:
+  prefer opaque dtn-scheme endpoint capabilities.
+
+D28-54 — ROUTING ID NEVER CREATES GOVERNANCE STANDING.
+
+An operator owning:
+  a registered IPN allocator;
+  a satellite gateway;
+  a public DTN EID
+gets zero extra Mininet vote weight.
+
+
+======================================================================
+13. CONVERGENCE LAYER PROFILE
+======================================================================
+
+D28-55 — TCPCLV4 REQUIRED FOR V1 IP INTEROP.
+
+Test:
+  Mininet Rust BP agent <-> at least two independent compatible BPv7 peers.
+
+D28-56 — LIVE BEARER CONTACT ADAPTER IS ALLOWED.
+
+For BLE/local Wi-Fi encounters:
+  an already-established Mininet live bearer can be used as a convergence
+  opportunity for transferring complete BP bundles.
+
+Do not:
+  reinterpret that live bearer as globally reliable.
+
+D28-57 — LTP IS OPTIONAL FOR ACTUAL SPACE LINK TERMINATION.
+
+If a Mininet node sits behind an ION/HDTN gateway:
+  the gateway may terminate LTP.
+
+Mininet application payload remains self-verifying.
+
+If Mininet later directly terminates LTP:
+  implement/test it as its own Rust convergence layer.
+
+D28-58 — QUICCL IS EXPERIMENTAL UNTIL STANDARDIZED.
+
+Feature flag:
+  experimental-quiccl
+
+No:
+  consensus;
+  object format;
+  payment validity
+depends on it.
+
+D28-59 — BTP-U IS EXPERIMENTAL UNTIL STANDARDIZED.
+
+Feature flag:
+  experimental-btpu
+
+Potential use:
+  future one-way satellite/frame links.
+
+D28-60 — RAW UDP BP IS NOT DEFAULT.
+
+Any experimental UDP deployment must:
+  define its reliability/congestion behavior
+and:
+  stay within the relevant standards/security constraints.
+
+
+======================================================================
+14. SECURITY MODEL
+======================================================================
+
+D28-61 — TWO SECURITY LAYERS, DIFFERENT JOBS.
+
+Application security:
+  Mininet object ID/signature/AEAD/capability.
+
+Bundle security:
+  BPSec where configured.
+
+Live contact security:
+  `mini-bearer::Channel` or convergence-layer TLS/peer protection.
+
+Do not collapse them.
+
+D28-62 — APPLICATION SECURITY SURVIVES AN UNTRUSTED GATEWAY.
+
+A satellite operator can store bytes.
+
+It cannot:
+  read ObjectEnvelopeV2 payload;
+  forge signed public object;
+  change payment amount;
+  change vote
+without application verification failing.
+
+D28-63 — NO CENTRAL CERTIFICATE AUTHORITY BECOMES MININET ROOT.
+
+TCPCL TLS may use:
+  deployment-local certificates;
+  pinned peer keys;
+  normal PKI
+as transport hardening.
+
+Failure of that CA:
+  may break that convergence path.
+
+It may not invalidate:
+  did:mini;
+  existing Mininet objects;
+  canonical chain.
+
+D28-64 — AT-REST PRIVATE CONTENT REMAINS CIPHERTEXT.
+
+A transit node should not need application decryption key merely to:
+  queue;
+  carry;
+  forward.
+
+D28-65 — METADATA PRIVACY IS NOT OVERCLAIMED.
+
+BP primary routing information can expose:
+  endpoint identifiers;
+  timing;
+  size;
+  contact relationships.
+
+ObjectEnvelopeV2 hides application semantics.
+
+It does NOT make BP traffic metadata invisible.
+
+D28-66 — STATUS/DIAGNOSTIC MINIMIZATION.
+
+Production default:
+  no unnecessary BP status reports;
+  no raw EID logs longer than local debugging retention;
+  no central telemetry upload required.
+
+D28-67 — ONION/MIX AND DTN ARE COMPOSABLE BUT NOT IDENTICAL.
+
+A BP gateway may be one transport hop inside a broader privacy route.
+
+Do not promise:
+  the standard BP header itself is a Sphinx packet.
+
+Sensitive asynchronous application payload can use:
+  opaque endpoint capabilities;
+  application encryption;
+  future BIBE/tunnel/mix composition.
+
+D28-68 — ROUTING PRIVACY NEVER REQUIRES DECRYPTING CONTENT.
+
+A router needs:
+  transport metadata.
+
+It does not need:
+  message body;
+  payment memo;
+  human legal identity.
+
+
+======================================================================
+15. PAYMENTCLAIMV2 — FINAL LONG-DELAY MONEY DECISION
+======================================================================
+
+The existing PaymentClaim is close to the correct model but wall-clock expiry is
+wrong for canonical long-delay semantics.
+
+D28-69 — ADD PAYMENTCLAIMV2.
+
+Conceptual structure:
+
+  struct ChainAnchorV2 {
+      height: u64,
+      block_id: [u8; 32],
+      economic_epoch: u64,
+  }
+
+  struct PaymentClaimV2 {
+      version: u8,
+      network_id: [u8; 32],
+      payer: PublicKey,
+      payee_commitment: Vec<u8>,
+      amount: Amount,
+      sequence: u64,
+      anchor: ChainAnchorV2,
+      valid_through_economic_epoch: u64,
+      claim_context: [u8; 32],
+      signature: Signature,
+  }
+
+D28-70 — CANONICAL EXPIRY USES CANONICAL ECONOMIC EPOCH.
+
+Gate #6 already defines:
+  twelve deterministic Economic Epochs per Economic Year.
+
+Claim is eligible for canonical inclusion only if:
+
+  current_canonical_economic_epoch
+    <= valid_through_economic_epoch
+
+and:
+  the anchor block is a recognized ancestor of the canonical chain state
+  required by the payment executor.
+
+No recipient wall clock decides global ownership.
+
+D28-71 — HARD MAX CLAIM LIFETIME: TWELVE ECONOMIC EPOCHS.
+
+  1 <=
+    valid_through_economic_epoch - anchor.economic_epoch
+  <= 12
+
+Maximum:
+  one Economic Year.
+
+Recipient may demand:
+  a much shorter window.
+
+Reason:
+  no indefinitely reusable signed spend promise;
+  enough room for prolonged disaster/deep-space carriage;
+  deterministic chain-time boundary.
+
+D28-72 — V1 `valid_until_ms` BECOMES LEGACY / UI-ONLY FOR NEW DTN PROFILE.
+
+Do not reinterpret old signed bytes.
+
+PaymentClaimV1 remains:
+  versioned historical/test compatibility.
+
+New real-value delayed settlement:
+  PaymentClaimV2.
+
+D28-73 — ANCHOR AGE IS RISK INFORMATION.
+
+A claim anchored to very old state may still be structurally valid within its
+epoch window.
+
+Recipient UI must expose:
+
+  anchor height/epoch;
+  last canonical proof age;
+  local acceptance amount threshold;
+  unresolved prior claim count if known.
+
+Old anchor:
+  never magically becomes safe because a relay signed custody.
+
+D28-74 — LOCAL ACCEPTANCE REMAINS RECIPIENT RISK.
+
+The current `LocalAcceptancePolicy::never_accept_early()` remains the
+conservative default.
+
+For real value:
+  default remains:
+    0 early acceptance
+
+until the user explicitly chooses a nonzero local-risk limit.
+
+No UI may describe AcceptedLocal as:
+  "settled."
+
+D28-75 — CANONICAL CONFLICT RULE UNCHANGED.
+
+Same payer + same sequence + different claim:
+
+  canonical chain chooses at most one.
+
+DTN duplicate copies:
+  do not create multiple payment rights.
+
+D28-76 — BP DELIVERY DOES NOT CONSUME A PAYMENT SLOT.
+
+Only application/canonical processing does.
+
+A relay receipt cannot:
+  spend;
+  reserve;
+  finalize
+payer funds by itself.
+
+D28-77 — TRANSPORT TTL MAY BE SHORTER THAN CLAIM VALIDITY.
+
+That is allowed.
+
+Example:
+  claim valid for six economic epochs;
+  one relay chooses 24h local retention;
+  bundle expires there.
+
+Another route/copy may still deliver it.
+
+D28-78 — CLAIM EXPIRY MAY BE SHORTER THAN BUNDLE TTL.
+
+On receipt:
+  application sees canonical claim expired;
+  rejects it
+even if BP bundle itself is still within lifetime.
+
+D28-79 — NO OFFLINE TREASURY EXECUTION.
+
+Treasury:
+  contribution mint;
+  monetary-parameter change;
+  bridge supply change
+requires its normal canonical/threshold/finality policy.
+
+A DTN queue may carry the request/signature.
+
+It cannot relax the policy.
+
+
+======================================================================
+16. CHAIN / LIGHT-CLIENT OPERATION OVER DTN
+======================================================================
+
+D28-80 — TRANSPORT FINALITY PROOFS AS IMMUTABLE OBJECTS.
+
+A remote node should be able to receive:
+
+  finalized header/checkpoint;
+  validator/committee proof;
+  relevant state proof;
+  block/object chunks
+
+through BP.
+
+It verifies them locally.
+
+The DTN gateway is not trusted for their truth.
+
+D28-81 — NO LIVE RPC REQUIREMENT FOR VERIFICATION.
+
+If a light-client proof bundle contains all required data:
+  verification works without querying a central API.
+
+D28-82 — STATE SYNC IS CONTENT-ADDRESSED.
+
+Large:
+  block bodies;
+  snapshots;
+  application content
+are chunked and content-addressed.
+
+Contacts carry:
+  missing chunks.
+
+D28-83 — REMOTE NODE CAN BE STALE WITHOUT BECOMING A FORK AUTHORITY.
+
+A Mars node may only know:
+  Earth chain height H.
+
+It may:
+  create local social objects;
+  queue transactions anchored at H.
+
+It does not claim:
+  H is current global truth forever.
+
+D28-84 — CONSENSUS COMMITTEE DOES NOT WAIT FOR INTERPLANETARY NODES.
+
+Do not include a validator in a synchronous finality committee if its current
+link cannot meet the consensus protocol's timing assumptions.
+
+This is not disenfranchisement by wealth.
+
+It is a physics constraint.
+
+Long-term interplanetary political equality is handled through asynchronous
+governance windows, not by breaking BFT liveness.
+
+
+======================================================================
+17. GOVERNANCE OVER LONG DELAY
+======================================================================
+
+D28-85 — "SENT BEFORE DEADLINE" IS NOT ENOUGH.
+
+A vote/proposal action counts only if:
+  canonical governance rules accept/include it by the canonical deadline.
+
+A local queue timestamp:
+  cannot create retroactive global votes.
+
+D28-86 — UI HAS FOUR GOVERNANCE STATES.
+
+  DraftLocal
+  QueuedForSubmission
+  Included
+  Finalized / Counted
+
+Never label:
+  QueuedForSubmission
+as:
+  Voted
+without qualification.
+
+D28-87 — EARTH/DISASTER-INCLUSIVE GLOBAL GOVERNANCE WINDOW FLOOR: 30 DAYS.
+
+For current terrestrial Mininet:
+  ordinary global constitutional/protocol voting windows must be at least
+  30 days if the system claims meaningful disaster-partition inclusion.
+
+Existing longer timelocks:
+  remain longer.
+
+D28-88 — INTERPLANETARY-INCLUSIVE GOVERNANCE WINDOW FLOOR: 365 DAYS.
+
+If a future network explicitly claims:
+  humans behind deep-space/planetary DTN have equal practical opportunity to
+  participate in one global governance action,
+then:
+  voting window >=365 days
+unless a later evidence-backed transport reachability model proves a different
+window still offers equivalent access.
+
+This does NOT slow current Earth governance to one year.
+
+The claim "interplanetary-inclusive" is optional until such populations exist.
+
+D28-89 — LOCAL GOVERNANCE DISCUSSION IS FREE.
+
+A disconnected community may:
+  debate;
+  draft;
+  sign endorsements;
+  prepare proposals.
+
+It may govern:
+  its own voluntary local application/community rules.
+
+It cannot declare:
+  local constitutional vote == global Mininet vote.
+
+D28-90 — EMERGENCY AUTHORITY DOES NOT GROW DURING PARTITION.
+
+Partition is a reason for:
+  fewer irreversible powers,
+not:
+  founder/admin emergency powers.
+
+No:
+  satellite operator key;
+  hotspot admin;
+  "disaster controller"
+may rewrite global monetary/governance rules.
+
+
+======================================================================
+18. PERSONHOOD / PRESENCE OVER DTN
+======================================================================
+
+D28-91 — PHYSICAL PRESENCE IS NEVER PROVED BY DELAYED DELIVERY.
+
+A Gate #97 certified proximity ceremony is a contemporaneous direct physical
+measurement between the participating devices.
+
+A BP bundle may later carry:
+  the already-created signed evidence.
+
+It cannot turn:
+  "A and B exchanged bundles eventually"
+into:
+  "A and B were physically near."
+
+D28-92 — ARCHIVED PRESENCE EVIDENCE RETAINS ITS ORIGINAL SECURITY CONTEXT.
+
+When delayed transport carries an already-created presence object, verification
+still checks:
+  the original protocol version;
+  original channel/session binding;
+  original ranging evidence;
+  original identities;
+  original signatures;
+  original personhood policy.
+
+DTN transport:
+  adds no ranging assurance.
+
+D28-93 — A SATELLITE / HOTSPOT / DTN GATEWAY IS NOT A PERSONHOOD ANCHOR BY
+VIRTUE OF CARRYING TRAFFIC.
+
+Operating:
+  a satellite terminal;
+  a public BP relay;
+  a disaster gateway;
+  a contact-plan server
+does not increase:
+  personhood confidence;
+  MatureHuman status;
+  vouch capacity;
+  vote weight.
+
+D28-94 — PERSONHOOD SUBMISSIONS MAY BE DEFERRED IF THEIR OWN SEMANTICS ALLOW IT.
+
+Examples:
+  a mature-human scoped vouch;
+  a signed evidence commitment;
+  a personhood-set proof request.
+
+The application object decides:
+  its canonical validity period.
+
+The BP lifetime decides only:
+  how long a relay tries to carry it.
+
+D28-95 — NO "DISASTER MODE HUMAN" EXCEPTION.
+
+A partition does not authorize:
+  founder attestation;
+  hotspot-admin identity approval;
+  government emergency ID;
+  satellite-provider account
+as a replacement for File #4 personhood.
+
+Human rights remain:
+  independent of infrastructure ownership.
+
+
+======================================================================
+19. STORAGE, MESSAGING, CRDT, AND FORGE SEMANTICS
+======================================================================
+
+D28-96 — CONTENT IS THE EASIEST AND SAFEST DTN CLASS.
+
+Public content-addressed bytes:
+  may be copied;
+  stored;
+  retransmitted;
+  deduplicated
+without changing their truth.
+
+Receiver verifies:
+  content ID.
+
+If authorship matters:
+  receiver also verifies signature/provenance.
+
+D28-97 — PRIVATE MESSAGES REMAIN END-TO-END OBJECT ENVELOPES.
+
+The existing private-message path already places message semantics inside an
+encrypted `ObjectEnvelopeV2`.
+
+DTN carries that opaque envelope.
+
+A relay:
+  does not receive the conversation key.
+
+D28-98 — READ / DELIVERY RECEIPTS REMAIN APPLICATION OBJECTS.
+
+A BP "delivered" status:
+  is not the same as:
+    Mininet message delivered/read receipt.
+
+The latter remains:
+  an encrypted/signed conversation object
+under messaging semantics.
+
+D28-99 — CRDT OPS ARE NATURALLY DELAY TOLERANT.
+
+Signed CRDT operations may:
+  arrive out of order;
+  arrive repeatedly;
+  merge after long partition.
+
+The CRDT layer, not BP, decides:
+  operation validity;
+  causality;
+  conflict-free merge semantics.
+
+D28-100 — NON-CRDT APP POINTERS USE THEIR EXISTING SIGNED SEQUENCE/HEAD RULES.
+
+A delayed old signed profile/head/reference must not overwrite a newer valid one
+merely because it arrived later.
+
+Transport arrival order:
+  never becomes application logical order.
+
+D28-101 — FORGE OBJECTS MAY TRAVEL OVER DTN.
+
+Eligible:
+  Git object/chunk;
+  issue op;
+  review;
+  patch metadata;
+  signed ref proposal;
+  release artifact manifest.
+
+Large repositories:
+  use content-addressed chunk/object transfer;
+  not one enormous bundle.
+
+D28-102 — A DTN FORGE GATEWAY HAS ZERO MERGE AUTHORITY.
+
+Carrying:
+  a patch;
+  a review;
+  a signed release
+does not authorize:
+  merge;
+  canonical ref update;
+  protocol release.
+
+Forge governance/verification remains unchanged.
+
+D28-103 — SOFTWARE UPDATE DELIVERY DOES NOT MEAN SOFTWARE UPDATE ADOPTION.
+
+A delayed bundle can carry:
+  release metadata;
+  binary;
+  source;
+  transparency proof.
+
+Client still verifies:
+  expected content hash;
+  signatures/governance authorization;
+  reproducibility evidence as required.
+
+There is no:
+  satellite-provider update key;
+  disaster-admin forced update.
+
+
+======================================================================
+20. PERSISTENT QUEUE / POWER-LOSS SEMANTICS
+======================================================================
+
+D28-104 — `StoredLocal` MEANS DURABLY STORED.
+
+A Mininet DTN agent may report:
+  `StoredLocal`
+
+only after:
+  bundle record;
+  required payload/reference;
+  queue metadata
+are committed to durable local storage.
+
+On filesystems where this is meaningful:
+  file fsync;
+  atomic rename/journal update;
+  parent-directory durability
+are used.
+
+D28-105 — `QueuedLocal` MAY PRECEDE DURABILITY.
+
+`QueuedLocal` only means:
+  accepted into volatile process memory / enqueue pipeline.
+
+UI/API must not confuse:
+  QueuedLocal
+with:
+  StoredLocal.
+
+D28-106 — CRASH RECOVERY IS REPLAY-SAFE.
+
+After power loss:
+  durable bundle records reload;
+  incomplete records do not become valid bundles;
+  complete duplicate records collapse by bundle/application IDs;
+  no payment becomes final due recovery.
+
+D28-107 — QUEUE METADATA IS VERSIONED AND CHECKSUMMED.
+
+Minimum persistent record contains:
+
+  format version;
+  bundle identifier;
+  application content identifier when known;
+  payload reference;
+  payload length;
+  priority class;
+  BP creation/age basis;
+  transport expiration;
+  hop state;
+  source/destination EIDs;
+  current forwarding status;
+  retry/contact state;
+  checksum / record integrity field.
+
+D28-108 — PAYLOAD IS CONTENT-ADDRESSED LOCALLY WHERE PRACTICAL.
+
+For a Mininet application object:
+  store one content-addressed blob;
+  queue records reference it.
+
+Multiple BP copies:
+  need not duplicate the bytes.
+
+D28-109 — GC IS TRANSACTIONAL.
+
+Garbage collection:
+  first marks/removes queue references;
+  then releases blob storage only when no local reference remains.
+
+Crash during GC:
+  may leak disk temporarily;
+  may not make a different blob appear under an old content ID.
+
+D28-110 — A RELAY ACK IS NEVER ISSUED BEFORE THE CLAIMED LOCAL DURABILITY LEVEL.
+
+If a future convergence/custody extension promises:
+  "I have durable custody"
+
+the implementation must persist before sending that promise.
+
+V1:
+  does not promise custody transfer by default.
+
+D28-111 — LOCAL QUEUE CORRUPTION FAILS CLOSED FOR THE CORRUPT RECORD.
+
+A corrupt queue entry:
+  is quarantined/rejected.
+
+It does not:
+  crash the whole agent;
+  reinterpret bytes as another bundle;
+  silently submit partial money/governance objects.
+
+D28-112 — DURABILITY DOES NOT MEAN FOREVER.
+
+A properly stored bundle may later be deleted because:
+  lifetime expired;
+  local quota requires eviction;
+  user cancels local copy;
+  destination delivered;
+  policy rejects it.
+
+The status history should explain:
+  why.
+
+
+======================================================================
+21. EVICTION / SCHEDULING / QUOTA DECISION
+======================================================================
+
+D28-113 — EXPIRY FIRST.
+
+When freeing transit queue space:
+
+  1. delete expired/ineligible bundles;
+  2. delete invalid/corrupt/quarantined entries;
+  3. collapse redundant duplicates;
+  4. apply class-aware eviction.
+
+D28-114 — BULK IS EVICTED BEFORE HUMAN-CONTROL TRAFFIC UNDER PRESSURE.
+
+For TRANSIT copies only, default eviction preference:
+
+  P3 bulk first;
+  P2 interactive next;
+  P1 human-control/canonical-submission next;
+  P0 safety/control last.
+
+Within class:
+  shortest remaining useful lifetime;
+  least unique route/copy value;
+  oldest local enqueue
+may inform deterministic/local policy.
+
+D28-115 — USER-OWNED ORIGINALS ARE NOT TRANSIT CACHE.
+
+Deleting a transit bundle to protect disk:
+  cannot delete the user's sole original message/object from its application
+  store.
+
+DTN queue:
+  references application objects.
+
+It does not become:
+  an owner with unilateral delete rights over source data.
+
+D28-116 — LOCAL USER MAY PIN SELECTED OUTBOUND BUNDLES.
+
+A user may designate:
+  "keep my local source copy while still valid."
+
+Pinning:
+  consumes their local storage;
+  does not force any other relay to retain it.
+
+D28-117 — PAID STORAGE DOES NOT BUY CONTROL PRIORITY.
+
+A user may directly pay another human-operated service for extra storage under
+ordinary free-market terms.
+
+That does not alter:
+  P0/P1/P2/P3 protocol semantics;
+  application truth;
+  governance;
+  finality.
+
+A commercial DTN courier can exist.
+
+It does not become a Mininet authority.
+
+D28-118 — TRANSIT QUOTAS MAY BE TUNED LOCALLY.
+
+The defaults in Section 10 are recommended mobile safety values.
+
+A 64-TB community node may configure much larger queues.
+
+A 4-GB old phone may disable transit relaying entirely.
+
+Both remain:
+  valid Mininet participants.
+
+
+======================================================================
+22. CONTACT / CLOCK / SCHEDULE SEMANTICS
+======================================================================
+
+D28-119 — CONTACT WINDOW CLOCK IS ROUTING INPUT, NOT CANONICAL TRUTH.
+
+Scheduled routing needs a usable clock.
+
+If the local clock is wrong:
+  a contact may be missed;
+  scheduling may be inefficient.
+
+It cannot:
+  make an expired canonical payment valid;
+  create a vote;
+  change chain height.
+
+D28-120 — UNSCHEDULED TERRESTRIAL MODE MUST NOT REQUIRE CLOCK SYNCHRONIZATION.
+
+Opportunistic contacts use:
+  actual link availability;
+  monotonic local durations;
+  Bundle Age.
+
+No:
+  NTP;
+  GPS;
+  cell tower
+is mandatory for basic disaster store-carry-forward.
+
+D28-121 — CONTACT PLAN ENTRY.
+
+Conceptual entry:
+
+  Contact {
+      from_eid,
+      to_eid,
+      start_time,
+      end_time,
+      capacity_bytes,
+      nominal_rate_bps,
+      one_way_light_time_ms,
+      confidence_ppm,
+      source_id,
+  }
+
+The routing engine treats it as:
+  forecast.
+
+D28-122 — CAPACITY IS EXPLICIT.
+
+Scheduled route calculation must account for:
+  contact duration;
+  data rate;
+  already-allocated queue;
+  convergence-layer overhead estimate.
+
+A 10-minute 8-kbit/s contact does not have infinite route capacity.
+
+D28-123 — MISSED CONTACT DOES NOT DROP THE APPLICATION OBJECT.
+
+If route A is unavailable:
+  retain until:
+    another route;
+    later contact;
+    expiration;
+    quota eviction.
+
+D28-124 — CONTACT-PLAN UPDATE DOES NOT REWRITE BUNDLE.
+
+Only route plan/state changes.
+
+Application object:
+  immutable.
+
+D28-125 — CLOCK ROLLBACK IS BOUNDED.
+
+For bundle-age accounting:
+  use durable accumulated monotonic age across process restarts where feasible;
+  do not reduce recorded Bundle Age merely because wall clock moves backward.
+
+D28-126 — CLOCK JUMP FORWARD MAY EXPIRE TRANSPORT BUT NOT APPLICATION TRUTH.
+
+If a bad local wall clock causes local transport expiry:
+  that local copy may be lost.
+
+It cannot:
+  invalidate a globally finalized transaction;
+  revoke an identity;
+  rewrite an object.
+
+
+======================================================================
+23. TEST NETWORK REGIMES
+======================================================================
+
+These are ENGINEERING STRESS FIXTURES.
+
+They are not claims that every real lunar/Mars/satellite link has exactly these
+numbers.
+
+The purpose is to force code through qualitatively different operating regimes.
+
+All profiles inject:
+  reordering;
+  duplication;
+  disconnect/reconnect
+where applicable.
+
+PROFILE N0 — ORDINARY CONNECTED CONTROL
+
+  one-way propagation: 25 ms
+  RTT target:           ~50 ms plus stack overhead
+  bandwidth:            100 Mbit/s symmetric
+  availability:         continuous
+  random loss:          0.1%
+  duration:             1 hour
+
+Expected:
+  deferred path works but is normally unnecessary.
+
+PROFILE D1 — DISASTER OPPORTUNISTIC / MODERATE
+
+  one-way propagation when connected: 125 ms
+  contact:                         2 minutes every 15 minutes
+  down/up:                         1 Mbit/s / 256 kbit/s
+  random frame/transport loss:     10%
+  duration:                        72 hours
+
+Expected:
+  messages/control objects deliver eventually;
+  bulk gets bounded share;
+  queue survives repeated outages.
+
+PROFILE D2 — DISASTER OPPORTUNISTIC / SEVERE
+
+  one-way propagation:            250 ms
+  contact:                        5 minutes every 60 minutes
+  down/up:                        128 kbit/s / 32 kbit/s
+  loss:                           20%
+  duration:                       7 days
+
+Expected:
+  priority and size limits matter;
+  no unbounded retries;
+  no finality lies.
+
+PROFILE S1 — STRESSED SATELLITE-IP
+
+  one-way propagation:            300 ms
+  contact:                        30 minutes up / 10 minutes down
+  down/up:                        5 Mbit/s / 512 kbit/s
+  loss:                           1%
+  duration:                       72 hours
+
+Expected:
+  TCPCLv4/ordinary IP DTN survives scheduled interruption.
+
+PROFILE L1 — LUNAR-LIKE SCHEDULED
+
+  one-way propagation fixture:    1.3 seconds
+  contact:                        15 minutes each hour
+  down/up:                        512 kbit/s / 64 kbit/s
+  loss:                           1%
+  duration:                       7 days
+
+Expected:
+  no synchronous application assumption;
+  contact-aware routing works;
+  canonical proof delivery works.
+
+PROFILE M1 — MARS-LIKE CLOSE-RANGE FIXTURE
+
+  one-way delay:                  3 minutes
+  contact:                        20 minutes every 2 hours
+  down/up:                        256 kbit/s / 32 kbit/s
+  loss:                           2%
+  duration:                       30 days
+
+Expected:
+  zero live end-to-end handshake dependence for deferred objects.
+
+PROFILE M2 — MARS-LIKE FAR-RANGE FIXTURE
+
+  one-way delay:                  22 minutes
+  contact:                        20 minutes every 4 hours
+  down/up:                        128 kbit/s / 16 kbit/s
+  loss:                           5%
+  duration:                       30 days
+
+Expected:
+  same.
+
+PROFILE M3 — CONJUNCTION / BLACKOUT
+
+  one-way delay before/after:     22 minutes
+  total outage:                   14 days
+  post-outage contact:            15 minutes/day
+  down/up:                        64 kbit/s / 8 kbit/s
+  loss:                           5%
+  total scenario:                 45 days
+
+Expected:
+  durable queued objects survive blackout;
+  expired transport is explicit;
+  canonical state resumes by proof, not local merge.
+
+PROFILE X1 — DEEP-SPACE EXTRAPOLATION
+
+  one-way delay:                  2 hours
+  contact:                        10 minutes/day
+  down/up:                        8 kbit/s / 2 kbit/s
+  loss:                           10%
+  duration:                       180 days
+
+Expected:
+  no architecture requires request/response turnaround for deferred delivery;
+  metadata/control bundles remain bounded;
+  bulk may legitimately expire/not complete.
+
+D28-127 — NO PERFORMANCE PASS CLAIM MAY SUBSTITUTE THE FIXTURE FOR A REAL
+MISSION PROFILE.
+
+Before an actual mission/deployment:
+  import its real link budget/contact plan and rerun.
+
+Gate #28 architecture remains closed.
+
+The deployment support claim is what is being tested.
+
+
+======================================================================
+24. QUANTITATIVE LINK / PAYLOAD CALCULATIONS
+======================================================================
+
+These calculations are included so the size decisions are inspectable.
+
+Ignoring protocol overhead:
+
+64 KiB:
+  524,288 bits.
+
+At:
+  2 kbit/s   -> 262.144 s  = 4.37 min
+  8 kbit/s   ->  65.536 s  = 1.09 min
+  32 kbit/s  ->  16.384 s
+  128 kbit/s ->   4.096 s
+  1 Mbit/s   ->   0.524 s
+
+1 MiB:
+  8,388,608 bits.
+
+At:
+  2 kbit/s   -> 4,194.3 s = 69.9 min
+  8 kbit/s   -> 1,048.6 s = 17.5 min
+  32 kbit/s  ->   262.1 s = 4.37 min
+  128 kbit/s ->    65.5 s
+  1 Mbit/s   ->     8.39 s
+
+8 MiB:
+  67,108,864 bits.
+
+At:
+  8 kbit/s   -> 8,388.6 s = 2.33 h
+  32 kbit/s  -> 2,097.2 s = 34.95 min
+  128 kbit/s ->   524.3 s = 8.74 min
+
+Therefore:
+
+  64 KiB control cap:
+    reasonable for extremely weak links.
+
+  1 MiB general deferred payload:
+    large enough for useful objects;
+    small enough to fit many terrestrial/scheduled contacts.
+
+  8 MiB global Mininet object:
+    should travel as application chunks/manifests under extreme links.
+
+D28-128 — PROTOCOL OVERHEAD IS MEASURED, NOT ASSUMED ZERO.
+
+All test reports include:
+  application bytes;
+  BP bytes;
+  convergence-layer bytes where measurable;
+  retransmitted bytes;
+  delivered useful bytes.
+
+Efficiency is:
+
+  useful application bytes delivered /
+  total bytes sent on constrained link
+
+for the stated test.
+
+No marketing-only:
+  "payload throughput"
+that hides retries/headers.
+
+
+======================================================================
+25. RELIABILITY AND DELIVERY ACCEPTANCE
+======================================================================
+
+D28-129 — NO UNIVERSAL "100% DELIVERY" PROMISE.
+
+A bundle can legitimately fail because:
+  no future contact;
+  lifetime ends;
+  every relay deletes it;
+  destination disappears;
+  quota rejects it;
+  adversary jams/drops.
+
+Mininet promises:
+  explicit states;
+  retry/carry under policy;
+  no false finality.
+
+D28-130 — REQUIRED TEST DELIVERY TARGETS.
+
+For P0/P1 64-KiB-or-smaller objects with lifetime long enough for the test:
+
+  D1:
+    >=99.9% application-accepted within 24 hours.
+
+  D2:
+    >=99.0% within 72 hours.
+
+  S1:
+    >=99.9% within 12 hours.
+
+  L1:
+    >=99.0% within 48 hours.
+
+  M1/M2:
+    >=99.0% by end of 30-day fixture if cumulative contact capacity exceeds
+    offered load by >=2x.
+
+  M3:
+    >=99.0% of still-unexpired P0/P1 objects by seven days after the blackout
+    ends if cumulative contact capacity exceeds surviving offered load by >=2x.
+
+X1:
+  no universal delivery-rate threshold for bulk.
+  P0/P1 must make deterministic progress and must not be starved while adequate
+  cumulative contact capacity exists.
+
+These are Mininet engineering targets, not laws of physics.
+
+D28-131 — OFFERED LOAD MUST BE REPORTED.
+
+A test that offers:
+  10x more data than the link can ever carry
+cannot report:
+  "DTN failed reliability"
+without separating overload from protocol failure.
+
+Report:
+  offered load;
+  theoretical contact capacity;
+  protocol bytes;
+  accepted load;
+  delivered load.
+
+D28-132 — DUPLICATES DO NOT COUNT AS EXTRA SUCCESS.
+
+Application-accepted unique content IDs:
+  numerator.
+
+Duplicate deliveries:
+  reported separately.
+
+D28-133 — EXPIRED BUNDLES ARE NOT SILENT LOSS.
+
+Final local status:
+  ExpiredTransport
+
+with:
+  bundle ID;
+  application ID if known;
+  expiry reason;
+  last forwarding attempt summary.
+
+
+======================================================================
+26. WEAK-DEVICE PERFORMANCE TARGETS
+======================================================================
+
+D28-134 — THE DTN CORE MUST RUN ON A 4-GIB-RAM ANDROID-CLASS DEVICE.
+
+This is a compatibility target, not a requirement to run a spacecraft modem on
+Android.
+
+The phone must be able to:
+  enqueue;
+  persist;
+  schedule;
+  dedupe;
+  transfer
+its configured 512-MiB-or-smaller transit queue.
+
+D28-135 — STREAM, DO NOT MATERIALIZE THE WHOLE QUEUE.
+
+A 1 MiB bundle may be streamed.
+
+A 512 MiB queue:
+  must not become:
+    512 MiB RAM.
+
+D28-136 — METADATA INDEX TARGET.
+
+With:
+  10,000 queued bundle records
+and payloads stored separately:
+
+  queue metadata resident memory target:
+    <=128 MiB additional process memory.
+
+A phone implementation exceeding this:
+  is not V1 weak-device compliant.
+
+D28-137 — RESTART TARGET.
+
+After clean or crash recovery with:
+  10,000 records / <=512 MiB payload store:
+
+  usable scheduler state:
+    <=10 seconds on the project's reference weak Android/Linux-class test
+    device.
+
+Lazy index loading is allowed.
+
+D28-138 — IDLE MODE DOES NOT POLL SPIN.
+
+With no active contact:
+  no busy loop.
+
+Use:
+  timers;
+  OS wakeups;
+  contact events.
+
+D28-139 — CONTACT CPU DOES NOT BLOCK UI.
+
+Mobile UI thread:
+  never performs bundle parsing/BPSec/hashing of large payload synchronously.
+
+D28-140 — BATTERY TEST.
+
+On Android-class device:
+
+  8-hour no-contact DTN-enabled idle period
+versus:
+  DTN-disabled matched control.
+
+Target incremental battery use:
+  <=3 percentage points of full battery capacity.
+
+If platform measurement noise is higher:
+  use repeated runs and report confidence/range.
+
+D28-141 — USER CONTROLS CELLULAR / METERED USE.
+
+Default mobile policy:
+
+  P0/P1:
+    may use metered network if user has enabled DTN background transport.
+
+  P2:
+    user configurable.
+
+  P3:
+    unmetered/charging by default.
+
+No central policy:
+  forces a poor user to spend a metered data plan carrying bulk traffic.
+
+D28-142 — THERMAL FAILURE DEGRADES SERVICE, NOT TRUTH.
+
+If device enters severe thermal state:
+  pause P3 first;
+  reduce forwarding;
+  keep bounded P0/P1 opportunity where safe.
+
+Never:
+  skip signature verification
+to save CPU.
+
+
+======================================================================
+27. INTEROPERABILITY TEST PROGRAM
+======================================================================
+
+D28-143 — MININET MUST NOT DEFINE "INTEROPERABLE" AS TALKING TO ITSELF.
+
+V1 interoperability requires:
+
+  Mininet Rust BPv7 implementation
+  plus:
+  at least two independent external BPv7 implementations.
+
+Preferred public test peers:
+  NASA ION;
+  NASA HDTN;
+  NASA DTNME;
+  another actively maintained standards implementation.
+
+At least two from distinct implementation codebases.
+
+D28-144 — NO EXTERNAL IMPLEMENTATION IS A PRODUCTION DEPENDENCY.
+
+The test harness may:
+  launch ION;
+  launch HDTN.
+
+A Mininet node at runtime:
+  does not require them
+unless a particular operator voluntarily deploys one as a space-link gateway.
+
+D28-145 — RFC9171 CORE VECTOR TESTS.
+
+Required:
+  deterministic encode/decode fixtures;
+  canonical CBOR checks;
+  primary block fields;
+  payload block;
+  unknown extension processing;
+  Bundle Age;
+  Hop Count;
+  CRC types used by profile;
+  lifetime;
+  endpoint IDs;
+  bundle IDs.
+
+D28-146 — TCPCLV4 TWO-WAY INTEROP.
+
+For each external implementation:
+
+  external -> Mininet:
+    1 byte;
+    64 KiB;
+    1 MiB.
+
+  Mininet -> external:
+    same.
+
+Include:
+  reconnect mid-transfer;
+  TLS on/off where profile supports;
+  keepalive;
+  session termination;
+  malformed segment.
+
+D28-147 — BPSEC INTEROP.
+
+When BPSec is advertised:
+
+  BIB-HMAC-SHA2:
+    valid;
+    wrong key;
+    corrupted target;
+    corrupted security result.
+
+  BCB-AES-GCM:
+    valid;
+    wrong key;
+    duplicate/replayed bundle;
+    modified target/header-scope input;
+    authentication failure.
+
+At least one external peer:
+  must interoperate for each advertised default context.
+
+D28-148 — DO NOT CLAIM BPSec IF ONLY LOCAL UNIT TESTS EXIST.
+
+BPSec support status is one of:
+
+  Unsupported
+  Experimental
+  Interoperable
+  ProductionProfile
+
+The UI/docs use the exact status.
+
+D28-149 — OPTIONAL FRAGMENT RECEIVE INTEROP.
+
+If V1 supports external fragmentation:
+  test fragments:
+    reordered;
+    duplicate;
+    overlap/malformed;
+    missing;
+    >64 fragments;
+    assembled >1 MiB.
+
+No:
+  memory explosion.
+
+D28-150 — OPTIONAL LTP GATEWAY TEST.
+
+For R2/R3 claim:
+  at least one ION/HDTN-style BP route traverses an LTP segment in the test
+  topology.
+
+Mininet need not terminate LTP itself.
+
+D28-151 — SABR / CONTACT-PLAN TEST.
+
+For scheduled-routing support:
+  run deterministic contact plan;
+  calculate expected earliest-feasible route;
+  compare chosen route and delivery.
+
+Malicious/impossible contact entries:
+  fail route selection safely.
+
+D28-152 — IMPLEMENTATION DIFFERENCE IS NOT AUTOMATICALLY A PROTOCOL FAILURE.
+
+If two peers disagree:
+  reduce to RFC/CCSDS normative requirement;
+  record:
+    Mininet defect;
+    external defect;
+    ambiguous standard;
+  fix or constrain profile.
+
+Do not:
+  special-case one external implementation silently.
+
+
+======================================================================
+28. MALFORMED / ADVERSARIAL BP INPUTS
+======================================================================
+
+D28-153 — ALL NETWORK BYTES ARE UNTRUSTED.
+
+Required parser properties:
+
+  bounded allocation;
+  no panic;
+  no unsafe memory use;
+  no recursive explosion;
+  strict CBOR/canonical expectations where profile requires;
+  no integer wrap.
+
+D28-154 — MALFORMED PRIMARY BLOCK.
+
+Test:
+  wrong BP version;
+  invalid flags;
+  missing fields;
+  oversized lifetime;
+  invalid EID;
+  impossible timestamp encoding;
+  unexpected trailing CBOR;
+  invalid CRC.
+
+D28-155 — EXTENSION BLOCK ATTACKS.
+
+Test:
+  duplicate block numbers;
+  too many blocks;
+  unknown mandatory-disposition combinations;
+  block-length mismatch;
+  invalid CRC;
+  recursive/encapsulated depth abuse where future BIBE enabled.
+
+Hard maximum blocks per Mininet V1 bundle:
+  64.
+
+D28-156 — EID LENGTH BOUND.
+
+Mininet local parser hard cap:
+  1024 encoded bytes per EID.
+
+Longer:
+  reject before allocation growth.
+
+This is an implementation profile limit.
+
+D28-157 — BP BUNDLE TOTAL WIRE CAP FOR MININET SERVICE.
+
+For locally accepted Mininet DTN payload:
+
+  application payload <=1 MiB;
+  total bundle encoded bytes <=1.25 MiB.
+
+Control class:
+  app payload <=64 KiB;
+  total encoded <=96 KiB.
+
+External mission operator can run a separate generic BP service with larger
+limits.
+
+Mininet's app-facing service stays bounded.
+
+D28-158 — BUNDLE BLOCK COUNT LIMIT 64.
+
+A 1 MiB payload split across:
+  thousands of tiny extension blocks
+is rejected.
+
+D28-159 — REPLAY FLOOD.
+
+Send the same valid bundle:
+  1,000,000 times.
+
+Expected:
+  one application semantic accept;
+  bounded duplicate metadata/counter;
+  no million-payload disk growth.
+
+D28-160 — UNIQUE-BUNDLE FLOOD.
+
+Send unique well-formed small bundles until quota.
+
+Expected:
+  admission limits;
+  eviction;
+  no OOM;
+  no unbounded disk;
+  no priority bypass.
+
+D28-161 — P0 CLASSIFICATION FLOOD.
+
+Send arbitrary blobs marked/requested as P0.
+
+Expected:
+  parser/type qualification rejects/downgrades them;
+  P0 cannot become a free denial-of-service bit.
+
+D28-162 — HOP-COUNT LOOP.
+
+Create forwarding loop.
+
+Expected:
+  hop count reaches limit;
+  bundle no longer forwarded;
+  no permanent loop.
+
+D28-163 — AGE / LIFETIME REPLAY.
+
+Old bundle:
+  cannot become young because a new neighbor forwards it.
+
+Bundle Age:
+  nondecreasing through Mininet processing.
+
+D28-164 — BPSec CPU FLOOD.
+
+Malformed security blocks:
+  cheap structural limits first;
+  per-peer/global rate limit;
+  no unbounded cryptographic verification work.
+
+D28-165 — MALICIOUS STATUS-REPORT REFLECTION.
+
+Untrusted bundle cannot cause:
+  unbounded large status response
+to:
+  arbitrary victim.
+
+Status reports default off.
+
+
+======================================================================
+29. PAYMENT / GOVERNANCE / IDENTITY DTN TESTS
+======================================================================
+
+D28-166 — PAYMENT CLAIM DUPLICATION.
+
+Carry one PaymentClaimV2 in 100 different BP bundles.
+
+Expected:
+  one claim semantic ID/sequence;
+  no duplicate debit;
+  no duplicate finality.
+
+D28-167 — PAYMENT CLAIM CONFLICT.
+
+Payer creates:
+  A to merchant X;
+  B to merchant Y;
+  same sequence.
+
+Two disconnected paths deliver them.
+
+Expected:
+  local merchants may each assume risk if their policy permits;
+  canonical chain finalizes at most one;
+  loser shows RejectedConflict/RejectedCanonical;
+  BP never merges them.
+
+D28-168 — PAYMENT CLAIM EXPIRED CANONICALLY.
+
+Bundle remains transport-valid.
+
+Claim's:
+  valid_through_economic_epoch
+is past.
+
+Expected:
+  application rejects canonical submission/acceptance according policy;
+  BP bundle delivery still logged separately.
+
+D28-169 — TRANSPORT EXPIRES FIRST.
+
+Claim remains canonically eligible.
+
+One copy expires from a relay.
+
+Expected:
+  no claim state is globally altered;
+  another copy can still submit.
+
+D28-170 — STALE CHAIN ANCHOR.
+
+Remote payer uses anchor old enough that recipient risk policy declines early
+acceptance.
+
+Expected:
+  queue/delivery works;
+  UI says PendingCanonical;
+  no hidden auto-accept.
+
+D28-171 — BP DELIVERY RECEIPT CANNOT MARK FINALIZED.
+
+Direct unit/integration negative test.
+
+D28-172 — CONTACT CUSTODY RECEIPT CANNOT MARK FINALIZED.
+
+If optional custody extension exists:
+  direct negative test.
+
+D28-173 — GOVERNANCE VOTE ARRIVES AFTER DEADLINE.
+
+Signed before deadline;
+  included after canonical deadline.
+
+Expected:
+  not counted.
+
+D28-174 — GOVERNANCE VOTE ARRIVES IN TIME.
+
+Queued during partition;
+  included canonically before deadline;
+  valid personhood nullifier.
+
+Expected:
+  counts exactly once.
+
+D28-175 — LOCAL "VOTE COUNT" CANNOT OVERRIDE GLOBAL TALLY.
+
+A partition may display:
+  local pending opinions.
+
+It cannot emit:
+  global finalized tally object
+without canonical proof.
+
+D28-176 — KEY REVOCATION ORDERING.
+
+An old signed object created before a valid key revocation may still be valid
+according to object/provenance temporal rules.
+
+An object created after revocation using revoked key:
+  rejects.
+
+Transport arrival order does not decide.
+
+D28-177 — PERSONHOOD VOUCH DUPLICATION.
+
+Many BP copies:
+  one scoped nullifier/action.
+
+D28-178 — PRESENCE ARCHIVE.
+
+Carry a valid Gate #97 presence attestation later.
+
+Expected:
+  same original assurance;
+  no DTN upgrade.
+
+D28-179 — FAKE "SATELLITE VERIFIED" PERSONHOOD TAG.
+
+Unknown transport metadata:
+  zero personhood effect.
+
+
+======================================================================
+30. DISASTER / SATELLITE SECURITY TESTS
+======================================================================
+
+D28-180 — MALICIOUS GATEWAY DROP.
+
+Gateway drops all bundles from one user.
+
+Expected:
+  censorship/delay on that path is real;
+  alternate contacts/routes may work;
+  gateway cannot revoke identity or erase already-distributed content.
+
+D28-181 — MALICIOUS GATEWAY MODIFY.
+
+Change one payload byte.
+
+Expected:
+  content ID/signature/AEAD/BPSec verification detects according layer.
+
+D28-182 — MALICIOUS GATEWAY REORDER.
+
+Expected:
+  app sequences/CRDT/transaction semantics remain correct.
+
+D28-183 — MALICIOUS GATEWAY DUPLICATE.
+
+Expected:
+  idempotent application processing.
+
+D28-184 — MALICIOUS CONTACT PLAN.
+
+Advertise attractive dead route.
+
+Expected:
+  delay/DoS possible;
+  no application forgery;
+  route penalties/local policy recover if alternatives exist.
+
+D28-185 — SINGLE SATELLITE PROVIDER OUTAGE.
+
+Expected:
+  that route disappears;
+  local/BLE/Wi-Fi/other Internet paths remain independent.
+
+D28-186 — NO INTERNET / NO DNS.
+
+Disaster D1/D2 local contacts work without:
+  DNS;
+  public certificate issuance;
+  central Mininet service.
+
+D28-187 — NO NTP/GPS.
+
+Zero-clock Bundle Age path transports objects correctly.
+
+D28-188 — QUEUE POWER LOSS DURING BLACKOUT.
+
+Hard power kill:
+  at 10%;
+  50%;
+  90%
+of queue write/contact transfer.
+
+Expected:
+  recovered state is safe;
+  corrupt partial never accepted.
+
+D28-189 — 14-DAY OUTAGE.
+
+M3 fixture:
+  queue survives;
+  user can inspect pending;
+  no "network broken" destructive reset;
+  no automatic creation of local global finality.
+
+D28-190 — 22-MINUTE ONE-WAY LATENCY.
+
+No code path:
+  sets a 30-second synchronous application timeout
+for deferred object delivery.
+
+D28-191 — TWO-HOUR ONE-WAY LATENCY.
+
+Same.
+
+D28-192 — ASYMMETRIC LINK.
+
+Downlink 8 kbit/s;
+uplink 2 kbit/s.
+
+Scheduler:
+  does not assume symmetric capacity.
+
+D28-193 — UNIDIRECTIONAL FUTURE LINK.
+
+If BTP-U experimental adapter enabled:
+  bundle progress possible on no-return path according draft/profile;
+  lack of reverse acknowledgements does not invent application finality.
+
+D28-194 — JAMMED LOCAL BEARER.
+
+No route:
+  bundle remains queued until lifetime/quota;
+  no central override.
+
+D28-195 — HOSTILE RELAY DEMANDS PAYMENT FOR FORWARDING.
+
+User may:
+  refuse;
+  use another route;
+  wait.
+
+Payment demand:
+  creates no censorship authority over protocol itself.
+
+
+======================================================================
+31. GATE #28 IMPLEMENTATION ACCEPTANCE TEST INDEX
+======================================================================
+
+T28-001  BPv7 version7 parse.
+T28-002  wrong BP version reject.
+T28-003  canonical primary-block encode/decode roundtrip.
+T28-004  destination EID roundtrip.
+T28-005  source EID roundtrip.
+T28-006  report-to EID roundtrip.
+T28-007  creation timestamp roundtrip.
+T28-008  zero creation time accepted only with correct profile semantics.
+T28-009  lifetime roundtrip.
+T28-010  lifetime overflow reject.
+T28-011  payload block roundtrip.
+T28-012  Bundle Age roundtrip.
+T28-013  Bundle Age nondecreasing.
+T28-014  Hop Count roundtrip.
+T28-015  hop limit0 invalid/profile-rejected.
+T28-016  hop limit>255 impossible/rejected.
+T28-017  generated default disaster hop limit32.
+T28-018  generated default deep-space hop limit64.
+T28-019  reaching hop limit stops forwarding.
+T28-020  primary CRC valid.
+T28-021  bad CRC fails according profile.
+T28-022  extension CRC valid.
+T28-023  unknown extension process flags honored.
+T28-024  duplicate block number reject.
+T28-025  >64 blocks reject.
+T28-026  EID >1024 bytes reject.
+T28-027  Mininet app payload >1MiB reject.
+T28-028  Mininet control payload >64KiB reject.
+T28-029  total app bundle >1.25MiB reject.
+T28-030  total control bundle >96KiB reject.
+
+T28-031  object payload ID verifies after BP roundtrip.
+T28-032  public object signature verifies after BP roundtrip.
+T28-033  private ObjectEnvelopeV2 decrypts only at authorized app endpoint.
+T28-034  BP relay lacks private conversation key.
+T28-035  modified private envelope rejects.
+T28-036  same object in two BP bundles app-dedupes.
+T28-037  same bundle received twice app-dedupes.
+T28-038  object arrival reorder does not rewrite logical sequence.
+T28-039  CRDT op reorder merges per CRDT semantics.
+T28-040  signed pointer old-after-new does not roll state back.
+
+T28-041  64KiB message body accepted.
+T28-042  >message body limit rejected by messaging layer.
+T28-043  attachment travels as referenced content.
+T28-044  8MiB object requires DTN chunk/manifest path.
+T28-045  chunk individually content-verifies.
+T28-046  missing chunk keeps manifest incomplete.
+T28-047  corrupt chunk rejected.
+T28-048  chunk duplicate does not duplicate final file.
+T28-049  manifest signature/content ID verifies.
+T28-050  huge media not relabeled P0.
+
+T28-051  enqueue returns QueuedLocal before durability if implementation exposes it.
+T28-052  StoredLocal emitted only after durable commit.
+T28-053  power kill before durable commit never yields false StoredLocal record.
+T28-054  power kill after durable commit recovers bundle.
+T28-055  partial record quarantined.
+T28-056  checksum mismatch quarantined.
+T28-057  queue record version unsupported fails closed.
+T28-058  duplicate local blob stored once.
+T28-059  queue refcount GC preserves referenced blob.
+T28-060  orphan blob GC cannot alter content ID mapping.
+
+T28-061  expired entry GC first.
+T28-062  invalid entry GC.
+T28-063  duplicate copy collapse.
+T28-064  P3 transit evicts before P0 under pressure.
+T28-065  local user original never deleted by transit eviction.
+T28-066  user-pinned source respected locally.
+T28-067  local pin does not force peer retention.
+T28-068  free-space floor1GiB enforced where larger than5%.
+T28-069  free-space floor5% enforced where larger.
+T28-070  transit queue disabled when configured budget<64MiB.
+
+T28-071  default mobile budget<=512MiB.
+T28-072  default mobile budget<=10% current free space.
+T28-073  per-untrusted-neighbor16MiB encounter cap.
+T28-074  global untrusted ingress4MiB/min token bucket.
+T28-075  global burst16MiB.
+T28-076  unique small-bundle flood bounded.
+T28-077  million duplicate bundle flood bounded.
+T28-078  fragment table bounded.
+T28-079  status report queue bounded.
+T28-080  route/contact state bounded.
+
+T28-081  P0 valid small safety object classifies P0.
+T28-082  arbitrary unknown blob claimingP0 does not classify P0.
+T28-083  P1 canonical transaction classifies P1.
+T28-084  P2 private message classifies P2.
+T28-085  P3 content chunk classifies P3.
+T28-086  DRR nominal weights4:3:2:1.
+T28-087  P3 gets service under continuous other-class load.
+T28-088  idle P0 share can be borrowed.
+T28-089  idle P3 share can be borrowed.
+T28-090  money balance cannot affect scheduler class.
+
+T28-091  founder status cannot affect scheduler.
+T28-092  satellite operator status cannot affect scheduler.
+T28-093  hardware capacity cannot affect scheduler legitimacy.
+T28-094  priority never changes application validity.
+T28-095  queue order change never changes object ID.
+T28-096  direct destination available ->direct route preferred under normal tier.
+T28-097  direct unreachable ->opportunistic route considered.
+T28-098  spray copy budget P0=4.
+T28-099  spray copy budget P1=4.
+T28-100  spray copy budget P2=4.
+T28-101  spray copy budget P3=2.
+T28-102  copy budget never increases from a relay simply copying.
+T28-103  one remaining copy waits/destination-bias policy.
+T28-104  loop reaches hop limit.
+T28-105  no epidemic unbounded replication.
+
+T28-106  contact plan entry parsed boundedly.
+T28-107  contact start/end invalid reject.
+T28-108  contact capacity zero excluded.
+T28-109  asymmetric rates represented.
+T28-110  one-way range represented.
+T28-111  scheduled route respects contact capacity.
+T28-112  route cannot schedule bytes beyond contact capacity by arithmetic overflow.
+T28-113  missed contact keeps bundle queued.
+T28-114  plan update leaves application bytes unchanged.
+T28-115  false plan cannot forge object.
+T28-116  plan source cannot finalize money.
+T28-117  no global official contact-plan endpoint required.
+T28-118  local static plan works offline.
+T28-119  plan from external mission source optional.
+T28-120  bad wall clock affects routing only.
+
+T28-121  no-clock opportunistic path works.
+T28-122  Bundle Age persists across restart.
+T28-123  wall-clock rollback cannot lower persisted age.
+T28-124  wall-clock forward jump cannot change canonical money state.
+T28-125  ExpiredTransport distinct from app expiry.
+T28-126  app expiry distinct from transport lifetime.
+T28-127  transport expiry cannot unfinalize finalized tx.
+T28-128  transport lifetime may be shorter than claim validity.
+T28-129  claim validity may be shorter than transport lifetime.
+T28-130  local relay may shorten retention.
+
+T28-131  Ephemeral class=1h.
+T28-132  Short=24h.
+T28-133  Standard=30d.
+T28-134  Archival=180d.
+T28-135  DeepSpace=365d.
+T28-136  no source-created forever lifetime in Mininet profile.
+T28-137  retention class not payment validity.
+T28-138  retention class not vote deadline.
+T28-139  retention class not ownership.
+T28-140  retention class not forced replication.
+
+T28-141  TCPCLv4 connect Mininet->interop peer1.
+T28-142  TCPCLv4 peer1->Mininet.
+T28-143  TCPCLv4 Mininet->peer2.
+T28-144  TCPCLv4 peer2->Mininet.
+T28-145  TCPCLv4 1-byte bundle.
+T28-146  TCPCLv4 64KiB.
+T28-147  TCPCLv4 1MiB.
+T28-148  TCPCLv4 reconnect mid-session.
+T28-149  TCPCLv4 session termination.
+T28-150  malformed TCPCL segment no panic.
+
+T28-151  TLS-enabled TCPCL where profile selected.
+T28-152  TLS failure prevents that contact, not identity validity.
+T28-153  transport cert is not did:mini root.
+T28-154  external CA outage does not invalidate stored Mininet objects.
+T28-155  BLE/local bearer convergence contact can transfer complete BP bundle.
+T28-156  BLE link drop keeps deferred item queued.
+T28-157  Wi-Fi contact change does not alter object.
+T28-158  ordinary continuous satellite Internet can use non-DTN live bearer.
+T28-159  DTN activation based on link need, not vendor.
+T28-160  no mandatory LTP library in terrestrial runtime.
+
+T28-161  optional LTP route interop if R2/R3 advertised.
+T28-162  LTP gateway cannot modify app object undetected.
+T28-163  raw UDP not production default.
+T28-164  experimental QUICCL feature off by default.
+T28-165  experimental BTP-U feature off by default.
+T28-166  experimental BIBE feature off by default.
+T28-167  draft feature cannot become consensus requirement.
+T28-168  one CLA failure does not invalidate queued bundle.
+T28-169  CLA switch preserves bundle/app identity.
+T28-170  no CLA gains governance authority.
+
+T28-171  BIB HMAC valid interop.
+T28-172  BIB wrong key rejects security claim.
+T28-173  BIB modified target rejects.
+T28-174  BIB modified security result rejects.
+T28-175  BCB AES-GCM valid interop.
+T28-176  BCB wrong key rejects.
+T28-177  BCB auth failure rejects plaintext release.
+T28-178  BCB IV/key reuse detector/policy tests where implementation controls IV.
+T28-179  BPSec replay handling tested.
+T28-180  BPSec malformed block bounded.
+
+T28-181  BPSec key not required for app ObjectEnvelopeV2 confidentiality.
+T28-182  app envelope key not given to relay.
+T28-183  BPSec key compromise scoped to configured BPSec trust, not did:mini.
+T28-184  BPSec key service not globally centralized.
+T28-185  BPSec advertised status accurate.
+T28-186  unsupported context fail/forward according RFC policy.
+T28-187  status reports default off.
+T28-188  status report cannot finalize app.
+T28-189  status report reflection bounded.
+T28-190  logging omits app plaintext.
+
+T28-191  opaque EID used for private native endpoint.
+T28-192  stable root DID not exposed as default EID.
+T28-193  EID rotation supported.
+T28-194  EID knowledge gives no human vote.
+T28-195  public IPN mission EID allowed at interoperability edge.
+T28-196  IPN allocator ownership gives no vote.
+T28-197  private endpoint does not require IANA registration.
+T28-198  endpoint directory not mandatory central service.
+T28-199  stale EID route fails/delays, not identity revocation.
+T28-200  EID parser length bounded.
+
+T28-201  PaymentClaimV2 canonical encoding.
+T28-202  PaymentClaimV2 signature covers network ID.
+T28-203  signature covers payer.
+T28-204  signature covers payee commitment.
+T28-205  signature covers amount.
+T28-206  signature covers sequence.
+T28-207  signature covers chain anchor.
+T28-208  signature covers valid-through epoch.
+T28-209  signature covers claim context.
+T28-210  valid-through earlier than anchor rejects.
+
+T28-211  claim lifetime >12 economic epochs rejects.
+T28-212  claim lifetime >=1 epoch required for DTN profile.
+T28-213  old wall time cannot create canonical V2 expiry.
+T28-214  canonical epoch inside validity may submit.
+T28-215  canonical epoch after validity rejects.
+T28-216  unrecognized anchor branch rejects canonical acceptance.
+T28-217  stale anchor exposed to risk policy.
+T28-218  default early-accept limit0.
+T28-219  explicit nonzero local risk stays nonfinal.
+T28-220  AcceptedLocal is_final=false.
+
+T28-221  duplicate BP claim does not double spend.
+T28-222  conflicting same-sequence claims cannot both finalize.
+T28-223  canonical ledger alone returns Finalized.
+T28-224  BP delivery state cannot return Finalized.
+T28-225  DTN gateway cannot return Finalized.
+T28-226  hotspot cannot return Finalized.
+T28-227  local disaster quorum cannot return global Finalized.
+T28-228  custody receipt cannot return global Finalized.
+T28-229  expired transport cannot unfinalize.
+T28-230  finalized tx remains final after all bundles deleted.
+
+T28-231  no same-global-MINI local canonical zone.
+T28-232  no CRDT merge function for balances.
+T28-233  no merge function averages conflicting spends.
+T28-234  no partition mints global Human Share without canonical state.
+T28-235  no partition changes global monetary params.
+T28-236  no partition drains treasury under weaker local rules.
+T28-237  no disaster admin override.
+T28-238  no satellite-provider override.
+T28-239  no founder partition override.
+T28-240  queued treasury request must pass ordinary canonical policy.
+
+T28-241  vote queued state distinct from counted.
+T28-242  vote delivered state distinct from counted.
+T28-243  vote signed-before but included-after deadline not counted.
+T28-244  valid included-before deadline counts exactly once.
+T28-245  local tally not global tally.
+T28-246  local discussion allowed without chain.
+T28-247  local community rules may operate within voluntary local scope.
+T28-248  local community rule cannot rewrite global constitution.
+T28-249  terrestrial governance window floor>=30d for claimed disaster inclusion.
+T28-250  interplanetary-inclusive profile window floor>=365d.
+
+T28-251  money cannot buy earlier governance queue class than defined type class.
+T28-252  zero-balance human can queue valid governance submission.
+T28-253  high-balance human gets no duplicate governance bandwidth right by balance.
+T28-254  route ownership gives no vote.
+T28-255  relay reward gives no vote.
+T28-256  contact-plan operator gives no vote.
+T28-257  BP daemon admin gives no vote.
+T28-258  mission operator gives no personhood boost.
+T28-259  satellite terminal gives no personhood boost.
+T28-260  DTN delivery does not manufacture presence.
+
+T28-261  archived presence evidence preserves original assurance.
+T28-262  archived presence bad signature rejects.
+T28-263  archived presence wrong ranging binding rejects.
+T28-264  delayed personhood vouch obeys own canonical validity.
+T28-265  duplicated vouch nullifier counts once.
+T28-266  no disaster-human bypass.
+T28-267  no government-ID emergency bypass.
+T28-268  no hotspot-human bypass.
+T28-269  no operator-human bypass.
+T28-270  connectivity privilege not humanity privilege.
+
+T28-271  forge Git object DTN transfer preserves hash.
+T28-272  forge issue CRDT op merges.
+T28-273  forge review arrives out-of-order safely.
+T28-274  signed ref old-after-new cannot roll back.
+T28-275  DTN gateway cannot merge patch.
+T28-276  DTN gateway cannot mark release adopted.
+T28-277  delayed release binary verifies content hash.
+T28-278  delayed release still requires governance/signature proof.
+T28-279  no forced update after reconnect.
+T28-280  fork can use different DTN routing implementation.
+
+T28-281  N0 fixture completes.
+T28-282  D1 fixture completes.
+T28-283  D2 fixture completes.
+T28-284  S1 fixture completes.
+T28-285  L1 fixture completes.
+T28-286  M1 fixture completes.
+T28-287  M2 fixture completes.
+T28-288  M3 blackout fixture completes.
+T28-289  X1 fixture completes.
+T28-290  profile parameters recorded exactly.
+
+T28-291  D1 P0/P1 delivery target>=99.9% within24h under declared load.
+T28-292  D2 target>=99% within72h.
+T28-293  S1 target>=99.9% within12h.
+T28-294  L1 target>=99% within48h.
+T28-295  M1 target>=99% by scenario end under >=2x capacity condition.
+T28-296  M2 target>=99% likewise.
+T28-297  M3 still-valid P0/P1 target>=99% within7d after blackout under capacity.
+T28-298  X1 P0/P1 nonstarvation/progress.
+T28-299  offered load reported.
+T28-300  theoretical contact capacity reported.
+
+T28-301  useful bytes reported.
+T28-302  BP bytes reported.
+T28-303  retransmitted bytes reported.
+T28-304  duplicate deliveries reported.
+T28-305  expiry count reported.
+T28-306  quota-eviction count reported.
+T28-307  route-no-contact count reported.
+T28-308  corruption/security-reject count reported.
+T28-309  app-reject count reported separately.
+T28-310  no failed run deleted from report.
+
+T28-311  4GiB-device test executed.
+T28-312  10k bundle metadata memory<=128MiB additional.
+T28-313  queue usable<=10s restart target.
+T28-314  no whole512MiB queue materialized in RAM.
+T28-315  no idle busy loop.
+T28-316  mobile UI no large synchronous hash/crypto.
+T28-317  8h idle battery comparison run.
+T28-318  target<=3 percentage points incremental battery.
+T28-319  metered-network user control works.
+T28-320  P3 unmetered/charging default works.
+
+T28-321  million duplicate bundle input no OOM.
+T28-322  unique bundle flood stops at quota.
+T28-323  P0 spoof flood bounded.
+T28-324  malformed primary fuzz no panic.
+T28-325  malformed canonical-block fuzz no panic.
+T28-326  malformed EID fuzz no panic.
+T28-327  malformed CBOR fuzz no panic.
+T28-328  malformed TCPCL fuzz no panic.
+T28-329  malformed BPSec fuzz no panic.
+T28-330  malformed fragment fuzz no panic if fragmentation supported.
+
+T28-331  property decode(encode(bundle)) stable for supported profile.
+T28-332  property app ID invariant through route changes.
+T28-333  property Bundle Age never decreases.
+T28-334  property hop count never decreases on forwarding.
+T28-335  property forwarded copies never exceed spray budget.
+T28-336  property queue bytes never exceed configured hard quota.
+T28-337  property one semantic object accepted at most once.
+T28-338  property payment finality only derives canonical ledger.
+T28-339  property vote count only derives canonical governance.
+T28-340  property transport metadata never increases personhood.
+
+T28-341  source IP/timing metadata residual documented.
+T28-342  BP EID metadata residual documented.
+T28-343  ciphertext length leakage documented.
+T28-344  contact-plan traffic-analysis residual documented.
+T28-345  BPSec not described as hop-by-hop peer authentication.
+T28-346  object E2E encryption not described as hiding traffic metadata.
+T28-347  local risk payment not described as final.
+T28-348  deep-space fixture not described as real mission certification.
+T28-349  NASA operational results not described as Mininet test results.
+T28-350  external interop software not described as runtime authority.
+
+T28-351  exact Mininet git revision recorded in implementation evidence.
+T28-352  exact Rust toolchain recorded.
+T28-353  exact RFC profile/version list recorded.
+T28-354  exact external interop implementation versions recorded.
+T28-355  exact test fixture config committed.
+T28-356  deterministic fault-injector seed recorded.
+T28-357  raw delivery CSV/result data preserved.
+T28-358  failure classifications preserved.
+T28-359  implementation support matrix truthful.
+T28-360  Gate #28 design remains closed unless Section38 material design change occurs.
+
+
+======================================================================
+32. MANDATORY ENGINEERING CONFORMANCE MATRIX — C28-001 THROUGH C28-360
+======================================================================
+
+This matrix applies when `mini-dtn` or an equivalent Mininet-native DTN feature
+is implemented and advertised.
+
+It is NOT a terrestrial-mainnet launch requirement.
+
+The design gate closes by auditor adoption of this report.
+
+A product/release may claim:
+  "Mininet DTN / disaster-store-carry / satellite BPv7 support"
+only after the applicable rows below pass on the exact implementation.
+
+ARCHITECTURE / TRUST BOUNDARIES
+
+C28-001  live Bearer semantics remain distinct from deferred transport.
+C28-002  `mini_bearer::Bearer` is not changed to promise persistence.
+C28-003  deferred transport has an asynchronous enqueue/status/delivery API.
+C28-004  no synchronous end-to-end session is required while a bundle waits.
+C28-005  BP agent is not a Mininet identity authority.
+C28-006  BP agent is not a personhood authority.
+C28-007  BP agent is not a governance authority.
+C28-008  BP agent is not a monetary-finality authority.
+C28-009  satellite operator is not a Mininet authority.
+C28-010  hotspot operator is not a Mininet authority.
+C28-011  contact-plan publisher is not a Mininet authority.
+C28-012  convergence-layer certificate issuer is not a Mininet root of trust.
+C28-013  application object validation remains independent of transport.
+C28-014  route choice does not enter chain consensus.
+C28-015  queue priority does not enter chain consensus.
+C28-016  transport delivery status does not enter settlement finality.
+C28-017  custody receipt, if implemented, does not enter settlement finality.
+C28-018  no same-global-MINI local canonical partition ledger exists.
+C28-019  no CRDT balance merge exists.
+C28-020  no disaster/founder emergency finality override exists.
+
+STANDARDS PROFILE
+
+C28-021  deferred interoperability wire format is RFC 9171 BPv7.
+C28-022  BP version 7 is explicitly checked.
+C28-023  BPv6 is not silently parsed as BPv7.
+C28-024  canonical BP encoding/CBOR behavior follows RFC 9171 profile.
+C28-025  Bundle Age extension is supported.
+C28-026  Hop Count extension is supported.
+C28-027  bundle lifetime is supported.
+C28-028  application delivery is distinct from BP forwarding/delivery.
+C28-029  TCPCLv4 RFC 9174 is the required V1 IP convergence layer.
+C28-030  raw UDP is not the production default.
+C28-031  LTP is optional.
+C28-032  QUICCL remains experimental until standardized/adopted.
+C28-033  BTP-U remains experimental until standardized/adopted.
+C28-034  BIBE remains experimental until standardized/adopted.
+C28-035  CCSDS BPv7 Orange Book is treated according to its experimental status.
+C28-036  old CCSDS BPv6 material is not mislabeled BPv7.
+C28-037  SABR/contact-graph routing is optional scheduled-routing profile.
+C28-038  CCSDS custody-transfer extension is optional/experimental.
+C28-039  no draft IETF feature becomes consensus-critical.
+C28-040  standards-version/support matrix is published.
+
+BP PRIMARY / EXTENSION BLOCK SAFETY
+
+C28-041  BP primary block decoder is bounded.
+C28-042  BP block decoder rejects malformed length.
+C28-043  BP block decoder rejects integer overflow.
+C28-044  total Mininet-app bundle encoded size is bounded.
+C28-045  Mininet V1 application payload <=1 MiB.
+C28-046  control/money/governance payload <=64 KiB.
+C28-047  total general Mininet bundle <=1.25 MiB.
+C28-048  total control Mininet bundle <=96 KiB.
+C28-049  block count <=64.
+C28-050  each EID encoded length <=1024 bytes for Mininet service.
+C28-051  unknown extension handling obeys block-processing flags.
+C28-052  duplicate block numbers reject.
+C28-053  malformed CRC rejects according profile.
+C28-054  unsupported mandatory semantic block fails closed.
+C28-055  trailing/ambiguous CBOR does not produce two interpretations.
+C28-056  parser never allocates attacker-declared huge buffers before bounds.
+C28-057  parser has no recursion-depth explosion.
+C28-058  source cannot request unbounded lifetime.
+C28-059  source cannot request unbounded hop count.
+C28-060  malformed bundle cannot panic process.
+
+AGE / LIFETIME
+
+C28-061  Ephemeral generated lifetime=1 hour.
+C28-062  Short generated lifetime=24 hours.
+C28-063  Standard generated lifetime=30 days.
+C28-064  Archival generated lifetime=180 days.
+C28-065  DeepSpace generated lifetime=365 days.
+C28-066  Mininet-native profile has no "forever" lifetime.
+C28-067  zero-clock source uses Bundle Age.
+C28-068  Bundle Age cannot decrease when forwarded by Mininet.
+C28-069  Bundle Age survives process restart.
+C28-070  wall-clock rollback cannot rejuvenate a bundle.
+C28-071  local relay may impose a shorter retention interval.
+C28-072  local shorter retention does not alter application validity.
+C28-073  transport expiry does not alter canonical ownership.
+C28-074  transport expiry does not revoke identity.
+C28-075  transport expiry does not change governance result.
+C28-076  application expiry may precede transport expiry.
+C28-077  transport expiry may precede application expiry.
+C28-078  finalized money remains finalized after all transport copies expire.
+C28-079  bundle age/lifetime arithmetic is checked.
+C28-080  expiry reason is observable locally.
+
+HOP / LOOP CONTROL
+
+C28-081  normal/disaster generated hop limit=32.
+C28-082  scheduled/deep-space generated hop limit=64.
+C28-083  Mininet-generated hop limit never exceeds64.
+C28-084  interoperable receive can parse legal RFC limits subject to local policy.
+C28-085  forwarding increments hop count correctly.
+C28-086  hop count never decreases.
+C28-087  bundle at limit is not forwarded again.
+C28-088  looping bundle cannot persist indefinitely through hop reset.
+C28-089  encapsulation cannot reset application dedup identity.
+C28-090  route retry does not reset age.
+
+APPLICATION PAYLOAD / OBJECT SEMANTICS
+
+C28-091  public Mininet object bytes may be carried unchanged.
+C28-092  ObjectEnvelopeV2 bytes may be carried unchanged.
+C28-093  CRDT operation bytes may be carried unchanged.
+C28-094  KEL/identity event may be carried as an application object.
+C28-095  canonical transaction submission may be carried.
+C28-096  PaymentClaimV2 may be carried.
+C28-097  finalized header/state proof may be carried.
+C28-098  storage chunk/manifest may be carried.
+C28-099  forge objects may be carried.
+C28-100  live physical-ranging handshake state is not deferred as fresh presence.
+C28-101  live bearer Channel state is not serialized as deferred E2E session.
+C28-102  application content ID is preserved across transport.
+C28-103  application dedup uses object/transaction semantic ID.
+C28-104  BP bundle ID is not mistaken for app object ID.
+C28-105  duplicate bundles carrying one object create one app object.
+C28-106  out-of-order object arrival uses application ordering semantics.
+C28-107  delayed old signed pointer cannot overwrite newer pointer merely by arrival.
+C28-108  private object remains encrypted at transit storage.
+C28-109  relay needs no application decryption key.
+C28-110  DTN layer does not invent a central messaging key directory.
+
+CHUNKING / FRAGMENTATION
+
+C28-111  large content uses content-addressed application chunks/manifests.
+C28-112  each chunk is independently integrity-verifiable.
+C28-113  manifest binds expected chunks.
+C28-114  incomplete manifest remains incomplete.
+C28-115  corrupt chunk cannot produce final object.
+C28-116  source Mininet V1 does not rely on BP reactive fragmentation.
+C28-117  external fragmentation receive, if supported, is explicitly declared.
+C28-118  reassembly total <=1 MiB for Mininet app service.
+C28-119  reassembly fragments <=64.
+C28-120  fragment table is byte/entry bounded.
+C28-121  overlapping/malformed fragments fail closed.
+C28-122  missing fragment cannot fabricate completion.
+C28-123  fragment lifetime cannot exceed parent bundle policy.
+C28-124  fragment duplication does not duplicate application bytes.
+C28-125  large repository/media data uses storage DAG instead of control class.
+C28-126  message attachments are separate content objects.
+C28-127  control object cannot smuggle unbounded attachment bytes inline.
+C28-128  P0 cannot be obtained merely by fragmenting a bulk payload.
+C28-129  reassembly path is fuzzed.
+C28-130  fragmentation is not required for normal Mininet V1 interoperability claim.
+
+PERSISTENT QUEUE
+
+C28-131  queue record format versioned.
+C28-132  queue record integrity/checksum present.
+C28-133  queue records have bounded metadata.
+C28-134  payload store is bounded.
+C28-135  bundle state is persisted independently of process RAM.
+C28-136  StoredLocal only after durable commit.
+C28-137  volatile QueuedLocal is labeled separately.
+C28-138  crash before commit cannot fabricate durable success.
+C28-139  crash after commit recovers committed record.
+C28-140  corrupt record quarantines/fails that record.
+C28-141  corrupt one record does not reinterpret adjacent records.
+C28-142  duplicate local application blob stored once where content addressing applies.
+C28-143  queue can reference common content blob.
+C28-144  GC checks references before deleting blob.
+C28-145  GC crash cannot alias one content ID to another.
+C28-146  incomplete temp file never becomes complete bundle.
+C28-147  filesystem durability error propagates as failure.
+C28-148  persistent state is locked against two conflicting local writers.
+C28-149  whole-state administrator rollback limitation is documented.
+C28-150  queue recovery never returns monetary Finalized.
+
+MINI-DURABLE REUSE
+
+C28-151  existing `mini-durable` primitives are reused where fit rather than
+          inventing weaker file durability.
+C28-152  file contents are flushed before committed rename where file backend used.
+C28-153  parent directory is flushed after rename where supported.
+C28-154  unsupported durability semantics fail closed for durable-status claim.
+C28-155  stable lock file is not unlinked while live.
+C28-156  error-after-rename reloads state rather than issuing conflicting retry from RAM.
+C28-157  DTN queue tests include real filesystem path.
+C28-158  in-memory-only queue is labeled test/non-durable.
+C28-159  durable queue can survive abrupt process kill.
+C28-160  durable queue can survive device reboot under supported platform semantics.
+
+QUOTA / ADMISSION
+
+C28-161  transit relay is opt-in on ordinary mobile client.
+C28-162  mobile default transit budget <=512 MiB.
+C28-163  mobile default transit budget <=10% currently available free space.
+C28-164  transit disabled below64 MiB configured budget.
+C28-165  new transit allocation preserves at least max(1GiB,5% FS) free.
+C28-166  global queue has byte limit.
+C28-167  global queue has entry limit.
+C28-168  per-neighbor new-untrusted ingress bounded.
+C28-169  default per-neighbor encounter cap=16 MiB.
+C28-170  default global mobile untrusted ingress rate=4 MiB/min.
+C28-171  default untrusted ingress burst=16 MiB.
+C28-172  operator can raise quotas without changing protocol truth.
+C28-173  no configuration allows integer "unlimited" to bypass overflow safety.
+C28-174  admission validates structural size before durable write.
+C28-175  duplicate checked before second durable payload where practical.
+C28-176  expired input not admitted merely because queue has space.
+C28-177  malformed P0 request not admitted as P0.
+C28-178  BPSec crypto work happens after cheap structural admission checks.
+C28-179  untrusted source cannot force unlimited status reports.
+C28-180  quota exhaustion does not crash app.
+
+EVICTION
+
+C28-181  expired transit entries evicted first.
+C28-182  invalid/corrupt entries evicted/quarantined.
+C28-183  redundant duplicate copies collapsed before unique data.
+C28-184  under pressure P3 transit is lower retention priority than P0.
+C28-185  eviction applies to transit cache, not user's sole source object.
+C28-186  user local pin is local only.
+C28-187  user local pin cannot force peer storage.
+C28-188  user can cancel their local queued source copy.
+C28-189  cancel local copy does not assert global deletion.
+C28-190  eviction reason recorded.
+C28-191  cache pressure cannot erase canonical chain state improperly.
+C28-192  cache pressure cannot change object ID.
+C28-193  cache pressure cannot create payment rejection on canonical chain.
+C28-194  local copy loss is surfaced honestly.
+C28-195  storage payment/commercial service does not buy protocol authority.
+
+PRIORITY / FAIRNESS
+
+C28-196  exactly four Mininet scheduling classes exist in V1 profile.
+C28-197  P0 is bounded protocol-safety/control.
+C28-198  P1 is human-control/canonical-submission.
+C28-199  P2 is interactive.
+C28-200  P3 is bulk.
+C28-201  arbitrary sender label cannot self-authorize P0.
+C28-202  P0 parser validates type/size.
+C28-203  P0 app payload <=64 KiB.
+C28-204  queue scheduler work-conserving.
+C28-205  DRR weight P0=4.
+C28-206  DRR weight P1=3.
+C28-207  DRR weight P2=2.
+C28-208  DRR weight P3=1.
+C28-209  empty class bandwidth is borrowable.
+C28-210  P3 cannot be starved indefinitely by valid high-priority load.
+C28-211  MINI balance cannot raise queue priority.
+C28-212  offered fee cannot raise governance message legitimacy.
+C28-213  founder status cannot raise priority.
+C28-214  institution status cannot raise priority.
+C28-215  satellite ownership cannot raise priority.
+C28-216  priority affects scheduling only.
+C28-217  priority does not bypass signature.
+C28-218  priority does not bypass app deadline.
+C28-219  priority does not create finality.
+C28-220  priority policy is locally inspectable.
+
+OPPORTUNISTIC ROUTING
+
+C28-221  direct delivery preferred when reachable and privacy policy permits.
+C28-222  disaster routing works without central DHT/Internet.
+C28-223  bounded spray-and-wait prevents epidemic replication.
+C28-224  P0 initial copy budget=4.
+C28-225  P1 initial copy budget=4.
+C28-226  P2 initial copy budget=4.
+C28-227  P3 initial copy budget=2.
+C28-228  copy budget cannot increase by copying.
+C28-229  one remaining forwarding copy uses wait/destination-bias rule.
+C28-230  route state cannot rewrite application bytes.
+C28-231  peer route advertisement is untrusted advice.
+C28-232  malicious relay can delay/drop but not forge valid object.
+C28-233  no one opportunistic gateway is mandatory.
+C28-234  bearer switching preserves app semantic ID.
+C28-235  no route creates vote/personhood weight.
+
+SCHEDULED ROUTING
+
+C28-236  scheduled mode can consume contact plans.
+C28-237  contact plan includes bounded start/end.
+C28-238  contact plan includes direction.
+C28-239  contact plan includes capacity/rate.
+C28-240  contact plan can include one-way light time.
+C28-241  route calculation respects contact capacity.
+C28-242  route calculation respects contact availability.
+C28-243  missed contact keeps still-valid bundle available for future route.
+C28-244  contact-plan update is prospective routing input.
+C28-245  contact-plan publisher cannot change application validity.
+C28-246  contact-plan publisher cannot change payment validity.
+C28-247  contact-plan publisher cannot change governance deadline.
+C28-248  no globally mandatory contact-plan server.
+C28-249  local/offline static plan supported.
+C28-250  multiple plan sources can be configured.
+C28-251  bad schedule can cause route failure only.
+C28-252  wall-clock schedule failure cannot create canonical state.
+C28-253  SABR/CGR support status truthful.
+C28-254  actual mission uses actual mission contact model before support claim.
+C28-255  generic stress fixture is not labeled mission certification.
+
+ENDPOINTS / ADDRESSING
+
+C28-256  BP EID is distinct from did:mini root identity.
+C28-257  private human's stable root DID not exposed as default EID.
+C28-258  private native EID can be opaque/rotated.
+C28-259  EID capability exchange can occur through authenticated Mininet relationship.
+C28-260  EID knowledge does not reveal legal name by protocol requirement.
+C28-261  public spacecraft/gateway can use public interoperable EID.
+C28-262  IPN namespace remains interoperability edge.
+C28-263  private users do not require IANA allocator registration.
+C28-264  endpoint directory is optional/replaceable.
+C28-265  endpoint-directory failure cannot invalidate existing object.
+C28-266  EID rotation does not alter DID.
+C28-267  EID ownership gives no vote.
+C28-268  EID ownership gives no Human Share.
+C28-269  gateway EID ownership gives no finality power.
+C28-270  EID logs follow privacy-retention policy.
+
+CONVERGENCE LAYERS
+
+C28-271  TCPCLv4 implemented for V1 IP interop claim.
+C28-272  TCPCLv4 can transfer1-byte bundle.
+C28-273  TCPCLv4 can transfer64KiB bundle.
+C28-274  TCPCLv4 can transfer1MiB Mininet bundle.
+C28-275  TCPCLv4 reconnect is safe.
+C28-276  TCPCLv4 malformed input is bounded.
+C28-277  TCPCL TLS trust is transport-local.
+C28-278  BLE/local bearer contact adapter may transfer full BP bundles.
+C28-279  live bearer failure leaves still-valid deferred item queued.
+C28-280  no CLA is consensus-critical.
+C28-281  LTP support is optional.
+C28-282  external LTP gateway is untrusted for Mininet app truth.
+C28-283  QUICCL experimental mode has feature/status boundary.
+C28-284  BTP-U experimental mode has feature/status boundary.
+C28-285  raw UDP experimental use documents reliability/congestion behavior.
+C28-286  changing CLA leaves application object unchanged.
+C28-287  one CLA outage can route via another if available.
+C28-288  continuous satellite-IP may use normal live transport instead of DTN.
+C28-289  DTN selection based on link semantics, not vendor name.
+C28-290  no CLA grants operator authority.
+
+BUNDLE SECURITY / APPLICATION SECURITY
+
+C28-291  ObjectEnvelopeV2 remains E2E private independently of BP.
+C28-292  public signed objects remain author-verifiable independently of BP.
+C28-293  BPSec support uses RFC9172 processing model.
+C28-294  default BPSec context interop uses RFC9173 when advertised.
+C28-295  BIB-HMAC-SHA2 valid path tested.
+C28-296  BCB-AES-GCM valid path tested.
+C28-297  BPSec key reuse/IV constraints implemented where applicable.
+C28-298  BPSec replay considerations addressed.
+C28-299  BPSec failure does not release unauthenticated plaintext as successful.
+C28-300  BPSec key compromise does not compromise did:mini by construction.
+C28-301  no global BPSec key server required.
+C28-302  relay has no private Mininet message key.
+C28-303  transport TLS certificate not accepted as app authorship.
+C28-304  BP status report not accepted as app read receipt.
+C28-305  metadata exposure is documented.
+C28-306  logs do not store app plaintext by default.
+C28-307  source/destination EID privacy residual documented.
+C28-308  timing/size correlation residual documented.
+C28-309  onion/mix option is not falsely claimed to be native BP header privacy.
+C28-310  routing never requires decrypting app content.
+
+PAYMENT CLAIM V2
+
+C28-311  PaymentClaimV2 is versioned.
+C28-312  PaymentClaimV2 binds network ID.
+C28-313  PaymentClaimV2 binds payer.
+C28-314  PaymentClaimV2 binds payee commitment.
+C28-315  PaymentClaimV2 binds amount using canonical Amount type.
+C28-316  PaymentClaimV2 binds payer sequence.
+C28-317  PaymentClaimV2 binds chain anchor height.
+C28-318  PaymentClaimV2 binds chain anchor block ID.
+C28-319  PaymentClaimV2 binds anchor economic epoch.
+C28-320  PaymentClaimV2 binds valid-through economic epoch.
+C28-321  PaymentClaimV2 binds claim-context/domain tag.
+C28-322  signature covers every security-relevant field.
+C28-323  canonical validity uses chain economic epoch, not relay wall time.
+C28-324  validity interval >=1 economic epoch.
+C28-325  validity interval <=12 economic epochs.
+C28-326  anchor must be recognized under canonical chain validation rule.
+C28-327  old PaymentClaimV1 bytes remain versioned legacy.
+C28-328  V1 wall-clock field not silently reinterpreted as V2 canonical epoch.
+C28-329  default local early-accept amount=0.
+C28-330  user may explicitly choose bounded nonzero local risk.
+C28-331  AcceptedLocal remains nonfinal.
+C28-332  PendingCanonical remains nonfinal.
+C28-333  canonical ledger is sole path to Finalized.
+C28-334  same-sequence conflicting claims cannot both finalize.
+C28-335  BP duplicate delivery cannot debit twice.
+C28-336  transport expiry cannot unfinalize claim.
+C28-337  transport delivery cannot reserve payer funds globally.
+C28-338  custody receipt cannot reserve payer funds globally.
+C28-339  offline treasury request retains ordinary authority checks.
+C28-340  no partition-specific mint authority exists.
+
+GOVERNANCE / PERSONHOOD / FORGE
+
+C28-341  queued governance action is labeled queued, not counted.
+C28-342  canonical inclusion by deadline required for count.
+C28-343  local sent timestamp cannot retroactively count vote.
+C28-344  disaster-inclusive terrestrial global voting window floor>=30d.
+C28-345  interplanetary-inclusive advertised global voting window floor>=365d
+          unless superseded by evidence-backed equivalent-access decision.
+C28-346  local community discussion/rules cannot impersonate global governance.
+C28-347  partition creates no emergency admin power.
+C28-348  physical-presence assurance cannot be created by delayed transport.
+C28-349  archived presence retains original Gate97 assurance only.
+C28-350  DTN gateway gets no personhood authority.
+C28-351  delayed personhood action obeys its own nullifier/validity rules.
+C28-352  forge object can sync without central server.
+C28-353  DTN relay cannot merge forge patch.
+C28-354  delayed release still requires normal verification/adoption.
+C28-355  no forced update on reconnect.
+C28-356  route/provider wealth cannot buy governance voice.
+C28-357  route/provider status cannot buy finality voice.
+C28-358  provider infrastructure does not buy Human Share.
+C28-359  any fork may replace routing implementation while preserving object truth.
+C28-360  no current or future DTN feature may introduce an indispensable central
+          authority into Mininet core.
+
+
+======================================================================
+33. EXACT CODE CHANGE MAP
+======================================================================
+
+This is implementation guidance, not a requirement that terrestrial mainnet
+wait for the code.
+
+33.1 ADD `crates/mini-dtn`
+
+Primary responsibility:
+  RFC9171 bundle codec;
+  deferred queue;
+  routing;
+  convergence-layer interface;
+  application parcel dispatch;
+  interop test vectors.
+
+This crate must be:
+  Rust;
+  `#![forbid(unsafe_code)]` unless a separately reviewed low-level platform
+  boundary proves a necessity;
+  no daemon/server required for ordinary library use.
+
+33.2 `mini-dtn::bpv7`
+
+Implement only the standards profile Mininet needs first:
+
+  primary block;
+  payload canonical block;
+  generic extension-block preservation/processing;
+  Bundle Age;
+  Hop Count;
+  CRC profiles;
+  endpoint IDs;
+  creation timestamp/lifetime;
+  status-report parsing sufficient for interoperability;
+  fragmentation receive only if explicitly enabled.
+
+Do not initially implement every historical BP feature.
+
+33.3 `mini-dtn::queue`
+
+Use:
+  `mini-durable`
+for owner-controlled filesystem commitment primitives.
+
+The current `mini-durable` already provides:
+  stable locks;
+  atomic file replacement;
+  file flush;
+  parent directory flush;
+  fail-closed unsupported durability behavior.
+
+Build:
+  queue journal/index;
+  content blob store;
+  quota tracker;
+  admission;
+  scheduler;
+  GC
+on those primitives.
+
+Do not reinvent a weaker:
+  write(temp); rename(); "probably fine"
+path.
+
+33.4 `mini-dtn::cla`
+
+Trait concept:
+
+  trait ConvergenceLayer {
+      fn capabilities(&self) -> ClaCapabilities;
+      fn offer_contact(&mut self, contact: Contact) -> Result<()>;
+      fn send_bundle(&mut self, id: &BundleId, reader: &mut dyn Read)
+          -> Result<TransferOutcome>;
+      fn receive_bundle(&mut self, sink: &mut dyn BundleSink)
+          -> Result<Option<TransferOutcome>>;
+  }
+
+First:
+  TCPCLv4.
+
+Then:
+  existing Bearer contact adapter.
+
+Future:
+  LTP;
+  QUICCL;
+  BTP-U.
+
+CLA must stream payload.
+
+33.5 `mini-dtn::route`
+
+V1:
+  direct destination;
+  bounded opportunistic spray-and-wait;
+  scheduled contact-plan route.
+
+Keep routing policy local.
+
+Do not serialize:
+  one node's "best route"
+as globally authoritative application truth.
+
+33.6 `mini-dtn::app`
+
+`DeferredParcel` should bind:
+
+  application service/type;
+  immutable application bytes or content reference;
+  semantic content ID where known;
+  priority class derived by app policy;
+  lifetime class;
+  destination opaque DTN capability/EID;
+  optional source EID;
+  requested security profile.
+
+Bundle construction:
+  deterministic except fields that BP legitimately assigns locally.
+
+33.7 `mini-objects`
+
+No object-format rewrite is required merely for DTN.
+
+Add helper if useful:
+
+  `DeferredObjectRef`
+or:
+  `to_deferred_payload()`
+
+But keep:
+  Object ID;
+  ObjectEnvelopeV2
+unchanged.
+
+33.8 `mini-messaging`
+
+Add optional deferred-send transport integration.
+
+Do not change:
+  conversation encryption key
+because the message travels by BP.
+
+Message send state:
+  LocalStored
+  DeferredQueued
+  DeliveredToConversation
+  Read
+as separate UI/application facts.
+
+33.9 `mini-sync`
+
+Allow:
+  sync requests/manifests/chunk inventories
+to be represented as deferred application operations.
+
+Do not require:
+  live request-response
+for full state reconciliation.
+
+33.10 `mini-settlement`
+
+ADD:
+  PaymentClaimV2;
+  ChainAnchorV2;
+  canonical economic-epoch validity.
+
+KEEP:
+  current canonical `reconcile()` principle.
+
+Refactor, if necessary, so both V1/V2:
+  can only obtain `Finalized`
+from canonical ledger view.
+
+No DTN crate:
+  imports an API that can create Finalized directly.
+
+33.11 `mini-governance`
+
+Expose transport-neutral:
+  signed vote/proposal submission objects.
+
+UI/API state:
+  draft;
+  queued;
+  included;
+  counted/finalized.
+
+A relay delivery callback cannot call:
+  `mark_vote_counted`.
+
+33.12 `mini-presence`
+
+No fresh physical presence protocol over DTN.
+
+Only:
+  transport an already-complete signed presence evidence object.
+
+Explicit type-level separation preferred:
+  `ArchivedPresenceEvidence`
+or equivalent.
+
+33.13 `mini-forge`
+
+Use existing:
+  content IDs;
+  signed refs;
+  CRDT/COB operation objects.
+
+Deferred transport is an extra sync path.
+
+No:
+  DTN-specific merge authority.
+
+33.14 storage fabric
+
+Reuse:
+  chunks;
+  manifests;
+  content-addressed blobs.
+
+The DTN queue should point at existing content blobs where possible instead of
+copying bytes into a second opaque storage silo.
+
+33.15 platform/mobile
+
+User controls:
+
+  Enable delayed delivery
+  Enable carrying transit bundles
+  Transit storage budget
+  Metered-network policy
+  Charging-only bulk policy
+  Diagnostics/export
+
+No:
+  silent default use of large cellular data for strangers' bulk bundles.
+
+33.16 instrumentation
+
+Export privacy-safe metrics:
+
+  queue bytes;
+  queue records;
+  class counts;
+  expired;
+  evicted;
+  duplicate;
+  transferred bytes;
+  retransmission bytes;
+  contact durations;
+  app accepted/rejected counts;
+  delivery latency buckets.
+
+Do not upload automatically.
+
+
+======================================================================
+34. IMPLEMENTATION ORDER
+======================================================================
+
+P28-01
+  Adopt this report and mark old `docs/gates/dtn-design-constraints.md` as
+  superseded by the expert decision.
+
+P28-02
+  Create `mini-dtn` crate skeleton and DeferredTransport API.
+
+P28-03
+  Implement bounded BPv7 codec.
+
+P28-04
+  Implement Bundle Age / Hop Count / lifetime.
+
+P28-05
+  Implement durable bounded queue with `mini-durable`.
+
+P28-06
+  Implement app semantic-ID dedup.
+
+P28-07
+  Implement four priority queues + DRR.
+
+P28-08
+  Implement direct + bounded opportunistic routing.
+
+P28-09
+  Implement TCPCLv4.
+
+P28-10
+  Interoperate with first external BPv7 implementation.
+
+P28-11
+  Interoperate with second independent BPv7 implementation.
+
+P28-12
+  Add Object/ObjectEnvelopeV2 dispatch.
+
+P28-13
+  Add messaging integration.
+
+P28-14
+  Add content-manifest/chunk integration.
+
+P28-15
+  Add PaymentClaimV2.
+
+P28-16
+  Add governance queued/included/count-state integration.
+
+P28-17
+  Add scheduled contact-plan/SABR-compatible routing.
+
+P28-18
+  Add BPSec processing and RFC9173 interop if BPSec support will be advertised.
+
+P28-19
+  Run N0/D1/D2/S1 fixtures.
+
+P28-20
+  Run L1/M1/M2/M3/X1 fixtures.
+
+P28-21
+  Run malformed/flood/power-loss suites.
+
+P28-22
+  Run 4-GiB weak-device performance/battery suite.
+
+P28-23
+  Run optional LTP-gateway space topology if satellite/deep-space support is
+  being advertised.
+
+P28-24
+  Publish exact implementation support matrix.
+
+P28-25
+  Only then advertise the implemented DTN capability.
+
+Nothing in P28-02..25 is a prerequisite to close the NON-BLOCKING DESIGN gate
+after this report is adopted.
+
+It is the roadmap for implementing the capability.
+
+
+======================================================================
+35. IMPLEMENTATION EVIDENCE BUNDLE
+======================================================================
+
+Suggested:
+
+  docs/gates/evidence/28/
+    README.md
+    expert-decision-hash.txt
+    tested-revision.txt
+    standards-profile.md
+    feature-support-matrix.csv
+    interoperability/
+      peer-versions.txt
+      bpv7/
+      tcpclv4/
+      bpsec/
+      ltp-gateway/
+    fault-fixtures/
+      N0/
+      D1/
+      D2/
+      S1/
+      L1/
+      M1/
+      M2/
+      M3/
+      X1/
+    queue/
+      durability/
+      power-loss/
+      quota/
+      flood/
+    settlement/
+    governance/
+    personhood/
+    performance/
+    privacy/
+    FINAL_IMPLEMENTATION_REPORT.md
+
+`feature-support-matrix.csv` fields:
+
+  feature
+  standard
+  standard_status
+  implemented
+  unit_tested
+  interop_tested
+  external_peer_1
+  external_peer_2
+  production_supported
+  known_limits
+  evidence_path
+
+`fault-fixture` result fields:
+
+  scenario
+  seed
+  offered_objects
+  offered_bytes
+  theoretical_contact_capacity_bytes
+  accepted_objects
+  delivered_unique_objects
+  duplicate_deliveries
+  expired
+  quota_evicted
+  malformed_rejected
+  app_rejected
+  useful_bytes
+  wire_bytes
+  retransmitted_bytes
+  median_latency
+  p95_latency
+  max_queue_bytes
+  max_memory_bytes
+  restart_seconds
+  notes
+
+No report may hide:
+  expired;
+  evicted;
+  failed;
+  duplicated
+objects by reporting only successfully delivered ones.
+
+
+======================================================================
+36. SUPPORT LEVEL LABELS
+======================================================================
+
+To prevent architecture from turning into marketing overclaim, the product
+uses these exact categories.
+
+UNIMPLEMENTED
+  Design exists; no native implementation.
+
+EXPERIMENTAL
+  Code exists; tests incomplete or based on draft standard.
+
+INTEROPERABLE
+  Core standards exchange works with at least two independent implementations.
+
+FIELD-VALIDATED
+  Relevant real deployment/link test exists in addition to lab fixtures.
+
+For this reviewed revision:
+
+  Native Mininet BPv7:
+    UNIMPLEMENTED.
+
+  Native TCPCLv4:
+    UNIMPLEMENTED.
+
+  Native BPSec:
+    UNIMPLEMENTED.
+
+  Native LTP:
+    UNIMPLEMENTED.
+
+  DTN-aware PaymentClaimV2:
+    UNIMPLEMENTED.
+
+  Existing offline pending/canonical settlement split:
+    IMPLEMENTED FOUNDATION, not a BPv7 feature.
+
+  Existing content-addressed/object-envelope substrate:
+    IMPLEMENTED FOUNDATION, not a BPv7 feature.
+
+Gate #28:
+  DESIGN COMPLETE after adoption.
+
+No contradiction exists:
+  architecture can be complete while a non-launch capability remains
+  unimplemented.
+
+
+======================================================================
+37. RESIDUAL RISKS THAT THIS DESIGN DOES NOT PRETEND TO REMOVE
+======================================================================
+
+R28-01 PHYSICAL LINK DENIAL
+
+A sufficiently powerful jammer, destroyed infrastructure, or absent satellite
+can prevent delivery.
+
+No routing algorithm creates a radio path from nothing.
+
+Mitigation:
+  multiple bearers;
+  carry by humans/devices;
+  opportunistic routing;
+  delay.
+
+Residual:
+  unavoidable.
+
+R28-02 TRAFFIC ANALYSIS
+
+Even encrypted bundles expose:
+  timing;
+  size;
+  EIDs/contact patterns
+to some observers.
+
+Mitigation:
+  opaque/rotating endpoints;
+  object encryption;
+  optional mix/tunnel layers;
+  padding at higher privacy cost.
+
+Residual:
+  not fully solved.
+
+R28-03 PATIENT DROP CENSORSHIP
+
+A region with only one physical gateway can be censored by that gateway.
+
+Protocol cannot create route diversity where geography has none.
+
+Mitigation:
+  user-carried copies;
+  multiple providers;
+  local social function;
+  eventual alternative path.
+
+Never solve with:
+  "trusted official gateway."
+
+R28-04 OFFLINE DOUBLE-SPEND RISK
+
+If two merchants explicitly accept the same payer's conflicting signed claims
+before canonical finality, at least one may lose.
+
+Mitigation:
+  default early acceptance=0;
+  watcher;
+  small user-set risk limit;
+  chain anchor;
+  expiry;
+  canonical reconciliation.
+
+Residual:
+  inherent to offline acceptance of a globally scarce asset.
+
+R28-05 ROUTING-PLAN ERROR
+
+Scheduled contact plans can be wrong.
+
+Mitigation:
+  local validation;
+  alternate plans;
+  dynamic contact observations;
+  no authority semantics.
+
+R28-06 BPSec KEY MANAGEMENT
+
+RFC9172/9173 do not magically solve universal key distribution.
+
+Mitigation:
+  local/mission/pairwise security policy;
+  Mininet application crypto independently protects its own semantics.
+
+R28-07 PLANETARY POLITICAL LATENCY
+
+Physics can make a single global governance event inconvenient over planets.
+
+Mitigation:
+  long windows when claiming global interplanetary inclusion;
+  asynchronous proposals;
+  local voluntary community autonomy.
+
+Residual:
+  real light-time cannot be abstracted away.
+
+R28-08 HARDWARE / OPERATING-SYSTEM STORAGE LOSS
+
+A phone can:
+  die;
+  be wiped;
+  corrupt storage;
+  be seized.
+
+Mitigation:
+  multiple voluntary copies;
+  content addressing;
+  re-forwarding;
+  user backup.
+
+No:
+  central recovery custodian.
+
+R28-09 RESOURCE-EXHAUSTION ATTACKS
+
+An attacker can generate many syntactically valid bundles.
+
+Mitigation:
+  quotas;
+  size bounds;
+  admission;
+  priority validation;
+  rate limits;
+  local user choice.
+
+Residual:
+  a fully saturated physical link cannot carry infinite legitimate traffic.
+
+R28-10 STANDARDS EVOLUTION
+
+DTN standards are actively evolving in 2026.
+
+Mitigation:
+  BPv7/RFC9171 stable core;
+  adapter architecture;
+  explicit experimental status for drafts;
+  no draft in consensus.
+
+
+======================================================================
+38. WHAT REOPENS THIS DOMAIN-DESIGN GATE
+======================================================================
+
+Gate #28 design review reopens only if Mininet proposes a MATERIAL departure from
+these settled boundaries, including:
+
+  * replacing RFC9171 BPv7 with a bespoke incompatible deferred protocol;
+  * making a DTN relay/gateway a trust root;
+  * allowing local partition finality for the same global MINI asset;
+  * merging balance ledgers by CRDT;
+  * treating BP delivery/custody as money finality;
+  * making contact plans consensus authority;
+  * making a satellite/provider EID personhood/governance authority;
+  * making a central key/certificate server necessary for Mininet identity;
+  * removing the distinction between transport lifetime and canonical
+    application validity;
+  * allowing wall-clock relay time to decide canonical payment expiry;
+  * making an Internet-Draft experimental CLA consensus-critical;
+  * making users forcibly store/relay other people's data;
+  * making DTN priority purchasable in a way that affects governance rights;
+  * requiring deep-space nodes inside a synchronous finality round whose
+    physics cannot meet the round timing;
+  * claiming interplanetary global voting equality with windows too short for
+    the supported reachability model;
+  * substantially raising untrusted bundle/resource limits without a new DoS
+    analysis.
+
+The gate does NOT reopen merely because:
+
+  * a new convergence layer is added behind the same interface;
+  * a new satellite provider appears;
+  * a new contact plan is used;
+  * a better open routing algorithm replaces spray-and-wait;
+  * an RFC draft becomes a final RFC and the adapter is updated;
+  * an external BP implementation changes version;
+  * a new planet/mission gets its own deployment profile;
+  * a local operator changes disk quota;
+  * support moves from Experimental to Interoperable;
+  * additional evidence improves a support level.
+
+Those are implementation/deployment changes inside the settled architecture.
+
+
+======================================================================
+39. GATE #28 CLOSURE RULE
+======================================================================
+
+THIS GATE IS A DESIGN / DOMAIN-EXPERT GATE.
+
+It is not the hardware Gate #97 pattern.
+
+It closes when:
+
+G28-01
+  the auditor/domain-expert of record identifies themselves.
+
+G28-02
+  the auditor adopts the four-regime scope in Section 4.
+
+G28-03
+  the auditor adopts RFC9171 BPv7 as the deferred interoperability baseline.
+
+G28-04
+  the auditor adopts TCPCLv4 as first native IP interoperability CLA.
+
+G28-05
+  the auditor accepts BPSec/application-security separation.
+
+G28-06
+  the auditor accepts optional—not mandatory—custody transfer.
+
+G28-07
+  the auditor accepts the "no same-global-MINI local finality" rule.
+
+G28-08
+  the auditor accepts PaymentClaimV2 canonical-epoch validity.
+
+G28-09
+  the auditor accepts priority/quota/lifetime/resource semantics.
+
+G28-10
+  the auditor accepts that implementation/support evidence is a later feature
+  claim, not a real-value terrestrial launch blocker.
+
+When G28-01..10 are signed:
+
+  ISSUE #28 = CLOSED / PASS.
+
+No second generic:
+  DTN consultant;
+  satellite consultant;
+  "Mars expert"
+is required before terrestrial real value.
+
+A future actual space mission must still test:
+  that mission's link/contact/security profile.
+
+That is deployment engineering, not reopening an unanswered architecture
+question.
+
+
+======================================================================
+40. VALUE-BY-VALUE VERDICTS
+======================================================================
+
+HUMANITY BEFORE TECHNOLOGY — PASS DESIGN / PARTIAL CURRENT CAPABILITY
+
+Mechanism proving PASS design:
+  humans retain local social/object function under partition; special satellite
+  hardware is not required for humanity/personhood; physical presence cannot be
+  fabricated from transport.
+
+Exact current failure:
+  native BPv7/DTN code is absent, so long-disruption delivery is not yet a
+  shipping Mininet capability.
+
+Location:
+  absence of `crates/mini-dtn`; current Gate #28 draft itself calls for future
+  design.
+
+Best long-term solution:
+  implement the optional standards-based deferred layer without making it a
+  personhood prerequisite.
+
+
+NO INDISPENSABLE CENTRAL AUTHORITY — PASS
+
+Mechanism:
+  RFC9171/BP is store-carry-forward through arbitrary nodes; routing/contact
+  policy is local; EID/contact-plan/certificate providers are explicitly edge
+  inputs; application signatures/content IDs remain self-verifying.
+
+Automatic red-flag avoided:
+  no "official Mininet satellite gateway."
+
+Failure:
+  none in approved architecture.
+
+Long-term:
+  multiple interoperable BP implementations/providers and local routing.
+
+
+NETWORK OUTLIVES ITS CREATORS — PASS DESIGN
+
+Mechanism:
+  standards-based BPv7;
+  self-verifying Mininet objects;
+  no proprietary gateway protocol;
+  any operator can run the queue/router;
+  interop tested against independent implementations.
+
+Current implementation:
+  PARTIAL because `mini-dtn` is not built.
+
+Long-term:
+  Rust implementation + published interop vectors.
+
+
+MONEY NEVER OUTRANKS LEGITIMACY — PASS
+
+Mechanism:
+  queue priority cannot read balance;
+  gateway/provider ownership creates zero voice;
+  local payment acceptance is risk only;
+  canonical ledger alone finalizes.
+
+Exact failure:
+  none in design.
+
+Permanent proof:
+  C28-211..219 and C28-311..340.
+
+
+CANONICAL TRUTH FOR MONEY — PASS FOUNDATION / PASS TARGET
+
+Mechanism:
+  current `mini-settlement::reconcile()` already derives `Finalized` only from
+  `CanonicalLedgerView`.
+
+Exact point that needs improvement:
+  PaymentClaimV1 uses device-clock `valid_until_ms`, which is unsuitable as a
+  long-delay canonical validity boundary.
+
+Solution:
+  PaymentClaimV2 chain anchor + canonical economic-epoch expiry.
+
+This is implementation remediation, not a reason to trust a gateway.
+
+
+DESIGN FOR FAILURE — PASS DESIGN
+
+Mechanism:
+  persistent queue;
+  no-clock Bundle Age;
+  hop limits;
+  explicit expiry;
+  quota/eviction;
+  reordering/duplication tolerance;
+  14-day blackout fixture;
+  route/provider failure is localized.
+
+Current capability:
+  PARTIAL because the DTN queue is not implemented.
+
+Best long-term:
+  P28 roadmap + failure fixtures.
+
+
+FREE FORKS / EARNED LEGITIMACY — PASS
+
+Mechanism:
+  open standards;
+  open object IDs;
+  no runtime auditor key;
+  no provider monopoly;
+  route implementation is replaceable.
+
+Failure:
+  none in approved architecture.
+
+
+HUMAN ROOT OF TRUST — PASS DESIGN
+
+Mechanism:
+  carrying traffic cannot upgrade personhood;
+  provider infrastructure cannot create Human Share/vouch/vote;
+  archived presence keeps its original proof.
+
+Failure:
+  none introduced by DTN.
+
+
+STRUCTURAL PRIVACY — PARTIAL
+
+Mechanism:
+  `ObjectEnvelopeV2` hides application semantics and private payload from blind
+  storage/relay; private EIDs are opaque/rotatable.
+
+Exact residual:
+  BP routing necessarily exposes some:
+    timing;
+    size;
+    EID/contact relationships.
+
+Location:
+  transport metadata.
+
+Best long-term:
+  opaque endpoint capabilities, minimised status reports/logs, optional
+  mix/tunnel composition, padding where worth the bandwidth cost.
+
+This remains PARTIAL because claiming perfect metadata privacy would be false.
+
+
+SIMPLICITY IS SECURITY — PASS DESIGN
+
+Mechanism:
+  reuse RFC9171/9172/9173/9174 and CCSDS scheduled-routing work;
+  one separate `mini-dtn` layer;
+  no custom bundle protocol;
+  no same-asset partition consensus.
+
+Failure avoided:
+  the old draft's mandatory `custody_transfer()` is removed from the base API.
+
+Best long-term:
+  implement a deliberately narrow BPv7 profile first.
+
+
+HONEST MAJORITY / MALICIOUS MINORITY — PARTIAL
+
+Mechanism:
+  signed/content-addressed application payloads tolerate malicious relays that
+  reorder/drop/modify; modification is detected; route diversity and copies
+  improve availability.
+
+Exact residual:
+  an adversary controlling every physically available route can censor by
+  dropping, and no cryptography creates a missing path.
+
+Best long-term:
+  multiple bearers/providers, opportunistic carry, local-first autonomy.
+
+PARTIAL is the truthful verdict.
+
+
+WEAKEST DEVICE MATTERS — PASS DESIGN
+
+Mechanism:
+  transit relay is opt-in;
+  default mobile queue bounded to min(512MiB,10% free);
+  free-space floor;
+  1MiB payload profile;
+  chunking;
+  4-GiB device test;
+  no mandatory spacecraft hardware.
+
+Failure:
+  none inherent.
+
+Long-term:
+  streaming implementation and battery measurements.
+
+
+AI SERVES HUMANITY, NEVER RULES — PASS ON HUMAN ADOPTION
+
+Mechanism:
+  this report gives deterministic architecture constraints; the auditor of
+  record is a human and signs adoption; no AI/central routing oracle participates
+  in runtime truth.
+
+Failure condition:
+  opaque AI route/personhood/finality scorer with authority would fail.
+
+
+THINK IN CENTURIES — PASS DESIGN
+
+Mechanism:
+  explicit lunar/Mars/deep-space stress profiles;
+  no synchronous consensus assumption across light-time;
+  standards/adapters versioned;
+  global vs local truth remains explicit.
+
+Failure:
+  none in the architecture after rejecting invisible local MINI fork/merge.
+
+Long-term:
+  actual mission profiles can be added without changing core semantics.
+
+
+VOICE / VALUE WALL — PASS
+
+Mechanism:
+  balance does not affect queue class, routing legitimacy, EID, governance
+  inclusion weight, provider standing or finality.
+
+Failure:
+  none permitted.
+
+
+EDGE CONVENIENT, CORE INDEPENDENT — PASS
+
+Mechanism:
+  DTN/satellite is an optional transport edge;
+  ordinary native chain does not depend on:
+    NASA;
+    DSN;
+    one satellite network;
+    CCSDS registry;
+    one BP daemon.
+
+Failure:
+  none in design.
+
+
+LOCAL-FIRST / NETWORK OF NETWORKS — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  SPEC-03 already requires local operation and queued off-grid value;
+  object/CRDT/storage foundations already align.
+
+Exact current failure:
+  no persistent BPv7 store-carry-forward implementation exists.
+
+Solution:
+  `mini-dtn` disaster target first.
+
+
+CENSORSHIP RESISTANCE — PARTIAL
+
+Mechanism:
+  arbitrary relays can carry opaque signed objects; no single required gateway;
+  route switching/store-carry helps bypass intermittent censorship.
+
+Exact residual:
+  a physically isolated region with one controlled gateway can still have its
+  traffic dropped.
+
+Long-term:
+  path/provider diversity and human-carried opportunistic contacts, not a trusted
+  anti-censorship authority.
+
+
+DATA SOVEREIGNTY — PASS
+
+Mechanism:
+  transit participation is voluntary;
+  device-only storage remains valid;
+  local source pin affects only local device;
+  no DTN lifetime forces peers to retain data;
+  relays need not decrypt.
+
+Failure:
+  none in approved design.
+
+
+GOVERNANCE EQUALITY UNDER PHYSICS — PARTIAL TODAY / PASS CLAIM-BOUNDARY
+
+Mechanism:
+  queued vote is not counted until canonical inclusion; disaster-inclusive
+  terrestrial window floor is30 days; an interplanetary-inclusive future claim
+  requires a much longer window.
+
+Exact residual:
+  Mininet cannot guarantee practical simultaneous political participation to a
+  location with no communication opportunity at all.
+
+Best long-term:
+  long asynchronous windows + local voluntary autonomy; never fake global
+  inclusion with local finality.
+
+
+======================================================================
+41. OVERALL JUDGMENT
+======================================================================
+
+DOES THE EXTREME-ENVIRONMENT ARCHITECTURE IN THIS REPORT SERVE A FREE INTERNET
+FOR HUMANITY?
+
+YES.
+
+It serves the project values because:
+
+  * Mininet does not invent a proprietary "space internet" protocol;
+  * it uses RFC9171 BPv7, with RFC9172/9173/9174 where appropriate;
+  * NASA/CCSDS implementations are interoperability peers, not authorities;
+  * a satellite route is just another route;
+  * a satellite owner receives no political standing;
+  * a contact plan is advice, not truth;
+  * private Mininet content remains encrypted through untrusted gateways;
+  * users are not forced to relay/store strangers' data;
+  * weak phones can use bounded queues;
+  * disruption does not manufacture emergency founder/admin power;
+  * application objects can reconcile asynchronously;
+  * money does not pretend double-spends can be CRDT-merged;
+  * local payment acceptance is visibly risk, not false finality;
+  * canonical chain proof remains the only global monetary truth;
+  * long light-time changes scheduling and governance windows, not human worth;
+  * the core works without NASA, one satellite provider, a PKI operator, or a
+    centralized time server.
+
+CURRENT SHIPPING DTN CAPABILITY:
+
+  NOT IMPLEMENTED.
+
+That does not make this gate a real-value blocker.
+
+ISSUE #28 was an external/domain-DESIGN question.
+
+This report answers it.
+
+FINAL GATE #28 VERDICT:
+
+  PASS / CLOSE ON AUDITOR ADOPTION.
+
+TERRESTRIAL REAL-VALUE VERDICT FROM THIS GATE:
+
+  NOT BLOCKED.
+
+FUTURE CLAIM:
+  a release may not claim actual DTN/satellite/deep-space support until its
+  applicable C28/T28 implementation evidence passes.
+
+No second generic expert review is required.
+
+
+======================================================================
+42. AUDITOR / DOMAIN-EXPERT ADOPTION
+======================================================================
+
+I have reviewed the Mininet extreme-environment / DTN architecture and adopt
+this report as the final domain design decision for Gate #28.
+
+I specifically adopt:
+
+  [ ] RFC 9171 Bundle Protocol Version 7 as the deferred interoperability base.
+
+  [ ] A separate asynchronous `mini-dtn` layer instead of changing the live
+      `mini_bearer::Bearer` into a persistent protocol.
+
+  [ ] RFC 9174 TCPCLv4 as the first required native IP interoperability
+      convergence layer.
+
+  [ ] RFC 9172/9173 BPSec as optional bundle-layer security while Mininet
+      application objects retain independent end-to-end security.
+
+  [ ] Disaster/opportunistic terrestrial operation as the first implementation
+      target.
+
+  [ ] Scheduled satellite/lunar operation as the second target.
+
+  [ ] Deep-space/Mars as an architectural/emulation target that does not block
+      terrestrial launch.
+
+  [ ] No same-global-MINI locally canonical partition ledger.
+
+  [ ] Local signed payment acceptance remains nonfinal risk.
+
+  [ ] PaymentClaimV2 uses a canonical chain anchor and economic-epoch validity,
+      with a maximum twelve-epoch validity interval.
+
+  [ ] Bundle delivery or custody is never monetary finality.
+
+  [ ] Content/CRDT state may reconcile; canonical balances/governance execution
+      do not CRDT-merge.
+
+  [ ] Transport lifetime is separate from payment/governance/application
+      validity.
+
+  [ ] The Mininet DTN application profile has a 1MiB payload ceiling and64KiB
+      control ceiling; larger data uses content-addressed chunks/manifests.
+
+  [ ] Normal generated hop limit32; scheduled/deep-space generated hop limit64.
+
+  [ ] Bundle lifetimes:
+      1h /24h /30d /180d /365d by class.
+
+  [ ] Store-carry relay is voluntary and bounded; mobile default transit quota is
+      min(512MiB,10% free storage) subject to the free-space floor.
+
+  [ ] Functional scheduling priority is not purchasable.
+
+  [ ] Work-conserving DRR4:3:2:1 prevents critical traffic from being buried
+      while retaining bulk progress.
+
+  [ ] Opportunistic V1 uses bounded spray-and-wait; scheduled deployments may use
+      SABR/CGR-compatible contact-plan routing.
+
+  [ ] Contact plans and public EID allocators create no Mininet authority.
+
+  [ ] Private Mininet users do not expose a stable did:mini root as their default
+      BP EID.
+
+  [ ] Custody transfer is optional/experimental, not required by the base API.
+
+  [ ] LTP is an optional space-link convergence technology.
+
+  [ ] Current QUICCL/BTP-U/BIBE work remains experimental until adopted at an
+      appropriate standards/support level.
+
+  [ ] Physical presence cannot be fabricated by delayed transport.
+
+  [ ] Terrestrial disaster-inclusive global governance claims use a >=30-day
+      voting window; future interplanetary-inclusive claims use >=365 days unless
+      an evidence-backed later model provides equivalent access.
+
+  [ ] Gate #28 is a non-blocking architecture gate and closes with this adoption;
+      actual feature support requires implementation evidence, not another generic
+      DTN design review.
+
+Auditor / domain expert:
+  ______________________________________________________________
+
+Relevant expertise:
+  ______________________________________________________________
+
+Affiliation / capacity:
+  ______________________________________________________________
+
+Conflict / relationship statement:
+  ______________________________________________________________
+
+Signature:
+  ______________________________________________________________
+
+Date:
+  ______________________________________________________________
+
+Reviewed Mininet revision:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+Report artifact digest:
+  ______________________________________________________________
+
+
+======================================================================
+43. RESEARCH / EVIDENCE BIBLIOGRAPHY
+======================================================================
+
+MININET CURRENT REPOSITORY
+
+[MN28-01]
+  GitHub issue #28
+  "[Phase 3.7] Extreme-environment operation: disaster, satellite,
+  interplanetary."
+
+[MN28-02]
+  docs/gates/dtn-design-constraints.md
+  Previous constraint-gathering draft, superseded by this domain-expert
+  decision after adoption.
+
+[MN28-03]
+  crates/mini-bearer/src/bearer.rs
+  Live best-effort frame abstraction; delay-tolerant users must add
+  retransmission/reordering above it.
+
+[MN28-04]
+  crates/mini-bearer/src/channel.rs
+  Live two-message handshake + monotonic in-order AEAD counters.
+
+[MN28-05]
+  crates/mini-settlement/src/state.rs
+  SignedLocal / AcceptedLocal / PendingCanonical / Finalized separation.
+
+[MN28-06]
+  crates/mini-settlement/src/claim.rs
+  PaymentClaimV1 signed promise, device-clock `valid_until_ms`, bounded fields.
+
+[MN28-07]
+  crates/mini-settlement/src/reconcile.rs
+  `CanonicalLedgerView` is the only route to Finalized.
+
+[MN28-08]
+  crates/mini-objects/src/lib.rs
+  Signed typed content-addressed unified object model.
+
+[MN28-09]
+  crates/mini-objects/src/object.rs
+  BLAKE3 multihash IDs and current 8MiB global object payload ceiling.
+
+[MN28-10]
+  crates/mini-objects/src/envelope_v2.rs
+  Opaque AEAD private object envelope.
+
+[MN28-11]
+  crates/mini-messaging/src/lib.rs
+  Private messages persisted as ObjectEnvelopeV2; 64KiB message body limit;
+  key establishment explicitly separate.
+
+[MN28-12]
+  crates/mini-sync/
+  Existing online/local sync foundations.
+
+[MN28-13]
+  crates/mini-relay/
+  Existing relay/mailbox/onion foundations; not BPv7.
+
+[MN28-14]
+  crates/mini-durable/src/lib.rs
+  Filesystem locking, atomic replace, file + directory durability barriers;
+  administrator whole-state rollback remains out of scope.
+
+All current-code findings were reviewed against:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+
+MININET NORMATIVE / FOUNDING SOURCES
+
+[MN28-F01]
+  SPEC-03 Connectivity Overlay.
+  Network-of-networks, bearer abstraction, local-first, content-blind transport,
+  and the explicit rule that off-grid value queues/optimistically moves but hard
+  chain finality occurs on reconnection.
+
+[MN28-F02]
+  SPEC-04 Storage Fabric.
+  Content IDs, Merkle/chunked large data, blind hosting, weak devices,
+  device-only sovereignty.
+
+[MN28-F03]
+  SPEC-09 Object Model and App Surfaces.
+  Immutable signed content-addressed objects; CRDT/offline-first application
+  state; content off-chain and value/decisions on-chain.
+
+[MN28-F04]
+  SPEC-00 Constitution.
+  No indispensable owner/off-switch; structural privacy; data sovereignty.
+
+[MN28-F05]
+  Mininet Technical Plan v1.
+  Historical local-first/network-of-networks rationale.
+  Later project decisions that removed radio/LoRa as a platform requirement take
+  precedence; this report does not reintroduce it.
+
+
+EXTERNAL STANDARDS / RESEARCH
+
+[EXT28-01]
+  S. Burleigh, K. Fall, E. Birrane.
+  RFC 9171 — Bundle Protocol Version 7.
+  January 2022. IETF Standards Track.
+  https://www.rfc-editor.org/rfc/rfc9171.html
+
+  Basis for:
+    store-carry-forward;
+    BPv7 wire semantics;
+    EIDs;
+    lifetime;
+    Bundle Age;
+    Hop Count;
+    delivery-status distinction;
+    fragmentation model.
+
+[EXT28-02]
+  E. Birrane, K. McKeever.
+  RFC 9172 — Bundle Protocol Security (BPSec).
+  January 2022.
+  https://www.rfc-editor.org/rfc/rfc9172.html
+
+  Basis for:
+    bundle integrity/confidentiality processing;
+    untrusted DTN path security;
+    policy/context separation.
+
+[EXT28-03]
+  E. Birrane, J. Wood.
+  RFC 9173 — Default Security Contexts for BPSec.
+  January 2022.
+  https://www.rfc-editor.org/rfc/rfc9173.html
+
+  BIB-HMAC-SHA2 and BCB-AES-GCM default contexts.
+
+[EXT28-04]
+  B. Sipos et al.
+  RFC 9174 — Delay-Tolerant Networking TCP Convergence-Layer Protocol Version 4.
+  January 2022.
+  https://www.rfc-editor.org/rfc/rfc9174.html
+
+  Required first Mininet native IP interop CLA.
+
+[EXT28-05]
+  S. Burleigh et al.
+  RFC 5326 — Licklider Transmission Protocol.
+  September 2008.
+  https://www.rfc-editor.org/rfc/rfc5326.html
+
+  Long-delay / frequent-interruption reliable link convergence prior art.
+  Mininet treats it as optional.
+
+[EXT28-06]
+  H. Kruse, S. Ostermann.
+  RFC 7122 — Datagram Convergence Layers for the Delay- and
+  Disruption-Tolerant Networking (DTN) Bundle Protocol and Licklider
+  Transmission Protocol (LTP).
+  March 2014.
+  https://www.rfc-editor.org/rfc/rfc7122.html
+
+  Supports the decision not to use raw UDP as default ordinary IP BP path.
+
+[EXT28-07]
+  RFC 9758 — Update to the ipn URI Scheme.
+  2025.
+  https://www.rfc-editor.org/rfc/rfc9758.html
+
+  Used only for public/mission interoperability namespace analysis.
+  It is not a Mininet human identity mechanism.
+
+[EXT28-08]
+  CCSDS 734.20-O-1.
+  CCSDS Bundle Protocol Specification.
+  Orange Book, Issue 1, April 2025.
+  https://ccsds.org/searchpubs/
+
+  Experimental CCSDS BP specification based on RFC9171.
+
+[EXT28-09]
+  CCSDS 734.3-B-1.
+  Schedule-Aware Bundle Routing.
+  Blue Book, July 2019.
+  https://ccsds.org/Pubs/734x3b1.pdf
+
+  Scheduled contact-plan routing reference.
+
+[EXT28-10]
+  CCSDS 734.6-O-1.
+  Custody Transfer and Compressed Bundle Status Reporting.
+  Orange Book, Issue 1, June 2026.
+  https://ccsds.org/searchpubs/
+
+  Current experimental custody-transfer reference.
+  This is why Mininet does not make custody a base BPv7 requirement.
+
+[EXT28-11]
+  NASA.
+  "Delay / Disruption Tolerant Networking."
+  Current 2026 mission/operational overview.
+  https://www.nasa.gov/communicating-with-missions/delay-disruption-tolerant-networking/
+
+  NASA states:
+    multi-center DTN Project completed January 2026;
+    DTN is operational in Near Space Network and Deep Space Network;
+    PACE has transmitted more than 34 million bundles with a reported 100%
+    success rate to date.
+
+  These are NASA operational facts, not Mininet test results.
+
+[EXT28-12]
+  NASA.
+  "DTN Resources for Mission Developers."
+  https://www.nasa.gov/technology/space-comms/delay-disruption-tolerant-networking-mission-resources/
+
+  Lists open implementation resources including HDTN/DTNME and standards/
+  mission integration material.
+
+[EXT28-13]
+  NASA Software Catalog.
+  DTN Marshall Enterprise (DTNME), BPv7-capable release.
+  https://software.nasa.gov/software/MFS-33978-2
+
+  Candidate interoperability peer only.
+
+[EXT28-14]
+  NASA Software Catalog.
+  High-rate Delay Tolerant Networking (HDTN).
+  https://software.nasa.gov/
+
+  Candidate interoperability peer only.
+
+[EXT28-15]
+  IETF DTN working-group current work, 2026.
+  https://datatracker.ietf.org/wg/dtn/documents/
+
+  Includes active work on:
+    reliability;
+    BTP-U;
+    QUIC convergence;
+    BIBE.
+
+  These are tracked as evolving work and not treated as finalized V1
+  requirements unless published/adopted.
+
+The exact Mininet numeric resource, priority, queue, governance-window and test
+profile constants in this report are domain-design decisions.
+
+No external RFC is misrepresented as uniquely requiring:
+  1MiB;
+  DRR4:3:2:1;
+  512MiB;
+  30-day voting;
+  365-day interplanetary voting;
+  spray budget4/2.
+
+Those are deliberate Mininet parameters selected to make the architecture
+bounded, testable, weak-device-compatible, and authority-free.
+
+
+======================================================================
+44. ENGINEER'S FINAL ACTION SUMMARY
+======================================================================
+
+THE DOMAIN DESIGN QUESTION IS CLOSED BY THIS DOCUMENT.
+
+DO NOT COMMISSION ANOTHER GENERIC DTN CONSULTANT TO REANSWER IT.
+
+WHEN IMPLEMENTING DTN, DO THIS:
+
+1.  Add a separate Rust `mini-dtn` asynchronous store-carry-forward layer.
+2.  Keep `mini_bearer::Bearer` as a live link abstraction.
+3.  Use RFC9171 BPv7 as the deferred interoperability wire protocol.
+4.  Implement TCPCLv4 first for IP interoperability.
+5.  Carry existing signed/content-addressed Mininet objects, not session state.
+6.  Carry ObjectEnvelopeV2 unchanged for private delayed messages.
+7.  Max Mininet deferred payload 1MiB; control 64KiB.
+8.  Chunk larger objects in the existing content-addressed storage layer.
+9.  Use Bundle Age when a trustworthy wall clock is unavailable.
+10. Generate hop limit32 for disaster/ordinary DTN;64 for scheduled/deep-space.
+11. Use lifetimes 1h/24h/30d/180d/365d by bounded class.
+12. Do not promise exactly-once transport; make app semantics idempotent.
+13. Use durable queue semantics and existing `mini-durable` primitives.
+14. Keep mobile transit relay opt-in.
+15. Default mobile transit budget:
+      min(512MiB,10% free)
+    while preserving:
+      max(1GiB,5% filesystem)
+    free.
+16. Rate-limit untrusted ingress and bound every queue/table.
+17. Priority classes P0/P1/P2/P3 with work-conserving DRR4:3:2:1.
+18. Do not let money buy queue priority or legitimacy.
+19. Disaster/opportunistic routing:
+      bounded spray-and-wait4/4/4/2.
+20. Scheduled space routing:
+      SABR/CGR-compatible contact-plan model.
+21. Contact plans are local advice, never authority.
+22. Private human BP EIDs are opaque/rotatable; do not expose stable DID by
+    default.
+23. BPSec may protect bundles, but Mininet app crypto remains independently E2E.
+24. Do not require a central BPSec key/PKI server.
+25. Custody transfer is optional/experimental, not a base API method.
+26. LTP is optional; external ION/HDTN gateway may terminate it.
+27. QUICCL/BTP-U/BIBE remain experimental while their standards are evolving.
+28. Add PaymentClaimV2 with chain anchor + economic-epoch validity <=12 epochs.
+29. Keep default offline early-payment acceptance at zero unless user explicitly
+    chooses risk.
+30. Never let BP delivery/custody mark money Finalized.
+31. Never create same-global-MINI partition finality that later "merges."
+32. CRDT app/content state can reconcile; global money/governance cannot.
+33. Queued governance action is not counted until canonical inclusion by
+    deadline.
+34. Delayed transport never creates fresh physical-presence assurance.
+35. Test against at least two independent BPv7 implementations.
+36. Run N0/D1/D2/S1/L1/M1/M2/M3/X1 fixtures.
+37. Run malformed/flood/power-loss/weak-device tests.
+38. Publish honest support level:
+      Unimplemented / Experimental / Interoperable / Field-Validated.
+39. Do not claim a real mission profile from a lab fixture.
+40. No satellite provider, gateway, operator, CA, contact-plan service or
+    auditor gets Mininet runtime authority.
+
+GATE #28:
+  PASS / CLOSE when the human auditor adopts Section42.
+
+TERRESTRIAL REAL VALUE:
+  NOT BLOCKED by absence of this optional capability.
+
+FUTURE DTN FEATURE CLAIM:
+  requires applicable C28/T28 evidence.
+
+======================================================================
+END — MININET EXTERNAL DTN / SATELLITE DOMAIN AUDIT 7/8 — GATE #28
+======================================================================

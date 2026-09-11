@@ -1,0 +1,4239 @@
+MININET EXTERNAL PERSONHOOD & SYBIL-RESISTANCE RESEARCH AUDIT
+Gate #21 — Private Human Continuity, Sybil Resistance, Anonymous Human
+Credentials, One-Human-One-Vote, Human-Share Eligibility, Bootstrap, and
+Personhood Privacy
+
+SUPER-DETAILED FINAL DECISION REPORT
+External-auditor adoption form
+
+Report date: 2026-09-11
+Repository: mininet-labs/Mininet
+Reviewed revision: main @ bc7da80f8817f856a96bcb3772232b080eef531d
+
+RESEARCH / ARCHITECTURE AUDIT STATUS: COMPLETE
+GATE #21 RESEARCH DECISION: PASS / COMPLETE
+CURRENT IMPLEMENTATION CONFORMANCE: PARTIAL
+PERFECT-GLOBAL-UNIQUENESS CLAIM: NOT MADE
+SECOND GENERIC PERSONHOOD RESEARCH REVIEW: NOT REQUIRED if engineering
+implements this report exactly and the measurable launch criteria pass.
+
+Auditor of record: _________________________________________________
+Organization / affiliation: _______________________________________
+Relevant qualifications: __________________________________________
+Conflict statement: _______________________________________________
+Signature / adoption date: _________________________________________
+
+
+======================================================================
+0. PURPOSE OF THIS REPORT
+======================================================================
+
+This report closes the open research/design question behind Mininet issue #21.
+
+It is intentionally NOT another document saying:
+
+  "personhood is hard,"
+  "fund research,"
+  "ask an expert,"
+  "try TEE,"
+  or
+  "calibrate it later."
+
+The research has been performed far enough here to make the launch decisions.
+
+The report does four things:
+
+  1. audits what the current repository actually implements;
+  2. compares the design against established and current proof-of-personhood,
+     Sybil-defense, anonymous-credential, ZK-membership, web-provenance and
+     identity systems;
+  3. selects one exact launch architecture with exact status thresholds,
+     evidence caps, rate limits, privacy boundaries, bootstrap rules, voting
+     credential semantics, human-share safety limits and launch metrics;
+  4. gives engineering a deterministic conformance matrix.
+
+After an external auditor of record adopts this report, no further generic
+"research signal b / proof of personhood" study is a Gate #21 blocker.
+
+Engineering evidence is still required. Evidence is not a second research
+audit.
+
+A future material redesign may reopen the affected scope, as Section 25
+defines.
+
+
+======================================================================
+1. EXECUTIVE AUDIT OPINION
+======================================================================
+
+Mininet's core insight is correct:
+
+  Whoever can manufacture accepted humans can manufacture votes and can claim
+  the human-share.
+
+Personhood is therefore the root security assumption for governance and
+human-gated consensus.
+
+The repository is also correct about one uncomfortable fact:
+
+  there is no known 2026 construction that simultaneously provides:
+
+    globally perfect biological uniqueness,
+    no central issuer,
+    no government dependency,
+    no special biometric hardware,
+    no vendor attestation root,
+    full accessibility,
+    weak-device operation,
+    unlinkability,
+    resistance to paid real-human collusion,
+    coercion resistance,
+    and zero false exclusions.
+
+A security design that claims all of those has stopped being honest.
+
+The correct Mininet objective is therefore NOT:
+
+  "mathematically prove one biological human exists exactly once."
+
+The approved objective is:
+
+  "make an additional accepted human credential expensive, slow, socially
+   scarce, privacy-preserving and continuously maintained; eliminate cheap
+   software/device Sybils; prevent any one issuer/provider/wealth source from
+   being sufficient; make one credential usable at most once per protected
+   scope; and keep extractable value low enough that residual attacks are not
+   economically attractive."
+
+That is a defensible security target.
+
+CURRENT-REPOSITORY FINDINGS
+
+The current code is a useful prototype but is not the production design.
+
+The most important findings are:
+
+  * current `PromotionPolicy::whitepaper_default()` can reach
+    `EvidenceQualifiedHuman` after only 30 days, two live signal sources and
+    score 70;
+
+  * current trust weights and policy values are caller-supplied/mutable rather
+    than canonical consensus parameters;
+
+  * `SignalSource::External(u32)` lets an arbitrary caller-defined external
+    source enter the same generic score framework;
+
+  * the current vouch graph stores raw persistent did:mini roots and edges;
+
+  * the current `trust_scores()` function is described as "SybilRank-style"
+    but is NOT the complete SybilRank algorithm because it returns raw
+    propagated trust without SybilRank's final degree-normalization/ranking
+    step;
+
+  * the graph algorithm inherits the limited-attack-edge assumption that the
+    literature itself identifies as fragile when Sybils purchase/cultivate
+    real social edges;
+
+  * the production behavioral/location entropy proof does not exist; the code
+    correctly ships `NoEntropySource`;
+
+  * current proximity evidence does not fully resist active relays/wormholes on
+    ordinary software-timed bearers;
+
+  * the specification requires the raw social/personhood graph not be exposed,
+    while the current in-memory graph uses raw DIDs and the older on-chain
+    score-root concept assumes recomputability from graph data;
+
+  * the current economy default gives the human channel a one-year
+    `human_vesting_ms`, which is incompatible with Mininet's frozen
+    millennium-scale release and the documented <=0.1%-of-share first-year
+    Sybil-security budget;
+
+  * older SPEC-02 text proposes RLN secret revelation / personhood revocation
+    and reverse-liability behavior that is contradicted by the later Deep Dive
+    amendment forbidding de-personing for conduct and reverse liability.
+
+AUDIT DECISION
+
+Gate #21 is closed by selecting the following architecture.
+
+1. RAW BEHAVIORAL/LOCATION ENTROPY IS REMOVED FROM THE LAUNCH CRITICAL PATH.
+
+   It is not required at genesis.
+   It has zero launch score weight.
+   There is no TEE-attested "human classifier" requirement.
+
+2. TEE / SECURE-ELEMENT ATTESTATION IS OPTIONAL DEFENSE-IN-DEPTH ONLY.
+
+   It may strengthen local device-continuity confidence inside that class but
+   may not add a mandatory score class, unlock MatureHuman by itself, or become
+   a vendor root of trust.
+
+3. THE CANONICAL RAW SOCIAL GRAPH IS REMOVED.
+
+   Production Mininet does not publish or require a persistent personhood
+   graph of DID-to-DID edges.
+
+   Current `VouchGraph` and graph-analysis code becomes research/test tooling,
+   not a consensus personhood dependency.
+
+4. SOCIAL SCARCITY IS REPLACED BY RATE-LIMITED ANONYMOUS VOUCHING.
+
+   Only a currently MatureHuman may issue a counted vouch.
+
+   A MatureHuman may issue EXACTLY ONE counted vouch per 30-day personhood
+   epoch.
+
+   The vouch is a Semaphore-style anonymous membership signal over the
+   previous finalized MatureHumanSet.
+
+   The proof reveals a scope nullifier but NOT the voucher's DID or graph edge.
+
+5. INITIAL MATURE-HUMAN PROMOTION REQUIRES:
+
+   * >=365 days since first accepted evidence;
+   * score >=75;
+   * >=4 independent signal classes;
+   * 24 valid mature-human vouches;
+   * those vouches spanning >=10 distinct 30-day epochs;
+   * at least 6 valid vouches inside one single 30-day epoch;
+   * continuity evidence in >=9 of the preceding 12 personhood epochs;
+   * either meaningful private-presence evidence OR meaningful private
+     web/service continuity;
+   * fresh evidence in the preceding 45 days.
+
+6. THE "6 IN ONE EPOCH" RULE GUARANTEES BREADTH WITHOUT A PUBLIC SOCIAL GRAPH.
+
+   Because every MatureHuman can emit only one counted vouch in that epoch,
+   six accepted vouch proofs in that epoch require at least six distinct
+   active MatureHuman membership secrets.
+
+7. THE "24 VOUCHES" RULE CREATES A HARD SELF-REPLICATION BUDGET.
+
+   A malicious mature identity has at most 12 vouch slots per 365 days.
+
+   A new MatureHuman needs 24.
+
+   Therefore, before considering the other signal requirements:
+
+      attacker-created MatureHumans/year <= floor(A * 12 / 24)
+                                          = floor(A / 2)
+
+   where A is the number of already attacker-controlled MatureHuman
+   credentials.
+
+   An attacker with fewer than six MatureHuman credentials cannot satisfy the
+   same-epoch breadth condition for even one self-contained candidate.
+
+   Purchased honest humans remain a residual risk. The system does not pretend
+   cryptography can stop a real human from deliberately selling cooperation.
+
+8. PERSONHOOD STATUS IS SEPARATED FROM CONDUCT.
+
+   Being offensive, criminal, unpopular, wrong, banned from a community, or a
+   bad validator cannot make a human "not human."
+
+   Operational sanctions apply to operational roles.
+
+   Human status decays only from the holder's own lack of continuity evidence
+   or from narrowly defined cryptographic duplicate/credential-invalidity
+   facts.
+
+   There is no jury empowered to strip baseline humanity.
+
+9. THE PERSONHOOD SCORE IS CANONICAL, VERSIONED AND NOT CALLER-MUTABLE.
+
+   `TrustWeights::set_weight()` and arbitrary policy injection are not allowed
+   on the production consensus path.
+
+   PersonhoodPolicyV1 is one deterministic protocol object.
+
+10. EXTERNAL CREDENTIALS ARE OPTIONAL AND CAPPED.
+
+    Passport/eID/Anon Aadhaar/World ID/Human Passport/etc. may contribute
+    evidence, but:
+
+      no provider is mandatory;
+      no single provider contributes more than 5 points;
+      the whole external-credential class contributes at most 10;
+      no external credential bypasses vouch/time/diversity requirements.
+
+11. WORLD ID / ORB IS NOT A MININET ROOT OF TRUST.
+
+    It is technologically relevant evidence but depends on custom biometric
+    enrollment hardware and a dedicated uniqueness infrastructure.
+
+    That violates Mininet's no-indispensable-authority and weakest-device
+    requirements if made mandatory.
+
+12. HUMAN PASSPORT IS NOT A CONSENSUS SCORER.
+
+    Its research demonstrates the usefulness of multi-signal scoring and
+    empirical threshold calibration, but its hosted Models/Stamps APIs and
+    mutable scoring weights are not acceptable as Mininet consensus truth.
+
+13. PROOF OF HUMANITY IS NOT A MININET ROOT.
+
+    Its public profile/photo/video/wallet linkage and challenge/arbitration
+    posture conflict with Mininet structural privacy and no-de-personing.
+
+14. IDENA-STYLE GLOBAL SYNCHRONOUS PUZZLES ARE NOT REQUIRED.
+
+    They provide useful anti-parallelization ideas, but worldwide fixed-time
+    ceremonies impose time-zone/accessibility/availability dependence and
+    human-vs-AI puzzle assumptions that age poorly.
+
+15. TLSNOTARY/WEB-PROVENANCE IS AN OPTIONAL LOW-CAPPED SIGNAL.
+
+    It can privately prove narrow predicates about an existing web account or
+    service interaction, but it inherits web PKI/provider/notary assumptions
+    and must never become a required identity root.
+
+16. SEMAPHORE IS USED FOR PRIVACY/RATE-LIMITING, NOT FOR PERSONHOOD ITSELF.
+
+    Semaphore proves:
+      membership in a set;
+      one signal per scope.
+
+    It does NOT decide whether the member is a human.
+
+    Mininet personhood rules decide who enters the MatureHumanSet.
+
+17. THE MATURE HUMAN SET IS CANONICAL CONSENSUS STATE DERIVED FROM VERIFIED
+    PRIVACY-PRESERVING EVIDENCE EVENTS.
+
+    It is NOT a committee opinion.
+
+    Validators do not vote on who is human.
+    No server returns "human=true."
+    Full nodes deterministically verify and execute personhood evidence.
+
+18. MAINNET REAL-VALUE GENESIS REQUIRES A MATURE PUBLIC TESTNET FIRST.
+
+    Minimum:
+      >=365 days of personhood history;
+      >=2,048 active MatureHuman credentials;
+      >=32 independently organized human cohorts;
+      bootstrap cohort <=64;
+      adversarial test criteria in Section 21;
+      no raw graph/privacy leakage;
+      first-year human-share extractability <=0.1% of lifetime allocation.
+
+19. THE BOOTSTRAP TRUST ASSUMPTION IS EXPLICIT AND TEMPORARY.
+
+    Exactly 64 BootstrapHumans initialize the testnet MatureHumanSet.
+
+    They have:
+      one vote each;
+      one vouch slot per personhood epoch each;
+      no extra trust weight;
+      no permanent seed weight;
+      no special mainnet role.
+
+    Mainnet does not begin until the testnet set has expanded to >=2,048
+    MatureHumans.
+
+20. THE FIRST-YEAR HUMAN-SHARE SECURITY CEILING IS FROZEN AT 0.1%.
+
+    No identity can make more than 10 basis points = 0.1% of its lifetime
+    human-share allocation transferable during the first 365 days of its
+    personhood maturation.
+
+    Before MatureHuman status, provisional human-share accrual is not
+    transferable.
+
+21. GOVERNANCE AND VALIDATOR RIGHTS REQUIRE MATURE HUMAN STATUS.
+
+    VouchedHuman and EvidenceQualifiedHuman do not vote and do not occupy a
+    human validator slot.
+
+22. ONE-HUMAN-ONE-ACTION USES SEPARATE NULLIFIER SCOPES.
+
+    Vouching, voting, validator registration and human-share claiming use
+    different scope domains so activity is unlinkable across functions.
+
+23. NO HUMAN CAN BE REQUIRED TO PROVIDE:
+
+    biometrics,
+    government ID,
+    bank account,
+    paid service,
+    special hardware,
+    mobile carrier identity,
+    legal name,
+    exact location,
+    contact graph,
+    browsing history.
+
+    A non-government, non-biometric, non-bank, non-TEE route to MatureHuman is
+    mandatory and is specified in this report.
+
+FINAL GATE #21 AUDIT DISPOSITION
+
+  PERSONHOOD RESEARCH / DESIGN: PASS / COMPLETE
+
+  CURRENT IMPLEMENTATION: PARTIAL
+
+  PERFECT BIOLOGICAL UNIQUENESS: NOT CLAIMED
+
+  APPROVED SECURITY CLAIM:
+    cheap automated/device Sybils are structurally blocked;
+    accepted credentials require scarce mature-human sponsorship, long-lived
+    multi-class evidence and time;
+    one accepted credential acts once per protected scope;
+    patient paid-human collusion remains a named residual.
+
+  SECOND GENERIC PERSONHOOD RESEARCH AUDIT:
+    NOT REQUIRED if implementation conforms exactly and Section 21 passes.
+
+
+======================================================================
+2. SOURCE-DERIVED CURRENT STATE
+======================================================================
+
+This section describes current Mininet, not the approved replacement.
+
+2.1 Issue #21
+
+Issue #21 correctly says the original behavioral/location entropy idea is
+unsolved research and asks for a survey of private, weak-device-compatible
+human continuity mechanisms.
+
+That research question is answered by this report.
+
+2.2 D-0075 / current Human Continuity design
+
+The current design document already made a good conceptual move:
+
+  away from:
+    "prove a raw behavioral/location trace looks human"
+
+  toward:
+    "accumulate independent private human-existence evidence over time."
+
+It proposes:
+  private `human_secret`;
+  pairwise pseudonyms;
+  local evidence stamps;
+  no raw trace;
+  multiple trust domains;
+  time-separated evidence;
+  optional government/web/device/liveness classes;
+  no single signal sufficient.
+
+That direction is retained.
+
+2.3 Current status implementation is materially weaker than that design
+
+Current production-shaped defaults in `mini-uniqueness::status` are:
+
+  Vouched score threshold:             30
+  EvidenceQualified score threshold:   70
+  minimum full age:                    30 days
+  minimum distinct live sources:       2
+  required source:                     VouchingGraph
+
+Trust weights:
+  PhysicalPresence:                    100
+  VouchingGraph:                        70
+  BehavioralEntropy:                    60
+  arbitrary External default:           20
+
+The score denominator includes only sources with present evidence.
+
+This means a small number of signal classes can saturate the normalized score.
+
+The code itself acknowledges that it cannot prove unique humans and deliberately
+uses the name `EvidenceQualifiedHuman`.
+
+That naming discipline is correct and is retained.
+
+2.4 Current policy is caller-controlled
+
+`TrustWeights::set_weight()` can alter a source weight.
+
+`PromotionPolicy` is supplied by the caller.
+
+`SignalSource::External(u32)` can name arbitrary external sources.
+
+That is acceptable in a library prototype.
+
+It is unacceptable for deterministic consensus personhood.
+
+Two honest nodes must not be able to use different personhood weights or
+thresholds because a caller/config file supplied different values.
+
+2.5 Current VouchGraph exposes the exact privacy structure the Deep Dive says
+must not be published
+
+`VouchGraph` stores:
+
+  HashMap<Did, HashSet<Did>>
+
+Edges are real identity-root relations.
+
+That is a raw social graph.
+
+The Deep Dive identifies the personhood graph as the highest deanonymization
+risk and explicitly requires that raw edges never be public.
+
+Therefore current VouchGraph cannot be the canonical public personhood state.
+
+2.6 Current graph function is not complete SybilRank
+
+Current `trust_scores()`:
+
+  * initializes trust on seeds;
+  * propagates mass for a bounded number of iterations;
+  * divides each node's outgoing mass by degree;
+  * returns the resulting raw trust mass.
+
+The original SybilRank algorithm additionally ranks by DEGREE-NORMALIZED FINAL
+TRUST:
+
+  T_hat(v) = T_w(v) / degree(v)
+
+because the final normalization removes node-degree bias and is part of its
+security argument.
+
+Current Mininet does not perform that final step.
+
+Therefore the phrase "SybilRank-style" is acceptable.
+"SybilRank security" is not.
+
+2.7 Even complete SybilRank would not be a sufficient root
+
+The original paper explicitly relies on relatively few attack edges between
+honest and Sybil regions.
+
+Later evaluations show graph defenses degrade when Sybils acquire more genuine
+social links.
+
+That is exactly the attack expected when:
+  real humans sell vouches;
+  fraud farms recruit humans;
+  social accounts are purchased;
+  nation-state actors cultivate long-term identities.
+
+Therefore graph rank can be useful research telemetry but must not be the
+single canonical human decision.
+
+2.8 Behavioral entropy is correctly absent
+
+`NoEntropySource` is the only actual implementation.
+
+That is the correct behavior today.
+
+The production design must keep "absent" safer than silently inventing a weak
+heuristic.
+
+2.9 Current presence is evidence of devices, not proof of unique humans
+
+`mini-presence` correctly says this itself.
+
+It verifies:
+  delegated devices;
+  signatures;
+  channel binding;
+  fresh nonces;
+  proximity transport;
+  timing/range policy.
+
+But:
+  two colluding roots can create evidence;
+  software timing cannot fully defeat active relay/wormhole;
+  identity-root != unique human.
+
+Presence is valuable evidence.
+It is not a personhood oracle.
+
+2.10 Current one-year human vesting is inconsistent with the frozen security
+model
+
+`IssuancePolicy::d0074()` currently sets:
+
+  human_vesting_ms = YEAR_MS
+
+That creates a one-year envelope.
+
+SPEC-05 and the integrated design instead say:
+
+  human share releases over a millennium-scale horizon;
+  early vesting is deliberately tiny;
+  first-year extraction should be <= approximately 0.1% of the share.
+
+A one-year vesting envelope cannot remain the production human-share rule.
+
+This is a personhood-security finding because the value extractable before
+Sybil detection is part of the Sybil attack economics.
+
+2.11 Older RLN/de-personing language is superseded
+
+Older SPEC-02 text says RLN quota violation can reveal a secret and cause
+personhood revocation / score punishment.
+
+The later Deep Dive explicitly removes:
+  reverse liability;
+  conduct-based personhood penalties;
+  accusation-driven de-personing.
+
+This report follows the later rule.
+
+RLN-style secret revelation is NOT used for baseline personhood in V1.
+
+
+======================================================================
+3. WHAT THE EXTERNAL RESEARCH ACTUALLY SHOWS
+======================================================================
+
+3.1 SybilRank
+
+Useful result:
+social-graph structure can make cheap dense Sybil farms rank poorly when the
+honest/Sybil cut has few attack edges.
+
+Important original details:
+  early-terminated random walk;
+  O(log n) iterations;
+  degree-normalized final trust;
+  trusted seeds;
+  limited attack edges.
+
+Important limitation:
+the original paper itself acknowledges highly connected Sybils can rank well.
+Subsequent studies report serious degradation when attack edges are not scarce.
+
+Mininet conclusion:
+  social scarcity is useful;
+  a public graph scorer is not the production root.
+
+3.2 Semaphore
+
+Semaphore V4 provides:
+  anonymous Merkle-group membership;
+  anonymous message signaling;
+  scope/nullifier protection against repeated signaling in the same scope.
+
+Its docs are explicit that applications decide group membership.
+
+Semaphore does not prove humanity.
+
+The V4 trusted setup ceremony reportedly involved more than 400 participants in
+July 2024.
+
+Mininet conclusion:
+  APPROVE Semaphore-style membership/nullifier proofs for:
+    voting,
+    vouch-slot use,
+    validator uniqueness,
+    human-share claims.
+
+  REJECT the statement:
+    "Semaphore solves personhood."
+
+3.3 Rate Limiting Nullifier (RLN)
+
+RLN is designed to rate-limit anonymous actors and can expose secret material
+when a rate is exceeded.
+
+That can be appropriate for anonymous spam systems.
+
+It is dangerous as a baseline human credential primitive where revealing an
+identity secret can become:
+  unmasking;
+  coercion;
+  an indirect de-personing mechanism.
+
+Mininet conclusion:
+  RLN is not needed for PersonhoodPolicyV1.
+  Standard one-signal-per-scope Semaphore nullifiers provide the exact vouch
+  quota needed with less complexity.
+
+Future non-personhood anonymous spam actions may use RLN separately.
+
+3.4 W3C Verifiable Credentials + BBS
+
+Current BBS Data Integrity work provides:
+  selective disclosure;
+  unlinkable derived proofs;
+  anonymous holder binding;
+  scoped credential pseudonyms.
+
+This is valuable for optional external evidence.
+
+Mininet conclusion:
+  APPROVE BBS/VC-style evidence interfaces as optional adapters;
+  do not create one mandatory credential issuer.
+
+3.5 World ID
+
+World's current system demonstrates that:
+  custom iris hardware;
+  biometric liveness;
+  private uniqueness comparison;
+  MPC;
+  Semaphore/ZK presentation
+
+can create a strong practical PoH system.
+
+It also demonstrates the tradeoff:
+  an Orb or equivalent enrollment route is a special hardware/infrastructure
+  dependency.
+
+World's own published architecture has custom hardware and a dedicated
+uniqueness infrastructure.
+
+Mininet conclusion:
+  useful OPTIONAL evidence;
+  max one external-provider contribution;
+  never mandatory;
+  never sufficient;
+  no Orb operator becomes Mininet's personhood issuer.
+
+3.6 Human Passport
+
+Human Passport demonstrates:
+  multi-signal "stamps";
+  weighted scoring;
+  empirical threshold calibration;
+  the unavoidable false-positive / false-negative tradeoff.
+
+Its 2026 docs say:
+  a default Unique Humanity threshold is 20;
+  higher thresholds improve Sybil rejection while increasing honest-user
+  exclusion;
+  scoring weights are updated as attacker behavior changes.
+
+Its hosted Models API requires an API key and returns centrally computed model
+scores.
+
+Mininet conclusion:
+  adopt the lesson:
+    multi-signal systems need measured calibration.
+
+  reject:
+    hosted Human Passport scorer as consensus truth.
+
+  optional individually verifiable credentials may contribute within external
+  caps.
+
+3.7 Proof of Humanity
+
+Proof of Humanity historically uses:
+  public profiles;
+  wallet linkage;
+  photos/video;
+  human vouching;
+  public challenge/arbitration;
+  deposits.
+
+That can produce useful uniqueness evidence.
+
+It does not fit Mininet's privacy model.
+
+Mininet conclusion:
+  not a mandatory/root method.
+
+3.8 Idena
+
+Idena's synchronous ceremony attacks the multi-account problem by requiring
+humans to solve time-bounded puzzles at the same global period.
+
+Strength:
+  anti-parallelization.
+
+Costs:
+  fixed global timing;
+  availability/time-zone/accessibility burden;
+  puzzle assumptions change as AI improves;
+  identity-account transfer remains technically possible.
+
+Mininet conclusion:
+  do not require global puzzle ceremonies.
+  Keep synchronous live interaction as a small optional/local signal.
+
+3.9 TLSNotary
+
+Current TLSNotary lets a user prove selected facts from a real TLS session via
+MPC and selective disclosure.
+
+The notary/verifier need not see application plaintext in MPC mode.
+
+But:
+  an online verifier/notary participates;
+  web PKI is trusted for server identity;
+  web provider account policies remain external;
+  proof generation has nontrivial resource/network cost.
+
+Mininet conclusion:
+  suitable for OPTIONAL web-life continuity;
+  max 15 points total;
+  no provider/notary mandatory;
+  no usernames, browsing history or content retained.
+
+3.10 Government/eID ZK systems
+
+Anon Aadhaar demonstrates:
+  proving possession of government-signed identity data inside ZK;
+  selective disclosure;
+  nullifiers;
+  no need to reveal the Aadhaar number itself.
+
+Similar e-passport systems demonstrate the same broad pattern.
+
+Strength:
+  high cost to mass-fabricate.
+
+Limit:
+  government issuer is the root;
+  coverage is unequal;
+  documents can be unavailable, discriminatory, revoked or coercively linked.
+
+Mininet conclusion:
+  optional external evidence only;
+  max 5 points per issuer family;
+  never mandatory.
+
+3.11 No single existing project satisfies the Mininet constitution
+
+World ID:
+  strong uniqueness,
+  special biometric hardware/infrastructure.
+
+Proof of Humanity:
+  human review,
+  weak privacy/public linkage.
+
+Human Passport:
+  broad multi-signal,
+  mutable hosted scoring/API dependencies.
+
+Idena:
+  no biometrics,
+  synchronous ceremony/accessibility burden.
+
+Government ZK:
+  strong issuer authenticity,
+  government root.
+
+BrightID/social graphs:
+  no required biometrics,
+  graph assumptions and social-edge market risk.
+
+Therefore Mininet should combine:
+  anonymous mature-human scarcity,
+  time,
+  multiple private evidence classes,
+  low early extraction,
+  deterministic consensus,
+  and explicit residual risk.
+
+That is the design below.
+
+
+======================================================================
+4. SECURITY CLAIM — EXACTLY WHAT MININET MAY AND MAY NOT SAY
+======================================================================
+
+APPROVED PUBLIC CLAIM
+
+"Mininet uses a privacy-preserving, continuously re-earned personhood system
+designed to make additional governance/human-share identities slow and costly
+to create. Mature status requires long-lived evidence across multiple
+independent classes and scarce anonymous vouches from existing mature humans.
+No government, biometric vendor, company, or single verifier decides who is
+human. Protected actions use anonymous membership proofs and per-scope
+nullifiers so one accepted credential acts once in that scope."
+
+APPROVED HONEST LIMIT
+
+"Mininet does not claim perfect biological uniqueness. A patient, well-funded
+attacker who recruits or pays real humans and sustains convincing evidence over
+long periods can still penetrate the system. The protocol limits the speed,
+cost and extractable value of that attack rather than pretending it is
+mathematically impossible."
+
+PROHIBITED CLAIMS
+
+  "one account is cryptographically guaranteed to equal one biological human"
+
+  "Sybil-proof"
+
+  "impossible to fake"
+
+  "perfect proof of personhood"
+
+  "six vouches prove six legal identities"
+
+  "presence proves a human"
+
+  "government ID proves global uniqueness"
+
+  "World ID proves Mininet uniqueness"
+
+  "Semaphore proves humanity"
+
+  "the social graph catches all Sybils"
+
+  "vote credentials are impossible to sell"
+
+No digital protocol can stop a willing human from:
+  sharing a secret,
+  selling cooperation,
+  acting under coercion.
+
+The protocol is designed to make such attacks human-scale rather than
+machine-scale.
+
+
+======================================================================
+5. CANONICAL PERSONHOOD TERMS
+======================================================================
+
+`did:mini HumanRoot`
+  Self-sovereign identity root.
+  It solves continuity/control of an identity, not unique-human overcounting.
+
+`PersonhoodSecret`
+  High-entropy private secret used to derive the anonymous personhood
+  membership identity.
+
+`PersonhoodCommitment`
+  Public commitment inserted into personhood state/Merkle sets.
+
+`PersonhoodApplication`
+  Temporary, scoped application handle used while accumulating evidence.
+
+`EvidenceEvent`
+  Canonical proof-bearing event that contributes to one application without
+  exposing raw private data.
+
+`VouchedHuman`
+  Provisional human-like status.
+  No governance vote.
+  No human validator slot.
+  No transferable human-share entitlement.
+
+`EvidenceQualifiedHuman`
+  Stronger 180-day intermediate state.
+  May accumulate provisional locked human-share entitlement.
+  No governance vote.
+  No human validator slot.
+
+`MatureHuman`
+  365-day status that may:
+    vote once per decision;
+    satisfy the human side of validator eligibility;
+    claim the transferable portion of the human-share under the slow schedule;
+    issue one anonymous counted vouch per vouch epoch.
+
+`DormantHuman`
+  Previously MatureHuman whose own continuity evidence fell below maintenance
+  requirements.
+  Historical humanity is not erased.
+  Existing value is not seized.
+  Voting/new human-share accrual/validator eligibility pauses until re-earned.
+
+`BootstrapHuman`
+  One of the exactly 64 initial TESTNET mature credentials.
+  Has no extra vote/weight/vouch capacity.
+  Exists solely to break the zero-member bootstrap cycle.
+
+`MatureHumanSet`
+  Canonical privacy-preserving group of active MatureHuman commitments.
+
+`ScopeNullifier`
+  ZK-derived value proving one group member has used one protected scope.
+
+
+======================================================================
+6. PERSONHOOD POLICY V1 — FROZEN LAUNCH DEFAULT
+======================================================================
+
+PersonhoodPolicyV1 is a canonical protocol object.
+
+No runtime node config can override it.
+
+Time source:
+  finalized canonical chain time / personhood epoch.
+
+Do NOT trust:
+  device wall clock
+  HTTP server clock
+  external timestamp authority.
+
+PERSONHOOD_EPOCH:
+  30 canonical days.
+
+PRESENCE_PERIOD:
+  90 canonical days.
+
+INITIAL MATURE AGE:
+  365 canonical days.
+
+INTERMEDIATE QUALIFIED AGE:
+  180 canonical days.
+
+MATURE REEVALUATION:
+  every personhood epoch.
+
+Status maintenance grace:
+  30 days after a status would otherwise become Dormant, to tolerate temporary
+  connectivity/device problems.
+
+During grace:
+  existing vote eligibility remains only until current already-open decision
+  scopes close;
+  no new validator epoch registration;
+  no new human-share accrual after grace begins.
+
+No governance vote can shorten the initial 365-day MatureHuman age below the
+V1 floor.
+
+No governance vote can make:
+  biometric,
+  government ID,
+  TEE,
+  bank account,
+  external provider
+mandatory.
+
+
+======================================================================
+7. SIGNAL CLASSES AND EXACT POINT CAPS
+======================================================================
+
+Score is:
+
+  min(100,
+      VOUCH
+    + PRESENCE
+    + DEVICE_CONTINUITY
+    + WEB_CONTINUITY
+    + EXTERNAL_CREDENTIAL
+    + NETWORK_CONTINUITY
+    + LIVE_INTERACTION)
+
+Maximum raw sum is 105.
+Canonical score is capped at 100.
+
+No normalization by "only the sources the user happened to submit."
+
+That current normalized-denominator pattern is removed because missing classes
+must actually cost score.
+
+----------------------------------------------------------------------
+7.1 ANONYMOUS MATURE-HUMAN VOUCH CONTINUITY
+MAX: 30
+REQUIRED FOR QUALIFIED AND MATURE
+----------------------------------------------------------------------
+
+0 points:
+  fewer than 6 accepted vouches.
+
+10 points:
+  >=6 accepted vouches,
+  including >=4 in one 30-day vouch epoch.
+
+20 points:
+  >=12 accepted vouches
+  across >=6 distinct vouch epochs
+  spanning >=180 days,
+  including >=4 in one epoch.
+
+30 points:
+  >=24 accepted vouches
+  across >=10 distinct vouch epochs
+  spanning >=365 days,
+  including >=6 in one epoch.
+
+Every counted vouch:
+  comes from MatureHumanSet snapshot;
+  consumes the voucher's single vouch scope for that epoch;
+  is bound to the exact application;
+  expires for promotion purposes after 540 days;
+  does not reveal voucher identity.
+
+A vouch is NOT:
+  transferable score;
+  governance delegation;
+  social reputation;
+  a statement of good conduct.
+
+It means only:
+  "one currently mature anonymous member is willing to spend this scarce
+   epoch's vouch capacity on this applicant."
+
+----------------------------------------------------------------------
+7.2 PRIVATE PHYSICAL-PRESENCE CONTINUITY
+MAX: 20
+OPTIONAL
+----------------------------------------------------------------------
+
+10 points:
+  at least 2 accepted presence endorsements from 2 distinct MatureHuman
+  membership proofs inside one 90-day presence period.
+
+20 points:
+  the above condition is satisfied in at least two different presence periods
+  separated by >=90 days.
+
+The local raw presence session uses `mini-presence`.
+
+Raw evidence:
+  device DIDs
+  channel details
+  RTT samples
+  UWB details
+  exact timestamps
+  local encounter metadata
+
+does NOT become public personhood state.
+
+The mature witness publishes an anonymous PresenceEndorsement proof bound to a
+digest of the locally verified session.
+
+A witness can issue only one counted presence endorsement to the same applicant
+inside the same presence period because the presence scope includes:
+
+  network
+  applicant
+  presence period.
+
+This makes two accepted endorsements in one period require two distinct mature
+membership secrets.
+
+Presence is still vulnerable to colluding humans and some relay scenarios.
+That is why it is worth at most 20 and never sufficient by itself.
+
+----------------------------------------------------------------------
+7.3 DEVICE / HOME CONTINUITY
+MAX: 10
+OPTIONAL
+----------------------------------------------------------------------
+
+Purpose:
+  show persistent control of the same personhood secret/device household over
+  time.
+
+It does NOT claim:
+  unique hardware
+  unique human
+  uncloneability.
+
+5 points:
+  valid continuity checkpoints in >=3 distinct personhood epochs spanning
+  >=90 days.
+
+10 points:
+  checkpoints in >=9 of 12 personhood epochs spanning >=270 days.
+
+A checkpoint binds:
+  application ID
+  personhood commitment
+  current did:mini delegated-device continuity proof
+  epoch
+  prior checkpoint hash.
+
+No:
+  IMEI
+  advertising ID
+  serial number
+  MAC address
+  raw sensor trace
+  GPS history
+  carrier subscriber identity
+leaves the device.
+
+Hardware-backed key storage/attestation MAY strengthen local confidence but does
+not increase this class beyond 10 points.
+
+A non-TEE device can earn the full 10.
+
+----------------------------------------------------------------------
+7.4 PRIVATE WEB / SERVICE CONTINUITY
+MAX: 15
+OPTIONAL
+----------------------------------------------------------------------
+
+5 points per independent provider trust domain.
+Maximum 3 providers.
+
+Accepted proof forms:
+  TLSNotary-style authenticated web provenance;
+  holder-bound selective-disclosure credential;
+  equivalent protocol adapter satisfying the same privacy rules.
+
+The proof may establish only narrow predicates such as:
+
+  account/service relationship existed before date bucket X;
+  same hidden account pseudonym was seen in two separated periods;
+  account is older than >=180 days;
+  account successfully authenticated.
+
+It may NOT reveal/retain:
+  username
+  email address
+  browsing history
+  contacts
+  messages
+  posts
+  purchases
+  exact URL path unless intrinsic to the predicate
+  raw TLS transcript.
+
+Provider correlation:
+  subdomains/products controlled by one company count as one trust domain unless
+  PersonhoodPolicy explicitly lists them independent.
+
+A web provider is never mandatory.
+
+----------------------------------------------------------------------
+7.5 EXTERNAL PRIVATE CREDENTIAL
+MAX: 10
+OPTIONAL
+----------------------------------------------------------------------
+
+5 points per independent issuer/uniqueness family.
+Maximum 2.
+
+Examples:
+  privacy-preserving e-passport proof;
+  Anon Aadhaar-style proof;
+  World ID proof;
+  independently verifiable Human Passport credential/stamp;
+  other mature credential.
+
+No single provider:
+  >5 points.
+
+The credential must support:
+  holder binding or scope pseudonym;
+  replay/nullifier protection;
+  minimal disclosure;
+  offline/local verification where technically possible;
+  explicit expiration/revocation semantics.
+
+The protocol stores only:
+  credential family ID
+  trust-domain ID
+  boolean/predicate result
+  scoped nullifier/pseudonym
+  validity bounds
+  proof/signature.
+
+It does NOT store:
+  legal name
+  document number
+  date of birth
+  nationality
+  biometric template
+  raw credential.
+
+An external issuer compromise can add at most 5 points per family and still
+cannot bypass vouch/time/diversity requirements.
+
+----------------------------------------------------------------------
+7.6 NETWORK PARTICIPATION CONTINUITY
+MAX: 15
+OPTIONAL
+----------------------------------------------------------------------
+
+This is intentionally weak evidence.
+
+It proves:
+  persistent use of a real Mininet identity in network interactions over time.
+
+It does NOT prove:
+  a human rather than automation.
+
+5 points:
+  qualifying signed/verified network interactions in >=3 distinct personhood
+  epochs spanning >=90 days.
+
+10 points:
+  qualifying interactions in >=6 distinct epochs spanning >=180 days.
+
+15 points:
+  qualifying interactions in >=9 distinct epochs spanning >=270 days.
+
+Each counted epoch must include evidence involving at least one independently
+controlled counterparty/object/receipt; self-signed local events alone do not
+count.
+
+At least 6 distinct counterparties over the 15-point window.
+
+A counterparty need not itself be a MatureHuman; this prevents personhood from
+becoming necessary merely to use the network.
+
+Because bots can create network activity, this class is capped.
+
+----------------------------------------------------------------------
+7.7 SYNCHRONOUS LIVE-INTERACTION CONTINUITY
+MAX: 5
+OPTIONAL
+----------------------------------------------------------------------
+
+5 points:
+  at least 2 live-interaction endorsements
+  separated by >=30 days.
+
+A live interaction is:
+  a short unpredictable human-to-human session;
+  no permanent biometric recording;
+  no AI puzzle score;
+  no facial recognition requirement.
+
+The mature witness publishes an anonymous endorsement.
+
+The protocol makes NO claim that:
+  a remote live conversation is impossible to automate.
+
+This is supporting continuity evidence only.
+
+
+======================================================================
+8. STATUS LADDER — EXACT PROMOTION RULES
+======================================================================
+
+8.1 UNVERIFIED
+
+Default.
+
+Rights:
+  all normal non-human-gated network participation remains available.
+
+No:
+  governance vote;
+  human-share claim;
+  human validator slot;
+  vouch issuance.
+
+Bots and agents may remain here forever and still use ordinary Mininet
+functions subject to application rules.
+
+
+8.2 VOUCHED HUMAN
+
+Requirements:
+
+  age since first accepted evidence >=7 days;
+  VOUCH >=10 points;
+  at least 6 accepted vouches total;
+  at least 4 accepted vouches in one 30-day epoch;
+  no canonical proof-format violation.
+
+Rights:
+  UI may state:
+    "provisionally vouched human candidate."
+  may collect all evidence classes.
+
+No:
+  vote
+  validator human slot
+  transferable human share
+  vouch issuance.
+
+
+8.3 EVIDENCE-QUALIFIED HUMAN
+
+Requirements ALL:
+
+  age >=180 days;
+  score >=65;
+  >=3 contributing signal classes;
+  VOUCH >=20;
+  >=12 accepted vouches;
+  vouches span >=6 vouch epochs;
+  >=4 accepted vouches in one vouch epoch;
+  continuity evidence exists in >=5 of the preceding 6 personhood epochs;
+  at least one non-vouch class has evidence no older than 90 days.
+
+Rights:
+
+  may begin PROVISIONAL human-share accrual subject to Section 17.
+
+  provisional accrual:
+    is locked;
+    is non-transferable;
+    is not spendable;
+    creates no governance power.
+
+No:
+  governance vote
+  validator human slot
+  counted vouch issuance.
+
+
+8.4 MATURE HUMAN — INITIAL PROMOTION
+
+Requirements ALL:
+
+  age >=365 days;
+  canonical score >=75;
+  >=4 contributing signal classes;
+  VOUCH =30;
+  >=24 counted vouches;
+  vouches span >=10 distinct 30-day vouch epochs;
+  at least 6 vouches occur within one single vouch epoch;
+  continuity evidence exists in >=9 of the preceding 12 personhood epochs;
+  at least one of:
+    PRESENCE >=10
+    WEB_CONTINUITY >=10
+  at least one accepted evidence event from any non-device-only class is no
+  older than 45 days;
+  application personhood commitment is not already active;
+  no same-scope personhood nullifier collision;
+  all proofs canonical/valid.
+
+Rights:
+
+  one anonymous governance action per decision scope;
+  eligibility to satisfy the HUMAN side of one validator registration per
+  consensus epoch;
+  human-share claiming under slow vesting;
+  one counted anonymous vouch per vouch epoch;
+  ordinary network participation.
+
+No:
+  extra vote weight;
+  automatic validator slot;
+  extra vouch capacity due to wealth/rank;
+  power to de-person another human.
+
+
+8.5 MATURE HUMAN — MAINTENANCE
+
+Recomputed each personhood epoch.
+
+To remain ActiveMature after the 30-day grace window:
+
+  score >=70;
+  >=3 live signal classes;
+  >=6 valid vouches in the rolling preceding 365 days;
+  those vouches span >=4 distinct vouch epochs;
+  at least 3 vouches occurred in one of those epochs;
+  continuity evidence in >=6 of preceding 12 epochs;
+  at least one meaningful non-device-only evidence event within 180 days.
+
+Why maintenance is lighter than initial promotion:
+
+  initial creation is the Sybil-security boundary;
+  once a credential has survived one year, forcing a human to repeat all
+  onboarding friction every year creates unnecessary exclusion.
+
+The credential still must demonstrate continuing life/participation.
+
+
+8.6 DORMANT HUMAN
+
+Entered automatically if maintenance requirements fail after grace.
+
+Dormancy means:
+  "currently not sufficiently re-earned for active human-gated power."
+
+It does NOT mean:
+  non-human
+  bad actor
+  banned
+  guilty.
+
+Consequences:
+
+  no new governance scope proof;
+  no new validator epoch registration;
+  human-share accrual pauses;
+  existing owned/spendable MINI is untouched;
+  posts/data/ordinary network use unaffected.
+
+Reactivation:
+  satisfy maintenance policy again.
+
+No founder/moderator/jury/operator approval.
+
+
+8.7 RETIRED / ROTATED PERSONHOOD COMMITMENT
+
+Used only when:
+
+  holder voluntarily rotates credential;
+  cryptographic recovery replaces an old commitment;
+  exact duplicate commitment detected;
+  protocol-defined cryptographic contradiction proves the old commitment
+  invalid.
+
+It is NOT triggered by:
+  moderation
+  political conduct
+  speech
+  accusation
+  validator misbehavior
+  criminal allegation.
+
+A validator can lose validator privilege without losing MatureHuman history.
+
+
+======================================================================
+9. ANONYMOUS VOUCH PROTOCOL V1
+======================================================================
+
+9.1 Group
+
+Use the previous finalized personhood epoch's:
+
+  MatureHumanSetRoot
+
+This prevents same-epoch recursive admission/vouch amplification.
+
+9.2 Epoch scope
+
+For vouch epoch e:
+
+  vouch_scope =
+    H(
+      "mininet/personhood/vouch-scope/v1",
+      network_id,
+      e
+    )
+
+The scope is identical for every candidate in that epoch.
+
+Semaphore-style semantics therefore permit one accepted signal from one mature
+membership identity for the entire vouch epoch.
+
+That is the scarce resource.
+
+9.3 Applicant object
+
+PersonhoodApplicationV1:
+
+  version
+  network_id
+  application_id
+  applicant_personhood_commitment
+  application_public_key
+  opened_personhood_epoch
+  policy_version
+  expiry_epoch
+
+`application_id`:
+
+  H(
+    "mininet/personhood/application/v1",
+    canonical application object excluding application_id
+  )
+
+Application public key:
+  fresh application-scoped key;
+  does not need to be a day-to-day DID.
+
+9.4 Vouch signal
+
+  vouch_signal =
+    H(
+      "mininet/personhood/vouch-signal/v1",
+      network_id,
+      application_id,
+      applicant_personhood_commitment,
+      policy_version,
+      expiry_epoch
+    )
+
+9.5 Proof
+
+AnonymousVouchV1 contains:
+
+  version
+  network_id
+  personhood_epoch
+  mature_set_root
+  application_id
+  vouch_signal
+  nullifier
+  semaphore_proof
+
+Verifier requires:
+
+  root is the canonical prior-epoch MatureHumanSetRoot;
+  proof verifies membership;
+  proof signal exactly equals canonical vouch_signal;
+  scope exactly equals canonical vouch_scope;
+  nullifier unused in this vouch epoch;
+  application active/not expired.
+
+9.6 Privacy property
+
+Public network learns:
+
+  a member of prior MatureHumanSet
+  spent their one vouch opportunity this epoch
+  on this application.
+
+Public network does NOT learn:
+
+  voucher DID
+  voucher human-root
+  voucher's other pseudonyms
+  their previous/future vouch nullifiers across epochs
+  their physical location.
+
+9.7 Anti-farm bound
+
+Each MatureHuman:
+  12 slots/year.
+
+Initial MatureHuman:
+  24 vouches.
+
+Thus pure self-sponsored expansion from A malicious mature credentials is
+bounded by A/2 new credentials/year BEFORE:
+
+  time;
+  non-vouch class;
+  continuity;
+  score;
+  same-epoch six-person breadth.
+
+The same-epoch condition additionally requires:
+  A >=6
+for a closed attacker group to make even one candidate satisfy Mature
+breadth.
+
+9.8 No paid-vouch fantasy
+
+A genuine human may sell their one monthly slot.
+
+This cannot be cryptographically prevented without:
+  surveillance,
+  coercion,
+  identity disclosure,
+  or an external authority.
+
+Mininet mitigates it by:
+  scarcity;
+  maturation time;
+  multi-class evidence;
+  low first-year value;
+  broad genesis;
+  no reverse-liability punishment that creates authoritarian leverage.
+
+Paid real-human collusion is residual risk, not a solved claim.
+
+
+======================================================================
+10. PRIVATE PRESENCE ENDORSEMENT V1
+======================================================================
+
+10.1 Local session
+
+Candidate and MatureHuman witness run existing mini-presence verification.
+
+The local verification must check:
+  delegated keys;
+  signatures;
+  KEL state;
+  fresh nonces;
+  channel binding;
+  proximity bearer;
+  RTT policy;
+  optional UWB when available.
+
+10.2 Raw evidence stays local
+
+Compute:
+
+  presence_digest =
+    H(
+      "mininet/personhood/presence-local-digest/v1",
+      canonical verified local PresenceVerdict/transcript
+    )
+
+The raw transcript may be retained encrypted by the candidate according to
+local policy for a bounded time.
+
+It is not consensus data.
+
+10.3 Anonymous witness proof
+
+For presence period p and application A:
+
+  presence_scope =
+    H(
+      "mininet/personhood/presence-scope/v1",
+      network_id,
+      application_id,
+      p
+    )
+
+Witness produces MatureHumanSet membership proof over:
+
+  presence_signal =
+    H(
+      "mininet/personhood/presence-signal/v1",
+      application_id,
+      presence_digest,
+      p
+    )
+
+Because the same scope is used per witness/applicant/period, one witness cannot
+count twice for that applicant in one period.
+
+Two distinct accepted nullifiers in the same period therefore require two
+distinct mature membership identities.
+
+10.4 Honest limitation
+
+The chain verifies:
+  a MatureHuman anonymously endorsed the digest.
+
+It does NOT independently measure the physical distance.
+
+A malicious mature witness can lie/collude.
+
+Presence weight and multi-signal requirements explicitly account for that.
+
+10.5 UWB
+
+If UWB exists:
+  use it as additional local anti-relay evidence.
+
+If it does not:
+  user remains eligible through other paths.
+
+No UWB vendor becomes a personhood authority.
+
+
+======================================================================
+11. PRIVATE CONTINUITY STAMPS
+======================================================================
+
+11.1 Design objective
+
+Signal b is changed from:
+  "AI/algorithm says your secret sensor trace resembles a human"
+
+to:
+  "several independent private continuity facts show the same holder persists
+   across real time."
+
+This is narrower and safer.
+
+11.2 EvidenceStampV1
+
+Canonical disclosed fields:
+
+  version
+  application_id
+  signal_class
+  trust_domain_id
+  epoch_bucket
+  quality_level
+  expiry_epoch
+  subject_scope_pseudonym/nullifier
+  predicate_id
+  proof/signature bytes
+
+Never contains raw:
+  location
+  accelerometer
+  browsing content
+  contact list
+  name
+  legal document number
+  biometric.
+
+11.3 Trust-domain correlation
+
+Two credentials controlled by the same upstream issuer/company family count as
+one trust domain for point caps.
+
+Examples:
+
+  three Google-owned services:
+    one web trust domain for this purpose.
+
+  two government documents from the same national root:
+    one external issuer family.
+
+This prevents superficial multi-signal stacking.
+
+11.4 TEE
+
+TEE evidence may say:
+  "this continuity key is hardware-backed"
+or
+  "device-local sealed state persisted."
+
+TEE evidence may NOT say:
+  "therefore this is a unique human."
+
+TEE does not increase the DeviceContinuity cap above 10.
+
+No Android/iOS vendor remote-attestation availability may be required for
+MatureHuman.
+
+
+======================================================================
+12. EXTERNAL CREDENTIAL ADAPTER RULES
+======================================================================
+
+Every adapter implements:
+
+  verify_private_credential(
+      proof,
+      personhood_application,
+      current_epoch
+  ) -> ExternalEvidenceVerdict
+
+Verdict contains only:
+  family_id
+  trust_domain_id
+  predicate
+  scoped pseudonym/nullifier
+  valid_until.
+
+Adapters must be deterministic.
+
+No network API call during consensus verification.
+
+If an external proof requires online fetching:
+  the resulting signed/cryptographic artifact must be fetched BEFORE
+  submission and become self-contained.
+
+A hosted API response like:
+  "score=82"
+from a third-party server is not consensus-valid evidence.
+
+External credential scoring:
+  maximum 5 per family;
+  maximum 10 total.
+
+Revocation:
+  affects future/current evidence validity according to cryptographic
+  timestamp/expiry rules;
+  cannot retroactively erase owned value.
+
+A compromised external issuer cannot make a fresh candidate Mature without the
+mandatory mature-human vouches and time.
+
+
+======================================================================
+13. SEMAPHORE / ANONYMOUS MEMBERSHIP PROFILE
+======================================================================
+
+13.1 Role
+
+Semaphore-style proof machinery is approved for anonymity and scope uniqueness.
+
+It is not the human classifier.
+
+13.2 Personhood identity
+
+A holder generates a high-entropy PersonhoodSecret locally.
+
+The mature-set leaf is the protocol's canonical Semaphore identity commitment.
+
+Do not reuse:
+  wallet spend key
+  DID everyday device key
+  FROST share
+as the personhood secret.
+
+13.3 Active mature root
+
+Each personhood epoch computes:
+
+  MatureHumanSetRoot(epoch)
+
+from the active MatureHuman commitments under deterministic consensus rules.
+
+The root is derived by execution.
+
+It is NOT:
+  an oracle response;
+  a committee discretionary vote;
+  a founder-signed list.
+
+13.4 Scope registry
+
+Distinct canonical scope domains:
+
+  governance vote:
+    H("mininet/personhood/vote/v1", network_id, proposal_id)
+
+  validator registration:
+    H("mininet/personhood/validator/v1", network_id, consensus_epoch)
+
+  human-share claim:
+    H("mininet/personhood/human-share/v1", network_id, release_epoch)
+
+  vouch:
+    H("mininet/personhood/vouch-scope/v1", network_id, personhood_epoch)
+
+  presence endorsement:
+    H("mininet/personhood/presence-scope/v1",
+      network_id, application_id, presence_period)
+
+Domains MUST NOT overlap.
+
+13.5 Trusted setup
+
+Semaphore V4's proving system uses ceremony-generated parameters.
+
+Release requirements:
+  exact circuit version;
+  exact verification key/proving artifacts;
+  hashes committed in release manifest;
+  offline availability;
+  no runtime download required;
+  no Ethereum contract dependency required for Mininet consensus.
+
+The historical 400+ participant setup is not a runtime authority.
+
+If Mininet later changes the circuit/proof system materially, Section 25
+applies.
+
+13.6 Proof generation and weak devices
+
+Phone/light client:
+  generates membership proof locally.
+
+Full node:
+  verifies proof.
+
+Raw personhood evidence:
+  does not need to travel with every vote.
+
+13.7 Lost personhood secret
+
+There is no administrator recovery.
+
+Recovery/rotation must be holder-authorized through the did:mini recovery
+mechanism and an explicit personhood-credential rotation transaction.
+
+Rotation:
+  old commitment becomes inactive;
+  new commitment becomes active;
+  same human history transfers;
+  no period with two active mature commitments.
+
+If the holder cannot satisfy authorized recovery:
+  the credential can be lost.
+
+That is preferable to a central recovery backdoor.
+
+
+======================================================================
+14. PERSONHOOD STATE TRANSITION
+======================================================================
+
+14.1 Canonical state
+
+PersonhoodStateV1 contains:
+
+  policy_version
+
+  applications:
+    application_id ->
+      applicant commitment
+      opened epoch
+      state
+      evidence counters/commitments
+
+  active_mature_commitments
+
+  used_vouch_nullifiers by epoch
+
+  used_action_nullifiers by domain/scope as required
+
+  status transition history commitments
+
+  current MatureHumanSetRoot.
+
+It does NOT contain:
+  raw social edges
+  exact presence locations
+  raw TLS sessions
+  biometric templates
+  legal identities.
+
+14.2 Evidence submission
+
+Every evidence transaction is:
+  self-contained;
+  versioned;
+  canonical;
+  deterministic to verify.
+
+No callback to:
+  Human Passport API
+  World server
+  government server
+  TLSNotary service
+  founder server
+during consensus.
+
+14.3 Score recomputation
+
+All nodes compute score from:
+  accepted canonical evidence summaries;
+  canonical expiry/decay;
+  PersonhoodPolicyV1.
+
+No validator committee chooses the score.
+
+14.4 Mature-set root
+
+After deterministic status changes:
+  rebuild/update active mature membership tree;
+  compute root;
+  commit root in canonical state.
+
+Vote extensions are not personhood truth.
+
+They may relay/commit already-computed state but cannot override it.
+
+14.5 Failure
+
+Invalid personhood evidence:
+  transaction rejects;
+  no partial score mutation;
+  no partial nullifier consumption unless validation succeeds atomically.
+
+14.6 Reorg/finality
+
+Only finalized personhood state may:
+  supply a MatureHumanSet root for protected scopes.
+
+A vouch uses the prior finalized personhood-epoch snapshot.
+
+
+======================================================================
+15. WHY THE RAW SOCIAL GRAPH IS REMOVED
+======================================================================
+
+This is a deliberate deviation from older SPEC-02 mechanics while preserving
+their security intent.
+
+OLD PURPOSE OF GRAPH:
+  make fake internal edges cheap/irrelevant;
+  require connection to real humans;
+  prevent isolated fake clusters from self-certifying.
+
+NEW MECHANISM:
+
+  1. only an existing MatureHuman can vouch;
+
+  2. vouch is anonymously membership-proven;
+
+  3. one MatureHuman has one vouch slot per 30 days;
+
+  4. new MatureHuman needs 24 vouches over one year;
+
+  5. new MatureHuman needs six distinct mature membership identities in one
+     month;
+
+  6. candidate needs multiple additional continuity classes.
+
+This preserves "honest-edge scarcity" without publishing a graph.
+
+Benefits:
+
+  * no global DID adjacency list;
+  * no seed-weight algorithm;
+  * no permanent founder trust score;
+  * no privacy-preserving global graph-computation problem;
+  * no SybilRank limited-attack-edge assumption as consensus truth;
+  * deterministic local verification;
+  * simple quantitative sponsorship budget.
+
+Tradeoff:
+
+  graph algorithms can sometimes identify suspicious cluster structure that the
+  anonymous-vouch mechanism cannot see.
+
+Accepted solution:
+  keep graph analysis only in consented/synthetic test telemetry and external
+  research, not as the authority deciding baseline humanity.
+
+This is a privacy-first simplification.
+
+
+======================================================================
+16. BOOTSTRAP / COLD START
+======================================================================
+
+A zero-member MatureHumanSet cannot issue the first vouch.
+
+A bootstrap trust assumption is unavoidable.
+
+Mininet must name it instead of hiding it.
+
+16.1 Testnet bootstrap cohort
+
+Exactly:
+  64 BootstrapHumans.
+
+Why 64:
+  inside the project's previously recommended 30–100 seed range;
+  large enough to avoid a tiny founder clique;
+  small enough for a serious human verification ceremony;
+  power-of-two convenience is secondary, not security.
+
+16.2 Diversity requirements
+
+The 64-person testnet bootstrap must satisfy:
+
+  >=12 independently organized social/physical cohorts;
+
+  no cohort >8 members;
+
+  >=8 countries/territories represented;
+
+  >=3 continents represented;
+
+  no one country/territory >16 members;
+
+  no one employer/company/foundation/funder controls >4 members;
+
+  no one individual controls >1 member;
+
+  no shared credential secrets/devices.
+
+Private exact location/legal identity need not be published.
+
+Public bootstrap record contains:
+  64 personhood commitments;
+  aggregate diversity counts;
+  signed one-slot declarations;
+  ceremony transcript hash;
+  auditor-of-record attestation.
+
+16.3 Bootstrap verification
+
+Every BootstrapHuman must:
+
+  appear in a synchronous live ceremony;
+  complete at least two co-presence verifications where practical;
+  be vouched for by at least four other bootstrap participants;
+  sign a one-person/one-bootstrap-slot declaration;
+  control their own personhood secret;
+  use a distinct did:mini root/device environment.
+
+At least one of each person's vouches must come from outside their immediate
+local cohort.
+
+This does not mathematically prove uniqueness.
+
+It is the explicit genesis trust assumption.
+
+16.4 No special power
+
+BootstrapHuman gets:
+  exactly one MatureHuman membership credential.
+
+No:
+  extra vote;
+  extra vouch capacity;
+  permanent seed score;
+  veto;
+  admin role;
+  guaranteed validator slot.
+
+From first normal personhood epoch:
+  same rules as any MatureHuman.
+
+16.5 Testnet maturation before mainnet
+
+The 64 bootstrap credentials initialize public TESTNET only.
+
+Real-value MAINNET may not rely on a 64-person personhood population.
+
+Mainnet exit criterion:
+  >=2,048 active MatureHuman credentials.
+
+At 2,048:
+  original bootstrap cohort is at most 3.125% of the active mature set.
+
+No "founder weight" exists, so dilution is actual membership dilution rather
+than an adjustable graph coefficient.
+
+16.6 Mainnet genesis import
+
+Eligible testnet MatureHumans can migrate to mainnet using a privacy-preserving
+migration proof:
+
+  prove membership in the final accepted testnet MatureHumanSet snapshot;
+  derive a new mainnet personhood commitment;
+  consume a one-time migration nullifier.
+
+The mainnet leaf need not equal the testnet leaf.
+
+Migration scope:
+  H(
+    "mininet/personhood/mainnet-migration/v1",
+    testnet_network_id,
+    mainnet_network_id,
+    final_testnet_root
+  )
+
+Each testnet mature credential migrates at most once.
+
+This prevents simple testnet/mainnet personhood-linkability.
+
+No testnet MINI value needs to migrate.
+
+
+======================================================================
+17. HUMAN-SHARE SAFETY ENVELOPE
+======================================================================
+
+Personhood security and vesting are coupled.
+
+Current one-year `human_vesting_ms` is rejected for production.
+
+17.1 Frozen first-year ceiling
+
+For one person's full lifetime human-share allocation S:
+
+  maximum TRANSFERABLE by 365 days of personhood maturation:
+
+    0.001 * S
+
+which is:
+  0.1%
+  10 basis points.
+
+17.2 Before MatureHuman
+
+VouchedHuman:
+  zero transferable human share.
+
+EvidenceQualifiedHuman:
+  may accrue provisional entitlement;
+  zero transferable human share.
+
+17.3 Personhood maturity multiplier
+
+For the first year's security envelope, preserve the D-0075 maturity idea as a
+multiplier on the tiny year-one tranche, not as a percentage of the entire
+lifetime share.
+
+Year-one tranche maximum:
+  10 bps of lifetime share.
+
+Maturity multiplier reference points:
+
+  day   0:  10%
+  day  30:  25%
+  day  90:  50%
+  day 180:  75%
+  day 365: 100%
+
+Thus the maximum provisional cumulative share-equivalent at the points is:
+
+  day   0: 1.0 bp  = 0.010% lifetime share
+  day  30: 2.5 bp  = 0.025%
+  day  90: 5.0 bp  = 0.050%
+  day 180: 7.5 bp  = 0.075%
+  day 365:10.0 bp  = 0.100%
+
+But transferability remains ZERO until MatureHuman.
+
+At initial maturity:
+  at most 10 bps becomes transferable.
+
+17.4 Later millennium curve
+
+Gate #47/#50 economic calibration may choose the exact centuries-scale release
+after year one.
+
+It may NOT violate:
+  frozen millennium-horizon floor;
+  first-year <=0.1%;
+  personhood-conditioned accrual;
+  no money acceleration.
+
+17.5 Why this matters
+
+If a fake candidate is detected/fails before maturity:
+  it extracts zero human-share liquidity.
+
+Even a fake that reaches initial MatureHuman has only <=0.1% of its lifetime
+allocation liquid after the entire first year.
+
+This sharply reduces incentive for short-lived farms.
+
+17.6 Existing code change
+
+Production must remove:
+
+  `IssuancePolicy::d0074().human_vesting_ms = YEAR_MS`
+
+as the complete human-share vesting semantics.
+
+`GenesisPolicy.vesting_ms` must not accept arbitrary one-year human vesting that
+bypasses the security envelope.
+
+Personhood and economy integration must read the canonical HumanShareSecurityV1
+rules.
+
+
+======================================================================
+18. GOVERNANCE, VALIDATOR AND VOUCH NULLIFIERS
+======================================================================
+
+18.1 Governance
+
+Only Active MatureHuman at proposal snapshot may vote.
+
+Proposal stores:
+  mature_set_root_at_open.
+
+Vote proof scope:
+  network_id + proposal_id.
+
+One nullifier:
+  one accepted action per mature membership.
+
+Vote weight:
+  exactly 1.
+
+No:
+  stake
+  MINI balance
+  contribution
+  rank
+  founder status
+  storage
+changes weight.
+
+18.2 Validator
+
+Human eligibility proof uses:
+
+  mature_set_root_at_consensus_epoch
+
+scope:
+  network + consensus_epoch.
+
+One mature personhood secret:
+  at most one active human validator registration per epoch.
+
+Storage/availability requirements can affect whether the validator is eligible
+or selected.
+
+They do not change BFT vote weight above one.
+
+18.3 Vouch
+
+Scope:
+  one global vouch scope per 30-day personhood epoch.
+
+One MatureHuman:
+  one counted vouch that epoch.
+
+No rank/tier buys more capacity in V1.
+
+This intentionally rejects older "verification capacity ladder" designs that
+would let early or high-rank people multiply personhood-creation power.
+
+18.4 Human share
+
+One share claim per release scope per mature membership.
+
+The claim proof is unlinkable from governance/vouch/validator scopes.
+
+18.5 No delegation
+
+A protocol-level vote credential cannot create a delegable voting token.
+
+A user can always reveal/share their own secret voluntarily.
+No software can make voluntary secret transfer physically impossible.
+
+Mininet must not market "unsellable vote" as an absolute theorem.
+
+
+======================================================================
+19. NO DE-PERSONING / REVOCATION MODEL
+======================================================================
+
+19.1 Baseline rule
+
+Personhood rating describes evidence of humanity only.
+
+It is not:
+  reputation
+  trustworthiness
+  morality
+  legal status
+  moderation standing.
+
+19.2 Conduct
+
+The following NEVER lowers humanness score:
+
+  disliked speech
+  community ban
+  content blacklist
+  political position
+  accusation
+  criminal allegation
+  validator equivocation
+  bad code review
+  failure to follow community norms.
+
+19.3 Operational consequences
+
+A validator who equivocates:
+  loses/cools down validator privilege according to consensus rules.
+
+A spammer:
+  can be filtered/rate-limited at reach/application layers.
+
+A malicious maintainer:
+  can lose maintainership.
+
+A real human remains a real human.
+
+19.4 Dormancy
+
+Own inactivity can pause active eligibility because the constitution requires
+continuously re-earned status.
+
+Dormancy is automatic/deterministic.
+
+No human adjudicator.
+
+19.5 Duplicate personhood
+
+A duplicate credential can be retired only on:
+
+  exact cryptographic duplicate commitment/nullifier contradiction;
+  holder-authorized merge/rotation;
+  future positive cryptographic proof type explicitly included in a reviewed
+  PersonhoodPolicy version.
+
+A social accusation is not proof.
+
+An optional external credential collision alone does not automatically
+de-person because an issuer can make mistakes.
+
+19.6 No reverse liability
+
+If Alice vouched for Bob and Bob later becomes suspicious:
+
+  Alice does not lose humanness;
+  Alice does not lose vote;
+  Alice does not lose owned share.
+
+Alice already paid the scarce cost:
+  that epoch's vouch opportunity.
+
+That is sufficient protocol-level skin in the game without creating a
+retaliation weapon.
+
+
+======================================================================
+20. PRIVACY THREAT MODEL
+======================================================================
+
+P20-01 Raw vouch graph
+  PROHIBITED.
+
+P20-02 Raw presence graph
+  PROHIBITED as canonical/public personhood data.
+
+P20-03 Exact location
+  PROHIBITED.
+
+P20-04 Biometrics
+  PROHIBITED as core requirement/storage.
+
+P20-05 Government identifiers
+  PROHIBITED in public state.
+
+P20-06 Web username/account
+  PROHIBITED in public state.
+
+P20-07 Stable voucher identity
+  PROHIBITED across vouch epochs.
+
+P20-08 Cross-scope nullifier correlation
+  separate domains prevent deterministic linkability.
+
+P20-09 Application correlation
+  one application is necessarily internally linkable while accumulating
+  evidence.
+  After maturity, ordinary network actions use unrelated pairwise IDs and
+  anonymous membership proofs.
+
+P20-10 IP/network metadata
+  personhood proof submission should use ordinary privacy transport/onion
+  capabilities where available.
+  The personhood protocol itself does not solve global traffic analysis.
+
+P20-11 TLS notary
+  notary sees only what its protocol inherently requires;
+  evidence adapter discloses only narrow predicate.
+
+P20-12 External issuer
+  issuer may know the user's real-world identity.
+  Mininet receives a scoped proof/pseudonym only.
+
+P20-13 Bootstrap
+  external auditor/participants may know some bootstrap people.
+  public chain needs only commitments/aggregate diversity.
+
+P20-14 Device fingerprinting
+  no attestation certificate/device serial is canonical evidence.
+
+P20-15 Long-lived personhood secret
+  never used as ordinary app identifier/signing key.
+
+P20-16 Recovery
+  no central recovery database mapping personhood commitments to legal names.
+
+P20-17 Telemetry
+  no raw personhood evidence in default analytics/crash reports.
+
+P20-18 Debug
+  human_secret, raw evidence and credential proofs with identifying material
+  must be redacted.
+
+P20-19 Evidence retention
+  local raw evidence defaults to encrypted, bounded retention and can be
+  deleted once its canonical minimal proof/stamp is accepted where protocol
+  semantics allow.
+
+P20-20 Unmasking
+  no key exists whose possession can reverse anonymous mature membership proof
+  into a DID/legal identity.
+
+
+======================================================================
+21. MAINNET PERSONHOOD EXIT CRITERIA
+======================================================================
+
+This replaces vague "credible enough" language.
+
+ALL criteria are mandatory before real-value mainnet genesis.
+
+21.1 Time / population
+
+G21-001
+  Public production-rules testnet has run personhood for >=365 days.
+
+G21-002
+  >=2,048 Active MatureHuman credentials exist.
+
+G21-003
+  Bootstrap humans <=64.
+
+G21-004
+  >=32 independently organized cohorts participated in testnet onboarding.
+
+G21-005
+  No single measured onboarding cohort represents >10% of active MatureHumans.
+
+G21-006
+  Aggregate launch evidence shows broad geographic/social diversity without
+  publishing individual locations.
+
+21.2 Cheap automated Sybils
+
+Run at least 1,000,000 simulated/real test attempts representing:
+
+  bulk fresh DIDs
+  automated device continuity
+  synthetic network activity
+  fake external evidence
+  colluding local devices
+  replayed proofs
+  duplicate credentials.
+
+PASS:
+
+  zero automated candidates without a valid MatureHuman vouch budget reach
+  MatureHuman.
+
+21.3 Five-or-fewer mature colluders
+
+Attacker controls:
+  A = 1..5 valid mature personhood credentials.
+
+They may:
+  create unlimited fake DIDs/devices;
+  fabricate local device/network signals;
+  coordinate their vouch slots;
+  collude in presence/live-interaction.
+
+PASS:
+  zero self-contained candidate reaches initial MatureHuman because six
+  distinct same-epoch vouch membership proofs are required.
+
+21.4 Six-plus mature colluders
+
+For A in:
+  6
+  12
+  24
+  64
+  10% of population
+  20% of population
+
+simulate optimal attacker vouch allocation.
+
+PASS:
+  accepted self-sponsored new MatureHuman rate never exceeds:
+
+    floor(12A / 24) = floor(A/2) per 365 days
+
+and cannot beat:
+  365-day maturation;
+  non-vouch class requirements.
+
+This is a protocol-bound check, not an empirical guess.
+
+21.5 Vouch replay/double use
+
+PASS:
+  one MatureHuman proof cannot consume two vouch slots in the same vouch
+  epoch.
+
+A second use of same scope:
+  same nullifier -> reject.
+
+21.6 Presence farm
+
+Attack:
+  unlimited fake roots/devices generate apparently valid proximity among
+  themselves.
+
+PASS:
+  presence alone never reaches Vouched/EvidenceQualified/Mature because counted
+  mature-human vouches remain mandatory.
+
+21.7 Active relay/wormhole
+
+Attack:
+  relay ordinary BLE/Wi-Fi presence.
+
+PASS:
+  relay can at most affect the optional/capped presence class;
+  it cannot bypass vouches/time/four-class requirements.
+
+UWB-capable path is tested separately for stronger local resistance.
+
+21.8 External issuer compromise
+
+For each external family:
+  assume issuer fully malicious.
+
+PASS:
+  maximum score effect <=5 points;
+  candidate still cannot bypass:
+    24 vouches
+    365 days
+    four classes.
+
+Assume two external families collude:
+  maximum <=10;
+  same structural gates remain.
+
+21.9 Web-provider compromise
+
+One web provider:
+  <=5 points.
+
+All three web trust domains compromised:
+  <=15 points.
+
+PASS:
+  web evidence cannot replace mature-vouch/time gates.
+
+21.10 TEE/vendor outage
+
+Disable every hardware attestation provider.
+
+PASS:
+  at least 100 test users on supported weak devices can still achieve the
+  complete MatureHuman criteria using non-TEE evidence.
+
+21.11 No-government / no-biometric route
+
+At least 100 test users deliberately use:
+
+  no government credential;
+  no World ID/Orb;
+  no biometric proof;
+  no bank;
+  no paid identity service;
+  no TEE attestation.
+
+PASS:
+  they can reach MatureHuman through, for example:
+
+    VOUCH             30
+    PRESENCE          20
+    DEVICE            10
+    NETWORK           15
+    LIVE               5
+    --------------------
+                       80
+
+or remote-friendly:
+
+    VOUCH             30
+    DEVICE            10
+    WEB               15
+    NETWORK           15
+    LIVE               5
+    --------------------
+                       75
+
+subject to the same time/vouch structural gates.
+
+21.12 False rejection
+
+On the real public testnet cohort:
+
+Target:
+  >=95% of humans who deliberately complete one valid approved evidence path
+  succeed in reaching MatureHuman within 400 days.
+
+This measures protocol usability, not arbitrary passive users who do not
+attempt the process.
+
+If false rejection exceeds 5%:
+  fix UX/evidence adapter availability.
+Do not simply lower the six-voucher, 24-voucher or 365-day security floors.
+
+21.13 Privacy
+
+Canonical chain inspection must find NO:
+  raw vouch DID edge
+  raw presence DID edge
+  exact GPS
+  device serial
+  government document number
+  biometric template
+  web username
+  browsing history.
+
+21.14 Unlinkability
+
+Property/test corpus verifies:
+  proofs by the same MatureHuman in different:
+    vouch epochs
+    governance proposals
+    validator epochs
+    human-share epochs
+are not deterministically linkable through protocol identifiers/nullifiers.
+
+21.15 Weak-device ZK
+
+Reference target:
+  Android-class phone with 4 GiB RAM, no special secure element required.
+
+Local membership-proof generation target:
+  <=15 seconds
+  <=512 MiB peak additional memory.
+
+Full-node membership-proof verification target:
+  <=100 ms per proof on reference validator hardware.
+
+If the selected exact proof implementation misses these targets:
+  optimize implementation or choose a compatible proof backend before launch.
+Do not move proof generation to a mandatory hosted prover that learns identity.
+
+Optional untrusted remote acceleration is allowed only if privacy is preserved
+cryptographically and local proof remains supported.
+
+21.16 Human-share extraction
+
+PASS:
+  no pre-MatureHuman applicant can transfer human-share value.
+
+PASS:
+  at day 365, cumulative transferable human-share <=0.1% of lifetime
+  allocation.
+
+21.17 Bootstrap dilution
+
+At mainnet readiness:
+  64 / MatureHuman count <=3.125%.
+
+PASS:
+  bootstrap status has no special vote/vouch/validator weight in code.
+
+21.18 Policy determinism
+
+Two clean independent full nodes replay identical personhood evidence and
+produce:
+  identical statuses;
+  identical scores;
+  identical MatureHumanSetRoot;
+  identical used-nullifier state.
+
+21.19 No central scorer
+
+Disconnect:
+  all Mininet websites
+  Human Passport API
+  World services
+  TLSNotary public service
+  government endpoints
+after evidence objects are obtained.
+
+PASS:
+  canonical personhood verification/replay still succeeds from chain data and
+  pinned verification material.
+
+21.20 Red-team reporting
+
+Publish:
+  attack model
+  number of attempts
+  acceptance/rejection counts
+  false-rejection counts
+  vouch-budget bound verification
+  privacy findings
+  performance measurements
+  unresolved residuals.
+
+Do not publish raw human evidence.
+
+
+======================================================================
+22. MANDATORY ENGINEERING CONFORMANCE MATRIX
+======================================================================
+
+The Gate #21 research audit is complete.
+
+The following checks prove implementation conforms to it.
+
+POLICY / STATUS
+
+C21-001  production policy is versioned/canonical.
+C21-002  local config cannot change status thresholds.
+C21-003  local config cannot change evidence weights.
+C21-004  arbitrary External(u32) cannot automatically gain score.
+C21-005  score uses fixed point caps, not present-source normalization.
+C21-006  raw score >100 caps at100.
+C21-007  VouchedHuman requires >=7 days.
+C21-008  VouchedHuman requires >=6 vouches.
+C21-009  VouchedHuman requires >=4 same-epoch vouches.
+C21-010  EvidenceQualified cannot occur before180 days.
+C21-011  EvidenceQualified score floor65 enforced.
+C21-012  EvidenceQualified requires >=3 classes.
+C21-013  EvidenceQualified requires >=12 vouches.
+C21-014  EvidenceQualified vouches span >=6 epochs.
+C21-015  MatureHuman impossible before365 days.
+C21-016  MatureHuman score floor75.
+C21-017  MatureHuman requires >=4 classes.
+C21-018  MatureHuman requires24 vouches.
+C21-019  MatureHuman vouches span >=10 epochs.
+C21-020  MatureHuman requires6 vouches in one epoch.
+C21-021  MatureHuman continuity present9/12 epochs.
+C21-022  MatureHuman requires presence>=10 or web>=10.
+C21-023  MatureHuman requires <=45-day fresh non-device evidence.
+C21-024  Mature maintenance score floor70.
+C21-025  maintenance vouch/continuity floors enforced.
+C21-026  failed maintenance enters grace then Dormant deterministically.
+C21-027  Dormant status does not seize existing value.
+C21-028  Dormant status pauses new vote/validator/human-share rights.
+C21-029  reactivation is deterministic without human approver.
+
+VOUCH
+
+C21-030  vouch group root is previous finalized MatureHumanSet root.
+C21-031  vouch scope includes network.
+C21-032  vouch scope includes personhood epoch.
+C21-033  same MatureHuman second vouch in epoch reuses nullifier and rejects.
+C21-034  one vouch proof does not reveal mature DID.
+C21-035  vouch signal binds application ID.
+C21-036  vouch signal binds applicant commitment.
+C21-037  vouch signal binds policy version.
+C21-038  expired application cannot receive counted vouch.
+C21-039  wrong network vouch rejects.
+C21-040  wrong root rejects.
+C21-041  wrong scope rejects.
+C21-042  forged Semaphore proof rejects.
+C21-043  malformed proof rejects.
+C21-044  nullifier use is atomic with accepted vouch.
+C21-045  failed vouch does not consume nullifier.
+C21-046  six same-epoch accepted vouches have six distinct nullifiers.
+C21-047  A<6 closed attacker set cannot satisfy Mature breadth.
+C21-048  yearly attacker vouch capacity matches <=12A.
+C21-049  new Mature promotions cannot exceed floor(12A/24) from self-contained
+          vouch budget.
+
+RAW GRAPH REMOVAL
+
+C21-050  production personhood state contains no HashMap<Did, HashSet<Did>>
+          equivalent.
+C21-051  VouchGraph is not used by production consensus eligibility.
+C21-052  no public personhood object contains voucher DID-to-applicant DID edge.
+C21-053  no validator personhood-root vote can override deterministic execution.
+C21-054  no trusted seed list affects Mature score after bootstrap.
+C21-055  bootstrap humans receive no special ongoing graph weight.
+
+PRESENCE
+
+C21-056  raw PresenceVerdict not stored in canonical public personhood state.
+C21-057  presence digest binds local verified transcript.
+C21-058  presence endorsement group membership verifies.
+C21-059  presence scope binds applicant and90-day period.
+C21-060  same witness cannot count twice for same applicant/period.
+C21-061  two accepted same-period witnesses require distinct nullifiers.
+C21-062  two periods >=90 days required for20 presence points.
+C21-063  software-only presence cannot bypass mandatory vouch gates.
+C21-064  UWB absence does not block non-UWB personhood path.
+C21-065  relay test demonstrates presence alone cannot qualify candidate.
+
+DEVICE CONTINUITY
+
+C21-066  no IMEI stored.
+C21-067  no advertising ID stored.
+C21-068  no MAC/device serial stored.
+C21-069  no GPS trace stored.
+C21-070  non-TEE device can earn full DeviceContinuity points.
+C21-071  TEE cannot raise class above10.
+C21-072  device continuity alone cannot reach Vouched/Mature.
+C21-073  checkpoint chain binds application/commitment/epoch.
+C21-074  replayed checkpoint for another epoch rejects.
+
+WEB
+
+C21-075  max5 points per web trust domain.
+C21-076  max15 web points.
+C21-077  related provider services collapse to one trust domain.
+C21-078  proof reveals no username/email by default.
+C21-079  proof reveals no browsing history.
+C21-080  consensus does not make live TLSNotary API call.
+C21-081  invalid web provenance proof rejects.
+C21-082  provider outage cannot invalidate unrelated evidence classes.
+C21-083  no web provider mandatory.
+
+EXTERNAL CREDENTIAL
+
+C21-084  max5 points per external issuer family.
+C21-085  max10 external points.
+C21-086  World ID alone cannot qualify.
+C21-087  government credential alone cannot qualify.
+C21-088  Human Passport API score is not canonical evidence.
+C21-089  external proof uses holder binding/scoped pseudonym.
+C21-090  public state contains no legal name.
+C21-091  public state contains no document number.
+C21-092  public state contains no biometric template.
+C21-093  two colluding external issuers cannot bypass vouch/time gates.
+C21-094  all external adapters verify deterministically offline from submitted
+          proof + pinned trust material.
+
+NETWORK / LIVE
+
+C21-095  self-signed activity alone earns no network continuity points.
+C21-096  network points require multiple epochs.
+C21-097  15 network points require >=9 epochs and >=6 counterparties.
+C21-098  network class capped15.
+C21-099  live-interaction class capped5.
+C21-100  live interaction never stores mandatory face/voice biometric.
+C21-101  bot/network activity without mature vouches cannot qualify.
+
+SEMAPHORE / MEMBERSHIP
+
+C21-102  personhood secret distinct from wallet spend key.
+C21-103  personhood secret distinct from ordinary device DID key.
+C21-104  exact Semaphore circuit/artifact hashes in release manifest.
+C21-105  no runtime Ethereum dependency required.
+C21-106  MatureHumanSetRoot derived deterministically.
+C21-107  vote scope domain distinct from vouch.
+C21-108  validator scope distinct from vote/vouch.
+C21-109  human-share scope distinct from all others.
+C21-110  same membership can act once in each different legitimate scope.
+C21-111  same membership cannot act twice in same scope.
+C21-112  unsupported circuit/version fails closed.
+C21-113  malformed public inputs reject.
+C21-114  membership root from wrong epoch rejects where snapshot fixed.
+C21-115  lost personhood secret has no admin recovery.
+C21-116  credential rotation leaves at most one active commitment.
+
+GOVERNANCE
+
+C21-117  only ActiveMature can enter new governance scope.
+C21-118  each accepted vote has weight exactly1.
+C21-119  MINI balance cannot alter vote weight.
+C21-120  founder status cannot alter vote weight.
+C21-121  rank cannot alter vote weight.
+C21-122  storage capacity cannot alter vote weight.
+C21-123  one membership cannot vote twice on proposal.
+C21-124  VouchedHuman cannot vote.
+C21-125  EvidenceQualifiedHuman cannot vote.
+C21-126  DormantHuman cannot enter new vote scope.
+C21-127  validator misconduct does not erase personhood/vote baseline after
+          validator-specific sanction ends unless personhood independently
+          becomes dormant under neutral continuity rules.
+
+VALIDATOR
+
+C21-128  one MatureHuman can register max one validator identity per epoch.
+C21-129  validator human proof snapshot canonical.
+C21-130  wealth cannot create extra validator-human slots.
+C21-131  storage can affect operational selection only within separate policy,
+          not human vote weight.
+C21-132  Vouched/Qualified cannot claim mature validator human credential.
+
+HUMAN SHARE
+
+C21-133  VouchedHuman transferable human share =0.
+C21-134  EvidenceQualified transferable human share =0.
+C21-135  provisional accrual remains locked.
+C21-136  first365-day transferable cap <=10 basis points lifetime allocation.
+C21-137  no money can accelerate maturity multiplier.
+C21-138  no external credential can accelerate age floor.
+C21-139  no founder override accelerates vesting.
+C21-140  production `human_vesting_ms=YEAR_MS` shortcut removed.
+C21-141  human-share claim uses one per-scope nullifier.
+C21-142  duplicate share claim rejects.
+C21-143  Dormant pauses new accrual without confiscating vested value.
+
+NO DE-PERSONING
+
+C21-144  content moderation cannot change human status.
+C21-145  community ban cannot change human status.
+C21-146  accusation cannot change human status.
+C21-147  validator equivocation changes validator privilege, not humanity.
+C21-148  maintainer removal changes maintainer role, not humanity.
+C21-149  vouch recipient later failing does not reduce voucher humanity.
+C21-150  no reverse-liability cascade exists.
+C21-151  no jury/admin API can directly set human status.
+C21-152  duplicate retirement requires exact approved cryptographic/owner
+          transition, not social accusation.
+
+BOOTSTRAP
+
+C21-153  testnet bootstrap contains exactly64 commitments.
+C21-154  no one commitment duplicated.
+C21-155  aggregate >=12 cohort requirement documented.
+C21-156  no cohort >8 documented.
+C21-157  >=8 countries/territories aggregate documented.
+C21-158  >=3 continents aggregate documented.
+C21-159  one organization controls <=4 slots.
+C21-160  one person controls one declared slot.
+C21-161  bootstrap credential has same vote weight1.
+C21-162  bootstrap credential has same one-vouch/epoch capacity.
+C21-163  no permanent seed weight exists.
+C21-164  mainnet refuses real-value genesis if active MatureHuman count <2048.
+C21-165  mainnet readiness proves bootstrap share <=3.125%.
+C21-166  migration proof consumes one testnet credential at most once.
+C21-167  mainnet personhood commitment differs/unlinks from testnet where
+          migration construction specifies rerandomization.
+
+PRIVACY
+
+C21-168  canonical chain scan has no raw vouch edges.
+C21-169  canonical chain scan has no raw presence edges.
+C21-170  canonical chain scan has no exact location.
+C21-171  canonical chain scan has no device identifiers.
+C21-172  canonical chain scan has no web account identifiers.
+C21-173  canonical chain scan has no legal-document identifiers.
+C21-174  canonical chain scan has no biometrics.
+C21-175  logs redact personhood secret.
+C21-176  crash reports exclude raw evidence.
+C21-177  different-scope proofs have no deterministic stable public identity.
+C21-178  no unmasking key/API exists.
+
+CLOCK / REPLAY
+
+C21-179  device wall clock cannot satisfy age requirement.
+C21-180  finalized canonical time controls personhood age.
+C21-181  evidence from future epoch rejects.
+C21-182  expired evidence does not score.
+C21-183  cross-network evidence replay rejects.
+C21-184  cross-application evidence substitution rejects.
+C21-185  old policy-version proof cannot silently satisfy changed policy.
+C21-186  duplicate canonical evidence is idempotent/rejected.
+
+ATTACK CAMPAIGN
+
+C21-187  >=1,000,000 cheap automated attempts produce0 MatureHuman without
+          mature-vouch capacity.
+C21-188  A=1..5 mature-colluder campaign produces0 self-contained MatureHuman.
+C21-189  A=6 campaign respects <=3 new MatureHuman/year vouch-budget ceiling.
+C21-190  A=12 respects <=6/year.
+C21-191  A=24 respects <=12/year.
+C21-192  10% malicious mature population respects mathematical vouch cap.
+C21-193  20% malicious mature population respects mathematical vouch cap.
+C21-194  fake presence-only farm does not qualify.
+C21-195  compromised external issuer alone does not qualify.
+C21-196  compromised web provider alone does not qualify.
+C21-197  device-clone continuity alone does not qualify.
+C21-198  vouch replay/double spend rejects.
+C21-199  privacy red-team cannot recover raw voucher graph from canonical
+          evidence.
+C21-200  paid-real-human collusion is explicitly reported as residual rather
+          than falsely classified impossible.
+
+ACCESSIBILITY
+
+C21-201  non-government path demonstrated by >=100 test users.
+C21-202  non-biometric path demonstrated by >=100.
+C21-203  non-TEE path demonstrated by >=100.
+C21-204  no bank/payment required for personhood.
+C21-205  remote-friendly evidence path reaches score75.
+C21-206  physical-presence path reaches score75.
+C21-207  no global synchronous ceremony required after bootstrap.
+C21-208  accessibility failures do not trigger a weaker hidden admin path.
+
+PERFORMANCE
+
+C21-209  membership proof generated locally on4GiB Android-class reference
+          <=15s target.
+C21-210  proof generation <=512MiB additional memory target.
+C21-211  full-node proof verification <=100ms target.
+C21-212  personhood evidence parsing has hard size limits.
+C21-213  expensive proof verification occurs after cheap canonical/size checks.
+C21-214  fuzz malformed evidence parsers.
+C21-215  fuzz nullifier/state transition.
+C21-216  arbitrary bytes cannot panic personhood verifier.
+
+DETERMINISM / REPLAY
+
+C21-217  two independent nodes replay same evidence -> identical score.
+C21-218  identical statuses.
+C21-219  identical MatureHumanSetRoot.
+C21-220  identical nullifier state.
+C21-221  personhood replay requires no live external API.
+C21-222  empty local cache can rebuild from canonical state/evidence.
+
+DOCUMENTATION TRUTH
+
+C21-223  docs stop calling current trust_scores complete SybilRank.
+C21-224  docs state limited-attack-edge assumption.
+C21-225  docs state no perfect global uniqueness.
+C21-226  docs state paid real-human collusion residual.
+C21-227  docs state Semaphore does not decide humanity.
+C21-228  docs state behavioral entropy not launch-required.
+C21-229  docs state TEE optional.
+C21-230  docs state raw personhood graph is not public/canonical.
+C21-231  docs remove RLN de-personing/reverse-liability language.
+C21-232  docs distinguish conduct sanctions from personhood.
+C21-233  docs correct first-year human-share security ceiling.
+C21-234  Gate #21 marked research/audit complete on auditor adoption.
+
+MAINNET EXIT
+
+C21-235  testnet personhood history >=365 days.
+C21-236  Active MatureHumans >=2048.
+C21-237  >=32 independent onboarding cohorts evidenced.
+C21-238  no cohort >10% aggregate launch population.
+C21-239  cheap-Sybil campaign criteria pass.
+C21-240  false-rejection among deliberate valid-path test users <=5%.
+C21-241  privacy scan passes.
+C21-242  no mandatory external provider.
+C21-243  first-year share cap passes.
+C21-244  personhood report/results committed with no raw personal evidence.
+C21-245  auditor-of-record adopts/signs this report.
+
+GATE CLOSURE RULE
+
+When:
+
+  this report is adopted by the external auditor of record;
+  C21-001 through C21-245 pass;
+  mainnet exit criteria in Section21 pass;
+
+the project marks:
+
+  GATE #21 — CLOSED / PASS.
+
+No second generic personhood research audit is required.
+
+
+======================================================================
+23. EXACT CODE CHANGE MAP
+======================================================================
+
+A. `crates/mini-uniqueness`
+
+CURRENT:
+  confidence.rs
+  graph.rs
+  status.rs
+  vouch.rs
+
+PRODUCTION REFACTOR:
+
+ADD:
+  src/policy_v1.rs
+  src/application.rs
+  src/evidence.rs
+  src/vouch_anon.rs
+  src/presence_private.rs
+  src/continuity.rs
+  src/external.rs
+  src/score_v1.rs
+  src/status_v1.rs
+  src/nullifier_scope.rs
+  src/mature_set.rs
+  src/migration.rs
+
+`status.rs`
+
+  Replace caller-selected production policy with:
+    PersonhoodPolicyV1::canonical()
+
+  Keep extensibility in non-consensus/test APIs if useful.
+
+  Remove production reliance on:
+    TrustWeights::set_weight()
+    caller-supplied PromotionPolicy
+    arbitrary External(u32) score values.
+
+  Add statuses:
+    Unverified
+    VouchedHuman
+    EvidenceQualifiedHuman
+    MatureHuman
+    DormantHuman.
+
+`graph.rs`
+
+  Move behind:
+    research / test feature.
+
+  Do not feed consensus MatureHuman status.
+
+  Correct documentation:
+    current function is bounded trust propagation, not complete SybilRank.
+
+  If retained for analysis, add final degree normalization when comparing with
+  SybilRank literature and test attack-edge sensitivity.
+
+`confidence.rs`
+
+  `NoEntropySource` remains correct.
+
+  BehavioralEntropy:
+    weight0 in production PersonhoodPolicyV1.
+
+  Do not add TEE classifier as default.
+
+`vouch.rs`
+
+  Existing mutual DID vouch remains useful as:
+    local social application signal;
+    test/research tool.
+
+  Production counted mature sponsorship comes from AnonymousVouchV1 instead of
+  public DID edge.
+
+B. New `mini-personhood` crate or equivalent canonical layer
+
+Recommended crate:
+  `crates/mini-personhood`
+
+Responsibilities:
+
+  canonical policy
+  application lifecycle
+  evidence verification
+  deterministic scoring
+  status transitions
+  MatureHumanSet root
+  scope nullifiers
+  migration.
+
+It MUST NOT:
+  call external APIs during consensus;
+  know MINI balances;
+  accept governance weight input;
+  call a personhood admin server.
+
+C. ZK/Semaphore adapter
+
+Recommended:
+  `crates/mini-personhood-zk`
+
+Contains:
+  exact circuit/proof adapter
+  pinned proving/verifying artifacts hashes
+  proof public-input parser
+  local prover integration
+  deterministic verifier.
+
+No JavaScript/Ethereum runtime dependency in consensus.
+
+If upstream artifacts/tooling are used:
+  vendor/pin exact release data for reproducible builds.
+
+D. `mini-presence`
+
+Keep local verification.
+
+ADD:
+  method to produce canonical local `presence_digest` after successful
+  verification.
+
+Do NOT add:
+  public human-root graph upload.
+
+E. `mini-chain` / execution
+
+Add canonical personhood transactions/effects.
+
+Chain state stores:
+  PersonhoodPolicy version
+  application/evidence summaries
+  status
+  MatureHumanSetRoot
+  used nullifiers.
+
+Remove/avoid:
+  committee discretion over personhood root.
+
+The root is an execution result.
+
+F. Governance
+
+Vote admission requires:
+  proof against proposal's MatureHumanSet snapshot;
+  exact vote scope;
+  unused nullifier.
+
+No raw DID required.
+
+G. Validator registration
+
+Requires:
+  MatureHuman proof
+  exact validator scope
+  unused nullifier.
+
+The human proof yields eligibility weight exactly1.
+
+H. `mini-economy`
+
+Replace one-year human-share shortcut.
+
+Add:
+  HumanShareSecurityV1
+
+Fields/constants:
+
+  FIRST_YEAR_TRANSFERABLE_BPS = 10
+
+  no transferable entitlement before MatureHuman
+
+  first-year maturity multipliers as Section17.
+
+Future economic curve integrates with Gate #47/#50 while respecting these
+personhood-security ceilings.
+
+I. Wallet/client
+
+Add personhood dashboard showing:
+
+  current status
+  age
+  score by CLASS
+  structural requirements remaining
+  vouch count/epochs
+  continuity months
+  evidence expiry
+  privacy explanation.
+
+It must NOT show:
+  a global raw social graph
+  voucher identities
+  "verified biological human 100%" certainty.
+
+J. Vouch UI
+
+Before a MatureHuman uses the one monthly vouch slot:
+
+  show:
+    "This is your one counted personhood vouch for this 30-day epoch."
+
+  show:
+    "Vouch only for someone you reasonably believe is one genuine person
+     maintaining this credential."
+
+  never show a financial price.
+
+Protocol does not punish the voucher later if recipient misbehaves.
+
+K. Documentation
+
+Update:
+  SPEC-02
+  D-0075 design doc
+  issue #21 gate doc
+  Technical Plan
+  ROADMAP
+  INVARIANTS
+  Deep Dive references
+  economy/personhood integration docs.
+
+Record a new Decision Log entry that supersedes:
+  launch reliance on behavioral entropy;
+  TEE launch heuristic;
+  raw canonical graph;
+  reverse liability;
+  RLN personhood-secret reveal;
+  one-year human vesting shortcut.
+
+Do not rewrite historical docs silently.
+Mark old decisions as superseded.
+
+
+======================================================================
+24. ENGINEERING IMPLEMENTATION ORDER
+======================================================================
+
+P21-01
+Freeze PersonhoodPolicyV1 constants/types.
+
+P21-02
+Implement application/evidence canonical codec.
+
+P21-03
+Implement MatureHumanSet snapshot/root.
+
+P21-04
+Integrate exact Semaphore membership verifier/prover.
+
+P21-05
+Implement anonymous one-vouch-per-epoch scope.
+
+P21-06
+Implement deterministic score table/status transitions.
+
+P21-07
+Convert local presence verdict to anonymous endorsement flow.
+
+P21-08
+Implement device continuity checkpoints.
+
+P21-09
+Implement network continuity evidence.
+
+P21-10
+Implement live interaction evidence.
+
+P21-11
+Implement TLSNotary/VC external adapter interface; adapters remain optional.
+
+P21-12
+Wire governance vote nullifier.
+
+P21-13
+Wire validator human nullifier.
+
+P21-14
+Wire human-share claim nullifier.
+
+P21-15
+Replace one-year human-share transferability.
+
+P21-16
+Build 64-person testnet bootstrap ceremony tooling.
+
+P21-17
+Run 365-day public personhood testnet.
+
+P21-18
+Grow to >=2,048 MatureHumans.
+
+P21-19
+Run full Section21/22 red-team matrix.
+
+P21-20
+Commit evidence report and activate mainnet personhood snapshot migration.
+
+No step requires:
+  a government contract
+  an Orb fleet
+  a central KYC provider
+  a hosted personhood API
+  a founder allowlist after bootstrap.
+
+
+======================================================================
+25. WHAT REOPENS EXTERNAL PERSONHOOD REVIEW
+======================================================================
+
+A material new review is required if Mininet later:
+
+  * makes biometrics mandatory;
+  * makes government ID mandatory;
+  * makes TEE/vendor attestation mandatory;
+  * reduces MatureHuman age below365 days;
+  * reduces initial Mature vouches below24;
+  * removes the six-distinct-same-epoch breadth rule;
+  * increases MatureHuman vouch capacity above one per30-day epoch without
+    equivalent reviewed anti-replication control;
+  * allows pre-Mature governance voting;
+  * allows pre-Mature human-validator registration;
+  * raises first-year transferable human-share above0.1%;
+  * publishes raw social/presence graph edges;
+  * introduces a central personhood scorer;
+  * introduces a human admin/jury that can directly set or strip baseline
+    personhood;
+  * reintroduces reverse liability;
+  * reuses one nullifier domain across vote/vouch/share/validator;
+  * changes the ZK membership security model materially;
+  * permits money/payment/stake to accelerate personhood;
+  * lets one external provider independently qualify a human.
+
+A new generic audit is NOT required merely because:
+
+  * a new optional external credential adapter is added at <=5 points and
+    cannot alter structural gates;
+  * a web provider disappears;
+  * a new wallet UI is built;
+  * proof implementation is optimized without changing verified statement;
+  * population grows;
+  * bootstrap people leave;
+  * policy evidence becomes easier to collect while floors remain unchanged;
+  * additional privacy-preserving signal research continues.
+
+This keeps the gate closed without freezing innovation.
+
+
+======================================================================
+26. VALUE-BY-VALUE EXTERNAL AUDIT VERDICTS
+======================================================================
+
+----------------------------------------------------------------------
+HUMANITY BEFORE TECHNOLOGY — PARTIAL NOW / PASS AFTER CONFORMANCE
+----------------------------------------------------------------------
+
+Mechanism proving progress:
+Mininet already names unique humanity as the keystone, separates identity-root
+control from unique personhood, keeps raw behavioral evidence out of current
+code, and uses evidence rather than wealth/computation.
+
+Exact failure:
+current production-shaped default can reach EvidenceQualifiedHuman after only
+30 days and two signal classes.
+
+Location:
+`crates/mini-uniqueness/src/status.rs`.
+
+Best long-term solution:
+PersonhoodPolicyV1's 365-day / 24-vouch / four-class MatureHuman rule.
+
+Target:
+PASS.
+
+
+----------------------------------------------------------------------
+NO INDISPENSABLE CENTRAL AUTHORITY — PARTIAL NOW / PASS AFTER CONFORMANCE
+----------------------------------------------------------------------
+
+Mechanism:
+did:mini is self-sovereign; current design does not require government ID.
+
+Exact failure:
+older designs depend on trusted graph seeds/committee personhood roots and
+propose TEE/external signals without a fully deterministic non-central
+production path.
+
+Solution:
+canonical public privacy-preserving evidence + MatureHumanSet derived by every
+node; external providers optional/capped; no seed weighting after bootstrap.
+
+Target:
+PASS.
+
+
+----------------------------------------------------------------------
+NETWORK OUTLIVES ITS CREATORS — PARTIAL NOW / PASS AFTER CONFORMANCE
+----------------------------------------------------------------------
+
+Mechanism:
+founder status carries no constitutional extra vote.
+
+Failure:
+current graph architecture depends on founder/trusted seed-set parameters.
+
+Solution:
+one-time 64-person testnet bootstrap; no seed weight; >=2,048 MatureHumans
+before mainnet.
+
+Target:
+PASS.
+
+
+----------------------------------------------------------------------
+MONEY NEVER OUTRANKS LEGITIMACY — PASS
+----------------------------------------------------------------------
+
+Mechanism:
+personhood score has no MINI/stake input; approved policy forbids money from
+accelerating age/vouch/score; every mature vote weighs exactly1.
+
+Failure:
+none in approved design.
+
+Permanent solution:
+C21-117..143.
+
+
+----------------------------------------------------------------------
+CANONICAL TRUTH FOR MONEY / HUMAN SHARE — PARTIAL NOW
+----------------------------------------------------------------------
+
+Mechanism:
+mini-economy already supports a personhood snapshot root.
+
+Exact failure:
+the default human vesting is one year and personhood snapshot membership does
+not yet implement the audited MatureHuman semantics.
+
+Solution:
+HumanShareSecurityV1 + canonical MatureHumanSet root + nullifier claims.
+
+Target:
+PASS.
+
+
+----------------------------------------------------------------------
+DESIGN FOR FAILURE — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism:
+evidence decay and re-earning acknowledge device/network absence.
+
+Failure:
+current full-status default and policy injection are not robust enough; lost
+personhood credential recovery/migration is not fully wired.
+
+Solution:
+Dormant status, 30-day grace, owner-authorized credential rotation, no admin.
+
+Target:
+PASS after tests.
+
+
+----------------------------------------------------------------------
+FREE FORKS / EARNED LEGITIMACY — PASS
+----------------------------------------------------------------------
+
+Mechanism:
+no external PoP provider is indispensable; Semaphore artifacts are vendorable;
+the protocol can continue if any commercial/government identity provider
+disappears.
+
+Failure:
+none in approved architecture.
+
+
+----------------------------------------------------------------------
+HUMAN AS ROOT OF TRUST — PARTIAL NOW / PASS UNDER STATED CLAIM
+----------------------------------------------------------------------
+
+Mechanism:
+MatureHuman creation requires existing mature humans, time and diverse
+evidence.
+
+Exact failure:
+no system can prove biological uniqueness perfectly against paid/coerced real
+humans.
+
+Solution:
+state the bounded claim; enforce the A/2/year vouch-budget bound, 365-day
+maturation, multi-class evidence and low extraction.
+
+Target:
+PASS for the stated adversary model, NOT "perfect global uniqueness."
+
+
+----------------------------------------------------------------------
+STRUCTURAL PRIVACY — FAIL NOW / PASS AFTER CONFORMANCE
+----------------------------------------------------------------------
+
+Mechanism proving current failure:
+`VouchGraph` stores raw did:mini roots and adjacency sets.
+
+Location:
+`crates/mini-uniqueness/src/graph.rs`.
+
+This conflicts with the Deep Dive's explicit rule that raw personhood graph
+edges must not be published.
+
+Solution:
+remove graph from canonical path; anonymous MatureHuman vouch/presence
+endorsements; no stable voucher identity.
+
+Target:
+PASS.
+
+
+----------------------------------------------------------------------
+SIMPLICITY IS SECURITY — PARTIAL NOW / PASS AFTER CONFORMANCE
+----------------------------------------------------------------------
+
+Mechanism:
+current code is comparatively small.
+
+Failure:
+it tries to combine incomplete SybilRank-style graph scoring, arbitrary weights,
+behavioral seam, presence and open external sources without a canonical
+production contract.
+
+Solution:
+fixed point-cap score + anonymous scarce vouching + standard membership proof;
+research graph remains off the security path.
+
+Target:
+PASS/PARTIAL depending final ZK wrapper complexity.
+
+
+----------------------------------------------------------------------
+HONEST MAJORITY / MALICIOUS MINORITY — PARTIAL NOW
+----------------------------------------------------------------------
+
+Mechanism:
+current required VouchingGraph makes self-only presence farms insufficient.
+
+Failure:
+one purchased/trusted graph edge can propagate trust; exact attack-budget
+properties are not frozen.
+
+Solution:
+one vouch per MatureHuman per month; six same-month breadth; 24 annual vouches;
+A/2 annual self-replication ceiling.
+
+Target:
+PASS for cheap-machine Sybil / bounded mature-colluder model.
+
+
+----------------------------------------------------------------------
+WEAKEST DEVICE MATTERS — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism:
+no biometric hardware required in approved policy; non-TEE path exists.
+
+Failure:
+mobile ZK performance still must meet concrete target.
+
+Solution:
+<=15s local proof, <=512MiB additional memory on 4GiB Android-class reference;
+never mandatory hosted prover.
+
+Target:
+PASS after conformance evidence.
+
+
+----------------------------------------------------------------------
+AI SERVES HUMANITY, NEVER RULES — PASS FOR THE AUDIT PROCESS
+----------------------------------------------------------------------
+
+Mechanism:
+the external human auditor of record adopts this research conclusion.
+No ML classifier or AI server is personhood authority.
+
+Failure:
+would become FAIL if an opaque AI "human score API" is made canonical.
+
+Solution:
+deterministic public rules and cryptographic proofs.
+
+
+----------------------------------------------------------------------
+THINK IN CENTURIES — FAIL IN CURRENT ONE-YEAR ECONOMY DEFAULT
+----------------------------------------------------------------------
+
+Mechanism proving failure:
+`IssuancePolicy::d0074()` sets human_vesting_ms to one year.
+
+That contradicts the frozen millennium release/security model.
+
+Solution:
+first-year <=0.1% transferability + later Gate #47/#50 millennium curve.
+
+Target:
+PASS.
+
+
+----------------------------------------------------------------------
+VOICE / VALUE WALL — PASS
+----------------------------------------------------------------------
+
+Mechanism:
+personhood inputs have no balance/stake contribution; mature credential produces
+one equal vote.
+
+Failure:
+none in approved architecture.
+
+Solution:
+permanent negative tests.
+
+
+----------------------------------------------------------------------
+EDGE CONVENIENT, CORE INDEPENDENT — PASS AFTER CONFORMANCE
+----------------------------------------------------------------------
+
+Mechanism:
+World ID, eID, TLSNotary, Human Passport, TEE and web providers are optional
+evidence edges only.
+
+Failure:
+current External(u32) generic scoring is too loose and caller-controlled.
+
+Solution:
+bounded canonical adapters, max5/provider family, no provider mandatory.
+
+Target:
+PASS.
+
+
+----------------------------------------------------------------------
+NO DE-PERSONING POWER — FAIL IN OLDER SPEC LANGUAGE / PASS IN APPROVED DESIGN
+----------------------------------------------------------------------
+
+Mechanism proving old failure:
+older SPEC-02 proposed RLN reveal/revocation and reverse-liability consequences.
+
+Later Deep Dive supersedes that model and explicitly refuses de-personing for
+conduct.
+
+Solution:
+this report adopts later rule; humanity changes only through holder inactivity
+or narrow cryptographic credential facts.
+
+Target:
+PASS.
+
+
+======================================================================
+27. OVERALL JUDGMENT
+======================================================================
+
+DOES THE APPROVED PERSONHOOD DESIGN SERVE A FREE INTERNET FOR HUMANITY?
+
+YES.
+
+The current prototype does not yet prove that outcome.
+
+The approved architecture does, under an honest and explicit threat model.
+
+Why YES:
+
+  * one government does not decide humanity;
+  * one company does not decide humanity;
+  * one biometric vendor does not decide humanity;
+  * one founder does not decide humanity;
+  * one social graph operator does not decide humanity;
+  * one AI classifier does not decide humanity;
+  * money cannot buy a faster protocol path to human status;
+  * raw social edges are not canonical/public;
+  * raw location/biometrics/web history are not required;
+  * mature sponsorship is scarce and anonymous;
+  * status takes real time;
+  * multiple independent evidence classes are required;
+  * a self-contained attacker with fewer than six mature credentials cannot
+    bootstrap another MatureHuman;
+  * an attacker with A mature credentials has at most floor(A/2)
+    self-sponsored new mature credentials per year before other gates;
+  * early human-share extraction is <=0.1% after a full year;
+  * only MatureHuman gets one vote;
+  * no conduct authority can declare a dissident "not human";
+  * optional external identity systems remain replaceable edges;
+  * the bootstrap cohort has no permanent trust multiplier and is diluted to
+    <=3.125% before real-value mainnet.
+
+The design does NOT eliminate a patient adversary who pays or coerces genuine
+humans.
+
+That is the irreducible residual.
+
+The correct success standard is not:
+  "no adversary can ever create another credential."
+
+The correct standard is:
+  "machine-scale forgery becomes human-scale infiltration, and human-scale
+   infiltration is rate-limited, time-limited, economically bounded and unable
+   to buy extra vote weight."
+
+FINAL GATE #21 DISPOSITION
+
+  EXTERNAL PERSONHOOD RESEARCH AUDIT: PASS / COMPLETE
+
+  PERSONHOOD ARCHITECTURE: PASS
+
+  CURRENT IMPLEMENTATION CONFORMANCE: PARTIAL
+
+  MAINNET ACTIVATION:
+    permitted when C21-001..245 and Section21 exit metrics pass.
+
+  SECOND GENERIC PERSONHOOD RESEARCH AUDIT:
+    NOT REQUIRED.
+
+  FUTURE MATERIAL DESIGN CHANGE:
+    reopens only the changed scope defined in Section25.
+
+
+======================================================================
+28. AUDITOR ATTESTATION
+======================================================================
+
+I attest that this report records my external research/audit opinion for
+Mininet Gate #21 at the source revision identified above.
+
+I specifically acknowledge:
+
+  [ ] I agree that perfect global biological uniqueness is NOT an approved
+      Mininet claim.
+
+  [ ] I approve removal of raw behavioral/location entropy from the genesis
+      critical path.
+
+  [ ] I reject mandatory TEE/vendor attestation.
+
+  [ ] I reject the raw DID personhood graph as canonical/public consensus
+      personhood state.
+
+  [ ] I approve anonymous MatureHuman-set vouching with one counted vouch per
+      MatureHuman per 30-day personhood epoch.
+
+  [ ] I approve the initial MatureHuman rule:
+      365 days / score75 / 4 classes / 24 vouches / 10 vouch epochs /
+      6 same-epoch vouches / continuity9-of-12.
+
+  [ ] I approve the maintenance/dormancy rules.
+
+  [ ] I approve external credentials only as optional capped evidence.
+
+  [ ] I approve Semaphore-style proofs for anonymous membership/nullifiers,
+      not as the source of humanity.
+
+  [ ] I approve the 64-person TESTNET bootstrap with no special permanent
+      weight.
+
+  [ ] I approve >=2,048 Active MatureHumans and >=365 days of public testnet
+      personhood as real-value mainnet exit requirements.
+
+  [ ] I approve the <=0.1% lifetime human-share first-year transferable
+      ceiling.
+
+  [ ] I approve no governance vote or human validator slot before MatureHuman.
+
+  [ ] I approve the no-de-personing-for-conduct rule.
+
+  [ ] I agree that paid/coerced genuine-human collusion remains residual risk
+      and is not falsely claimed solved.
+
+  [ ] I agree that C21-001..245 plus Section21 evidence closes Gate #21 without
+      commissioning another generic personhood research audit.
+
+Auditor name:
+  ______________________________________________________________
+
+Signature:
+  ______________________________________________________________
+
+Date:
+  ______________________________________________________________
+
+Reviewed revision:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+Report hash:
+  [fill from committed artifact]
+
+
+======================================================================
+29. RESEARCH / EVIDENCE BIBLIOGRAPHY
+======================================================================
+
+MININET CURRENT REPOSITORY
+
+[MN21-01]
+  GitHub issue #21:
+  "[Phase 2.5] Private human-continuity proof research — optional behavioral,
+  web, device, and credential evidence."
+
+[MN21-02]
+  docs/gates/personhood-signal-b-decision.md
+  D-0075 signal-b decision.
+
+[MN21-03]
+  docs/design/human-continuity-proof.md
+  Private accumulated evidence design.
+
+[MN21-04]
+  crates/mini-uniqueness/src/status.rs
+  Current multi-source score, mutable weights and 30-day/two-source
+  EvidenceQualified default.
+
+[MN21-05]
+  crates/mini-uniqueness/src/confidence.rs
+  Current three-signal fusion; NoEntropySource.
+
+[MN21-06]
+  crates/mini-uniqueness/src/graph.rs
+  Raw DID adjacency graph and bounded trust propagation.
+
+[MN21-07]
+  crates/mini-uniqueness/src/vouch.rs
+  Current public-root mutual vouch transcript.
+
+[MN21-08]
+  crates/mini-presence/src/lib.rs
+  Physical-presence primitive and honest relay/device-root limitations.
+
+[MN21-09]
+  docs/audits/issue-17-presence-attack-review.md
+  Internal relay/collusion attack review.
+
+[MN21-10]
+  docs/audits/issue-18-sybil-social-graph-review.md
+  Internal graph/fusion attack review.
+
+[MN21-11]
+  crates/mini-economy/src/issuance.rs
+  Current d0074 one-year human vesting default and HumanSnapshot integration.
+
+[MN21-12]
+  crates/mini-economy/src/genesis.rs
+  Current arbitrary GenesisPolicy vesting envelope.
+
+All above reviewed at:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+
+MININET FOUNDING / DESIGN SOURCES
+
+[MN21-F01]
+  Mininet SPEC-00 Constitution.
+  Personhood is the dependency for P2; no raw personal data; one human one
+  equal vote; millennium release.
+
+[MN21-F02]
+  Mininet SPEC-02 Personhood Base.
+  Unique-human keystone; no central verifier; private verdict; continuously
+  re-earned; anonymous one-human-one-action.
+
+[MN21-F03]
+  Mininet SPEC-05 MINI Chain.
+  Personhood-gated consensus and slowly vested human share.
+
+[MN21-F04]
+  Mininet Deep Dive Amendments and Quantitative Models.
+  No raw personhood graph; no de-personing for conduct; no reverse liability;
+  >=99% synthetic Sybil target; founding cohort 30–100 across >=10 clusters;
+  first year <=~0.1% human share.
+
+[MN21-F05]
+  Mininet Whitepaper v1.0.
+  Three-signal original vision, residual patient well-funded human-like Sybil,
+  equal vote.
+
+[MN21-F06]
+  Mininet Technical Plan.
+  Identifies private humanness proof as genuinely novel/research-grade work.
+
+
+EXTERNAL — SOCIAL GRAPH / SYBIL
+
+[EXT21-01]
+  Cao, Sirivianos, Yang, Pregueiro.
+  "Aiding the Detection of Fake Accounts in Large Scale Social Online
+  Services" / SybilRank.
+  USENIX NSDI 2012.
+  https://www.usenix.org/conference/nsdi12/technical-sessions/presentation/cao
+
+  Used for:
+    early-terminated trust propagation;
+    seed trust;
+    final degree-normalized ranking;
+    limited attack-edge assumption;
+    acknowledgement that highly connected Sybils can rank well.
+
+[EXT21-02]
+  Follow-up evaluations of OSN-based Sybil defenses.
+  Used for:
+    evidence that limited-attack-edge assumptions degrade when Sybils obtain
+    real honest-region links.
+
+
+EXTERNAL — ANONYMOUS GROUP MEMBERSHIP
+
+[EXT21-03]
+  Semaphore documentation / Semaphore V4.
+  https://docs.semaphore.pse.dev/
+
+  Used for:
+    anonymous group membership;
+    signaling;
+    per-scope nullifier/double-signal prevention;
+    trusted-setup provenance.
+
+  Important limitation:
+    application/group manager decides membership; Semaphore does not establish
+    humanity.
+
+
+EXTERNAL — RATE LIMITING
+
+[EXT21-04]
+  Rate Limiting Nullifier (RLN), Privacy & Scaling Explorations.
+  https://rate-limiting-nullifier.github.io/rln-docs/
+
+  Used for:
+    comparison with anonymous action rate-limiting.
+
+  Decision:
+    not used for V1 baseline personhood because secret-reveal accountability is
+    unnecessary and increases identity risk.
+
+
+EXTERNAL — VERIFIABLE CREDENTIALS
+
+[EXT21-05]
+  W3C Data Integrity BBS Cryptosuites.
+  https://www.w3.org/TR/vc-di-bbs/
+
+  Used for:
+    selective disclosure;
+    unlinkable derived proofs;
+    anonymous holder binding;
+    scoped pseudonym evidence architecture.
+
+
+EXTERNAL — BIOMETRIC PROOF OF HUMAN
+
+[EXT21-06]
+  World / World ID technical and privacy documentation.
+  https://whitepaper.world.org/achieving-proof-of-human
+  https://world.org/privacy
+
+  Used for:
+    real deployment example combining custom iris hardware, liveness,
+    private uniqueness comparison/MPC and ZK/Semaphore presentation.
+
+  Decision:
+    optional evidence only; custom Orb/infrastructure may not become mandatory
+    Mininet trust root.
+
+
+EXTERNAL — MULTI-SIGNAL SYBIL SCORING
+
+[EXT21-07]
+  Human Passport documentation, 2026.
+  https://docs.passport.human.tech/
+
+  Used for:
+    multi-stamp scoring;
+    empirical threshold tradeoffs;
+    evidence that weights must be calibrated against known humans/Sybils.
+
+[EXT21-08]
+  Human Passport Scoring Thresholds.
+  https://docs.passport.human.tech/building-with-passport/stamps/major-concepts/scoring-thresholds
+
+  Used for:
+    documented false-rejection/Sybil-penetration tradeoff.
+
+[EXT21-09]
+  Human Passport Models API.
+  Used as negative architecture comparison:
+    hosted API key/model score is not Mininet consensus truth.
+
+
+EXTERNAL — PRIVATE WEB PROVENANCE
+
+[EXT21-10]
+  TLSNotary current documentation.
+  https://tlsnotary.org/docs/intro/
+
+  Used for:
+    MPC-assisted TLS provenance;
+    selective disclosure;
+    private proof of narrow web facts;
+    online verifier/notary and web-PKI trust limitations.
+
+
+EXTERNAL — GOVERNMENT CREDENTIAL ZK
+
+[EXT21-11]
+  Anon Aadhaar.
+  https://anon-aadhaar.pse.dev/learn
+
+  Used for:
+    proof that government-signed identity data can be verified in ZK while
+    hiding the underlying identity number and selectively disclosing fields.
+
+  Decision:
+    optional/capped because the government remains issuer/root.
+
+
+EXTERNAL — PUBLIC HUMAN REGISTRY COMPARISON
+
+[EXT21-12]
+  Proof of Humanity documentation.
+  https://proof-of-humanity.gitbook.io/docs/
+
+  Used for:
+    public profile/vouch/challenge comparison.
+
+  Decision:
+    public identity/profile and challenge/arbitration model conflicts with
+    Mininet structural privacy/no-de-personing as a root mechanism.
+
+
+EXTERNAL — SYNCHRONOUS PERSONHOOD
+
+[EXT21-13]
+  Idena documentation / concept paper.
+  https://docs.idena.io/
+  https://www.idena.io/IdenaConceptPaper.pdf
+
+  Used for:
+    synchronous anti-parallelization concept;
+    comparison of accessibility/timing/puzzle assumptions.
+
+  Decision:
+    no mandatory global ceremony after bootstrap.
+
+
+======================================================================
+30. FINAL ENGINEERING SUMMARY
+======================================================================
+
+ENGINEERS SHOULD IMPLEMENT THIS, NOT REOPEN THE DESIGN:
+
+1. Freeze PersonhoodPolicyV1.
+2. Remove caller-defined personhood weights from consensus.
+3. Keep BehavioralEntropy disabled at launch.
+4. Never make TEE mandatory.
+5. Remove raw VouchGraph from canonical personhood.
+6. Implement MatureHumanSet anonymous membership.
+7. One mature human -> one counted vouch every30 days.
+8. Mature promotion ->365d, score75, 4 classes,24 vouches,10 epochs,
+   6 vouches in one epoch, continuity9/12.
+9. Use private anonymous presence endorsements.
+10. Add device/web/external/network/live evidence with exact caps.
+11. External issuer max5; all external max10.
+12. No government/biometric/bank/TEE requirement.
+13. No conduct-based de-personing or reverse liability.
+14. Governance/validator/human-share/vouch use separate nullifier scopes.
+15. No governance/validator rights before MatureHuman.
+16. Human-share transferable first year <=0.1% lifetime allocation.
+17. Testnet begins with exactly64 equal bootstrap humans.
+18. Mainnet real value requires >=365d public testnet and >=2,048
+    MatureHumans.
+19. Pass C21-001..245.
+20. Publish attack/performance/privacy results without raw evidence.
+
+GATE #21 THEN REMAINS CLOSED.
+
+======================================================================
+END OF EXTERNAL PERSONHOOD & SYBIL-RESISTANCE RESEARCH AUDIT — GATE #21
+======================================================================

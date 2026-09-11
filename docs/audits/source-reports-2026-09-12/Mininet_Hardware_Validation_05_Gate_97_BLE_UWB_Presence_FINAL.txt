@@ -1,0 +1,5564 @@
+MININET REAL-PEOPLE READINESS — HARDWARE VALIDATION PACKAGE 5/8
+Gate #97 — BLE / UWB / LOCAL PROXIMITY HARDWARE
+Android production adapter, secure ranging, relay resistance, offline two-phone
+operation, lifecycle resilience, privacy, battery, and reproducible field evidence
+
+SUPER-DETAILED FINAL DECISION + EXECUTION PROTOCOL
+Human mobile/RF reviewer adoption form
+
+Report date: 2026-09-11
+Repository: mininet-labs/Mininet
+Reviewed main revision:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+Related active development inspected:
+  PR #333
+  head at review:
+  03d61f32d410fafefa878d93e07e9fb2be99280f
+  "BLE multi-hop mesh relay: devices form a real network over BLE, not just pairs"
+
+PACKAGE STATUS:
+  HARDWARE ARCHITECTURE / TEST DESIGN: PASS / COMPLETE
+  CURRENT MAIN PLATFORM IMPLEMENTATION: FAIL
+  PHYSICAL HARDWARE VALIDATION: FAIL / NOT YET EXECUTED
+  GATE #97: FAIL / BLOCKED UNTIL THE REAL-DEVICE EVIDENCE IN THIS DOCUMENT PASSES
+
+NO PHYSICAL RESULT IS CLAIMED BY THIS DOCUMENT.
+
+The point of this package is to eliminate ambiguity about WHAT must be built,
+HOW it must be tested, WHICH results are acceptable, HOW weak results change
+security classification, and WHAT exact evidence closes the gate.
+
+Test lead: __________________________________________________________
+Independent hardware/security reviewer: ______________________________
+Organization / affiliation: _________________________________________
+Conflicts / relationship to implementation authors: __________________
+Test campaign dates: _________________________________________________
+Final tested git revision: ___________________________________________
+APK/build artifact digest: ___________________________________________
+Signatures: __________________________________________________________
+
+
+======================================================================
+0. PURPOSE
+======================================================================
+
+Gate #97 cannot be closed by:
+
+  source review;
+  CI;
+  an emulator;
+  a Bluetooth mock;
+  a loopback socket;
+  a unit test;
+  a screenshot;
+  a successful Gradle compile;
+  a vendor claim that UWB is secure;
+  a vendor claim that Bluetooth Channel Sounding is centimeter-accurate;
+  an AI review;
+  a founder review;
+  or a developer saying "works on my phone."
+
+It exists specifically because Mininet makes a PHYSICAL claim:
+
+  two independently controlled devices were sufficiently near one another
+  during a mutually signed, channel-bound presence ceremony.
+
+Radio behavior, OS scheduling, RF multipath, body blocking, permissions,
+background restrictions, GATT behavior, UWB chipset behavior, Bluetooth
+controller behavior and relay attacks are properties of real systems.
+
+They are not established by type checking.
+
+This package therefore converts the open-ended hardware requirement into an
+exact release procedure.
+
+It makes the design decisions now.
+
+A human team may review and modify them BEFORE they enter the project.
+
+After adoption, engineering should implement the decisions rather than reopen
+the design.
+
+The external/independent tester then measures the finished candidate on real
+hardware.
+
+That distinction matters:
+
+  design review decides the protocol;
+  hardware evidence decides whether the implementation matches reality.
+
+
+======================================================================
+1. EXECUTIVE VERDICT
+======================================================================
+
+CURRENT GATE #97 VERDICT:
+
+  FAIL.
+
+SPECIFIC MECHANISM PROVING THE FAILURE:
+
+  `crates/mini-presence/src/ranging.rs` explicitly states that no real hardware
+  ranging implementation ships and that `NoUwb` is the only reference source.
+
+  Current `app/android` on main contains no Kotlin BLE GATT radio adapter and no
+  Android ranging adapter.
+
+  Current main Android manifest declares only INTERNET; it does not declare the
+  Bluetooth Nearby Device permissions or Android 16 RANGING permission required
+  by the intended path.
+
+  `mini-presence::active_range` measures a real encrypted application-layer
+  challenge/response RTT, but its own source documentation correctly states that
+  it is NOT cryptographic distance bounding and does not defeat a low-latency
+  relay/wormhole.
+
+  Current `UwbRanging` contains only:
+    distance_cm
+    sample_count
+
+  and `sample_count` is explicitly not independently checked by the current
+  verifier.
+
+  `PresenceVerdict::hardware_ranged` currently means only:
+    an optional `uwb` field was present.
+
+  It does not prove:
+    which technology measured it;
+    which hardware security mode was used;
+    whether the measurement was session-bound;
+    whether a secure STS existed;
+    whether Bluetooth Channel Sounding attack detection passed;
+    which side measured;
+    whether enough samples existed;
+    whether the distribution was sane;
+    or whether the actual device pair survived relay testing.
+
+  `TransportKind::InProcess` is currently treated as a proximity transport for
+  CI, so release builds need a hard exclusion before "proximity" becomes a
+  production-security claim.
+
+CURRENT POSITIVE MECHANISMS:
+
+  PASS — mutual signed presence transcript exists.
+
+  PASS — device delegation and ATTEST capability are verified.
+
+  PASS — fresh nonces are signed.
+
+  PASS — expected encrypted-channel binding can be checked.
+
+  PASS — a real active RTT challenge/echo is measured with the measuring
+         device's monotonic clock.
+
+  PASS — software RTT is always enforced before optional UWB tightening.
+
+  PASS — replay state has a durable `FileReplayGuard` implementation.
+
+  PASS — invalid/partial verification does not intentionally consume a valid
+         presence result.
+
+  PASS — the code itself admits software RTT cannot stop a fast relay.
+
+These mechanisms are worth preserving.
+
+They do not close the physical gate.
+
+
+======================================================================
+2. FINAL HARDWARE ARCHITECTURE DECISIONS
+======================================================================
+
+H97-01 — ANDROID IS THE GATE #97 V1 LAUNCH PLATFORM.
+
+Decision:
+  Android is the release-blocking mobile platform for Gate #97 V1.
+
+Reason:
+  current repository has an Android application and no iOS application tree.
+
+Effect:
+  Gate #97 does NOT wait for a hypothetical iOS app.
+
+  iOS parity remains architecturally specified in this report but is not a V1
+  gate until an iOS client becomes a supported release surface.
+
+This is not an Android vendor lock-in:
+  the Rust evidence model is platform-neutral;
+  no Android service decides Mininet truth;
+  other adapters can emit the same evidence type.
+
+H97-02 — PHONE-INTEGRATED BLE/UWB/WI-FI RANGING ONLY.
+
+Scope:
+  BLE discovery/GATT;
+  Bluetooth Channel Sounding where supported;
+  UWB where supported;
+  local Wi-Fi ranging where supported;
+  software RTT fallback.
+
+Out of scope:
+  LoRa;
+  RNode;
+  packet radio;
+  proprietary external radio accessories required for personhood.
+
+The current invariant register explicitly says Radio/LoRa is not part of
+Mininet.
+
+H97-03 — CONNECTIVITY IS NOT PRESENCE.
+
+A successful BLE link proves:
+  devices exchanged bytes over a local bearer.
+
+It does NOT prove:
+  they are within the accepted physical-personhood distance.
+
+A relay may be a perfectly valid network path and simultaneously be INVALID
+presence evidence.
+
+Code must keep those meanings separate.
+
+H97-04 — USER-INITIATED FOREGROUND CEREMONIES ONLY.
+
+Production personhood ranging is initiated by a visible user action.
+
+No:
+  continuous hidden personhood scanning;
+  permanent background UWB;
+  always-on background ranging;
+  location-history harvesting.
+
+Reason:
+  privacy;
+  battery;
+  Android/iOS lifecycle constraints;
+  no need to surveil a person's movements to prove one short encounter.
+
+H97-05 — ANDROID 16 RANGINGMANAGER IS THE PRIMARY V1 ADAPTER.
+
+On API 36+:
+  use Android's unified `android.ranging.RangingManager`.
+
+Capability preference:
+  1. secure UWB;
+  2. secure Bluetooth Channel Sounding;
+  3. secure-capable Wi-Fi NAN RTT / 802.11az profile where peer support exists;
+  4. other hardware ranging as Medium only if this gate certifies it;
+  5. application software RTT fallback.
+
+Why:
+  Android 16 exposes one platform capability surface for:
+    UWB;
+    Bluetooth Channel Sounding;
+    Wi-Fi NAN RTT;
+    Bluetooth RSSI ranging.
+
+The app already compiles/targets SDK 36.
+
+H97-06 — ANDROID 14/15 UWB MAY USE THE JETPACK CORE UWB COMPATIBILITY PATH.
+
+For supported UWB devices below API 36:
+  AndroidX Core UWB may be used.
+
+High assurance requires:
+  provisioned STS;
+  per-session key;
+  secure OOB exchange;
+  exact device profile passes this hardware campaign.
+
+Static STS is NOT accepted for a high-assurance personhood presence profile.
+
+H97-07 — SECURITY_LEVEL_SECURE IS REQUIRED WHERE ANDROID 16 OFFERS IT.
+
+For Android 16 OOB ranging:
+  request `SECURITY_LEVEL_SECURE`.
+
+Source-derived mapping in current Android documentation:
+  UWB -> Provisioned STS
+  Bluetooth Channel Sounding -> security level four.
+
+`SECURITY_LEVEL_BASIC` may be measured for diagnostics.
+
+It may not be labeled `SecureHardware`.
+
+H97-08 — BLE CHANNEL SOUNDING SECURITY LEVEL FOUR IS REQUIRED FOR ITS SECURE
+PROFILE.
+
+Security Level 4 provides the strongest Android-exposed CS security profile and
+includes support for the Normalized Attack Detector Metric requirements.
+
+For Bluetooth Channel Sounding:
+
+  NADM:
+    0x00 extremely unlikely
+    0x01 very unlikely
+    0x02 unlikely
+  MAY be accepted by the policy.
+
+  NADM:
+    0x03 possible
+    0x04 likely
+    0x05 very likely
+    0x06 extremely likely
+  MUST reject the measurement/session for personhood.
+
+  NADM:
+    0xFF unknown
+  MUST NOT qualify as `CertifiedSecure`.
+
+It may be `CertifiedMedium` only if the rest of the hardware campaign supports
+that profile.
+
+H97-09 — UWB MUST USE PROVISIONED STS FOR SECURE CLASSIFICATION.
+
+Android's current UWB guidance distinguishes:
+
+  static STS:
+    replay/relay susceptible;
+
+  provisioned STS:
+    replay/relay mitigated.
+
+Therefore:
+  static STS cannot earn `CertifiedSecure`.
+
+This is necessary but NOT sufficient.
+
+Published UWB research has demonstrated physical-layer distance-reduction
+attacks against commercial IEEE 802.15.4z implementations even without knowing
+cryptographic key material.
+
+So Mininet never equates:
+  "Provisioned STS" == "attack impossible."
+
+H97-10 — NO VENDOR RADIO CLAIM IS SELF-AUTHORIZING.
+
+A technology is promoted to a Mininet assurance class only by:
+
+  exact configuration;
+  exact OS/device capability;
+  exact session binding;
+  real calibration;
+  real distance tests;
+  relay/distance-reduction tests;
+  reproducible evidence.
+
+If a vendor says "secure" but the measurements fail:
+  Mininet records the failure and downgrades the profile.
+
+H97-11 — CURRENT `UwbRanging` IS TOO LOSSY FOR PRODUCTION.
+
+It is superseded for production by:
+
+  `RangingEvidenceV2`.
+
+`UwbRanging` may remain for compatibility/tests until migration is complete.
+
+H97-12 — PRESENCE QUALITY HAS FOUR EXPLICIT CLASSES.
+
+  `WeakSoftware`
+  `CertifiedMedium`
+  `CertifiedSecure`
+  `Unusable`
+
+No bool named only:
+  `hardware_ranged`
+is sufficient for personhood policy.
+
+H97-13 — SOFTWARE RTT IS A WEAK LOCALITY/FRESHNESS CHECK, NOT DISTANCE
+BOUNDING.
+
+Current default:
+  max_rtt_ms = 50.
+
+At speed of light, 50 ms is thousands of kilometers of round-trip propagation
+budget before implementation/network overhead.
+
+Therefore it cannot mean:
+  "the peer is within two meters."
+
+It helps reject:
+  slow relays;
+  stale/self-reported fabricated timing;
+  grossly remote paths.
+
+It does not defeat:
+  fast LAN relay;
+  dedicated wormhole;
+  adversary close to both victims.
+
+H97-14 — RSSI NEVER QUALIFIES AS PHYSICAL DISTANCE SECURITY.
+
+BLE RSSI may be retained as:
+  UX hint;
+  debugging signal;
+  gross vicinity hint.
+
+It may not independently:
+  accept a presence ceremony;
+  increase personhood score;
+  upgrade assurance.
+
+H97-15 — 2.0 METERS IS THE V1 SECURE-PRESENCE DISTANCE THRESHOLD.
+
+The application aims to prove:
+  a deliberate near-person encounter.
+
+V1 acceptance boundary:
+  median secure hardware distance <= 2.00 m.
+
+Additional distribution rule:
+  90th percentile <= 2.50 m.
+
+The threshold is not derived from RSSI.
+
+H97-16 — A PRESENCE CEREMONY USES A DISTRIBUTION, NOT ONE "BEST" DISTANCE.
+
+Minimum high/medium hardware sample count:
+  12 valid ranging measurements.
+
+Minimum observation interval:
+  1.5 seconds.
+
+Maximum ceremony measurement interval:
+  10 seconds before restart.
+
+Hardware decision uses:
+  median;
+  p10;
+  p90;
+  spread;
+  attack/security indicators.
+
+Never accept on:
+  minimum distance sample alone.
+
+Reason:
+  security failures often create spuriously early/short measurements.
+
+H97-17 — SOFTWARE RTT REMAINS ADDITIVE.
+
+Every accepted production presence ceremony still performs the existing active
+encrypted software RTT exchange.
+
+Minimum RTT samples:
+  4.
+
+Current default maximum:
+  50 ms.
+
+A tighter empirically supported Android BLE value may be adopted later.
+
+A hardware distance result does not bypass the RTT/channel checks.
+
+H97-18 — OOB RANGING CONFIGURATION IS EXCHANGED INSIDE THE EXISTING
+AUTHENTICATED MININET CHANNEL.
+
+Android and Apple ranging both require application-level out-of-band exchange.
+
+Mininet already has an authenticated encrypted channel and channel binding.
+
+Use it.
+
+Do NOT create:
+  public pairing server;
+  central matchmaker;
+  account server;
+  vendor database.
+
+H97-19 — SECRET RANGING MATERIAL IS FRESH PER SESSION.
+
+If UWB provisioned STS requires a session key:
+
+  generate the session key with the project-approved OS CSPRNG;
+
+  never hard-code it;
+
+  never derive it from a public identifier;
+
+  never reuse it across ceremonies;
+
+  exchange it only inside the authenticated encrypted Mininet OOB channel;
+
+  zeroize it where practical after ranging completes.
+
+Do NOT invent a new KDF from the Mininet transport secret unless that exporter
+construction is reviewed under the cryptography gate.
+
+Simple safe V1:
+  random session key + encrypted OOB transport.
+
+H97-20 — THE SIGNED PRESENCE TRANSCRIPT BINDS THE RANGING SESSION.
+
+Both devices sign a digest including:
+
+  presence protocol version;
+  network ID;
+  encrypted channel binding;
+  both device DIDs;
+  both KEL digests;
+  both fresh presence nonces;
+  ranging technology;
+  security profile;
+  role mapping;
+  OOB public-configuration digest;
+  opaque session identifier/digest;
+  sample count;
+  robust statistics;
+  accepted assurance class;
+  start/finish monotonic-duration data;
+  software RTT statistics.
+
+Secret session keys are NOT included.
+
+H97-21 — ONE-SIDED PLATFORM MEASUREMENTS ARE EXPLICIT.
+
+Android 16 documentation says:
+  UWB can deliver ranging data to peer devices;
+  other Ranging module technologies may deliver data only to the initiator.
+
+Therefore `RangingEvidenceV2` names:
+
+  observer role;
+  whether measurement is one-sided or bilateral.
+
+One-sided measurement does not masquerade as bilateral.
+
+Both devices still co-sign the final transcript.
+
+H97-22 — FILE 4 PERSONHOOD INTEGRATION IS DEFINED HERE.
+
+The File 4 personhood report gave physical presence a maximum of 20 points.
+
+For that report, "accepted presence endorsement" SHALL mean:
+
+  a Gate #97 profile classified `CertifiedMedium` or `CertifiedSecure`.
+
+`WeakSoftware`:
+  earns zero canonical PersonhoodPolicyV1 presence points.
+
+It may still:
+  support UX;
+  support a provisional local meeting record;
+  be retained as a weak non-personhood signal.
+
+This preserves weakest-device access because File 4 also defines a complete
+non-TEE/non-UWB remote-friendly route through other evidence classes.
+
+No special ranging hardware becomes mandatory for humanity.
+
+H97-23 — PRESENCE REMAINS ADDITIVE PERSONHOOD EVIDENCE.
+
+Even `CertifiedSecure` means only:
+
+  the tested radio/profile supplied strong evidence that the two participating
+  devices were near during that session.
+
+It does NOT prove:
+  each device belongs to exactly one biological human;
+  witness honesty;
+  no secret was shared;
+  global uniqueness.
+
+File 4's mature-human vouch/time/multi-class requirements remain load-bearing.
+
+H97-24 — PRODUCTION BUILDS CANNOT ACCEPT `TransportKind::InProcess`.
+
+`InProcess` is CI-only.
+
+Production `verify_presence` must fail if a wire/object from an untrusted peer
+claims InProcess.
+
+Implementation choices:
+  compile-gate the variant from production wire format; or
+  reject it when `PresencePolicyV2.production == true`.
+
+Preferred:
+  it never has a production wire tag.
+
+H97-25 — PRODUCTION PRESENCE POLICY IS VERSIONED AND CAN BE STRICTER LOCALLY,
+NEVER WEAKER.
+
+Current `RangePolicy` is a caller-supplied struct.
+
+For security-bearing personhood evidence:
+  use canonical `PresencePolicyV2`.
+
+A client may choose:
+  shorter max distance;
+  more samples;
+  stricter NADM.
+
+It may not submit a proof under weaker values and still call it canonical
+personhood presence.
+
+H97-26 — ANDROID RADIO PERMISSIONS ARE MINIMAL AND FEATURE-SCOPED.
+
+For Android 12+ BLE:
+  BLUETOOTH_SCAN;
+  BLUETOOTH_ADVERTISE where peripheral role needed;
+  BLUETOOTH_CONNECT.
+
+For Android 16 unified ranging:
+  android.permission.RANGING.
+
+Do not request fine geographic location on API 31+ solely for BLE discovery if
+Mininet does not derive geographic location from scan results.
+
+`neverForLocation` is appropriate for BLE service discovery only.
+
+The ranging API itself expresses proximity through its dedicated permission.
+
+H97-27 — PERSONHOOD RANGING NEVER REQUIRES BACKGROUND LOCATION.
+
+No `ACCESS_BACKGROUND_LOCATION` for Gate #97 presence.
+
+If a future feature wants background ranging:
+  that is a different privacy review.
+
+H97-28 — FALLBACK MUST FAIL OPEN FOR NETWORK USE, FAIL CLOSED FOR PRESENCE
+QUALITY.
+
+If UWB/CS is unavailable:
+  ordinary Mininet networking continues.
+
+If secure ranging fails:
+  the app may offer:
+    retry;
+    another certified ranging technology;
+    non-presence personhood path.
+
+It may NOT silently relabel software RTT as secure hardware evidence.
+
+H97-29 — BLUETOOTH MESH RELAY AND PRESENCE ARE SEPARATE STATE MACHINES.
+
+PR #333's multi-hop BLE work may become a useful connectivity substrate.
+
+Presence ranging MUST be direct with the selected peer/profile.
+
+A multi-hop route:
+  may carry OOB/setup messages if the protocol explicitly binds the intended
+  endpoint and the ranging framework still ranges the physical endpoint;
+
+  may NOT count hop proximity as endpoint proximity.
+
+H97-30 — NO CENTRAL DISCOVERY OR ALLOWLIST IS INTRODUCED TO MAKE TESTS PASS.
+
+Nearby discovery:
+  local BLE / local mechanisms.
+
+Peer authenticity:
+  Mininet channel + did:mini/KEL.
+
+No:
+  Mininet account login;
+  server-issued pairing token;
+  vendor allowlist of humans;
+  hosted proximity oracle.
+
+H97-31 — NO CONTINUOUS DEVICE IDENTIFIER ENTERS CANONICAL PERSONHOOD STATE.
+
+Do not publish:
+  MAC address;
+  Android advertising ID;
+  UWB hardware address;
+  Bluetooth controller address;
+  phone serial;
+  IMEI;
+  Wi-Fi BSSID;
+  exact model fingerprint tied to personhood;
+  exact physical coordinates.
+
+H97-32 — GATE #97 CLOSES ON EVIDENCE, NOT ON A PROMISE.
+
+Required:
+  merged exact implementation;
+  reproducible Android build;
+  real device matrix;
+  calibration;
+  near/far tests;
+  obstacles/body;
+  interference;
+  lifecycle;
+  permission denial;
+  radio disable/re-enable;
+  process restart;
+  relay/wormhole;
+  attack-classification;
+  privacy log review;
+  battery/performance;
+  independent human reviewer signature.
+
+H97-33 — A BAD HARDWARE RESULT IS DATA, NOT A REASON TO MOVE THE GOALPOST.
+
+If a profile fails secure classification:
+  downgrade it.
+
+If no profile reaches CertifiedMedium:
+  Gate #97 remains FAIL.
+
+Do not:
+  loosen the threshold after seeing failures;
+  relabel RSSI as ranging;
+  omit attack runs;
+  average away attack successes;
+  use vendor marketing as substitute evidence.
+
+H97-34 — ONE CERTIFIED ANDROID PATH IS REQUIRED TO CLOSE V1.
+
+At least one broadly obtainable Android hardware/profile combination must
+reach:
+  CertifiedMedium or CertifiedSecure.
+
+At least two independently manufactured Android device families must pass the
+core interoperability/field protocol.
+
+A gate that only works on one lab handset is not ready for real people.
+
+H97-35 — IOS PARITY IS SPECIFIED BUT NON-BLOCKING FOR V1.
+
+Future iOS adapter:
+  Nearby Interaction;
+  session-specific discovery token;
+  token exchange over authenticated Mininet local channel;
+  explicit capability check;
+  foreground user ceremony;
+  same `RangingEvidenceV2` semantics;
+  same privacy and attack classification.
+
+When an iOS app becomes a supported release target:
+  its hardware validation becomes a platform release gate.
+
+No iOS server is needed.
+
+H97-36 — HARDWARE PROFILE REGISTRY IS CODE, NOT AN ONLINE AUTHORITY.
+
+Certified technology/security profiles are versioned constants/rules in the
+open protocol release.
+
+No runtime call asks:
+  "is this phone trusted?"
+
+A new model may demonstrate conformance generically.
+
+Model-specific denylisting is permitted only for documented broken hardware and
+must be shipped as ordinary open protocol/release data, not as a central live
+kill switch.
+
+H97-37 — DEVICE MODEL IS DIAGNOSTIC, NOT HUMAN PRIVILEGE.
+
+A phone model can affect:
+  which ranging profile is available.
+
+It cannot affect:
+  vote weight;
+  personhood age;
+  vouch quota;
+  human-share amount.
+
+H97-38 — PHYSICAL ATTACK RESIDUALS ARE PUBLISHED.
+
+UWB and Bluetooth Channel Sounding are not declared perfect.
+
+Current published research demonstrates that implementations of supposedly
+secure ranging can have physical-layer reduction attacks.
+
+Mininet's public statement must name:
+  tested attacks;
+  untested attacks;
+  observed false accepts;
+  exact assurance classification.
+
+H97-39 — THE 2-PHONE NO-INTERNET KEYSTONE IS A REQUIRED COMPANION FIELD TEST.
+
+The founding technical plan defines the visible minimum artifact as:
+  two cheap phones;
+  no internet;
+  Bluetooth;
+  encrypted Mininet link;
+  verified identity;
+  proximity ceremony.
+
+Gate #97's Android campaign must demonstrate that path.
+
+Connectivity success is recorded separately from proximity-security result.
+
+H97-40 — HARDWARE VALIDATION DOES NOT CREATE A PERMANENT TESTER AUTHORITY.
+
+The independent reviewer certifies:
+  one release candidate / device campaign.
+
+The reviewer does not:
+  approve future humans;
+  approve each presence session;
+  control a key;
+  run an oracle;
+  own a server;
+  veto forks.
+
+Runtime verification remains local/deterministic.
+
+
+======================================================================
+3. SOURCE-DERIVED CURRENT STATE — REPOSITORY
+======================================================================
+
+This section reports what the reviewed source actually says.
+
+It is not a proposed architecture section.
+
+3.1 Current main revision
+
+Reviewed:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+Latest main commit at the review time merged PR #332.
+
+3.2 Issue #97 is OPEN
+
+Title:
+  "[Phase 3.1a] Presence/ranging adapters (BLE/UWB) — personhood evidence"
+
+Issue scope states:
+  BLE discovery + ranging;
+  UWB where supported;
+  software RTT fallback;
+  anti-replay transcript binding.
+
+It explicitly distinguishes:
+  communication
+from:
+  physical-nearness evidence.
+
+That separation is correct.
+
+3.3 Existing gate document
+
+`docs/gates/hardware-test-protocol.md` already requires:
+  real devices;
+  distance tests;
+  threshold enforcement;
+  relay drill;
+  no-UWB fallback;
+  battery/performance reporting.
+
+It explicitly says a sandbox cannot close the gate.
+
+That rule is retained.
+
+3.4 Current `RangingSource`
+
+`crates/mini-presence/src/ranging.rs`:
+
+  pub trait RangingSource {
+      fn range(&mut self)
+          -> Result<Option<UwbRanging>, RangingError>;
+  }
+
+Only:
+  NoUwb
+
+ships as a real implementation in main.
+
+The file explicitly says no platform hardware implementation ships.
+
+Gate status:
+  FAIL.
+
+3.5 Current active software RTT
+
+`crates/mini-presence/src/active_range.rs`:
+
+  generates a random 32-byte challenge;
+  seals it under the already-established channel;
+  starts `Instant`;
+  sends challenge;
+  peer decrypts and echoes;
+  peer seals response under separate AAD;
+  initiator checks echoed value;
+  initiator returns elapsed milliseconds.
+
+This is materially better than a caller supplying an arbitrary timing number.
+
+Its own source explicitly says:
+  not formal cryptographic distance bounding;
+  not hardware ranging;
+  fast relays remain possible.
+
+Verdict:
+  PASS as active RTT measurement.
+  FAIL as proof of physical distance.
+
+3.6 Current verifier
+
+`verify_presence` requires:
+
+  supported version;
+  proximity transport;
+  expected channel binding when supplied;
+  bounded session time;
+  freshness checks when verifier time supplied;
+  minimum number of software RTT samples;
+  minimum software RTT <= policy threshold;
+  optional UWB threshold if both threshold and UWB field exist;
+  distinct nonces;
+  valid device/KEL/delegation/ATTEST;
+  valid device signatures;
+  distinct roots;
+  replay guard freshness;
+  replay persistence write success.
+
+This is a strong envelope.
+
+Critical limitation:
+  UWB is optional.
+
+If:
+  policy.max_uwb_distance_cm = Some(X)
+and:
+  attestation.uwb = None
+
+the current code does not reject merely because hardware ranging is absent.
+
+That is fine for weak fallback.
+
+It is not sufficient for a hardware-certified personhood class.
+
+3.7 Current UWB evidence type
+
+`UwbRanging`:
+  distance_cm: u32
+  sample_count: u32
+
+Source comment:
+  sample_count is not independently checked today.
+
+Missing production security context:
+  technology ID;
+  security mode;
+  session binding;
+  which side measured;
+  sample distribution;
+  attack detector;
+  uncertainty/quality;
+  platform capability;
+  per-session setup digest.
+
+Verdict:
+  FAIL production security semantics.
+
+3.8 Current durable replay guard
+
+`FileReplayGuard`:
+  process locking;
+  durable append;
+  checksum;
+  fsync;
+  parent sync;
+  corruption fail-close;
+  size cap;
+  retained time floor.
+
+It explicitly admits whole-state rollback still needs external retained
+checkpointing.
+
+Verdict:
+  PASS for the hardware campaign's normal restart/replay requirement.
+  PARTIAL against hostile whole-filesystem rollback.
+
+3.9 Current invariant PH1
+
+Current `docs/INVARIANTS.md` says:
+
+  PH1 — co-presence is range-bound and mutually signed; relay can't fake it.
+
+Enforcement is marked:
+  partial.
+
+Reason named there:
+  tighter BLE/UWB ranging remains pending.
+
+The issue-17 audit further clarifies that the "relay can't fake it" portion is
+aspirational at software-RTT strength.
+
+Verdict:
+  FAIL/partial invariant satisfaction today.
+
+3.10 Current Android app on main
+
+Current Android source directory contains:
+  AndroidKeystoreCipher.kt
+  MainActivity.kt
+  QrCodec.kt
+
+It does not contain:
+  BLE GATT radio implementation;
+  Android RangingManager adapter;
+  Android UWB adapter.
+
+Current manifest contains:
+  INTERNET
+
+but no:
+  BLUETOOTH_SCAN
+  BLUETOOTH_ADVERTISE
+  BLUETOOTH_CONNECT
+  RANGING
+
+Therefore main cannot perform Gate #97's intended hardware flow.
+
+3.11 Current Rust BLE path is farther along than the Android shell
+
+Current main includes:
+  `mini-bearer::AndroidBleBearer`
+  `mini-ffi::BleRadio`
+  `mini-ffi::BleBearerHandle`
+
+The Rust and FFI protocol layers have mock/in-process tests.
+
+They do not touch a real Android radio.
+
+This is useful engineering progress.
+
+It is not hardware evidence.
+
+3.12 Current BETA_STATUS
+
+The beta target is explicitly:
+  two phones;
+  encrypted Mininet link;
+  no internet;
+  verified identities;
+  range-bound co-presence;
+  local reward accrual.
+
+The status document says:
+  real Kotlin GATT;
+  app wiring;
+  real two-device test
+are the remaining bearer path gaps on current main.
+
+3.13 PR #333
+
+PR #333 is open, not part of reviewed main.
+
+It adds:
+  Android BLE GATT central/peripheral code;
+  a BLE mesh service;
+  generic multi-hop mesh relay;
+  Android Bluetooth permissions.
+
+Its own PR description states:
+  no real phone/BLE radio test has been run;
+  the mesh service is not wired into the UI;
+  the PR is AI-drafted and has not received human line-by-line review.
+
+Its algorithmic tests over in-process and loopback TCP are valuable.
+
+They do NOT prove:
+  BLE radio behavior;
+  UWB;
+  Channel Sounding;
+  proximity;
+  personhood.
+
+The current PR head examined:
+  03d61f32d410fafefa878d93e07e9fb2be99280f
+
+Its reported check runs include successful CI jobs, but CI does not replace
+physical validation.
+
+3.14 Documentation drift
+
+Some older Rust comments say the UniFFI BLE callback boundary does not exist,
+while current main does contain `mini-ffi::ble`.
+
+The actual remaining main-tree gap is the platform Kotlin radio implementation
+and real device integration.
+
+Engineering should truth-sync these comments when the platform implementation
+lands.
+
+
+======================================================================
+4. SOURCE-DERIVED FOUNDING REQUIREMENTS
+======================================================================
+
+The following are requirements from the supplied Mininet specifications and
+project documents, not new outside inventions.
+
+4.1 Personhood specification
+
+SPEC-02 describes physical presence as:
+  the strongest of the original three signals.
+
+It requires:
+  BLE discovery;
+  a distance measurement;
+  RTT/UWB where available;
+  resistance to relay/wormhole;
+  plain RSSI only as a weak hint.
+
+4.2 Keystone sprint
+
+The Phase 0/1 sprint defines the smallest visible proof as:
+
+  two cheap phones;
+  encrypted BLE link;
+  no internet;
+  verifiable identity;
+  range-bound mutual presence;
+  local score/reward progression.
+
+Its acceptance language expects:
+  a co-located attempt succeeds;
+  a relayed/distant attempt is rejected.
+
+Current code has not demonstrated this on real phones.
+
+4.3 Connectivity invariant
+
+SPEC-03 makes:
+  bearer swappability;
+  local-first operation;
+  no central addressing authority;
+  content-blind transport
+core goals.
+
+Hardware presence must therefore NOT introduce:
+  central discovery;
+  public identity server;
+  operator allowlist.
+
+4.4 Current no-radio invariant
+
+The present invariant register states:
+  N1 — Radio/LoRa is not part of Mininet.
+
+This package respects that decision.
+
+It uses only normal phone-integrated proximity/networking capabilities.
+
+
+======================================================================
+5. EXTERNAL HARDWARE / SECURITY RESEARCH — WHAT IT CHANGES
+======================================================================
+
+This section is outside research used to select the production approach.
+
+5.1 Android 16 unified Ranging module
+
+Current Android documentation states that Android 16 adds a unified Ranging
+module supporting:
+
+  UWB;
+  Bluetooth Channel Sounding;
+  Wi-Fi NAN RTT;
+  Bluetooth RSSI ranging.
+
+It exposes:
+  capabilities;
+  availability;
+  initiator/responder roles;
+  ranging preferences;
+  RANGING permission.
+
+It requires an out-of-band peer/configuration exchange before ranging.
+
+Mininet consequence:
+  do not build four unrelated Android security stacks where the platform now
+  provides one capability surface.
+
+Use RangingManager as the primary API36 adapter.
+
+5.2 Android security levels
+
+Android 16 OOB ranging exposes:
+  SECURITY_LEVEL_BASIC
+  SECURITY_LEVEL_SECURE.
+
+Android's documented secure examples map:
+  UWB -> Provisioned STS;
+  BLE Channel Sounding -> Security Level 4.
+
+Mininet consequence:
+  secure class requires SECURE, not BASIC.
+
+5.3 Android UWB provisioned STS
+
+Android's UWB guidance says:
+  UWB peers exchange parameters through a secure OOB mechanism;
+  parameters include a session key;
+  provisioned STS is more secure than static STS;
+  static STS is susceptible to replay/relay;
+  provisioned STS mitigates that threat category.
+
+Mininet consequence:
+  OOB material rides the existing Mininet authenticated encrypted channel.
+
+  Provisioned STS is mandatory for the secure UWB profile.
+
+5.4 Android UWB calibration baseline
+
+Android Open Source Project presence calibration currently requires at 1 m
+line-of-sight:
+
+  1000 measurements;
+
+  95% accuracy expectation around +/-15 cm;
+
+  test implementation:
+    97.5th percentile - 2.5th percentile <30 cm;
+    median in [0.75 m, 1.25 m].
+
+Mininet adopts that test unchanged as a minimum UWB calibration floor.
+
+A device pair that cannot meet the platform's own calibration expectation
+cannot be Mininet CertifiedSecure.
+
+5.5 Bluetooth Channel Sounding
+
+Bluetooth SIG documentation describes Channel Sounding as combining:
+
+  phase-based ranging for fine distance;
+  secure RTT distance bounding;
+  attack-detection features.
+
+Bluetooth 6 defines a Normalized Attack Detector Metric (NADM).
+
+Android exposes Channel Sounding Security Level 4 with:
+  10 ns CS RTT accuracy;
+  CS tones;
+  sounding/random sequence payloads;
+  NADM requirements.
+
+Mininet consequence:
+  use strongest profile;
+  consume attack indicator;
+  never ignore "possible/likely" attack status.
+
+5.6 RSSI
+
+Bluetooth and Mininet's own specification both treat RSSI as weaker than real
+ranging.
+
+RSSI changes with:
+  body position;
+  antenna orientation;
+  walls;
+  multipath;
+  transmit power;
+  adversarial amplification.
+
+Mininet consequence:
+  zero canonical personhood distance authority.
+
+5.7 UWB is not automatically secure because the acronym says UWB
+
+USENIX Security 2022 "Ghost Peak" demonstrated practical over-the-air distance
+reduction against commercial 802.15.4z HRP UWB, including Apple U1 and
+interoperability with NXP/Qorvo chips.
+
+Published result:
+  actual 12 m could be spoofed to 0 m;
+  attack success up to 4%;
+  no cryptographic material knowledge;
+  inexpensive off-the-shelf attack hardware.
+
+USENIX Security 2023 "Time for Change" demonstrated clock-based attacks on
+commercial UWB and distance reductions from 10 m to 0 m.
+
+Mininet consequence:
+  never use a single UWB distance sample;
+  do not equate STS with infallibility;
+  test the actual deployment;
+  preserve an explicit residual.
+
+5.8 Secure UWB can be hardened
+
+IEEE S&P 2024 work on secure ranging with 802.15.4z STS shows that STS can
+enable secure ranging with an adequate receiver design.
+
+USENIX Security 2024 PURE shows that a carefully composed UWB protocol can
+achieve sub-meter relay protection against known physical-layer attacks on
+modern smartphones with small overhead.
+
+Mininet consequence:
+  the radio primitive is not hopeless.
+
+  Security is a property of:
+    waveform/security mode;
+    receiver;
+    protocol;
+    application binding;
+    implementation;
+    empirical validation.
+
+5.9 Apple Nearby Interaction
+
+Apple documents Nearby Interaction as:
+  UWB-based distance/direction on supported devices;
+  session-specific temporary discovery tokens;
+  application-chosen peer discovery/data transport;
+  foreground ranging;
+  limited background behavior.
+
+Mininet consequence:
+  future iOS adapter can exchange the temporary discovery token over a Mininet
+  authenticated local bearer and remain server-independent.
+
+5.10 Android permissions / privacy
+
+Current Android guidance for target Android 12+ uses:
+  BLUETOOTH_SCAN;
+  BLUETOOTH_ADVERTISE;
+  BLUETOOTH_CONNECT.
+
+If scan results are not used to derive geographic location, Android permits
+the application to assert `neverForLocation`.
+
+Android 16 unified ranging uses:
+  RANGING.
+
+Mininet consequence:
+  ask only for the radio permissions the user deliberately invokes.
+
+  Do not turn presence into geographic surveillance.
+
+5.11 Android background limitations strengthen the foreground decision
+
+Android says non-UWB ranging technologies cannot generally be used by
+third-party apps for background ranging, and the OS may restrict ranging for:
+  battery;
+  performance;
+  memory;
+  concurrency.
+
+Mininet does not need background personhood ranging.
+
+Foreground ceremonies are:
+  more predictable;
+  more privacy-preserving;
+  easier to test;
+  less battery-hungry.
+
+
+======================================================================
+6. RANGING EVIDENCE V2 — REQUIRED DATA MODEL
+======================================================================
+
+Replace the production meaning of `UwbRanging` with a versioned structure.
+
+Suggested Rust shape:
+
+  enum RangingTechnologyV2 {
+      Uwb,
+      BluetoothChannelSounding,
+      WifiNanRtt,
+      SoftwareActiveRtt,
+      BleRssiHint,
+  }
+
+  enum RangingSecurityProfileV2 {
+      UwbProvisionedSts,
+      UwbStaticSts,
+      BleCsLevel4,
+      BleCsLower,
+      Wifi80211azSecured,
+      PlatformUnspecified,
+      SoftwareOnly,
+  }
+
+  enum MeasurementSidedness {
+      InitiatorOnly,
+      Bilateral,
+  }
+
+  enum AttackIndicatorV2 {
+      NotAvailable,
+      ExtremelyUnlikely,
+      VeryUnlikely,
+      Unlikely,
+      Possible,
+      Likely,
+      VeryLikely,
+      ExtremelyLikely,
+      Unknown,
+  }
+
+  enum PresenceAssuranceV2 {
+      WeakSoftware,
+      CertifiedMedium,
+      CertifiedSecure,
+      Unusable,
+  }
+
+  struct RangingEvidenceV2 {
+      version: u8,
+      technology: RangingTechnologyV2,
+      security_profile: RangingSecurityProfileV2,
+      observer_role: RangingRole,
+      sidedness: MeasurementSidedness,
+      oob_config_digest: [u8; 32],
+      session_binding_digest: [u8; 32],
+      sample_count: u16,
+      duration_ms: u32,
+      median_distance_mm: u32,
+      p10_distance_mm: u32,
+      p90_distance_mm: u32,
+      min_distance_mm: u32,
+      max_distance_mm: u32,
+      attack_indicator: AttackIndicatorV2,
+      platform_quality_flags: u32,
+      certified_assurance: PresenceAssuranceV2,
+  }
+
+Wire values:
+  fixed-width where practical;
+  versioned;
+  bounded;
+  canonical;
+  unknown mandatory enum value -> reject.
+
+Do not serialize:
+  session secret;
+  permanent radio address;
+  raw scan list;
+  GPS;
+  IMEI;
+  platform account ID.
+
+6.1 Why median and tails
+
+Distance-reduction attacks target unusually short observations.
+
+Using:
+  `min(distance)`
+would select the attacker's favorite outlier.
+
+Use:
+  median as the primary threshold;
+  p10/p90/spread as consistency checks.
+
+6.2 Why the technology is explicit
+
+A value of:
+  120 cm
+
+means radically different things if it came from:
+  RSSI inference;
+  application RTT;
+  Wi-Fi RTT;
+  P-STS UWB;
+  Bluetooth CS Level 4.
+
+The signed object must preserve that fact.
+
+6.3 Why session binding is explicit
+
+An attacker must not be able to:
+  take a good range measurement from ceremony X;
+  attach it to identities/nonces from ceremony Y.
+
+The evidence needs a digest of the OOB/ranging session that is itself bound to
+the same Mininet presence channel.
+
+6.4 Why `certified_assurance` cannot be a free caller field
+
+It is DERIVED by canonical policy.
+
+The caller may supply raw technology/security/measurement fields.
+
+Verifier computes the assurance class.
+
+A malicious client does not get to send:
+  `CertifiedSecure = true`.
+
+6.5 Current v1 migration
+
+During development:
+  accept v1 only as WeakSoftware/test compatibility.
+
+For personhood:
+  V1 `UwbRanging` never upgrades itself to CertifiedMedium/Secure.
+
+A deliberate migration transaction/object version is required.
+
+
+======================================================================
+7. CANONICAL PRESENCE POLICY V2
+======================================================================
+
+PresencePolicyV2 is the security-bearing policy for a personhood-eligible
+presence event.
+
+V2 launch constants:
+
+  MAX_SECURE_DISTANCE_MM            = 2_000
+  MAX_P90_DISTANCE_MM               = 2_500
+  MIN_HARDWARE_SAMPLES              = 12
+  MIN_HARDWARE_WINDOW_MS            = 1_500
+  MAX_HARDWARE_WINDOW_MS            = 10_000
+
+  MIN_SOFTWARE_RTT_SAMPLES          = 4
+  MAX_SOFTWARE_RTT_MS               = 50
+
+  MAX_SESSION_MS                    = 30_000
+  MAX_CLOCK_SKEW_MS                 = 120_000
+  MAX_ATTESTATION_AGE_MS            = 86_400_000
+
+  SECURE_NADM_MAX                   = "unlikely" / 0x02
+
+  REQUIRED_MUTUAL_SIGNATURES        = 2
+  REQUIRED_DISTINCT_ROOTS           = 2
+
+The personhood protocol may require stricter freshness than one day when
+submitting an endorsement.
+
+The local presence verifier may be stricter.
+
+It may not be weaker and still produce a V2 personhood-eligible verdict.
+
+7.1 Secure candidate
+
+A session is a `SecureCandidate` only if ALL hold:
+
+  technology is one of the approved secure-capable profiles;
+
+  platform reports the expected security configuration;
+
+  exact platform/device profile is covered by a current Gate #97 hardware
+  evidence report;
+
+  OOB setup is channel-bound;
+
+  secret session material is fresh;
+
+  minimum sample count/time satisfied;
+
+  median <=2.00 m;
+
+  p90 <=2.50 m;
+
+  no attack indicator exceeds allowed value;
+
+  software RTT passes;
+
+  mutual signatures/delegation/replay checks pass.
+
+Then the certified-profile registry determines:
+  CertifiedSecure
+or:
+  CertifiedMedium.
+
+7.2 CertifiedSecure
+
+Requires the profile's HARDWARE CAMPAIGN to pass:
+
+  calibration;
+  honest near/far separation;
+  obstruction/body tests;
+  interference;
+  lifecycle;
+  replay;
+  accessible relay;
+  physical-layer attack campaign appropriate to the technology;
+  privacy;
+  battery/performance.
+
+For the defined severe relay/distance-reduction campaign:
+  >=3,000 attack attempts for each security technology family used as Secure
+  in the launch profile;
+
+  actual endpoint separation >=10 m;
+
+  claimed/accepted threshold <=2 m;
+
+  ZERO accepted `CertifiedSecure` presence verdicts.
+
+Why 3,000:
+  with zero observed successes, the simple rule-of-three 95% upper confidence
+  bound is approximately 0.1%.
+
+This is not a theorem of zero future attacks.
+
+It is an empirical release floor.
+
+7.3 CertifiedMedium
+
+A profile may be CertifiedMedium if:
+
+  real hardware ranging exists;
+  secure OOB/session binding exists;
+  sample distribution is validated;
+  honest distance classification passes;
+  lifecycle/privacy tests pass;
+  accessible relay attacks pass;
+  but:
+    the strongest physical-layer attack campaign is unavailable, incomplete,
+    or has a nonzero result below the explicit Medium ceiling.
+
+Medium severe-attack observed false-accept ceiling:
+  <=1.0% over >=1,000 adversarial attempts.
+
+Any known deterministic/easy attack that crosses the 2 m boundary:
+  profile is not Medium.
+
+7.4 WeakSoftware
+
+Includes:
+  application RTT only;
+  RSSI-only ranging;
+  uncertified hardware number;
+  static-STS UWB;
+  BLE CS lower security profile without separate certification;
+  unknown security profile;
+  missing session binding;
+  insufficient samples.
+
+WeakSoftware:
+  can produce a local meeting record;
+  cannot contribute canonical physical-presence points to File 4 V1.
+
+7.5 Unusable
+
+Any profile with:
+  repeated crashes;
+  dangerous permission behavior;
+  unacceptable false near/far classification;
+  unstable session state;
+  non-deterministic security profile reporting;
+  easy relay acceptance;
+  privacy violation;
+  resource exhaustion;
+  broken OOB binding
+is Unusable for personhood.
+
+Networking may still use the bearer independently.
+
+
+======================================================================
+8. ANDROID IMPLEMENTATION PROFILE
+======================================================================
+
+8.1 Android 16+ primary path
+
+Add platform component:
+
+  `AndroidRangingSourceV2`
+
+Responsibilities:
+
+  query `RangingManager`;
+  capture capability snapshot;
+  select highest approved mutually supported technology;
+  build secure OOB config;
+  exchange config through Mininet encrypted channel;
+  start initiator/responder session;
+  collect bounded measurements;
+  collect security/attack indicators where exposed;
+  compute raw observation summary;
+  return platform-neutral `RangingObservationV2`.
+
+It MUST NOT decide:
+  personhood score;
+  vote eligibility;
+  human-share eligibility.
+
+Rust/canonical policy derives final assurance.
+
+8.2 Technology selection order
+
+Default preference:
+
+  1. UWB with provisioned STS / Android secure profile;
+  2. Bluetooth Channel Sounding security level four;
+  3. secure-capable Wi-Fi NAN RTT/802.11az profile;
+  4. certified Medium hardware profile;
+  5. software active RTT fallback.
+
+Reason for UWB first:
+  mature installed hardware and direct distance measurement.
+
+Reason Bluetooth CS is still first-class:
+  it can provide precision and secure RTT without an additional UWB radio on
+  new hardware.
+
+This order is not a political/vendor priority.
+It is an assurance/capability preference.
+
+The device pair must agree on the selected technology.
+
+8.3 Capability negotiation
+
+Each side sends, over the Mininet encrypted OOB channel:
+
+  protocol version;
+  supported ranging technology IDs;
+  supported security profile IDs;
+  role capabilities;
+  maximum sample rate/measurement count if exposed;
+  random session nonce;
+  platform adapter version.
+
+Negotiation selects:
+  strongest intersection.
+
+Downgrade resistance:
+  both sides sign/bind the offered capability lists and selected profile in the
+  final presence transcript.
+
+An active attacker must not be able to strip:
+  Secure UWB
+and force:
+  RSSI
+without that downgrade becoming visible.
+
+8.4 Ranging secret
+
+For provisioned STS or other explicit session secret:
+
+  generate independently with CSPRNG;
+
+  exchange only after authenticated Mininet channel establishment;
+
+  include only a hash/context commitment in the transcript;
+
+  destroy local byte array as soon as platform session no longer needs it.
+
+If platform API copies the secret internally:
+  document that lifecycle limitation.
+
+8.5 Role selection
+
+Deterministic V1 role rule:
+
+  compare BLAKE3 hashes of:
+    ("mininet/presence/ranging-role/v2",
+     channel_binding,
+     initiator_presence_nonce,
+     responder_presence_nonce,
+     each device DID canonical bytes).
+
+Lower derived value:
+  ranging initiator.
+
+Other:
+  responder.
+
+Purpose:
+  both sides can agree without central assignment.
+
+Do not use:
+  phone brand;
+  wealth;
+  founder status;
+  IP address.
+
+If a platform requires one side to be controller for capability reasons:
+  role override is allowed only when both sides bind the override reason and
+  selected roles in transcript.
+
+8.6 Android permission flow
+
+The app presents a dedicated:
+  "Verify nearby presence"
+
+action.
+
+Before requesting permission:
+  explain that Mininet is measuring relative distance to this selected peer,
+  not collecting GPS history.
+
+Request only:
+  BLE Nearby Devices permissions needed for local bearer;
+  RANGING on API36+;
+  legacy UWB permission for the AndroidX path when platform requires it.
+
+Do not ask for background location.
+
+For Android <=30 BLE scan:
+  operating-system legacy requirements may need location permission.
+
+The UI must state:
+  the OS requires it for Bluetooth scanning on that version;
+  Mininet does not store GPS location from the permission.
+
+A user who declines:
+  keeps ordinary non-presence functions.
+
+8.7 Foreground state
+
+Start ranging only while:
+  presence ceremony screen is foreground;
+  both users have explicitly started/accepted.
+
+On background:
+  stop/cancel session;
+  mark incomplete;
+  do not emit accepted evidence.
+
+On return:
+  restart with fresh session material/nonces.
+
+8.8 Process death
+
+If process is killed mid-ceremony:
+  old ceremony cannot resume as accepted.
+
+New process:
+  new session ID;
+  new ranging secret;
+  new active range challenge;
+  new final signed transcript.
+
+No half-finished measurement is cached as valid.
+
+8.9 Radio toggle
+
+If Bluetooth/UWB/ranging becomes unavailable:
+  session fails visibly;
+  resources close;
+  no presence evidence emitted.
+
+After user re-enables:
+  new session starts fresh.
+
+8.10 Timeout
+
+Every:
+  discovery;
+  GATT connect;
+  OOB exchange;
+  ranging start;
+  measurement window;
+  signing step
+
+has a bounded timeout.
+
+No Binder callback thread blocks indefinitely.
+
+No queue grows without bound.
+
+8.11 Concurrency
+
+One personhood ceremony per local personhood identity at a time.
+
+Ordinary BLE mesh/network traffic may coexist only if:
+  it cannot starve;
+  reorder;
+  or mix the ceremony's OOB/ranging context.
+
+Prefer:
+  dedicated logical channel/context.
+
+8.12 Hardware availability
+
+No UWB:
+  try secure Bluetooth CS if present.
+
+No CS:
+  try certified Wi-Fi ranging if present.
+
+No certified hardware:
+  fallback WeakSoftware.
+
+Do not fail the Mininet app.
+
+Do not falsely upgrade the result.
+
+
+======================================================================
+9. ANDROID 14–15 UWB COMPATIBILITY PROFILE
+======================================================================
+
+9.1 API path
+
+Use AndroidX Core UWB if:
+  device supports it;
+  exact library version is pinned;
+  provisioned STS is supported;
+  hardware campaign includes that OS/device family.
+
+9.2 Security
+
+Require:
+  provisioned STS unicast profile.
+
+Reject secure classification for:
+  static STS.
+
+9.3 OOB
+
+Exchange:
+  UWB address;
+  channel/session config;
+  provisioned session key;
+  session parameters
+
+only over authenticated Mininet local channel.
+
+Do not:
+  use QR/public server to transmit session secret;
+  log key;
+  reuse key.
+
+9.4 Compatibility
+
+The adapter emits the same:
+  `RangingObservationV2`
+
+as API36.
+
+Rust policy does not care which Android SDK surface produced it.
+
+9.5 Deprecation path
+
+When API36+ coverage dominates:
+  compatibility code may remain for supported older devices.
+
+No forced upgrade:
+  users on older devices can still use non-presence personhood paths.
+
+
+======================================================================
+10. BLUETOOTH GATT / LOCAL BEARER PROFILE
+======================================================================
+
+This section validates the direct BLE path the presence ceremony depends on.
+
+10.1 Existing Rust layering
+
+Preserve:
+
+  `BleRadio`
+    chunk I/O abstraction.
+
+  `AndroidBleBearer`
+    chunking/reassembly -> `Bearer`.
+
+  `mini-ffi::BleRadio`
+    platform callback boundary.
+
+Kotlin owns:
+  Bluetooth APIs.
+
+Rust owns:
+  framing/protocol state.
+
+That separation is good.
+
+10.2 Direct GATT service
+
+The production Android adapter exposes one Mininet service UUID and bounded
+characteristics for:
+  inbound chunks;
+  outbound notifications/writes;
+  control/MTU/session state as needed.
+
+No personally identifying name in:
+  advertising payload.
+
+Do not advertise:
+  DID;
+  profile name;
+  human status;
+  wallet address.
+
+10.3 GATT authentication semantics
+
+The BLE GATT link itself is not the identity authority.
+
+Peer identity is established by:
+  Mininet encrypted channel handshake;
+  did:mini/KEL verification where the ceremony requires identity.
+
+Android BLE pairing/bonding is optional transport hardening.
+
+It is not the Mininet trust root.
+
+10.4 MTU
+
+Test negotiated MTUs across the device matrix.
+
+Never assume:
+  517;
+  or one vendor's default.
+
+Chunk protocol:
+  must operate at the minimum supported tested MTU above protocol header floor.
+
+Invalid/tiny MTU:
+  fail safely.
+
+10.5 Queue bounds
+
+All Android inbound/outbound queues:
+  bounded.
+
+On overflow:
+  drop/fail explicitly;
+  never unbounded memory growth;
+  never block a system Bluetooth callback forever.
+
+Record:
+  overflow counter;
+  no packet content.
+
+10.6 Disconnection
+
+On GATT disconnect:
+  wake blocked readers;
+  fail pending writes;
+  close ranging ceremony;
+  clear secret session material;
+  do not emit presence.
+
+10.7 Write acknowledgement
+
+Every write/notification mode used by the app must have explicit:
+  completion;
+  timeout;
+  failure propagation.
+
+No "fire-and-forget assumed delivered" for ceremony-critical OOB frames.
+
+10.8 Reconnect
+
+Reconnect begins:
+  new Mininet channel;
+  new presence nonces;
+  new ranging session.
+
+Do not splice old transcript state into new connection.
+
+10.9 Discovery
+
+Nearby discovery is local.
+
+No central discovery service.
+
+Scanning is bounded to user-initiated windows for presence.
+
+If mesh discovery runs separately:
+  personhood ceremony selects one explicit peer and stops using ambient results
+  as security evidence.
+
+10.10 No BLE address identity
+
+BLE address may rotate.
+
+That is expected.
+
+No persistent personhood linkage relies on:
+  MAC;
+  Android BluetoothDevice address.
+
+10.11 Airplane mode acceptance
+
+Required keystone mode:
+  airplane mode ON;
+  Bluetooth manually enabled if platform allows;
+  mobile data OFF;
+  Wi-Fi OFF for the strict BLE lane;
+  no external network path.
+
+Two phones must:
+  discover;
+  connect;
+  establish encrypted channel;
+  exchange/verify intended identity material;
+  execute active RTT;
+  execute supported ranging profile;
+  mutually sign presence.
+
+10.12 Internet isolation proof
+
+During strict BLE lane:
+  block internet at test network/firewall level in addition to UI toggles where
+  practical.
+
+Capture:
+  no outbound Mininet server dependency.
+
+The test must not accidentally succeed over:
+  LAN TCP;
+  cloud relay;
+  adb port forwarding.
+
+
+======================================================================
+11. SOFTWARE ACTIVE RTT — EXACT STATUS
+======================================================================
+
+11.1 PASS mechanism
+
+Current `active_range`:
+  generates unpredictable challenge;
+  encrypts it;
+  measures local monotonic elapsed time;
+  checks exact echo;
+  uses distinct AAD.
+
+Keep it.
+
+11.2 FAIL mechanism
+
+Current 50 ms threshold cannot prove two-meter proximity.
+
+Approximate vacuum propagation:
+
+  c ~= 299,792,458 m/s.
+
+For a pure propagation-only round trip:
+  50 ms permits a one-way path length on the order of 7,500 km.
+
+Real BLE/GATT delays dominate at local scale.
+
+Therefore:
+  application milliseconds are scheduling/network locality;
+  not meter-scale time-of-flight.
+
+11.3 V2 use
+
+Software RTT is mandatory as:
+  authenticated active freshness;
+  gross-relay sanity check.
+
+It is never:
+  CertifiedMedium
+  or
+  CertifiedSecure
+by itself.
+
+11.4 Statistics
+
+Current verifier uses:
+  minimum RTT.
+
+For software RTT:
+  retain minimum <=50ms for compatibility;
+  also record median and p90 in V2 diagnostics.
+
+Do not use those RTT milliseconds as meters.
+
+11.5 Relay test
+
+Direct same-room:
+  establish baseline distribution.
+
+Relay:
+  compare distribution.
+
+A low-latency relay that still passes 50ms:
+  is expected residual.
+
+The test report must not describe this as a software RTT failure if the design
+already classifies software RTT weak.
+
+It is proof that the classification is honest.
+
+
+======================================================================
+12. UWB SECURE PROFILE
+======================================================================
+
+12.1 Required configuration
+
+Certified UWB candidate:
+
+  provisioned STS;
+  fresh session key;
+  authenticated OOB;
+  session binding;
+  bidirectional/mutually confirmed session when platform supports;
+  >=12 valid measurements;
+  >=1.5s observation;
+  robust threshold rules;
+  exact device/OS build in evidence matrix.
+
+12.2 Calibration
+
+For each UWB-capable DUT/reference pairing used in the supported matrix:
+
+At:
+  1.00 m;
+  line of sight;
+  stable tripod or marked fixture;
+  non-reflective or best available controlled environment;
+
+collect:
+  1000 measurements.
+
+Required:
+  97.5th percentile - 2.5th percentile < 0.30 m;
+  median >=0.75 m;
+  median <=1.25 m.
+
+Record:
+  temperature;
+  orientation;
+  case on/off;
+  OS;
+  hardware model;
+  app build.
+
+12.3 Field accuracy distances
+
+Ground-truth distances:
+
+  0.25 m
+  0.50 m
+  1.00 m
+  1.50 m
+  2.00 m
+  2.50 m
+  3.00 m
+  5.00 m
+  10.00 m where environment permits.
+
+At least:
+  100 complete sessions per core distance for each principal certified pair.
+
+At 0.5–2.0m:
+  >=95% of honest sessions should produce an accepted hardware observation
+  within at most two attempts.
+
+At >=3.0m:
+  >=99.5% of honest sessions must NOT produce a final CertifiedSecure
+  <=2.0m presence verdict.
+
+Boundary 2.0–2.5m is recorded separately:
+  expected threshold transition;
+  not used to hide measurement ambiguity.
+
+12.4 Orientation
+
+Test at minimum:
+
+  face-to-face portrait;
+  backs facing;
+  one phone rotated 90 degrees;
+  both landscape;
+  one phone in hand;
+  one phone on table;
+  both in trouser/jacket pockets;
+  one in handbag/backpack;
+  human body between devices.
+
+Record:
+  success rate;
+  distance bias;
+  timeout;
+  quality flags.
+
+Do not loosen security threshold only to make pocket orientation always pass.
+
+UX may coach:
+  "hold phones in front of you."
+
+12.5 Obstructions
+
+Test:
+  drywall;
+  wooden door;
+  glass;
+  furniture;
+  reinforced/concrete wall if safe/available;
+  one floor separation.
+
+The objective is not:
+  prove same room.
+
+It is:
+  understand whether distant/partitioned pairs can fall under 2m.
+
+Any >=3m ground-truth accepted <=2m:
+  counts as a false near result.
+
+12.6 Multipath
+
+Test:
+  open outdoor;
+  small room;
+  corridor;
+  metal-rich room/office;
+  elevator lobby if safe;
+  near parked vehicles;
+  crowded human environment.
+
+Record separately.
+
+12.7 Interference
+
+Exercise:
+  Wi-Fi/Bluetooth active;
+  multiple nearby BLE devices;
+  another UWB session if supported;
+  phone hotspot active;
+  audio/video Bluetooth peripheral connected.
+
+The ceremony may fail.
+
+It must not:
+  falsely accept;
+  crash;
+  leak secret.
+
+12.8 Published attack relevance
+
+The hardware team need not pretend to discover every future physical-layer
+attack.
+
+But because published attacks have reduced commercial UWB 10–12m to 0m,
+the campaign MUST include:
+  a documented physical-layer adversarial reproduction or equivalent
+  independent lab attack against the exact class of implementation.
+
+If the team lacks equipment/expertise:
+  outsource this subtest;
+  or classify UWB no higher than CertifiedMedium.
+
+Do not call absence of attack equipment a pass.
+
+12.9 Security report
+
+For every accepted secure UWB profile, publish:
+  STS mode;
+  OS API;
+  device family;
+  session-key handling;
+  attack equipment/method;
+  number attempts;
+  false accepts;
+  confidence bound;
+  unresolved receiver-level risk.
+
+
+======================================================================
+13. BLUETOOTH CHANNEL SOUNDING PROFILE
+======================================================================
+
+13.1 Required configuration
+
+Certified CS candidate:
+
+  Android API36+;
+  device reports Channel Sounding capability;
+  Security Level 4;
+  connected/authenticated local session/OOB;
+  Mininet session binding;
+  >=12 samples;
+  >=1.5s;
+  NADM consumed if platform exposes it.
+
+13.2 Measurement methods
+
+The profile relies on:
+  phase-based ranging for precision;
+  secure RTT as independent cross-check.
+
+If the Android API exposes only a final fused distance and not raw PBR/RTT:
+  record that limitation.
+
+Do not invent a cross-check not exposed by the platform.
+
+13.3 NADM policy
+
+If NADM appears for a sample/session:
+
+  0x00..0x02:
+    acceptable signal.
+
+  0x03..0x06:
+    session rejects for personhood.
+
+  0xFF:
+    cannot be CertifiedSecure.
+
+Repeated missing NADM on a device claiming Level 4:
+  investigate;
+  do not silently ignore.
+
+13.4 Accuracy campaign
+
+Use the same ground-truth field distances as UWB.
+
+Because Bluetooth SIG marketing/technical materials state centimeter-level
+potential, the Mininet test still measures actual error.
+
+No vendor precision claim substitutes for data.
+
+13.5 Attack campaign
+
+At minimum:
+  BLE MITM relay;
+  two-radio forwarder;
+  packet/data-path relay;
+  distance extension/reduction attempts supported by available tools;
+  any known public Channel Sounding attacks relevant to the release at test
+  time.
+
+For Secure:
+  >=3,000 severe relay attempts;
+  zero final <=2m accepted verdict when actual endpoint separation >=10m.
+
+If security-level implementation cannot be independently exercised:
+  CertifiedMedium at most.
+
+13.6 Compatibility
+
+A normal BLE-capable phone without Channel Sounding:
+  remains fully supported for network use.
+
+It simply cannot emit this certified presence profile.
+
+
+======================================================================
+14. WI-FI RANGING IN GATE #97
+======================================================================
+
+This is ranging only.
+
+Gate #98 separately validates Wi-Fi as a general data bearer.
+
+14.1 Android 16 support
+
+RangingManager can expose:
+  Wi-Fi NAN RTT.
+
+Android 16 also documents enhanced 802.11az security on supported hardware.
+
+14.2 Classification
+
+Wi-Fi ranging can be:
+  CertifiedMedium
+or:
+  CertifiedSecure
+
+ONLY after the same:
+  OOB;
+  security-profile;
+  near/far;
+  relay;
+  privacy;
+  hardware
+tests.
+
+802.11mc/one-sided RTT without the secured deployment profile:
+  Medium at most.
+
+BLE RSSI:
+  WeakSoftware.
+
+14.3 No infrastructure authority
+
+A local access point may participate technically.
+
+It may not become:
+  an identity verifier;
+  a trusted Mininet authority;
+  a required provider.
+
+Peer-to-peer/NAN is preferred for personhood.
+
+14.4 Gate separation
+
+A Wi-Fi ranging PASS does not close:
+  Gate #98 data-bearer validation.
+
+A Wi-Fi bearer PASS does not automatically make:
+  physical ranging secure.
+
+
+======================================================================
+15. FUTURE IOS ADAPTER — NON-BLOCKING V1 SPEC
+======================================================================
+
+15.1 API
+
+Use:
+  Nearby Interaction.
+
+15.2 Discovery token
+
+Apple provides a random, session-specific discovery token.
+
+Exchange it over:
+  Mininet authenticated local bearer.
+
+Do not:
+  send token through mandatory cloud matching;
+  use GPS server matching.
+
+15.3 Session binding
+
+Final V2 transcript binds:
+  hash of both discovery-token/config objects;
+  Mininet channel binding;
+  presence nonces;
+  measured summary.
+
+15.4 Foreground
+
+Run as a user-visible foreground ceremony.
+
+If the OS suspends:
+  fail ceremony;
+  restart fresh.
+
+15.5 Hardware generations
+
+When iOS becomes supported:
+  test at least:
+    two UWB-capable model generations;
+    four physical iPhones;
+    current + oldest supported iOS major release;
+    cross-generation pairs.
+
+15.6 Security classification
+
+Apple UWB is not automatically Secure.
+
+Ghost Peak included Apple U1 targets.
+
+It needs:
+  exact contemporary attack review;
+  physical testing;
+  same assurance criteria.
+
+15.7 No V1 gate delay
+
+There is no current iOS app in the reviewed repository.
+
+Therefore:
+  iOS hardware evidence is not required to close Android Gate #97 V1.
+
+
+======================================================================
+16. TEST LAB ROLES AND INDEPENDENCE
+======================================================================
+
+16.1 Implementation engineer
+
+May:
+  build adapter;
+  fix bugs;
+  run exploratory tests.
+
+May not be:
+  sole final signatory.
+
+16.2 Test lead
+
+Must be competent in:
+  Android Bluetooth/UWB/ranging APIs;
+  mobile lifecycle;
+  collecting repeatable measurements.
+
+May be project-affiliated.
+
+16.3 Independent reviewer
+
+Must:
+  not be the primary author of the tested ranging adapter;
+  inspect exact revision;
+  observe/reproduce a material subset;
+  review raw sanitized evidence;
+  sign final disposition.
+
+For CertifiedSecure physical-layer classification:
+  reviewer must have relevant RF/security competence
+  or rely on a separately signed specialist attack report.
+
+16.4 Why this does not create a central authority
+
+This human review controls:
+  one release claim.
+
+It does not participate in:
+  runtime presence;
+  personhood decisions;
+  network governance;
+  user enrollment.
+
+Any fork can reproduce the evidence.
+
+
+======================================================================
+17. DEVICE MATRIX — V1 MINIMUM
+======================================================================
+
+Gate #97 V1 Android matrix:
+
+A. Secure-capable group
+
+  >=6 physical Android phones total.
+
+  >=3 distinct phone models.
+
+  >=2 independent OEM families.
+
+  >=2 secure-ranging technology/device pair profiles.
+
+At least:
+  one provisioned-STS UWB profile.
+
+If commercially available in supported launch hardware:
+  at least one Bluetooth Channel Sounding Level 4 profile.
+
+If CS hardware is not available in the release market:
+  document absence;
+  it is not mandatory to invent hardware.
+
+B. Fallback group
+
+  >=2 Android phones without UWB.
+
+  At least one pair on the oldest Android major release the project intends to
+  support for ordinary BLE operation.
+
+  Must demonstrate:
+    network link remains usable;
+    WeakSoftware is labeled weak;
+    no hardware presence score is fabricated.
+
+C. Cross-OEM
+
+  At least one supported secure/medium ranging pair:
+    devices from different OEM families
+  if the platform technology claims interoperability.
+
+If cross-OEM fails:
+  document and constrain support matrix;
+  do not call profile universal.
+
+D. Cases
+
+Test principal matrix:
+  case off;
+  ordinary non-metal case on.
+
+If metal/magnet accessory materially breaks ranging:
+  UI must coach/remove or profile must tolerate safely by failing closed.
+
+
+======================================================================
+18. GROUND-TRUTH MEASUREMENT EQUIPMENT
+======================================================================
+
+Required:
+  rigid tape/laser distance meter;
+  marked floor positions;
+  tripods/stands for calibration;
+  test clock/log collector;
+  network isolation controls.
+
+For calibration:
+  laser/ruler accuracy <=1 cm preferred.
+
+For secure attack campaign:
+  attacker relay hardware appropriate to technology.
+
+Examples may include:
+  two Android relay phones;
+  laptop;
+  BLE dev boards;
+  UWB dev boards/SDR/tooling;
+  RF/security lab gear.
+
+The exact attack hardware must be documented.
+
+No:
+  guessed distances;
+  "about three meters."
+
+Each run records:
+  ground-truth distance bucket.
+
+
+======================================================================
+19. CORE HONEST-DISTANCE TEST SUITE
+======================================================================
+
+HD-01 Same-table 0.25 m.
+HD-02 Handheld 0.50 m.
+HD-03 Calibrated 1.00 m.
+HD-04 Handheld 1.50 m.
+HD-05 Acceptance boundary 2.00 m.
+HD-06 Boundary-outside 2.50 m.
+HD-07 Reject 3.00 m.
+HD-08 Reject 5.00 m.
+HD-09 Reject 10.00 m.
+HD-10 Through drywall.
+HD-11 Through closed wooden door.
+HD-12 Through glass.
+HD-13 Body-blocked.
+HD-14 One phone pocketed.
+HD-15 Both phones pocketed.
+HD-16 Bag/backpack.
+HD-17 Portrait face-to-face.
+HD-18 Landscape.
+HD-19 Back-to-back orientation.
+HD-20 Rotated/antenna-unfavorable.
+HD-21 Small reflective room.
+HD-22 Long corridor.
+HD-23 Outdoor open space.
+HD-24 Crowded room.
+HD-25 Bluetooth headphones active.
+HD-26 Wi-Fi busy.
+HD-27 Nearby BLE advertisements dense.
+HD-28 Concurrent unrelated Mininet traffic.
+HD-29 Low battery 15–20%.
+HD-30 Battery saver mode.
+
+Every test:
+  has predeclared expected classification.
+
+Do not remove a failing row after execution.
+
+
+======================================================================
+20. RELAY / WORMHOLE ADVERSARIAL TEST SUITE
+======================================================================
+
+The aim is to answer:
+  can distant endpoints be accepted as <=2m?
+
+20.1 R0 — software-only internet relay
+
+Devices:
+  actual separation >=100 km if practical.
+
+Relay:
+  application bytes over internet.
+
+Expected:
+  software RTT may or may not exceed 50ms depending geography.
+
+Required classification:
+  never hardware-certified without direct ranging.
+
+20.2 R1 — low-latency LAN relay
+
+Endpoints:
+  >=10m apart.
+
+Attacker:
+  two relay devices connected by Ethernet/Wi-Fi.
+
+Goal:
+  keep application RTT low.
+
+Expected:
+  demonstrates why software RTT is WeakSoftware.
+
+20.3 R2 — BLE GATT relay
+
+Two attacker radios:
+  one near each endpoint.
+
+Forward:
+  discovery/control/data where possible.
+
+Actual endpoints:
+  >=10m.
+
+Expected:
+  Secure hardware ranging does not accept endpoint presence merely because
+  BLE packets were relayed.
+
+20.4 R3 — OOB substitution
+
+Attacker:
+  forwards Mininet OOB setup but substitutes one ranging config/token.
+
+Expected:
+  transcript/session binding fails.
+
+20.5 R4 — downgrade
+
+Both legitimate devices support secure ranging.
+
+Attacker attempts to force:
+  RSSI;
+  software RTT;
+  static STS;
+  lower CS security.
+
+Expected:
+  signed capability/selection transcript reveals mismatch;
+  personhood-certified result rejects.
+
+20.6 R5 — replay good range evidence
+
+Capture one valid close ceremony.
+
+Replay the old:
+  distance summary;
+  OOB config;
+  session identifier;
+  attestation
+during a new distant ceremony.
+
+Expected:
+  fresh channel binding/nonces/session digest/replay guard reject.
+
+20.7 R6 — cross-peer splice
+
+Take:
+  good UWB result A<->B
+and try to attach it to:
+  A<->C.
+
+Expected:
+  session binding rejects.
+
+20.8 R7 — one-sided fabricated distance
+
+Malicious initiator sends:
+  fake 0.5m summary
+without platform proof/session evidence.
+
+Expected:
+  cannot derive CertifiedMedium/Secure.
+
+20.9 R8 — partial-measurement cherry-pick
+
+Hardware produces:
+  11 far samples;
+  1 short sample.
+
+Attacker submits:
+  short minimum.
+
+Expected:
+  canonical median/p90 computation or validated summary rejects.
+
+20.10 R9 — NADM alarm
+
+For Bluetooth CS test harness/device:
+  inject/trigger attack condition if tooling permits.
+
+Expected:
+  NADM >=possible rejects.
+
+20.11 R10 — UWB published distance-reduction class
+
+Reproduce:
+  Ghost-Peak-class or equivalent contemporary physical-layer distance-reduction
+  test against supported UWB profile.
+
+If exact attack is prevented by closed chipset interfaces:
+  use competent third-party lab report on the exact/representative profile
+  and perform the strongest available local black-box attack.
+
+Absence of tooling:
+  Secure classification unavailable.
+
+20.12 R11 — clock/ranging manipulation class
+
+Exercise:
+  contemporary clock/range-reduction attack if test equipment supports.
+
+Record:
+  whether platform is susceptible;
+  whether multi-sample policy filters it.
+
+20.13 R12 — Bluetooth Channel Sounding relay/security campaign
+
+Exercise:
+  relay;
+  security downgrade;
+  attack detector handling;
+  PBR/RTT mismatch where exposed.
+
+20.14 R13 — proximity transport tag abuse
+
+Construct untrusted attestation claiming:
+  InProcess
+or:
+  wrong transport.
+
+Production verifier:
+  reject.
+
+20.15 R14 — location commitment spoof
+
+Modify/fake:
+  location_commitment.
+
+Expected:
+  it carries no distance authority.
+
+20.16 R15 — colluding legitimate witnesses
+
+Two real nearby attacker-controlled devices cooperate.
+
+Expected:
+  presence may succeed.
+
+This is NOT a hardware failure.
+
+Personhood must rely on:
+  mature-human witness scarcity;
+  multi-class;
+  time.
+
+Record explicitly.
+
+
+======================================================================
+21. REPLAY / CRASH / STATE TESTS
+======================================================================
+
+RS-01 replay identical attestation immediately.
+  reject.
+
+RS-02 restart app, replay.
+  reject using durable guard.
+
+RS-03 restart phone, replay.
+  reject.
+
+RS-04 force-kill during replay-record write.
+  recover fail-closed.
+
+RS-05 corrupt replay file complete record.
+  fail closed.
+
+RS-06 truncate final append.
+  recover according to durable guard contract.
+
+RS-07 delete replay file after established state.
+  treat as error, not empty history.
+
+RS-08 clock rollback.
+  durable time floor prevents unsafe expiry locally.
+
+RS-09 full-filesystem snapshot rollback.
+  document current residual;
+  personhood-chain finalized nullifier/evidence layer must ultimately detect
+  already-used canonical evidence.
+
+RS-10 duplicate nonce on one side.
+  reject.
+
+RS-11 same nonce both sides.
+  reject.
+
+RS-12 new nonces but old session config.
+  reject session binding.
+
+RS-13 old KEL digest.
+  reject where current verified state indicates rotation.
+
+RS-14 revoked device.
+  reject delegation.
+
+RS-15 process death before both final signatures.
+  no accepted evidence.
+
+RS-16 process death after first signature.
+  no accepted evidence until complete transcript validates.
+
+RS-17 disk full.
+  no replay-unsafe success.
+
+RS-18 storage permission/I/O error.
+  no replay-unsafe success.
+
+
+======================================================================
+22. ANDROID LIFECYCLE / PERMISSION TESTS
+======================================================================
+
+LP-01 fresh install, all permissions absent.
+LP-02 deny Nearby Devices.
+LP-03 deny RANGING.
+LP-04 deny legacy location on Android<=30.
+LP-05 grant after previous denial.
+LP-06 revoke while app running.
+LP-07 Bluetooth disabled before ceremony.
+LP-08 Bluetooth disabled mid-ceremony.
+LP-09 UWB/ranging unavailable before ceremony.
+LP-10 UWB/ranging becomes unavailable mid-session.
+LP-11 screen off.
+LP-12 screen lock.
+LP-13 app background.
+LP-14 app foreground return.
+LP-15 process force-stop.
+LP-16 process low-memory death.
+LP-17 rotate screen/config change.
+LP-18 incoming phone notification.
+LP-19 audio Bluetooth peripheral connected.
+LP-20 airplane mode + Bluetooth on.
+LP-21 airplane mode + Bluetooth off.
+LP-22 Wi-Fi off.
+LP-23 mobile data off.
+LP-24 no Google account.
+LP-25 no SIM.
+LP-26 no Google Play connectivity during test.
+LP-27 battery saver.
+LP-28 thermal throttling.
+LP-29 rapid start/cancel 100 times.
+LP-30 simultaneous nearby Mininet peers.
+
+Security expectation for every failure:
+  fail closed for presence;
+  clean resources;
+  no stuck permission loop;
+  ordinary app remains usable.
+
+
+======================================================================
+23. PERFORMANCE / BATTERY ACCEPTANCE
+======================================================================
+
+Presence is occasional.
+
+It must not need continuous scanning.
+
+23.1 Ceremony latency
+
+Honest supported secure pair, 0.5–1.5m:
+
+  median end-to-end ceremony <=10 seconds.
+
+  p95 <=20 seconds.
+
+  hard timeout <=30 seconds.
+
+Measurement portion:
+  >=1.5 seconds;
+  <=10 seconds.
+
+23.2 Reliability
+
+Supported Certified profile:
+
+  >=95% of honest in-range ceremonies succeed within two attempts in ordinary
+  foreground use across the principal matrix.
+
+Any individual device profile <90%:
+  cannot be marketed as supported without a model-specific warning/fix.
+
+23.3 Memory
+
+No unbounded queue.
+
+Peak application memory increase during 100 repeated ceremonies:
+  no monotonic leak trend.
+
+Practical V1 leak threshold:
+  after GC/settle, resident app memory after 100 cycles must be within 20 MiB
+  of the post-warmup 10-cycle baseline, excluding documented OS Bluetooth
+  process memory outside app.
+
+If platform noise makes this measure unreliable:
+  use Android profiler allocation/leak tooling and document method.
+
+23.4 CPU / ANR
+
+No Android Application Not Responding event.
+
+No blocking Bluetooth/Ranging callback waits on UI main thread.
+
+Main-thread blocked interval caused by ceremony code:
+  <100 ms per discrete operation.
+
+23.5 Battery
+
+Test:
+  matched device/settings;
+  60-minute control;
+  60-minute test containing 100 start/range/sign/close ceremonies or as many
+  complete sequential cycles as the profile permits.
+
+Target:
+  additional battery consumption attributable to Mininet ceremony workload
+  <=5 percentage points of full battery capacity versus matched control.
+
+This is deliberately generous for a stress workload.
+
+Normal user behavior is far lower.
+
+Any thermal severe/throttle condition caused by the workload:
+  investigate before certification.
+
+23.6 Background
+
+Zero personhood ranging sessions remain active five seconds after:
+  ceremony cancel;
+  app background;
+  app force-stop callback/resource cleanup.
+
+System-level unavoidable teardown delay must be measured and documented.
+
+
+======================================================================
+24. BLE CONNECTIVITY / MESH COMPANION TESTS
+======================================================================
+
+These tests prevent hardware presence work from hiding a broken local network.
+
+24.1 Direct two-phone strict offline
+
+Two phones:
+  airplane mode;
+  Wi-Fi off;
+  mobile data off;
+  internet blocked.
+
+PASS:
+  discover Mininet peer;
+  GATT connects;
+  encrypted Mininet channel forms;
+  1 KiB frame round-trip;
+  64 KiB logical frame or protocol max frame round-trip if permitted;
+  identities/KEL data exchange;
+  active RTT;
+  clean disconnect/reconnect.
+
+24.2 MTU matrix
+
+For every device pair:
+  record negotiated ATT MTU.
+
+Exercise:
+  minimum supported payload;
+  default;
+  largest negotiated.
+
+Chunk reassembly:
+  exact bytes;
+  no silent truncation.
+
+24.3 Corrupt/out-of-order chunk
+
+Inject:
+  truncated;
+  wrong sequence;
+  duplicate;
+  reorder;
+  oversized.
+
+Expected:
+  protocol error;
+  no panic;
+  bounded memory.
+
+24.4 Slow peer
+
+Peer sends one chunk per several seconds.
+
+Expected:
+  bounded timeout;
+  no UI freeze;
+  no queue explosion.
+
+24.5 Flood peer
+
+Nearby malicious peer floods notifications/writes.
+
+Expected:
+  bounded queue;
+  drop/close policy;
+  no memory blowup;
+  no presence bypass.
+
+24.6 Three-node line topology on real BLE
+
+If release candidate includes PR #333 or equivalent multi-hop:
+
+  A <-> B <-> C
+
+Arrange:
+  A cannot directly connect to C through test filter/range/layout.
+
+PASS:
+  A message reaches C via B;
+  duplicate suppression works;
+  payload remains encrypted according to mesh design;
+  B does not become a content authority.
+
+24.7 Four-node line/cycle
+
+A-B-C-D.
+
+Then:
+  A-B-C-D-A cycle.
+
+Exercise:
+  duplicate gossip;
+  disconnect B;
+  reconnect;
+  churn.
+
+No:
+  broadcast storm;
+  unbounded cache;
+  deadlock.
+
+24.8 Personhood separation
+
+A message successfully relayed A->B->C:
+  MUST NOT create a presence verdict A<->C.
+
+Explicit regression test required.
+
+24.9 PR #333 disposition
+
+PR #333 can satisfy part of this lane after:
+  merge;
+  human review;
+  Android build;
+  actual hardware test;
+  lifecycle/UI integration.
+
+Its current loopback tests alone:
+  PARTIAL.
+
+They do not close #97.
+
+
+======================================================================
+25. PRIVACY / DIAGNOSTICS PROFILE
+======================================================================
+
+25.1 Production log prohibited fields
+
+No default log:
+  DID;
+  personhood commitment;
+  BLE MAC;
+  Wi-Fi BSSID;
+  UWB address;
+  Android device serial;
+  IMEI;
+  raw session key;
+  exact location;
+  raw application payload;
+  raw personhood graph edge.
+
+25.2 Allowed production metrics
+
+Locally:
+  random ephemeral session ID;
+  adapter version;
+  technology enum;
+  security profile enum;
+  sample count;
+  coarse duration;
+  generic error code;
+  assurance result.
+
+If uploaded telemetry ever exists:
+  separate privacy/governance review required;
+  opt-in;
+  no stable person identifier.
+
+Gate #97 does NOT require telemetry upload.
+
+25.3 Test logs
+
+Hardware lab uses pseudonymous:
+  DEVICE_A01
+  DEVICE_A02
+
+A separate local mapping can contain:
+  model;
+  OS;
+  chipset capability.
+
+Do not map test devices to:
+  human participant identity.
+
+25.4 Video
+
+Video may prove:
+  physical setup;
+  device separation;
+  airplane mode;
+  UI result.
+
+Avoid:
+  faces unless volunteers consent;
+  personal notifications;
+  phone numbers;
+  legal names;
+  home address.
+
+25.5 Packet capture
+
+When needed:
+  capture BLE/radio/network metadata in controlled lab.
+
+Sanitize:
+  stable device addresses where not essential.
+
+Never publish:
+  session secrets.
+
+25.6 Evidence retention
+
+Raw attack/calibration data:
+  retained for reproducibility.
+
+Personal user production presence raw data:
+  not required by this gate.
+
+
+======================================================================
+26. HUMAN FACTORS / ACCESSIBILITY
+======================================================================
+
+26.1 No special hardware requirement for humanity
+
+A person whose phone lacks:
+  UWB;
+  Channel Sounding;
+  Wi-Fi RTT
+
+still has:
+  ordinary Mininet access;
+  non-presence personhood routes defined by File 4.
+
+26.2 UI labels
+
+Allowed:
+
+  "Secure ranging available"
+  "Hardware ranging available"
+  "Basic nearby check only"
+  "This phone cannot create high-confidence physical-presence evidence"
+
+Prohibited:
+
+  "You are not human"
+because phone hardware is absent.
+
+26.3 Pairing UX
+
+Both users see:
+  who/which local Mininet identity they are verifying;
+  that a one-time proximity ceremony is happening;
+  result assurance class in human language.
+
+No hidden acceptance.
+
+26.4 Accidental nearby peer
+
+Use channel-bound short authentication phrase/visual confirmation if helpful:
+
+  derived from channel/session transcript;
+  both users compare/confirm.
+
+This improves intended-peer UX.
+
+It is not relied upon against colluding attackers.
+
+26.5 Disability / movement
+
+No requirement:
+  move phone rapidly;
+  stand;
+  walk;
+  present face;
+  speak;
+  use fingerprint/biometric.
+
+The ceremony should work:
+  seated;
+  with device on table;
+  with accessibility services.
+
+If device orientation matters:
+  coach rather than punish identity.
+
+26.6 Permission explanation
+
+Explain:
+  relative peer distance;
+  no GPS history;
+  no continuous scanning;
+  permission can be revoked.
+
+No dark pattern.
+
+
+======================================================================
+27. DEVICE CERTIFICATION DATA MODEL
+======================================================================
+
+Do NOT maintain an online centralized approval server.
+
+Ship a versioned, open release artifact:
+
+  PresenceHardwareProfileRegistryV1
+
+Entry:
+
+  profile_id
+  platform
+  minimum_os
+  maximum_tested_os
+  technology
+  security_profile
+  assurance_class
+  evidence_report_hash
+  policy_version
+  known_limit_flags
+  optional device-family matcher
+  expiry/review_after
+
+Generic capability-based entries are preferred over model allowlists.
+
+Example conceptual entry:
+
+  Android / API36+
+  RangingManager
+  UWB
+  ProvisionedSTS / SECURE
+  CertifiedMedium
+  report=<hash>
+
+If an exact device family is known broken:
+  deny/downgrade entry can override generic profile.
+
+The registry is:
+  source-controlled;
+  auditable;
+  forkable;
+  no network fetch needed.
+
+A local user can still use a newer unlisted device:
+  networking yes;
+  hardware presence defaults WeakSoftware until evidence supports upgrade.
+
+
+======================================================================
+28. HARDWARE CLASSIFICATION ALGORITHM
+======================================================================
+
+Inputs:
+  canonical PresencePolicyV2;
+  RangingEvidenceV2;
+  certified profile registry;
+  signed presence envelope.
+
+Pseudo-decision:
+
+  if transport == InProcess in production:
+      reject
+
+  verify:
+      version
+      channel binding
+      devices/KELs
+      capabilities
+      signatures
+      nonces
+      replay
+      software active RTT
+
+  if no RangingEvidenceV2:
+      result = WeakSoftware
+
+  else:
+      verify evidence canonical bounds
+      profile = registry.match(platform/security/technology)
+
+      if profile absent:
+          result = WeakSoftware
+
+      if evidence.sample_count <12:
+          result = WeakSoftware
+
+      if evidence.duration_ms <1500 or >10000:
+          result = WeakSoftware
+
+      if evidence.median_distance_mm >2000:
+          reject physical-presence acceptance
+
+      if evidence.p90_distance_mm >2500:
+          reject physical-presence acceptance
+
+      if attack_indicator >=Possible:
+          reject
+
+      if attack_indicator ==Unknown and profile requires NADM:
+          assurance <=CertifiedMedium
+
+      verify OOB/session binding digest.
+
+      result = min(profile.assurance, evidence_supported_assurance)
+
+The resulting assurance:
+  is deterministic;
+  is not client-selected.
+
+For File 4:
+  only CertifiedMedium/Secure create a canonical accepted presence endorsement.
+
+
+======================================================================
+29. STATISTICAL REPORTING RULES
+======================================================================
+
+29.1 Never report only mean
+
+For distance:
+  count
+  median
+  p2.5
+  p10
+  p90
+  p97.5
+  min
+  max
+  MAD or comparable spread
+  failure rate.
+
+29.2 False near
+
+A false near occurs if:
+  actual ground truth >2.0m safety boundary
+and:
+  final canonical policy accepts <=2.0m presence.
+
+Boundary tests 2.0–2.5m are reported separately.
+
+Security FAR uses:
+  >=3m;
+  and severe relay uses >=10m.
+
+29.3 Missing measurement
+
+A timeout/None:
+  is a reliability failure,
+  not a false distance sample.
+
+Do not substitute:
+  0m;
+  last known value.
+
+29.4 Dropped suspicious samples
+
+Platform may mark invalid measurements.
+
+Record:
+  count dropped;
+  reason flag.
+
+Do not remove samples locally merely because they are inconvenient.
+
+29.5 Attack success
+
+Any final accepted presence under severe attack:
+  counts.
+
+Do not average it away because 2,999 other attempts failed.
+
+29.6 Confidence
+
+For zero successes in n attempts:
+  report rule-of-three approximate 95% upper bound:
+    3/n.
+
+For nonzero:
+  report Wilson or exact binomial interval.
+
+Raw counts always primary.
+
+29.7 Pre-registration
+
+Before final campaign:
+  commit test plan hash;
+  device matrix;
+  expected thresholds.
+
+Then run.
+
+This prevents post-hoc moving of acceptance bars.
+
+
+======================================================================
+30. FINAL EVIDENCE BUNDLE
+======================================================================
+
+Directory proposal:
+
+  docs/gates/evidence/97/
+    README.md
+    TEST_PLAN_HASH.txt
+    tested-revision.txt
+    build-manifest.txt
+    device-matrix.csv
+    capability-matrix.csv
+    calibration/
+    honest-distance/
+    relay/
+    lifecycle/
+    ble/
+    battery/
+    privacy/
+    failures/
+    videos/
+    FINAL_HARDWARE_REPORT.md
+    SIGNATURES.md
+
+30.1 `tested-revision.txt`
+
+Exact:
+  git commit SHA;
+  submodule state if any;
+  Cargo.lock hash;
+  Gradle lock/version state;
+  Android Gradle Plugin;
+  Kotlin version;
+  Rust toolchain;
+  Android SDK/build tools.
+
+30.2 `build-manifest.txt`
+
+Include:
+  APK SHA-256;
+  package/version;
+  build command;
+  CI run URL/id;
+  reproducibility result if available.
+
+30.3 device-matrix.csv
+
+Fields:
+
+  test_device_id
+  manufacturer_family
+  model
+  hardware_revision_if_known
+  os_version
+  build_fingerprint_hash
+  api_level
+  uwb_supported
+  ble_cs_supported
+  wifi_rtt_supported
+  ble_peripheral_supported
+  ranging_api
+  tested_profile
+  case_state
+
+Publish model names if desired.
+
+Do not publish:
+  serial/IMEI/MAC.
+
+30.4 per-run CSV
+
+Required schema:
+
+  run_id
+  test_case
+  timestamp_bucket
+  device_a
+  device_b
+  app_git_sha
+  app_apk_hash_prefix
+  api_a
+  api_b
+  technology
+  security_profile
+  role_a
+  role_b
+  actual_distance_mm
+  obstacle_class
+  orientation_class
+  sample_count
+  duration_ms
+  median_mm
+  p10_mm
+  p90_mm
+  min_mm
+  max_mm
+  attack_indicator
+  software_rtt_min_ms
+  software_rtt_median_ms
+  result
+  assurance
+  error_code
+  relay_mode
+  attack_run
+  notes_code
+
+No raw DID.
+
+30.5 final report
+
+Must say:
+
+  what passed;
+  what failed;
+  which device profiles are CertifiedSecure;
+  which are CertifiedMedium;
+  which are Weak;
+  which are Unusable;
+  number of attack attempts;
+  every observed false accept;
+  unresolved risks;
+  exact code revision.
+
+30.6 signatures
+
+At least:
+  test lead;
+  independent reviewer.
+
+For Secure UWB/CS if specialist work outsourced:
+  attach specialist report hash/signature.
+
+No anonymous "external auditor" placeholder may be checked off without a real
+person/organization.
+
+
+======================================================================
+31. GATE #97 CLOSURE CRITERIA
+======================================================================
+
+ALL following required.
+
+G97-01
+  production Android BLE local bearer exists in merged candidate.
+
+G97-02
+  personhood ceremony is wired through actual application lifecycle.
+
+G97-03
+  Android ranging adapter exists.
+
+G97-04
+  `RangingEvidenceV2` or equivalent security-complete model exists.
+
+G97-05
+  canonical PresencePolicyV2 exists.
+
+G97-06
+  production InProcess presence is impossible.
+
+G97-07
+  software RTT remains active but is labeled weak.
+
+G97-08
+  at least one Android secure hardware ranging profile is implemented.
+
+G97-09
+  at least one profile achieves CertifiedMedium or CertifiedSecure.
+
+G97-10
+  at least two OEM families pass core direct BLE path.
+
+G97-11
+  >=6 Android physical devices in principal matrix.
+
+G97-12
+  no-UWB fallback is tested and does not falsely upgrade.
+
+G97-13
+  strict two-phone BLE/no-internet keystone works.
+
+G97-14
+  calibrated 1m UWB profile meets adopted AOSP baseline where UWB is certified.
+
+G97-15
+  honest near/far distance matrix passes policy targets.
+
+G97-16
+  obstacle/orientation matrix recorded.
+
+G97-17
+  relay suite completed.
+
+G97-18
+  severe physical ranging attack suite completed for any profile labeled
+  CertifiedSecure.
+
+G97-19
+  every attack false accept is reported.
+
+G97-20
+  lifecycle/permission suite passes fail-closed.
+
+G97-21
+  process/replay persistence suite passes.
+
+G97-22
+  queue/resource abuse does not crash/exhaust app.
+
+G97-23
+  ceremony performance targets pass.
+
+G97-24
+  battery stress target passes or profile is remediated.
+
+G97-25
+  privacy log audit passes.
+
+G97-26
+  no central discovery/scorer/allowlist dependency introduced.
+
+G97-27
+  no phone model changes human vote/value weight.
+
+G97-28
+  File 4 personhood integration uses only CertifiedMedium/Secure presence.
+
+G97-29
+  exact evidence bundle committed.
+
+G97-30
+  independent human reviewer signs exact tested release.
+
+When all G97-01..30 hold:
+
+  GATE #97 = PASS / CLOSED
+  for Android V1.
+
+If ANY fail:
+
+  GATE #97 = FAIL / OPEN.
+
+No discretionary "close anyway" path.
+
+
+======================================================================
+32. MANDATORY ENGINEERING / HARDWARE CONFORMANCE MATRIX
+======================================================================
+
+Every row is PASS / FAIL with evidence.
+
+"Not applicable" is allowed only where the row itself explicitly says it is
+conditional.
+
+A release cannot turn a missing result into PASS.
+
+ARCHITECTURE / SEPARATION
+
+C97-001  connectivity success never automatically sets presence accepted.
+C97-002  presence success never required for ordinary network use.
+C97-003  no central pairing server required.
+C97-004  no central proximity oracle required.
+C97-005  no server-issued human allowlist required.
+C97-006  did:mini/KEL remains identity mechanism.
+C97-007  Bluetooth MAC is not identity.
+C97-008  UWB address is not identity.
+C97-009  Wi-Fi address/BSSID is not identity.
+C97-010  phone model is not identity.
+C97-011  phone model cannot change vote weight.
+C97-012  phone model cannot change human-share amount.
+C97-013  phone model cannot change vouch quota.
+C97-014  presence evidence cannot independently create MatureHuman.
+C97-015  software-only presence cannot earn File4 canonical presence points.
+C97-016  CertifiedMedium/Secure profile is required for canonical presence
+          endorsement.
+C97-017  LoRa/RNode is absent from Gate97 production dependency.
+C97-018  no external radio accessory is mandatory.
+C97-019  Android V1 adapter emits platform-neutral evidence.
+C97-020  future non-Android adapter can emit same evidence semantics.
+
+BUILD / RELEASE
+
+C97-021  exact git SHA recorded.
+C97-022  exact Cargo.lock hash recorded.
+C97-023  exact Gradle/AGP/Kotlin versions recorded.
+C97-024  exact Android SDK/build-tools versions recorded.
+C97-025  exact APK SHA-256 recorded.
+C97-026  clean Android build succeeds.
+C97-027  Rust workspace format passes.
+C97-028  Rust clippy gate passes.
+C97-029  Rust tests pass.
+C97-030  Android unit/instrumented tests required by adapter pass.
+C97-031  release candidate is the same code physically tested.
+C97-032  post-test security change triggers disposition/retest.
+C97-033  debug-only mock cannot enter release assurance path.
+C97-034  test feature cannot cause InProcess to be accepted in production.
+C97-035  no hidden build flag weakens PresencePolicyV2.
+
+ANDROID BLE PERMISSIONS
+
+C97-036  BLUETOOTH_SCAN declared on API31+ when discovery used.
+C97-037  BLUETOOTH_ADVERTISE declared where peripheral role used.
+C97-038  BLUETOOTH_CONNECT declared where required.
+C97-039  legacy Bluetooth permissions capped to old API where applicable.
+C97-040  API31+ BLE scan uses neverForLocation only if scan results are not
+          used to derive geographic location.
+C97-041  fine location not requested API31+ solely for Mininet BLE discovery.
+C97-042  Android16 RANGING permission declared for RangingManager path.
+C97-043  background location not requested for Gate97 presence.
+C97-044  denial of Nearby Devices does not crash.
+C97-045  denial of RANGING does not crash.
+C97-046  permission denial creates no accepted presence.
+C97-047  ordinary non-presence app remains usable after denial.
+C97-048  permission rationale accurately describes relative ranging.
+C97-049  permission rationale does not claim GPS collection.
+C97-050  revocation while running fails current ceremony closed.
+
+ANDROID RANGING CAPABILITY
+
+C97-051  API36 path queries RangingManager capabilities.
+C97-052  API36 path queries technology availability.
+C97-053  unsupported technology never selected.
+C97-054  both peers negotiate common technology.
+C97-055  both peers negotiate common security profile.
+C97-056  capability offer is bound to ceremony transcript.
+C97-057  selected profile is bound to ceremony transcript.
+C97-058  downgrade from secure to weak is detectable.
+C97-059  SECURE requested for Secure candidate.
+C97-060  BASIC cannot produce CertifiedSecure.
+C97-061  UWB selected only when both sides can participate.
+C97-062  BLE CS selected only when both sides support required mode.
+C97-063  Wi-Fi ranging selected only when exact peer mode supported.
+C97-064  no capability -> WeakSoftware, not fake hardware.
+C97-065  capability changes mid-session cause restart/failure.
+
+UWB SESSION
+
+C97-066  secure UWB uses provisioned STS.
+C97-067  static STS cannot be CertifiedSecure.
+C97-068  secure UWB session key is random per ceremony.
+C97-069  UWB session key never hard-coded.
+C97-070  UWB session key never derived from public DID.
+C97-071  UWB session key never logged.
+C97-072  UWB session key sent only over authenticated encrypted OOB.
+C97-073  UWB session key not serialized into signed public attestation.
+C97-074  UWB session key best-effort zeroized after session.
+C97-075  OOB public config digest is signed.
+C97-076  session identifier/digest is signed.
+C97-077  wrong UWB OOB config rejects.
+C97-078  stale UWB session config rejects.
+C97-079  cross-peer UWB config splice rejects.
+C97-080  API34/35 compatibility path uses pinned AndroidX version.
+C97-081  API34/35 secure path uses provisioned STS.
+C97-082  API34/35 exact profiles appear in hardware report.
+C97-083  unsupported old UWB profile downgrades safely.
+C97-084  UWB failure never substitutes distance zero.
+C97-085  UWB timeout never uses last known distance.
+
+BLUETOOTH CHANNEL SOUNDING
+
+C97-086  CS Secure candidate requires API/platform capability.
+C97-087  CS Secure candidate requires Security Level4.
+C97-088  lower CS level cannot be CertifiedSecure.
+C97-089  NADM 0x00 accepted subject to all other checks.
+C97-090  NADM 0x01 accepted subject to all other checks.
+C97-091  NADM 0x02 accepted subject to all other checks.
+C97-092  NADM 0x03 rejects personhood session.
+C97-093  NADM 0x04 rejects.
+C97-094  NADM 0x05 rejects.
+C97-095  NADM 0x06 rejects.
+C97-096  NADM 0xFF cannot be CertifiedSecure.
+C97-097  NADM absence where expected is not silently treated safe.
+C97-098  CS security level appears in signed evidence.
+C97-099  CS downgrade is transcript-detectable.
+C97-100  CS attack campaign is run before Secure classification.
+
+WI-FI / RSSI RANGING
+
+C97-101  BLE RSSI alone never produces Medium/Secure.
+C97-102  RSSI alone never creates personhood presence points.
+C97-103  RSSI can be disabled without breaking identity.
+C97-104  Wi-Fi 802.11mc one-sided profile Secure classification prohibited.
+C97-105  secured 802.11az profile requires exact capability evidence.
+C97-106  Wi-Fi ranging security profile recorded.
+C97-107  Wi-Fi ranging cannot close Gate98 bearer tests by itself.
+C97-108  Wi-Fi data bearer cannot close Gate97 ranging by itself.
+C97-109  AP identity does not become human identity.
+C97-110  no commercial Wi-Fi provider required.
+
+RANGING EVIDENCE V2
+
+C97-111  evidence has explicit version.
+C97-112  evidence has technology enum.
+C97-113  evidence has security profile enum.
+C97-114  evidence has observer role.
+C97-115  evidence has measurement sidedness.
+C97-116  evidence has OOB config digest.
+C97-117  evidence has session binding digest.
+C97-118  evidence has bounded sample count.
+C97-119  evidence has duration.
+C97-120  evidence has median distance.
+C97-121  evidence has p10 distance.
+C97-122  evidence has p90 distance.
+C97-123  evidence has min/max for diagnostics.
+C97-124  evidence has attack indicator.
+C97-125  evidence has platform quality flags or explicit none.
+C97-126  client cannot arbitrarily set final assurance.
+C97-127  verifier derives assurance from policy/registry.
+C97-128  unknown mandatory enum value rejects.
+C97-129  oversized evidence rejects before expensive work.
+C97-130  trailing/ambiguous bytes reject.
+C97-131  malformed numeric ranges reject.
+C97-132  zero sample count cannot certify.
+C97-133  sample_count<12 cannot hardware-certify.
+C97-134  duration<1500ms cannot hardware-certify.
+C97-135  duration>10000ms requires ceremony restart.
+C97-136  median>2000mm rejects canonical proximity.
+C97-137  p90>2500mm rejects canonical proximity.
+C97-138  minimum sample alone never decides accept.
+C97-139  old V1 UwbRanging does not silently become Secure.
+C97-140  migration/versioning is explicit.
+
+PRESENCE TRANSCRIPT
+
+C97-141  transcript binds protocol version.
+C97-142  transcript binds network ID.
+C97-143  transcript binds Mininet channel binding.
+C97-144  transcript binds initiating device DID.
+C97-145  transcript binds responding device DID.
+C97-146  transcript binds both KEL digests.
+C97-147  transcript binds both fresh presence nonces.
+C97-148  transcript binds ranging technology.
+C97-149  transcript binds security profile.
+C97-150  transcript binds ranging roles.
+C97-151  transcript binds OOB public-config digest.
+C97-152  transcript binds ranging-session digest.
+C97-153  transcript binds hardware summary.
+C97-154  transcript binds software RTT summary.
+C97-155  transcript binds assurance-relevant version.
+C97-156  both devices sign identical transcript bytes.
+C97-157  altered distance after signature rejects.
+C97-158  altered technology after signature rejects.
+C97-159  altered security mode after signature rejects.
+C97-160  altered OOB digest after signature rejects.
+
+SOFTWARE ACTIVE RTT
+
+C97-161  challenge comes from project CSPRNG.
+C97-162  challenge is 32 bytes or security-equivalent.
+C97-163  challenge uses range-specific AAD.
+C97-164  response uses distinct range-specific AAD.
+C97-165  wrong echoed challenge rejects.
+C97-166  response under wrong channel rejects.
+C97-167  minimum four RTT samples enforced.
+C97-168  software RTT maximum50ms enforced in V2 default.
+C97-169  elapsed timer is local monotonic mechanism.
+C97-170  RTT milliseconds never converted to meter claim.
+C97-171  software RTT-only result is WeakSoftware.
+C97-172  LAN relay passing50ms does not upgrade assurance.
+C97-173  internet relay passing50ms does not upgrade assurance.
+C97-174  timeout has bounded failure.
+C97-175  active range cannot block forever.
+
+IDENTITY / KEL / SIGNATURE
+
+C97-176  both device KELs verify.
+C97-177  both devices delegated by expected roots.
+C97-178  both devices possess ATTEST capability.
+C97-179  revoked device is rejected with current verified KEL.
+C97-180  device DID mismatch rejects.
+C97-181  KEL digest mismatch rejects.
+C97-182  invalid initiating signature rejects.
+C97-183  invalid responding signature rejects.
+C97-184  self-presence same root rejects.
+C97-185  copied radio address cannot substitute identity.
+C97-186  changing KEL after transcript does not alter signed historic bytes.
+C97-187  stale-global-KEL limitation is documented until anchoring solves it.
+C97-188  phone hardware attestation is not human identity.
+C97-189  platform account is not required.
+C97-190  SIM/carrier identity is not required.
+
+REPLAY / DURABILITY
+
+C97-191  equal party nonces reject.
+C97-192  replayed initiator nonce rejects.
+C97-193  replayed responder nonce rejects.
+C97-194  invalid attestation does not consume valid replay state.
+C97-195  replay state survives app restart.
+C97-196  replay state survives phone reboot.
+C97-197  replay guard write failure fails ceremony.
+C97-198  replay file size cap enforced.
+C97-199  complete corrupt record fails closed.
+C97-200  interrupted unterminated tail handled according to durable contract.
+C97-201  replay state deletion after initialization is detected as error.
+C97-202  clock rollback below retained floor fails safe.
+C97-203  whole-filesystem rollback residual documented.
+C97-204  canonical personhood layer prevents reusing finalized evidence where
+          applicable.
+C97-205  fresh ceremony uses new ranging session.
+
+PRODUCTION TRANSPORT
+
+C97-206  InProcess not accepted from production wire.
+C97-207  Relay transport cannot produce proximity verdict.
+C97-208  direct BLE is marked proximity transport only with presence policy.
+C97-209  LocalWifi transport does not imply secure ranging without profile.
+C97-210  successful mesh route does not imply endpoint proximity.
+C97-211  intermediate relay cannot sign as endpoint.
+C97-212  peer selection is explicit.
+C97-213  ambient nearby device cannot accidentally inherit another peer's
+          ranging result.
+C97-214  no TCP/cloud fallback silently occurs in strict BLE test.
+C97-215  strict BLE test runs with internet unreachable.
+
+BLE GATT REAL HARDWARE
+
+C97-216  Kotlin/Android real GATT central path exists.
+C97-217  Kotlin/Android real GATT peripheral/server path exists if architecture
+          needs symmetric discovery.
+C97-218  service UUID discovery works on real phones.
+C97-219  MTU negotiation recorded.
+C97-220  minimum supported tested MTU works.
+C97-221  multi-chunk frame reassembles exactly.
+C97-222  duplicate chunk rejected/handled deterministically.
+C97-223  out-of-order chunk rejects according to protocol.
+C97-224  truncated chunk rejects.
+C97-225  oversized frame rejects.
+C97-226  inbound queue bounded.
+C97-227  outbound queue/pending state bounded.
+C97-228  flood peer cannot cause unbounded memory.
+C97-229  slow peer times out.
+C97-230  disconnected peer wakes/fails blocked read.
+C97-231  pending write receives success/failure/timeout.
+C97-232  reconnect uses new encrypted session.
+C97-233  reconnect does not reuse presence nonce.
+C97-234  reconnect does not reuse ranging key.
+C97-235  BLE address rotation does not break cryptographic peer identity.
+
+STRICT TWO-PHONE KEYSTONE
+
+C97-236  two physical Android phones used.
+C97-237  airplane mode enabled.
+C97-238  mobile data disabled.
+C97-239  Wi-Fi disabled for strict BLE lane.
+C97-240  internet blocked independently where practical.
+C97-241  local BLE discovery succeeds.
+C97-242  encrypted Mininet channel succeeds.
+C97-243  identity/KEL exchange succeeds.
+C97-244  active RTT succeeds.
+C97-245  supported hardware ranging succeeds or honestly yields Weak fallback.
+C97-246  final mutual presence transcript produced only when policy passes.
+C97-247  no Mininet server contacted.
+C97-248  no Google account required.
+C97-249  no SIM required.
+C97-250  disconnect/reconnect repeats successfully.
+
+CALIBRATION / HONEST DISTANCE
+
+C97-251  UWB calibration has1000 measurements at1m per principal certified pair.
+C97-252  UWB p97.5-p2.5 <30cm.
+C97-253  UWB median in[0.75m,1.25m].
+C97-254  0.25m runs recorded.
+C97-255  0.5m runs recorded.
+C97-256  1m runs recorded.
+C97-257  1.5m runs recorded.
+C97-258  2m boundary runs recorded.
+C97-259  2.5m boundary runs recorded.
+C97-260  3m reject runs recorded.
+C97-261  5m reject runs recorded.
+C97-262  10m reject runs recorded where environment permits.
+C97-263  >=95% honest in-range two-attempt success target measured.
+C97-264  >=99.5% honest >=3m no-false-near target measured.
+C97-265  all false-near events preserved in report.
+
+ORIENTATION / OBSTACLE / RF ENVIRONMENT
+
+C97-266  portrait face-to-face tested.
+C97-267  landscape tested.
+C97-268  back-to-back tested.
+C97-269  one phone pocketed tested.
+C97-270  both pocketed tested.
+C97-271  bag/backpack tested.
+C97-272  human-body obstruction tested.
+C97-273  drywall tested.
+C97-274  door tested.
+C97-275  glass tested.
+C97-276  reflective indoor environment tested.
+C97-277  open outdoor environment tested.
+C97-278  crowded environment tested.
+C97-279  active Bluetooth peripheral interference tested.
+C97-280  busy Wi-Fi/BLE environment tested.
+
+RELAY / ADVERSARIAL
+
+C97-281  software internet relay run.
+C97-282  low-latency LAN relay run.
+C97-283  BLE relay run.
+C97-284  OOB substitution attack run.
+C97-285  capability downgrade attack run.
+C97-286  old good-range replay run.
+C97-287  cross-peer range splice run.
+C97-288  fabricated one-sided distance run.
+C97-289  cherry-picked minimum-distance attack run.
+C97-290  attack-indicator policy exercised where supported.
+C97-291  published UWB physical-layer attack class evaluated for Secure UWB.
+C97-292  Bluetooth CS relay/security campaign run for Secure CS.
+C97-293  >=3000 severe attempts per Secure technology family.
+C97-294  zero final Secure false accepts in severe campaign.
+C97-295  if C97-294 fails, profile is downgraded; gate evidence preserves failure.
+C97-296  Medium profile has >=1000 relevant attack attempts.
+C97-297  Medium observed attack false-accept <=1.0%.
+C97-298  easy deterministic relay -> profile cannot be Medium.
+C97-299  colluding-real-witness success is documented as personhood residual.
+C97-300  no report claims "relay impossible."
+
+LIFECYCLE
+
+C97-301  fresh install permission flow tested.
+C97-302  permission denial tested.
+C97-303  permission later granted tested.
+C97-304  permission revoked mid-session tested.
+C97-305  Bluetooth off at start tested.
+C97-306  Bluetooth off mid-session tested.
+C97-307  ranging unavailable at start tested.
+C97-308  ranging unavailable mid-session tested.
+C97-309  background transition cancels personhood ranging.
+C97-310  foreground return starts fresh session.
+C97-311  screen lock behavior tested.
+C97-312  force-stop mid-session tested.
+C97-313  process death mid-session tested.
+C97-314  configuration/orientation change tested.
+C97-315  rapid start/cancel100 cycles tested.
+C97-316  no stale accepted result after canceled session.
+C97-317  no ranging resource left intentionally active after cancel.
+C97-318  no accepted evidence after half-signed ceremony.
+C97-319  no indefinite callback/latch wait.
+C97-320  system error surfaces understandable failure.
+
+PERFORMANCE / BATTERY
+
+C97-321  supported profile median ceremony <=10s.
+C97-322  supported profile p95 <=20s.
+C97-323  hard ceremony timeout <=30s.
+C97-324  no ANR in stress campaign.
+C97-325  no blocking radio/ranging wait on UI main thread.
+C97-326  no main-thread ceremony operation >100ms by app-controlled blocking.
+C97-327  no monotonic app-memory leak across100 cycles.
+C97-328  post-stress memory within adopted20MiB settled threshold or documented
+          equivalent leak-tool pass.
+C97-329  60-minute matched battery control recorded.
+C97-330  60-minute stress battery run recorded.
+C97-331  incremental battery <=5 percentage points full capacity vs control.
+C97-332  no ceremony-induced severe thermal state.
+C97-333  battery saver failure mode tested.
+C97-334  low battery behavior tested.
+C97-335  OS resource restriction fails safely.
+
+PRIVACY
+
+C97-336  production log contains no DID by default.
+C97-337  production log contains no personhood commitment.
+C97-338  production log contains no BLE MAC.
+C97-339  production log contains no Wi-Fi BSSID.
+C97-340  production log contains no UWB hardware address.
+C97-341  production log contains no IMEI/serial.
+C97-342  production log contains no ranging session secret.
+C97-343  production log contains no exact GPS.
+C97-344  production log contains no raw private payload.
+C97-345  hardware test logs use pseudonymous device IDs.
+C97-346  published evidence omits hardware serials.
+C97-347  published evidence omits personal notifications/accounts.
+C97-348  video privacy reviewed.
+C97-349  packet captures sanitized before publication.
+C97-350  no unmasking/central location database introduced.
+
+ACCESSIBILITY / USER CONTROL
+
+C97-351  person without UWB can use Mininet.
+C97-352  person without CS can use Mininet.
+C97-353  person without Wi-Fi RTT can use Mininet.
+C97-354  person declining ranging permission can use ordinary Mininet.
+C97-355  no hardware absence label says "not human."
+C97-356  ceremony is explicit user action.
+C97-357  both users can cancel.
+C97-358  seated/tabletop path tested.
+C97-359  no mandatory face scan.
+C97-360  no mandatory voice biometric.
+C97-361  no mandatory motion behavior/classifier.
+C97-362  no paid hardware accessory required.
+C97-363  no bank/carrier credential required.
+C97-364  fallback is honest about assurance.
+C97-365  UI never silently upgrades weak result.
+
+DEVICE MATRIX / INTEROPERABILITY
+
+C97-366  >=6 Android phones in campaign.
+C97-367  >=3 distinct Android models.
+C97-368  >=2 OEM families.
+C97-369  >=2 no-UWB fallback phones.
+C97-370  >=1 provisioned-STS UWB profile tested.
+C97-371  CS Level4 profile tested if supported launch hardware commercially
+          available.
+C97-372  cross-OEM secure/medium pair tested where technology claims interop.
+C97-373  unsupported cross-OEM result documented, not hidden.
+C97-374  case-on and case-off principal runs recorded.
+C97-375  oldest intended ordinary BLE Android release tested.
+
+MESH COMPANION — CONDITIONAL IF MESH SHIPS
+
+C97-376  real 3-node BLE line test run if mini-mesh ships.
+C97-377  A->B->C delivery succeeds.
+C97-378  B cannot read content beyond design authorization.
+C97-379  duplicate suppression works.
+C97-380  TTL/hop limit works.
+C97-381  bounded seen cache works.
+C97-382  bounded outbound queues work.
+C97-383  4-node line/cycle test run.
+C97-384  churn/disconnect/reconnect tested.
+C97-385  no broadcast storm.
+C97-386  malicious slow peer bounded.
+C97-387  flood peer bounded.
+C97-388  relay controls/user controls work if exposed.
+C97-389  diagnostics privacy-safe.
+C97-390  mesh relay never creates endpoint presence.
+
+HARDWARE PROFILE REGISTRY
+
+C97-391  profile registry is source-controlled/open.
+C97-392  no live vendor trust API required.
+C97-393  profile entry names technology.
+C97-394  profile entry names security mode.
+C97-395  profile entry names assurance.
+C97-396  profile entry binds evidence report hash.
+C97-397  profile entry binds policy version.
+C97-398  unknown profile defaults weak.
+C97-399  model-specific downgrade has public reason/evidence.
+C97-400  profile registry cannot assign extra governance/value rights.
+
+FILE4 PERSONHOOD INTEGRATION
+
+C97-401  WeakSoftware gives0 File4 physical-presence points.
+C97-402  CertifiedMedium may create accepted presence endorsement.
+C97-403  CertifiedSecure may create accepted presence endorsement.
+C97-404  local raw range evidence is not canonical public personhood graph.
+C97-405  anonymous mature witness semantics remain File4 responsibility.
+C97-406  hardware presence max remains capped by File4 policy.
+C97-407  presence is not sufficient for MatureHuman.
+C97-408  witness collusion residual documented.
+C97-409  absent certified hardware has alternate personhood route.
+C97-410  money cannot buy higher hardware presence score.
+
+EVIDENCE QUALITY
+
+C97-411  test plan hash committed before final campaign.
+C97-412  thresholds fixed before final campaign.
+C97-413  raw failure counts preserved.
+C97-414  means are not sole summary statistic.
+C97-415  median/p2.5/p10/p90/p97.5 reported as appropriate.
+C97-416  timeouts reported separately from distance values.
+C97-417  no missing sample replaced with zero.
+C97-418  no last-known distance reused as current.
+C97-419  suspicious/invalid samples counted.
+C97-420  sample exclusion rule predeclared.
+C97-421  attack success count reported raw.
+C97-422  zero-success confidence upper bound reported.
+C97-423  nonzero attack binomial interval reported.
+C97-424  every certified profile has reproducible evidence reference.
+C97-425  failed profiles remain in failures/report.
+
+INDEPENDENT REVIEW
+
+C97-426  final test lead identified.
+C97-427  independent reviewer identified.
+C97-428  reviewer is not primary adapter author.
+C97-429  reviewer competence statement recorded.
+C97-430  reviewer conflict statement recorded.
+C97-431  reviewer inspects exact git revision.
+C97-432  reviewer inspects APK digest.
+C97-433  reviewer observes/reproduces material hardware subset.
+C97-434  reviewer reviews sanitized raw attack data.
+C97-435  Secure RF attack specialist identified if separate.
+C97-436  specialist report hash recorded if used.
+C97-437  no AI/founder-only signoff closes gate.
+C97-438  final report signed/adopted by humans.
+C97-439  signoff grants no runtime key/power.
+C97-440  evidence can be independently rerun by fork/community.
+
+GATE CLOSURE
+
+C97-441  G97-01 pass.
+C97-442  G97-02 pass.
+C97-443  G97-03 pass.
+C97-444  G97-04 pass.
+C97-445  G97-05 pass.
+C97-446  G97-06 pass.
+C97-447  G97-07 pass.
+C97-448  G97-08 pass.
+C97-449  G97-09 pass.
+C97-450  G97-10 pass.
+C97-451  G97-11 pass.
+C97-452  G97-12 pass.
+C97-453  G97-13 pass.
+C97-454  G97-14 pass if UWB certified.
+C97-455  G97-15 pass.
+C97-456  G97-16 pass.
+C97-457  G97-17 pass.
+C97-458  G97-18 pass for each Secure profile.
+C97-459  G97-19 pass.
+C97-460  G97-20 pass.
+C97-461  G97-21 pass.
+C97-462  G97-22 pass.
+C97-463  G97-23 pass.
+C97-464  G97-24 pass.
+C97-465  G97-25 pass.
+C97-466  G97-26 pass.
+C97-467  G97-27 pass.
+C97-468  G97-28 pass.
+C97-469  G97-29 pass.
+C97-470  G97-30 pass.
+
+FINAL RULE:
+
+  C97-001..470 are the engineering/hardware audit matrix.
+
+  Conditional rows must be marked:
+    PASS
+    FAIL
+    N/A with the exact condition proving non-applicability.
+
+  Gate #97 cannot be PASS while a mandatory C97 row is FAIL.
+
+
+======================================================================
+33. EXACT CODE CHANGE MAP
+======================================================================
+
+33.1 `crates/mini-presence/src/attestation.rs`
+
+ADD:
+  RangingTechnologyV2
+  RangingSecurityProfileV2
+  MeasurementSidedness
+  AttackIndicatorV2
+  PresenceAssuranceV2
+  RangingEvidenceV2
+
+ADD:
+  PresenceAttestationV2 / fields equivalent.
+
+Keep V1:
+  decode/history/test compatibility only.
+
+Do not let V1 create certified personhood presence.
+
+33.2 `crates/mini-presence/src/verify.rs`
+
+ADD:
+  canonical `PresencePolicyV2`.
+
+ADD:
+  verifier path:
+    `verify_presence_v2`.
+
+It must:
+  derive assurance;
+  validate sample/distance/security bounds;
+  reject production InProcess;
+  preserve existing KEL/signature/nonces/replay/software RTT.
+
+Current caller-configurable `RangePolicy` may remain for:
+  local/testing/noncanonical use.
+
+Canonical personhood path must use fixed/versioned policy.
+
+33.3 `crates/mini-presence/src/active_range.rs`
+
+KEEP:
+  active challenge-response.
+
+ADD:
+  diagnostic summary:
+    min
+    median
+    p90
+
+Do not market:
+  software distance bounding.
+
+33.4 `crates/mini-presence/src/ranging.rs`
+
+Current `RangingSource` is too specific to `Option<UwbRanging>`.
+
+Supersede with:
+
+  trait RangingSourceV2 {
+      fn capabilities(&self) -> RangingCapabilitiesV2;
+      fn begin(...authenticated_context...)
+          -> Result<RangingSessionHandle, RangingErrorV2>;
+  }
+
+or a comparable design where the platform shell supplies:
+  explicit technology;
+  explicit security profile;
+  bounded observations.
+
+Keep:
+  NoUwb / NoRanging fallback.
+
+33.5 `crates/mini-ffi`
+
+Expose a platform-neutral callback/object boundary for:
+
+  query_ranging_capabilities
+  begin_ranging
+  collect/finish_ranging
+  cancel_ranging
+
+Do not expose:
+  personhood score setter.
+
+All platform-returned summaries are treated as untrusted input until Rust
+policy validates structural claims.
+
+Where OS-only security state cannot be cryptographically independently proven
+to Rust:
+  the profile certification campaign is the trust bridge.
+
+That trust is bounded to:
+  one hardware evidence class,
+not:
+  identity or governance.
+
+33.6 Android app
+
+ADD:
+  `AndroidRangingAdapter.kt`
+  `PresenceCeremonyController.kt`
+  `BlePeripheralServer.kt`
+  `BleCentralRadio.kt`
+  or successor integration if PR #333 lands.
+
+ADD:
+  capability negotiation;
+  OOB secure config exchange;
+  foreground lifecycle;
+  permission flow;
+  cancellation;
+  resource cleanup.
+
+Wire through:
+  actual UI.
+
+33.7 Android manifest
+
+For targetSdk36:
+
+ADD as needed:
+  BLUETOOTH_SCAN
+  BLUETOOTH_ADVERTISE
+  BLUETOOTH_CONNECT
+  RANGING
+
+Legacy:
+  BLUETOOTH
+  BLUETOOTH_ADMIN
+  ACCESS_FINE_LOCATION
+with appropriate maxSdkVersion where required for supported old BLE scanning.
+
+Do NOT add:
+  background location for presence.
+
+33.8 `mini-bearer`
+
+Preserve:
+  bearer abstraction.
+
+If PR #333 is merged:
+  ensure bounded queue/cache/TTL;
+  slow/flood peer behavior;
+  lifecycle cleanup;
+  direct-vs-relayed distinction.
+
+No presence API should inspect:
+  application content.
+
+33.9 `mini-keystone`
+
+Add real-phone integration entrypoint:
+  not just in-process.
+
+Keystone evidence:
+  strict BLE;
+  no internet;
+  verified identity;
+  active RTT;
+  certified hardware result where supported;
+  mutual presence.
+
+33.10 personhood integration
+
+File4's private presence endorsement accepts only:
+  CertifiedMedium
+  CertifiedSecure.
+
+No raw:
+  DID edge;
+  distance series;
+  radio identifiers
+enters canonical personhood graph/state.
+
+33.11 profile registry
+
+ADD:
+  `docs/hardware/presence-profile-registry-v1.*`
+or:
+  canonical Rust constants + generated human-readable view.
+
+Must be:
+  open;
+  deterministic;
+  no online service.
+
+33.12 tests
+
+ADD unit/property:
+  V2 codec;
+  policy;
+  downgrade;
+  transcript binding;
+  assurance derivation;
+  InProcess release rejection;
+  range sample bounds.
+
+ADD Android instrumentation:
+  permission/lifecycle state machines.
+
+ADD hardware scripts:
+  repeatable run IDs;
+  CSV collection;
+  statistical summary;
+  evidence hashing.
+
+
+======================================================================
+34. ENGINEERING IMPLEMENTATION ORDER
+======================================================================
+
+P97-01
+  Adopt this report / reconcile with Gate4 presence wording.
+
+P97-02
+  Land/fix real Android BLE direct bearer path.
+
+P97-03
+  Make Android build/reproducibility green.
+
+P97-04
+  Wire direct BLE path into actual presence UI/lifecycle.
+
+P97-05
+  Add PresenceAttestationV2 + RangingEvidenceV2.
+
+P97-06
+  Add canonical PresencePolicyV2.
+
+P97-07
+  Add production InProcess exclusion.
+
+P97-08
+  Add Android16 RangingManager adapter.
+
+P97-09
+  Add UWB provisioned-STS profile.
+
+P97-10
+  Add Bluetooth CS Level4 profile where hardware available.
+
+P97-11
+  Add Android14/15 UWB compatibility if supporting those devices for hardware
+  presence.
+
+P97-12
+  Add secure OOB negotiation/session binding.
+
+P97-13
+  Add privacy-safe hardware diagnostics/export.
+
+P97-14
+  Add hardware test runner and CSV schema.
+
+P97-15
+  Run six-phone calibration/honest-distance campaign.
+
+P97-16
+  Run lifecycle/battery/performance campaign.
+
+P97-17
+  Run accessible relay suite.
+
+P97-18
+  Run/commission physical-layer attack campaign for profiles intended Secure.
+
+P97-19
+  Classify each profile:
+    Secure
+    Medium
+    Weak
+    Unusable.
+
+P97-20
+  Integrate only Medium/Secure with File4 presence points.
+
+P97-21
+  Run strict two-phone no-internet keystone.
+
+P97-22
+  Run real mesh companion tests if mesh code is in release candidate.
+
+P97-23
+  Independent reviewer reproduces/checks evidence.
+
+P97-24
+  Commit evidence bundle.
+
+P97-25
+  Close #97 only when G97-01..30 and mandatory C97 rows pass.
+
+
+======================================================================
+35. WHAT DOES NOT CLOSE THIS GATE
+======================================================================
+
+The following are explicitly insufficient:
+
+  `cargo test --all`
+  PASS? useful, not hardware.
+
+  Android `assembleDebug`
+  PASS? useful, not hardware.
+
+  one successful BLE connection
+  not enough.
+
+  one screenshot of a 1m UWB result
+  not enough.
+
+  20 manual trials
+  not enough for a security classification.
+
+  vendor UWB documentation
+  not enough.
+
+  "Android SECURE"
+  not enough without session binding/hardware evidence.
+
+  "Bluetooth Level4"
+  not enough without actual device campaign.
+
+  BLE RSSI
+  not distance proof.
+
+  Wi-Fi connection
+  not distance proof.
+
+  application RTT <50ms
+  not meter proof.
+
+  PR #333 merged
+  not #97 closure by itself.
+
+  founder signoff
+  not physical evidence.
+
+  AI signoff
+  not physical evidence.
+
+  emulator
+  not physical evidence.
+
+  one OEM
+  not enough interoperability.
+
+  one device model
+  not enough.
+
+  hidden proprietary tester report with no reproducible counts
+  not enough.
+
+  real hardware but different code revision
+  not enough.
+
+
+======================================================================
+36. WHAT REOPENS GATE #97 AFTER CLOSURE
+======================================================================
+
+Reopen affected scope if:
+
+  hardware security configuration changes;
+
+  UWB changes from provisioned STS to another model;
+
+  Bluetooth CS security level changes;
+
+  distance threshold is raised above2m;
+
+  sample count floor falls below12;
+
+  median/p90 rule is replaced by minimum-only acceptance;
+
+  OOB session binding changes materially;
+
+  new technology begins earning personhood presence points;
+
+  platform OS makes a security-relevant ranging API change;
+
+  a published practical attack defeats a CertifiedSecure profile at meaningful
+  rates;
+
+  a known vulnerable device family remains classified Secure;
+
+  background ranging becomes required;
+
+  app starts retaining location/radio identifiers;
+
+  InProcess/test path becomes reachable in production;
+
+  central proximity/scoring service is introduced;
+
+  File4 begins accepting WeakSoftware presence for canonical points;
+
+  BLE mesh changes cause endpoint/relay presence confusion.
+
+Do NOT reopen full gate merely because:
+
+  a new device model passes the existing generic Certified profile unchanged;
+
+  UI copy changes without protocol/security change;
+
+  app adds a new optional bearer unrelated to presence;
+
+  test coverage expands;
+
+  a new independent team reproduces existing evidence.
+
+
+======================================================================
+37. VALUE-BY-VALUE VERDICTS
+======================================================================
+
+HUMANITY BEFORE TECHNOLOGY — PARTIAL
+
+Mechanism:
+  current presence code explicitly distinguishes identity roots from humans and
+  admits hardware/ranging limits.
+
+Exact failure:
+  no real hardware ranging implementation exists on main; raw UWB number is too
+  weakly typed to justify human-security weight.
+
+Location:
+  `crates/mini-presence/src/ranging.rs`
+  `crates/mini-presence/src/attestation.rs`.
+
+Best long-term solution:
+  RangingEvidenceV2 + certified real-device profiles + File4 multi-signal use.
+
+
+NO INDISPENSABLE CENTRAL AUTHORITY — PASS IN APPROVED ARCHITECTURE /
+PARTIAL CURRENT IMPLEMENTATION
+
+Mechanism:
+  local BLE discovery;
+  Mininet encrypted channel;
+  did:mini identity;
+  local hardware API;
+  no account server required.
+
+Failure:
+  none inherent, but a developer could mistakenly solve OOB/discovery through a
+  central server.
+
+Solution:
+  H97-18/H97-30; strict offline field test.
+
+
+NETWORK OUTLIVES ITS CREATORS — PARTIAL
+
+Mechanism:
+  open bearer abstractions and platform-neutral Rust evidence model can be
+  reimplemented by anyone.
+
+Failure:
+  Android OS/chipset implementations remain external platform dependencies for
+  high-assurance hardware ranging.
+
+Solution:
+  hardware is optional evidence; no platform is required for baseline network
+  participation/personhood; support multiple technologies/adapters.
+
+
+MONEY NEVER OUTRANKS LEGITIMACY — PASS
+
+Mechanism:
+  hardware/profile affects only evidence quality.
+  No balance/stake/payment field changes presence assurance.
+
+Exact failure:
+  none in approved design.
+
+Permanent test:
+  C97-011..016, C97-400, C97-410.
+
+
+CANONICAL TRUTH FOR PERSONHOOD — PARTIAL
+
+Mechanism:
+  signed transcript/channel/nonces/KEL/replay create deterministic envelope.
+
+Failure:
+  current UWB data lacks sufficient provenance/security context and assurance
+  is not canonical.
+
+Solution:
+  PresencePolicyV2 derives assurance from explicit V2 evidence and certified
+  profile registry.
+
+
+DESIGN FOR FAILURE — PARTIAL
+
+Mechanism:
+  NoUwb fallback;
+  replay guard;
+  timeouts in intended architecture;
+  hardware evidence additive.
+
+Failure:
+  real Android lifecycle/radio failure paths not tested on main.
+
+Solution:
+  LP/RS/C97 lifecycle suites; fail open for network, closed for presence.
+
+
+FREE FORKS / EARNED LEGITIMACY — PASS
+
+Mechanism:
+  no tester/runtime key;
+  no vendor server;
+  profile/evidence rules are open and reproducible.
+
+Failure:
+  none in approved architecture.
+
+
+HUMAN AS ROOT OF TRUST — PARTIAL
+
+Mechanism:
+  physical encounter is one human-controlled ceremony, mutually signed.
+
+Failure:
+  radio proves device proximity at best, not unique biology or witness honesty.
+
+Solution:
+  never make presence sole proof; integrate only through File4's mature-human,
+  vouch, time and multi-class model.
+
+
+STRUCTURAL PRIVACY — PARTIAL NOW / PASS TARGET
+
+Mechanism:
+  current transcript uses channel binding and optional hashed location rather
+  than raw coordinates.
+
+Failure:
+  current/public hardware implementation does not yet prove that platform logs
+  avoid MAC/UWB/session identifiers, because the platform adapter is missing.
+
+Solution:
+  privacy-safe log schema, no raw identifiers, foreground-only ceremony,
+  independent log audit.
+
+
+SIMPLICITY IS SECURITY — PARTIAL
+
+Mechanism:
+  Android16 RangingManager can unify multiple radio technologies.
+
+Failure:
+  supporting BLE GATT + old UWB + new UWB + CS + Wi-Fi can become a large
+  platform matrix.
+
+Solution:
+  one `RangingEvidenceV2` model, one canonical policy, Android16 primary path,
+  old paths compatibility only.
+
+
+HONEST MAJORITY / MALICIOUS MINORITY — PARTIAL
+
+Mechanism:
+  channel binding, signatures, replay controls and secure ranging constrain an
+  active network adversary.
+
+Failure:
+  current application RTT is relayable; UWB itself has published physical-layer
+  attacks; colluding real witnesses can still meet.
+
+Solution:
+  secure profile, physical attack campaign, median/tail filtering, and File4
+  multi-signal personhood.
+
+
+WEAKEST DEVICE MATTERS — PASS IN APPROVED ARCHITECTURE
+
+Mechanism:
+  NoUwb/WeakSoftware fallback does not block network access, and File4 defines a
+  personhood route without special ranging hardware.
+
+Failure:
+  weak phones cannot earn this particular high-confidence evidence class.
+
+That is acceptable:
+  equality requires equal human rights, not pretending all radios have equal
+  measurement security.
+
+
+AI SERVES HUMANITY, NEVER RULES — PARTIAL UNTIL HUMAN HARDWARE SIGNOFF
+
+Mechanism:
+  this protocol can be drafted/reviewed computationally, but gate closure
+  explicitly requires physical evidence and independent human signature.
+
+Failure:
+  no such physical human signoff exists yet.
+
+Solution:
+  execute campaign; human reviewer signs exact release.
+
+
+THINK IN CENTURIES — PARTIAL
+
+Mechanism:
+  explicit versioning, platform-neutral evidence, technology registry.
+
+Failure:
+  Android/UWB/CS APIs will evolve and some radios will disappear.
+
+Solution:
+  technology-independent security semantics; optional replaceable adapters;
+  profile evidence per generation.
+
+
+VOICE / VALUE WALL — PASS
+
+Mechanism:
+  hardware ranging quality has no vote-weight or value-weight path.
+
+Failure:
+  none allowed.
+
+Permanent negative tests:
+  C97-011..016, C97-400, C97-410.
+
+
+EDGE CONVENIENT, CORE INDEPENDENT — PASS IN APPROVED ARCHITECTURE
+
+Mechanism:
+  Android/UWB/CS are edge evidence adapters.
+  Core Mininet identity/network/personhood has alternate paths.
+
+Failure:
+  would fail if an Android/Apple attestation server became mandatory.
+
+Solution:
+  local/offline verification profile; no central API.
+
+
+LOCAL-FIRST / NETWORK-OF-NETWORKS — FAIL CURRENT MAIN / PASS TARGET
+
+Mechanism:
+  Rust bearer abstraction and BLE chunking exist.
+
+Exact failure:
+  reviewed Android main app has no real Kotlin BLE GATT implementation and the
+  strict two-phone offline keystone has not been physically demonstrated.
+
+Solution:
+  land platform adapter and pass Section24/C97-236..250.
+
+
+RELAY RESISTANCE — FAIL CURRENT CLAIM / PARTIAL TARGET
+
+Mechanism:
+  active encrypted RTT rejects gross latency; secure hardware profiles can
+  improve distance integrity.
+
+Exact failure:
+  current software RTT cannot stop a fast relay, and no real hardware source
+  ships.
+
+Solution:
+  secure UWB/CS profile + physical attack testing + explicit residual.
+  Never claim absolute relay impossibility.
+
+
+======================================================================
+38. OVERALL JUDGMENT
+======================================================================
+
+DOES THE CURRENT GATE #97 IMPLEMENTATION SERVE THE FREE-INTERNET HARDWARE
+STANDARD FOR REAL PEOPLE?
+
+NO.
+
+Why:
+
+  the current main tree cannot perform the required real Android hardware
+  ranging flow;
+
+  the current Android app cannot perform the BLE hardware keystone;
+
+  no real RangingSource ships;
+
+  software RTT cannot prove meter-scale proximity;
+
+  current UWB evidence lacks enough security provenance;
+
+  current production-shaped code can treat InProcess as proximity for CI;
+
+  no six-phone field campaign exists;
+
+  no physical relay campaign exists;
+
+  no external/independent human hardware signoff exists.
+
+DOES THE ARCHITECTURE AND TEST PROGRAM IN THIS REPORT SERVE A FREE INTERNET FOR
+HUMANITY?
+
+YES.
+
+It does so because:
+
+  local radio remains local;
+
+  no server decides proximity;
+
+  no radio vendor decides humanity;
+
+  no hardware model buys extra voice/value;
+
+  weak devices remain full network participants;
+
+  hardware evidence is one optional personhood class, never the identity root;
+
+  the protocol binds ranging to self-sovereign identities and an encrypted
+  channel;
+
+  secure modes are required instead of trusting marketing names;
+
+  UWB attacks are named rather than denied;
+
+  Bluetooth attack indicators are consumed rather than ignored;
+
+  software RTT is called weak rather than mislabeled distance proof;
+
+  raw location/device identifiers are not canonical state;
+
+  the test campaign can downgrade a technology instead of moving the goalpost;
+
+  any fork/community can reproduce the evidence;
+
+  no test lab gains runtime authority.
+
+FINAL GATE #97 STATUS:
+
+  HARDWARE DESIGN DECISION: PASS / COMPLETE
+
+  CURRENT MAIN IMPLEMENTATION: FAIL
+
+  CURRENT PHYSICAL EVIDENCE: FAIL / NOT RUN
+
+  GATE #97: FAIL / OPEN
+
+  REQUIRED NEXT ACTION:
+    implement Sections 6–10/33, then physically execute Sections 17–31 and
+    C97-001..470.
+
+  CLOSURE:
+    only after G97-01..30 all PASS and independent human signoff is attached.
+
+
+======================================================================
+39. HUMAN HARDWARE VALIDATION ATTESTATION
+======================================================================
+
+I attest that I reviewed and/or executed the Gate #97 hardware campaign against
+the exact revision/build recorded below.
+
+I understand that this signature is release evidence and creates no Mininet
+runtime authority.
+
+TEST LEAD
+
+Name:
+  ______________________________________________________________
+
+Relevant mobile/RF experience:
+  ______________________________________________________________
+
+Git revision:
+  ______________________________________________________________
+
+APK SHA-256:
+  ______________________________________________________________
+
+Campaign dates:
+  ______________________________________________________________
+
+Signature:
+  ______________________________________________________________
+
+
+INDEPENDENT REVIEWER
+
+Name:
+  ______________________________________________________________
+
+Affiliation:
+  ______________________________________________________________
+
+Competence:
+  ______________________________________________________________
+
+Relationship/conflict statement:
+  ______________________________________________________________
+
+Subset independently reproduced:
+  ______________________________________________________________
+
+Raw evidence reviewed:
+  ______________________________________________________________
+
+Disposition:
+
+  [ ] PASS — G97-01..30 and all mandatory C97 rows pass.
+
+  [ ] FAIL — unresolved mandatory rows remain.
+
+CertifiedSecure profiles:
+  ______________________________________________________________
+
+CertifiedMedium profiles:
+  ______________________________________________________________
+
+WeakSoftware profiles:
+  ______________________________________________________________
+
+Unusable profiles:
+  ______________________________________________________________
+
+Known relay/distance-reduction residual:
+  ______________________________________________________________
+
+Signature/date:
+  ______________________________________________________________
+
+
+PHYSICAL-LAYER SPECIALIST — IF REQUIRED FOR SECURE CLASSIFICATION
+
+Name / organization:
+  ______________________________________________________________
+
+Technology:
+  ______________________________________________________________
+
+Attack method:
+  ______________________________________________________________
+
+Attempts:
+  ______________________________________________________________
+
+False accepts:
+  ______________________________________________________________
+
+Report digest:
+  ______________________________________________________________
+
+Signature/date:
+  ______________________________________________________________
+
+
+======================================================================
+40. RESEARCH / EVIDENCE BIBLIOGRAPHY
+======================================================================
+
+MININET REPOSITORY — REVIEWED MAIN
+
+[MN97-01]
+  GitHub issue #97.
+  Phase 3.1a Presence/ranging adapters (BLE/UWB).
+
+[MN97-02]
+  docs/gates/hardware-test-protocol.md
+
+[MN97-03]
+  crates/mini-presence/src/ranging.rs
+  RangingSource / NoUwb honest limit.
+
+[MN97-04]
+  crates/mini-presence/src/verify.rs
+  RangePolicy / verify_presence.
+
+[MN97-05]
+  crates/mini-presence/src/attestation.rs
+  Presence transcript / UwbRanging.
+
+[MN97-06]
+  crates/mini-presence/src/active_range.rs
+  active encrypted application RTT and relay honest limit.
+
+[MN97-07]
+  crates/mini-presence/src/persisted.rs
+  durable replay guard.
+
+[MN97-08]
+  docs/audits/issue-17-presence-attack-review.md
+  AI-drafted internal presence attack review; active relay remains unresolved.
+
+[MN97-09]
+  crates/mini-bearer/src/android_ble.rs
+  Rust BLE bearer over platform radio trait.
+
+[MN97-10]
+  crates/mini-ffi/src/ble.rs
+  UniFFI BLE callback/handle.
+
+[MN97-11]
+  app/android/app/src/main/AndroidManifest.xml
+  current main manifest.
+
+[MN97-12]
+  app/android/app/build.gradle.kts
+  compileSdk36, targetSdk36, minSdk26.
+
+[MN97-13]
+  docs/BETA_STATUS.md
+  two-phone no-internet beta target and current real-hardware gaps.
+
+[MN97-14]
+  docs/INVARIANTS.md
+  PH1 partial; N1 Radio/LoRa not Mininet; N2 BLE/local Wi-Fi pending on main.
+
+[MN97-15]
+  PR #333
+  BLE multi-hop mesh / Android GATT proposed implementation.
+  Reviewed head:
+    03d61f32d410fafefa878d93e07e9fb2be99280f
+  Not part of reviewed main.
+  PR itself states no physical BLE test and no UI integration at review time.
+
+
+MININET FOUNDING SOURCES SUPPLIED TO THIS REVIEW
+
+[MN97-F01]
+  Mininet SPEC-02 Personhood Base.
+  Presence is strongest original signal; BLE + RTT/UWB; RSSI weak.
+
+[MN97-F02]
+  Mininet SPEC-03 Connectivity Overlay.
+  bearer-agnostic/local-first; relay/wormhole handled by presence layer.
+
+[MN97-F03]
+  Mininet Phase0-1 Sprint and Personhood Bootstrap.
+  two cheap phones / no internet / encrypted BLE / presence keystone.
+
+[MN97-F04]
+  Mininet Technical Plan v1.
+  BLE discovery + RTT/UWB physical presence; smallest two-phone demonstration.
+
+
+EXTERNAL — ANDROID RANGING
+
+[EXT97-01]
+  Android Developers:
+  "Range between devices"
+  https://developer.android.com/develop/connectivity/ranging
+
+  Current Android 16 unified RangingManager:
+    UWB
+    Bluetooth Channel Sounding
+    Wi-Fi NAN RTT
+    BLE RSSI
+    RANGING permission
+    OOB session setup
+    foreground/background limitations.
+
+[EXT97-02]
+  Android Developers:
+  `OobInitiatorRangingConfig`
+  https://developer.android.com/reference/android/ranging/oob/OobInitiatorRangingConfig
+
+  SECURITY_LEVEL_SECURE examples:
+    UWB Provisioned STS
+    BLE CS Security Level 4.
+
+[EXT97-03]
+  Android Developers:
+  Ultra-wideband communication.
+  https://developer.android.com/develop/connectivity/uwb
+
+  Secure OOB parameters;
+  per-session key;
+  provisioned STS vs static STS;
+  Android14+ provisioned STS support.
+
+[EXT97-04]
+  Android Developers:
+  `BleCsRangingCapabilities`
+  https://developer.android.com/reference/android/ranging/ble/cs/BleCsRangingCapabilities
+
+  Channel Sounding Security Level 4 / NADM support.
+
+[EXT97-05]
+  Android Developers:
+  Bluetooth permissions.
+  https://developer.android.com/develop/connectivity/bluetooth/bt-permissions
+
+  BLUETOOTH_SCAN/ADVERTISE/CONNECT and neverForLocation semantics.
+
+
+EXTERNAL — ANDROID CALIBRATION
+
+[EXT97-06]
+  Android Open Source Project:
+  Presence calibration.
+  https://source.android.com/docs/core/connect/presence-requirements
+
+  UWB:
+    1000 measurements at1m;
+    p97.5-p2.5 <30cm;
+    median [0.75m,1.25m].
+
+
+EXTERNAL — BLUETOOTH CHANNEL SOUNDING
+
+[EXT97-07]
+  Bluetooth SIG:
+  Bluetooth Channel Sounding.
+  https://www.bluetooth.com/learn-about-bluetooth/feature-enhancements/channel-sounding/
+
+  PBR + RTT; secure/fine ranging rationale.
+
+[EXT97-08]
+  Bluetooth SIG:
+  Core 6.0 feature overview.
+  https://www.bluetooth.com/core-specification-6-feature-overview/
+
+  NADM attack detector scale and Channel Sounding security features.
+
+[EXT97-09]
+  Bluetooth SIG:
+  Bluetooth LE Primer / Channel Sounding security.
+  https://www.bluetooth.com/bluetooth-le-primer/
+
+
+EXTERNAL — UWB SECURITY RESEARCH
+
+[EXT97-10]
+  Leu et al.
+  "Ghost Peak: Practical Distance Reduction Attacks Against HRP UWB Ranging."
+  USENIX Security 2022.
+  https://www.usenix.org/conference/usenixsecurity22/presentation/leu
+
+  Practical 802.15.4z HRP UWB distance reduction;
+  commercial Apple/NXP/Qorvo-class implementations;
+  reported12m->0m, up to4% attack success, no key knowledge.
+
+[EXT97-11]
+  Anliker, Camurati, Capkun.
+  "Time for Change: How Clocks Break UWB Secure Ranging."
+  USENIX Security 2023.
+  https://www.usenix.org/conference/usenixsecurity23/presentation/anliker
+
+  Clock manipulation / commercial-chip distance reduction.
+
+[EXT97-12]
+  "Secure Ranging with IEEE 802.15.4z HRP UWB."
+  IEEE Symposium on Security and Privacy 2024.
+  DOI 10.1109/SP54263.2024.00238
+
+  STS can support secure ranging with adequate receiver design.
+
+[EXT97-13]
+  Coppola et al.
+  "PURE: Payments with UWB RElay-protection."
+  USENIX Security 2024.
+  https://www.usenix.org/conference/usenixsecurity24/presentation/coppola
+
+  Hardened protocol integration; sub-meter relay protection against known
+  physical-layer distance-reduction attacks in evaluated deployment.
+
+
+EXTERNAL — APPLE FUTURE PARITY
+
+[EXT97-14]
+  Apple Developer:
+  Nearby Interaction.
+  https://developer.apple.com/documentation/nearbyinteraction/
+
+  UWB peer relative distance/direction; foreground behavior.
+
+[EXT97-15]
+  Apple Developer:
+  `NISession.discoveryToken`
+  https://developer.apple.com/documentation/nearbyinteraction/nisession/discoverytoken
+
+  temporary random per-session discovery token.
+
+[EXT97-16]
+  Apple Developer:
+  Discovering peers with Multipeer Connectivity.
+  https://developer.apple.com/documentation/nearbyinteraction/discovering-peers-with-multipeer-connectivity
+
+  application exchanges discovery tokens over chosen data link.
+
+
+======================================================================
+41. ENGINEER'S ONE-PAGE ACTION SUMMARY
+======================================================================
+
+DO NOT RESEARCH THE BASIC DESIGN AGAIN.
+
+DO THIS:
+
+1. Finish/merge a real Android BLE GATT adapter.
+2. Wire it into the real app, not a test harness.
+3. Add Android16 RangingManager.
+4. Use SECURE:
+     UWB Provisioned STS;
+     Bluetooth CS Level4.
+5. Use a fresh random UWB session key through Mininet encrypted OOB.
+6. Replace production `UwbRanging {distance,sample_count}` semantics with
+   RangingEvidenceV2.
+7. Bind technology/security/OOB/session/samples to the mutually signed
+   presence transcript.
+8. Keep active software RTT but label it WeakSoftware.
+9. Remove InProcess from production proximity.
+10. Use canonical distance policy:
+      >=12 samples
+      >=1.5s
+      median <=2.0m
+      p90 <=2.5m
+11. Consume NADM; possible-or-worse rejects.
+12. File4 personhood counts only CertifiedMedium/Secure presence.
+13. Test >=6 Android phones, >=3 models, >=2 OEMs.
+14. UWB calibration:1000 measurements at1m; platform baseline must pass.
+15. Run near/far/orientation/obstruction/interference matrix.
+16. Run strict two-phone airplane-mode, BLE-only keystone.
+17. Run replay/crash/permission/lifecycle/resource tests.
+18. Run relay/OOB/downgrade/splice attacks.
+19. Secure classification: >=3000 severe attack attempts, zero accepted false
+    <=2m when endpoints >=10m.
+20. If physical-layer testing unavailable, profile can be Medium at most.
+21. Test battery/performance/queue bounds.
+22. Publish sanitized evidence and every failure.
+23. Independent human reviewer signs exact build.
+24. Close #97 only when G97-01..30 + mandatory C97-001..470 all pass.
+25. Do not introduce any central discovery, approval or human-verification
+    server to make the flow easier.
+
+Until then:
+
+  GATE #97 = FAIL.
+
+======================================================================
+END — MININET HARDWARE VALIDATION PACKAGE 5/8 — GATE #97
+======================================================================

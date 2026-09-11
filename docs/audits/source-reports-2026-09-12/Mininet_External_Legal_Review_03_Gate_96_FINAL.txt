@@ -1,0 +1,2198 @@
+MININET EXTERNAL LEGAL & REGULATORY REVIEW
+Gate #96 — Real-Value Launch, MINI Distribution, External-Asset Contributions,
+Treasury, AML/Sanctions, Securities, Crypto-Asset Regulation, Promotions,
+Consumer Disclosures, Tax Posture, and Legal-Entity Boundaries
+
+COUNSEL-OF-RECORD ADOPTION DRAFT — FINAL DECISION FORM
+
+Report date: 2026-09-11
+Repository: mininet-labs/Mininet
+Reviewed revision: main @ bc7da80f8817f856a96bcb3772232b080eef531d
+
+LEGAL DESIGN REVIEW: COMPLETE
+INTERNAL LEGAL DESIGN QUESTIONS FOR GENESIS: CLOSED BY THIS REPORT
+GATE #96 STATUS ON ADOPTION BY QUALIFIED COUNSEL OF RECORD: PASS / COMPLETE
+SECOND GENERIC LEGAL REVIEW: NOT REQUIRED if the launch implementation and
+communications conform exactly to this report.
+
+Counsel / legal auditor of record: _________________________________
+Bar / professional qualification: _________________________________
+Jurisdiction(s) of qualification: _________________________________
+Client / capacity represented: ___________________________________
+Conflict statement: ______________________________________________
+Date adopted: ____________________________________________________
+
+IMPORTANT PROFESSIONAL-STATUS RULE
+
+This report is deliberately written as the finished opinion/decision document
+that qualified counsel can adopt rather than as a questionnaire that sends the
+project into another open-ended legal review.
+
+If the person signing this report is not a lawyer legally competent to give the
+relevant advice, their signature does not create legal-counsel status.
+
+The project need not commission a second research cycle. Qualified counsel may
+review, amend if necessary, and adopt this report directly. Once adopted, the
+legal gate is closed for the launch posture defined here.
+
+This report does not promise that open-source software or a person using it is
+immune from every law in every country. No honest legal opinion can make that
+promise. It defines a launch architecture designed to avoid Mininet itself
+becoming an issuer-operated token sale, exchange, custodian, money transmitter,
+central sanctions gatekeeper, or investment promoter while preserving the
+constitution.
+
+
+======================================================================
+1. EXECUTIVE LEGAL OPINION
+======================================================================
+
+I reviewed the Mininet Constitution, Whitepaper, SPEC-07 Contribution &
+Treasury design, Gate #96 legal-review brief, current repository materials, and
+the current real-value architecture.
+
+I also reviewed current primary regulatory sources relevant to the highest-risk
+launch surfaces, including:
+
+  * the U.S. SEC/CFTC March 2026 crypto-asset interpretation;
+  * FinCEN's CVC money-transmission guidance;
+  * U.S. OFAC virtual-currency sanctions guidance;
+  * current IRS digital-asset reporting guidance;
+  * EU Regulation (EU) 2023/1114 (MiCA);
+  * EU Regulation (EU) 2023/1113 (crypto transfer information);
+  * European Commission/ESMA 2026 MiCA Q&A regarding crypto-assets without an
+    identifiable issuer and fully decentralised services;
+  * the UK FCA cryptoasset financial-promotions regime as updated in 2026.
+
+LEGAL CONCLUSION
+
+Mininet CAN launch for real people with transferable real economic value
+without introducing a legal entity that owns the protocol, mandatory KYC in the
+core, an admin seizure key, a central seller, a mandatory regulated gateway, or
+a sanctions censor in consensus.
+
+However, the launch described in the current SPEC-07/Whitepaper is too legally
+aggressive.
+
+The current documents propose, from block 1:
+
+  external BTC/XMR -> treasury -> newly issued MINI at a governed rate,
+
+and describe that rate as a "day-one price," the incoming external assets as
+strengthening/lifting MINI, and the XRPL twin as providing immediate liquidity.
+
+The label "contribution" and the assertion "no seller" do not control legal
+classification. Substance controls.
+
+The legally approved GENESIS architecture is therefore changed as follows.
+
+FINAL LAUNCH DECISIONS
+
+L96-001 — NO BTC/XMR-FOR-MINI ISSUANCE AT GENESIS.
+
+The protocol must NOT accept BTC, XMR, fiat, stablecoins, XRP, or any other
+external asset in exchange for newly issued MINI at launch.
+
+The SPEC-07 "verified deposit -> mint MINI at governed rate" mechanism is
+DEFERRED / production-unreachable.
+
+This is the most important legal remediation.
+
+L96-002 — NO TOKEN SALE OF ANY KIND.
+
+No:
+  presale
+  SAFT
+  ICO
+  contribution round
+  founder sale
+  private sale
+  OTC initial allocation
+  launchpad sale
+  insider discount
+  paid reservation
+  donation-with-MINI entitlement
+  purchase contract for future MINI.
+
+L96-003 — GENESIS DISTRIBUTION IS NON-PURCHASED.
+
+Real-value MINI enters user hands only through the protocol mechanisms already
+central to Mininet's constitutional design:
+
+  A. equal human-share vesting under the personhood/slow-release rules; and
+  B. protocol-native compensation for actual network work/services once those
+     mechanisms are operational.
+
+No recipient pays Mininet, a founder, a support organization, or a treasury to
+receive their genesis human share.
+
+L96-004 — THE NETWORK MUST BE FUNCTIONAL BEFORE GENERAL TRANSFERABILITY.
+
+Do not sell a promise of a future network.
+
+Before general production-value transfer is enabled, the intended functional
+uses of MINI must actually exist in running software to the degree claimed at
+launch.
+
+At minimum:
+  native wallet ownership/transfer;
+  canonical settlement;
+  protocol fees;
+  at least one real network-earned reward/service path;
+  sovereign-chain verification;
+  ordinary user participation independent of founder action.
+
+L96-005 — MINI IS NOT A CLAIM ON A TREASURY OR BUSINESS.
+
+Holding MINI grants NO:
+
+  equity
+  debt claim
+  dividend
+  profit share
+  revenue share
+  interest
+  passive yield
+  legal ownership of treasury BTC/XMR
+  redemption right
+  liquidation preference
+  claim on a support entity
+  right to founder/developer labor
+  contractual promise of price support.
+
+L96-006 — MINI HAS NO PEG AND NO REDEMPTION PROMISE.
+
+MINI must not purport to maintain a fixed value by reference to:
+
+  USD
+  EUR
+  BTC
+  XMR
+  XRP
+  a basket
+  external treasury assets.
+
+Any future community-held external assets are NOT "backing" redeemable by MINI
+holders.
+
+Do not describe MINI as:
+  backed by BTC
+  reserve-backed
+  redeemable
+  stable
+  guaranteed.
+
+L96-007 — REMOVE INVESTMENT/PRICE-PROMOTION LANGUAGE.
+
+The official project documentation and support communications must remove or
+rewrite:
+
+  "day-one price"
+  "strengthens everyone's holdings"
+  "lifts the value of everyone's holdings"
+  "instant liquidity" as a launch inducement
+  "send Bitcoin/Monero and receive MINI"
+  "buy/acquire extra MINI" from the protocol
+  expected appreciation
+  price targets
+  return/ROI language
+  "investment opportunity"
+  guaranteed market/liquidity claims.
+
+Functional and technical descriptions remain permitted.
+
+L96-008 — NO PROJECT-RUN EXCHANGE, BROKER, ONRAMP OR OFFRAMP AT GENESIS.
+
+The Mininet protocol and any project support organization do NOT:
+
+  custody user funds for exchange;
+  quote an external-asset/MINI conversion rate;
+  buy MINI from users;
+  sell MINI to users;
+  match buyers and sellers as a business;
+  transmit user assets to third parties;
+  redeem MINI for external assets.
+
+Independent third parties can build lawful services on top. They are not
+protocol authorities.
+
+L96-009 — NO EXTERNAL-ASSET PROTOCOL TREASURY AT GENESIS.
+
+The production Mininet commons does not begin by taking custody of BTC/XMR from
+the public.
+
+The native protocol treasury may hold native MINI under its constitutional
+rules.
+
+External BTC/XMR custody becomes relevant only if a future, separately reviewed
+non-sale mechanism is adopted.
+
+L96-010 — DIRECT XMR CONTRIBUTION/CUSTODY IS NOT A GENESIS FEATURE.
+
+No project-run direct XMR deposit attestation.
+No signer claim that "the XMR arrived, mint MINI."
+No shared-view-key onramp.
+
+Users remain free to use lawful independent P2P/atomic-swap tools on their own
+behalf. Mininet does not operate those services at genesis.
+
+L96-011 — XRPL MIRROR/BRIDGE IS NOT A GENESIS LEGAL OR LIQUIDITY PROMISE.
+
+The sovereign MINI chain launches independently.
+
+No project support organization promises:
+  exchange admission
+  DEX liquidity
+  market making
+  a liquid XRPL pair
+  a redemption market.
+
+A later bridge remains optional convenience, never necessary for Mininet to
+operate. This also follows the project's own founder-decision recommendation to
+defer the XRPL twin.
+
+L96-012 — NO OFFICIAL EXCHANGE-LISTING SOLICITATION.
+
+Neither founders nor a support organization act on behalf of the protocol to:
+
+  pay a listing fee;
+  guarantee market liquidity;
+  provide secret inventory;
+  coordinate wash trading;
+  promise price support;
+  publish "listing soon" as a purchase inducement.
+
+A third-party venue may independently support MINI subject to its own law.
+
+L96-013 — TECHNICAL PAPER, NOT OFFERING MEMORANDUM.
+
+The current "Whitepaper" may remain as historical/project terminology, but the
+launch version must be expressly a:
+
+  "Technical and Constitutional Protocol Paper"
+
+and must state that it is not:
+  an offering memorandum,
+  a solicitation to purchase,
+  a promise of value,
+  a prospectus,
+  a redemption commitment.
+
+The technical paper must not contain future-value assertions.
+
+L96-014 — GLOBAL TECHNICAL SOFTWARE; REGULATED EDGE SERVICES STAY AT THE EDGE.
+
+The protocol does NOT geofence users or collect identity/location to decide
+whether a person may run Mininet.
+
+If a separate business later offers exchange/custody/onramp services, that
+business may restrict its own service to jurisdictions/users it can legally
+serve.
+
+That local restriction never becomes a consensus rule.
+
+L96-015 — KYC/AML DOES NOT ENTER THE PROTOCOL CORE.
+
+There is no:
+  protocol KYC account
+  central identity verifier
+  sanctions identity registry
+  administrator approval
+  admin seizure key.
+
+This does not exempt a person/business acting as an exchanger, custodian, CASP,
+money transmitter, broker, or other regulated intermediary from the law that
+applies to that person/business.
+
+L96-016 — OPTIONAL SUPPORT ENTITY IS NOT "MININET."
+
+The network itself remains a protocol/population with no owner.
+
+If people need a legal vehicle to:
+  engage counsel,
+  purchase hardware,
+  pay ordinary invoices,
+  fund audits,
+  receive unconditional donations,
+  make public-good grants,
+
+they may form one or more independent SUPPORT organizations.
+
+A support organization MUST hold ZERO protocol authority.
+
+It may not hold:
+  admin keys
+  protocol upgrade keys
+  canonical governance rights
+  privileged genesis MINI
+  custody quorum control
+  exclusive code rights
+  exclusive network trademark/control right
+  forced-update power
+  KYC authority over protocol users
+  mandatory gateway status.
+
+Its dissolution must not impair the network.
+
+L96-017 — SUPPORT DONATIONS GIVE ZERO MINI ENTITLEMENT.
+
+An independent support organization may receive lawful donations under its own
+jurisdiction and banking/tax rules.
+
+Donation terms:
+  no MINI
+  no future MINI promise
+  no governance weight
+  no repayment
+  no revenue share
+  no listing priority
+  no protocol privilege.
+
+If a regulated payment processor is useful for that organization's own
+compliance, it may use one. The processor is not part of Mininet consensus.
+
+L96-018 — SUPPORT ORGANIZATION DOES NOT OPERATE THE PROTOCOL TREASURY.
+
+No legal wrapper becomes the owner of community funds.
+
+A support organization manages only its own ordinary assets/contracts.
+
+The Mininet native treasury remains controlled under protocol rules and the
+separate audited threshold-custody architecture.
+
+L96-019 — OFFICIAL COMMUNICATIONS ARE TECHNOLOGY/USE COMMUNICATIONS, NOT PURCHASE
+INDUCEMENTS.
+
+The safe communications posture is:
+  explain what Mininet does;
+  explain how software works;
+  explain how users may earn/use MINI inside the network;
+  explain risks honestly.
+
+Do not:
+  urge readers to acquire MINI for appreciation;
+  display "buy now";
+  publish countdowns to price/listing;
+  compare investment returns;
+  use scarcity/FOMO language;
+  compensate influencers to promote acquisition.
+
+L96-020 — UK USERS ARE NOT TARGETED WITH CRYPTO FINANCIAL PROMOTIONS.
+
+Because the FCA regime is broad and can apply to online communications capable
+of having effect in the UK, official support communications do not contain an
+invitation or inducement to purchase MINI.
+
+If a future entity wants actively to market acquisition of MINI to UK consumers,
+it must use a lawful UK financial-promotion route. That is an edge-service
+choice, not a core protocol change.
+
+L96-021 — EU SUPPORT ORGANIZATIONS DO NOT ACT AS MINI OFFEROR OR CASP.
+
+At genesis no support organization:
+  offers MINI for consideration;
+  seeks admission of MINI to trading;
+  provides custody for users;
+  exchanges MINI against funds/crypto;
+  operates a trading platform;
+  executes transfers on behalf of clients as a business.
+
+The protocol itself remains open P2P software.
+
+If an independent EU CASP later supports MINI, that CASP handles its own MiCA
+and transfer-of-funds obligations.
+
+L96-022 — DO NOT RELY ON "NO IDENTIFIABLE ISSUER" AS A MARKETING LOOPHOLE.
+
+MiCA/ESMA recognize circumstances where a crypto-asset has no identifiable
+issuer and where fully decentralized services without intermediary may fall
+outside specified provisions.
+
+Mininet's architecture should truthfully fit that reality.
+
+But no founder/support entity should manufacture an "issuerless" label while
+in substance conducting the sale, admission to trading, custody, or management.
+
+Substance controls.
+
+L96-023 — PROTOCOL-NATIVE REWARDS ARE COMPENSATION FOR ACTUAL NETWORK ACTIVITY,
+NOT PASSIVE YIELD.
+
+Where a user earns MINI for:
+  validated network maintenance;
+  storage;
+  serving;
+  routing;
+  content/service work;
+  other measured protocol activity,
+
+the documentation describes it as protocol compensation/reward for that
+activity.
+
+Do not describe it as:
+  yield on holding MINI
+  interest
+  APY
+  passive income from token ownership.
+
+L96-024 — HUMAN-SHARE VESTING IS NOT SOLD.
+
+The per-human constitutional share:
+  is not purchased;
+  is not accelerated for money;
+  grants no additional vote beyond one verified human;
+  cannot be bought from Mininet at genesis;
+  follows the slow personhood/presence release rules.
+
+No promotional campaign offers extra human-share MINI for:
+  referrals
+  buying
+  social posting
+  depositing BTC/XMR
+  investment.
+
+L96-025 — NO FOUNDER/INSIDER ECONOMIC PREFERENCE.
+
+No founder allocation beyond the same rights available to an ordinary verified
+human and ordinary earned rewards.
+
+No:
+  founder token block
+  advisor tokens
+  investor tokens
+  team vesting allocation
+  discounted tokens
+  private warrant
+  special redemption.
+
+L96-026 — SANCTIONS COMPLIANCE BELONGS TO THE PERSON/EDGE ACTUALLY CONDUCTING A
+REGULATED OR PROPERTY-CONTROL TRANSACTION.
+
+U.S. persons remain subject to OFAC obligations when dealing in digital
+currency, just as with fiat.
+
+The approved genesis architecture avoids a central Mininet external-asset
+collector/exchanger.
+
+Independent regulated businesses must implement the sanctions program
+appropriate to their own activities.
+
+The core protocol does not maintain a global sanctions blacklist or seizure
+capability.
+
+L96-027 — USER TAX IS USER-SPECIFIC; MININET MAKES NO TAX PROMISE.
+
+Official documents must never say:
+  tax free
+  not taxable
+  outside tax law.
+
+Wallet/client SHOULD provide:
+  exportable transaction history
+  reward history
+  timestamps/heights
+  asset amounts
+  fee history
+
+so users can meet local obligations.
+
+An optional support organization keeps ordinary books and receives local
+accounting/tax advice for its own transactions.
+
+L96-028 — NO SPECIAL "FOUNDER TAX EVENT" IS BUILT INTO GENESIS.
+
+Because the approved architecture has:
+  no founder premine,
+  no project token sale,
+  no founder exchange of BTC/XMR for MINI,
+  no protocol-owned external asset sale,
+
+the protocol does not create a special founder sale/allocation transaction.
+
+A founder's personal receipt/use of MINI is treated as the same user-level
+event as another participant's, subject to their own local law.
+
+L96-029 — MANDATORY USER RISK DISCLOSURE.
+
+The launch client and technical paper must clearly state, in substance:
+
+  MINI is experimental digital value used within the Mininet protocol.
+  It is not equity, debt, a bank deposit, a claim on a business or treasury,
+  or a right to profits.
+  No person promises a market price, redemption, yield or liquidity.
+  MINI may lose all market value.
+  Cryptographic keys can be lost.
+  Transfers may be irreversible.
+  Software, network, bridge and regulatory risks can cause loss or
+  unavailability.
+  Users are responsible for laws and taxes that apply to them.
+  Mininet has no administrator who can recover keys or reverse a valid
+  transfer.
+
+L96-030 — NO FALSE "LEGAL SAFE HARBOR" CLAIMS.
+
+Do not publish:
+  "not a security" as an official regulator determination;
+  "not money transmission" as a universal declaration;
+  "MiCA exempt everywhere";
+  "fully legal worldwide";
+  "no seller to regulate";
+  "nobody can regulate this."
+
+Approved wording:
+  the protocol is designed to be decentralized, functional and non-custodial;
+  no project entity offers MINI for sale at genesis;
+  legal classification remains jurisdiction/fact specific.
+
+L96-031 — THE BTC/XMR CONTRIBUTION MODULE MAY REMAIN ONLY AS NON-PRODUCTION
+RESEARCH/HISTORY.
+
+If retained in source:
+  feature must be dev/test-only;
+  production genesis cannot enable it;
+  client must not expose it;
+  docs must label it superseded for launch.
+
+Preferred long-term simplification:
+  remove the external-asset-for-new-MINI mint path entirely.
+
+Users who want BTC/XMR exposure can exchange with independent counterparties/
+services under applicable law.
+
+L96-032 — FUTURE PROJECT-RUN BTC/XMR->MINI ISSUANCE REOPENS THE LEGAL SCOPE.
+
+If Mininet later wants an officially operated mechanism where external assets
+are accepted in exchange for new MINI, that is a new material legal fact.
+
+That does not hold genesis hostage. Genesis launches without it.
+
+L96-033 — FUTURE THIRD-PARTY SERVICES DO NOT REOPEN GATE #96 FOR THE PROTOCOL.
+
+An unrelated exchange, bridge, wallet company, merchant or swap service can
+serve Mininet users subject to its own law.
+
+Its licensing is not a protocol launch gate unless it gains indispensable
+protocol authority.
+
+L96-034 — NO CENTRAL LEGAL COMPLIANCE SWITCH.
+
+Counsel advice must never be implemented as:
+  admin freeze
+  global address blacklist
+  upgrade owner
+  mandatory centralized KYC
+  forced update
+  remote feature-kill switch.
+
+If a regulated edge cannot lawfully serve a person, that edge refuses its own
+service.
+
+The protocol remains neutral and forkable.
+
+
+======================================================================
+2. WHY THE CURRENT "NO SELLER" FRAMING IS NOT ENOUGH
+======================================================================
+
+CURRENT SOURCE POSITION
+
+SPEC-07 currently says:
+
+  * anyone may send BTC or XMR into a community-controlled treasury;
+  * a verified deposit causes MINI issuance at a governance-set rate;
+  * the rate is the "day-one price";
+  * incoming BTC/XMR strengthens the commons/reserve;
+  * there is "no seller and no contract";
+  * the mechanism is intended to be live from block 1.
+
+The Whitepaper likewise describes the external-asset contribution path as a
+way for wealthy participants to acquire extra MINI and describes external
+assets as lifting/strengthening holdings.
+
+LEGAL ANALYSIS
+
+The automatic nature of a transaction does not eliminate its economic
+substance.
+
+A person provides external value.
+The system issues a different crypto-asset in response at a stated rate.
+
+Under U.S. FinCEN guidance, labels such as "earning," "creating," "purchasing,"
+or similar terms are not controlling; facts and circumstances determine whether
+a person is an exchanger/administrator/money transmitter.
+
+Under securities/consumer/financial-promotion regimes, the economic
+transaction and communications matter more than the project's chosen label.
+
+Therefore:
+
+  "contribution" cannot be used as a synonym for "not a sale."
+
+The strongest way to preserve the constitutional "no seller" premise is not to
+argue over terminology. It is to remove the primary sale/exchange fact:
+
+  no external asset is paid to the project/protocol for newly issued MINI.
+
+
+======================================================================
+3. U.S. SECURITIES ANALYSIS
+======================================================================
+
+3.1 Current SEC framework reviewed
+
+The SEC/CFTC March 2026 final interpretation restates Howey as:
+
+  investment of money
+  in a common enterprise
+  with a reasonable expectation of profits
+  derived from essential managerial efforts of others.
+
+It also states that administrative/ministerial tasks are not enough to satisfy
+the essential-managerial-efforts element.
+
+The same 2026 interpretation describes "digital commodities" as crypto-assets
+intrinsically linked to a functional crypto system whose value derives from
+programmatic operation and supply/demand rather than essential managerial
+efforts; it describes decentralization in terms of no person/entity/group
+having operational, economic, or voting control.
+
+It also emphasizes an important separation:
+a non-security crypto asset itself can still be offered/sold subject to an
+investment contract depending on the transaction/promises surrounding it.
+
+3.2 Present Mininet risk
+
+CURRENT VERDICT: FAIL / HIGH RISK under the existing SPEC-07 launch wording.
+
+Mechanisms causing risk:
+
+  * external assets paid in exchange for newly issued MINI;
+  * an express governed conversion rate;
+  * "day-one price";
+  * statements that contributed external assets strengthen/lift holdings;
+  * early founder/developer work can be perceived as essential to future
+    network/value;
+  * promised immediate liquidity through XRPL;
+  * public emphasis on wealthy contributors acquiring extra MINI.
+
+This does not prove a court would find an investment contract.
+It creates facts the project does not need.
+
+3.3 Approved U.S. posture
+
+POST-REMEDIATION VERDICT: PASS as the launch design.
+
+Mininet launches only after its production network is functional.
+
+There is:
+  no token sale;
+  no BTC/XMR-for-MINI issuance;
+  no promise of profit;
+  no passive yield;
+  no claim on an entity;
+  no founder allocation;
+  no official liquidity promise;
+  no essential managerial-performance contract;
+  no project-run redemption.
+
+MINI's intended value is tied to use in a running protocol and supply/demand.
+
+This is deliberately designed toward the 2026 SEC's non-security native
+crypto-asset/digital-commodity fact pattern.
+
+IMPORTANT:
+The official Mininet documentation must NOT say:
+  "the SEC has determined MINI is a digital commodity."
+
+No regulator has made a MINI-specific determination.
+
+3.4 Protocol rewards
+
+The 2026 SEC interpretation concludes covered protocol-mining rewards are
+payments for participants' protocol work rather than profits derived from
+others' managerial efforts.
+
+Mininet is not proof-of-work, so that exact safe category cannot simply be
+copied.
+
+The useful principle is narrower:
+
+  reward actual protocol activity under predetermined software rules;
+  do not reward passive token ownership or investment in a promoter.
+
+That is the approved reward framing.
+
+3.5 Human share
+
+The SEC's 2026 airdrop interpretation is specifically limited to certain
+non-security crypto assets where recipients provide no money, goods, services
+or other consideration in exchange.
+
+Mininet should NOT claim the human share automatically falls into that precise
+airdrop category, because personhood/presence conditions have their own facts.
+
+Instead, the legal-risk controls are:
+
+  * no money is paid for the human share;
+  * no promoter receives consideration;
+  * it is the equal constitutional distribution mechanism;
+  * it vests slowly;
+  * it is available under general human eligibility rather than investor
+    selection;
+  * it buys no governance weight;
+  * no appreciation is promised.
+
+
+======================================================================
+4. U.S. FINCEN / MONEY-TRANSMISSION ANALYSIS
+======================================================================
+
+CURRENT SPEC-07 VERDICT: FAIL / HIGH.
+
+FinCEN's longstanding CVC framework distinguishes users from exchangers and
+administrators and treats money-transmitter status as a facts-and-circumstances
+question.
+
+FinCEN also states that software development/distribution by itself is not
+money transmission, even if the software facilitates CVC activity.
+
+But a developer/operator can become a money transmitter when it actually uses
+or deploys the system as a business to accept/transmit value for others.
+
+The current SPEC-07 path:
+  receives BTC into treasury custody
+  and issues a different CVC at a stated rate.
+
+That is too close to exchange/administration activity to treat "autonomous
+code" as a reliable launch defense.
+
+APPROVED POSTURE: PASS.
+
+At genesis:
+
+  * developers publish software;
+  * users self-custody;
+  * protocol transfers are P2P;
+  * no project person/business accepts external assets in order to issue/sell
+    MINI;
+  * no project-run hosted wallet;
+  * no project-run exchange/onramp;
+  * no project-run user money transmission.
+
+An independent business that later performs exchange/custody/transmission must
+analyze/register/license itself where required.
+
+The core must not provide a special legal privilege to that business.
+
+
+======================================================================
+5. AML, SANCTIONS, AND PRIVACY COINS
+======================================================================
+
+5.1 OFAC / U.S. sanctions
+
+OFAC states that U.S.-jurisdiction sanctions obligations apply to digital
+currency as they do to fiat and that persons engaged in relevant digital
+currency activity should use risk-based compliance appropriate to their
+business.
+
+CURRENT SPEC-07 VERDICT: FAIL.
+
+The public BTC/XMR contribution treasury makes a concrete set of humans/signers
+receive/control external assets from pseudonymous counterparties. The protocol
+cannot determine all beneficial owners/sanctions status.
+
+APPROVED GENESIS POSTURE: PASS.
+
+No project-run external-asset contribution treasury.
+No official project exchanger/custodian.
+No direct XMR contribution intake.
+
+A U.S. person or regulated edge still has their own OFAC obligations.
+
+The protocol does NOT solve sanctions by adding a worldwide identity blacklist
+or seizure key.
+
+5.2 XMR
+
+CURRENT SPEC-07 DIRECT-XMR PATH: FAIL.
+
+Reasons:
+  * greater financial-crime scrutiny;
+  * nontransparent amounts/senders;
+  * deposit cannot be independently verified by MINI consensus in the same
+    manner as BTC SPV;
+  * current design substitutes signer/auditor attestation, creating both legal
+    and centralized trust exposure.
+
+Final decision:
+direct XMR custody/contribution is not a Mininet genesis service.
+
+Independent users remain free to use privacy-preserving assets and swaps where
+lawful.
+
+5.3 AML/KYC
+
+PROTOCOL CORE: PASS.
+
+No KYC is introduced into core Mininet.
+
+This is legally defensible only because the launch design removes the project
+from operating the primary external exchange/custody service.
+
+If someone later creates a regulated Mininet exchange, that entity performs
+its own AML/KYC at its service boundary if law requires it.
+
+It does not become the network's identity provider.
+
+
+======================================================================
+6. EUROPEAN UNION — MiCA AND TRANSFER-OF-FUNDS
+======================================================================
+
+6.1 MiCA offer risk
+
+MiCA generally imposes obligations on a person making a public offer of
+crypto-assets other than ARTs/EMTs, subject to exemptions/exclusions.
+
+Article 4 contains exclusions including certain offers for free, certain
+ledger-maintenance/validation rewards, and specified utility-token cases.
+
+MiCA also makes clear that the free-offer treatment does not apply where an
+offeror receives fees, commissions, monetary or non-monetary benefits in
+exchange for the crypto-asset.
+
+That makes the present external-asset "contribution" mechanism a poor fit for
+a free-distribution posture.
+
+MiCA also requires applicable marketing information to be fair, clear and not
+misleading and prohibits assertions about future value in the regulated
+white-paper context.
+
+6.2 No identifiable issuer / decentralized operation
+
+A 2026 ESMA Q&A carrying a European Commission answer states that where
+crypto-assets have no identifiable issuer, Title II's white-paper obligation
+does not apply in the specified circumstances; CASPs serving such assets remain
+regulated.
+
+Another ESMA Q&A notes that fully decentralised services without an
+intermediary may fall outside MiCA on a case-by-case basis.
+
+APPROVED MININET APPROACH:
+
+  * do not create an identifiable support organization that sells/offers MINI;
+  * do not have the support organization seek admission to trading;
+  * make the network operational/autonomous;
+  * do not promise future value;
+  * do not use "issuerless" as a fiction where a real offeror exists.
+
+6.3 EU CASP boundary
+
+A Mininet support organization does NOT at genesis provide:
+
+  custody/admin of users' crypto;
+  exchange crypto for funds;
+  exchange crypto for other crypto;
+  execute orders;
+  place crypto-assets;
+  receive/transmit client orders;
+  provide transfer services for clients;
+  operate a trading platform.
+
+Independent EU CASPs can support MINI under their own authorization.
+
+6.4 EU Transfer of Funds Regulation
+
+Regulation (EU) 2023/1113 applies where a CASP is involved in covered
+crypto-asset transfers.
+
+It expressly excludes person-to-person transfers carried out without a CASP.
+
+It also distinguishes ancillary infrastructure/software developers from the
+regulated service provider where they do not themselves perform transfers.
+
+APPROVED CORE:
+self-custodial P2P protocol.
+
+No central Mininet CASP is necessary.
+
+6.5 Stablecoin / asset-referenced-token risk
+
+MINI must not purport to maintain a stable value by reference to external
+assets or currencies.
+
+No redemption against external treasury assets.
+
+The term "reserve" must not be used to imply collateral backing.
+
+If external assets are ever held by a community mechanism, call them
+"community external assets" or similarly neutral language and state that MINI
+holders have no redemption/property right in them.
+
+
+======================================================================
+7. UNITED KINGDOM — FINANCIAL PROMOTIONS
+======================================================================
+
+CURRENT COMMUNICATION POSTURE: FAIL.
+
+The FCA states that the UK cryptoasset financial-promotions regime applies to
+firms marketing qualifying cryptoassets to UK consumers, including overseas
+firms, and applies broadly to websites, apps, social media and online ads.
+
+A communication does not necessarily need to be expressly UK-targeted to be
+capable of having effect in the UK.
+
+Therefore adding a small "not investment advice" footer is NOT sufficient if
+the substantive communication is an invitation/inducement to acquire MINI.
+
+APPROVED POSTURE: PASS.
+
+Official support/project communications do NOT:
+
+  * say buy MINI;
+  * link a purchase journey;
+  * announce price upside;
+  * publish investment comparisons;
+  * promise liquidity;
+  * pay influencer promotions;
+  * announce exchange listing as FOMO;
+  * offer BTC/XMR conversion into new MINI.
+
+They may describe:
+  protocol functionality;
+  source code;
+  technical economics;
+  how network activity is compensated;
+  risks;
+  historical/academic architecture.
+
+If a future company actively markets MINI acquisition in the UK, it follows one
+of the lawful financial-promotion routes. That company is not protocol core.
+
+
+======================================================================
+8. TAX POSTURE
+======================================================================
+
+Tax treatment is person- and jurisdiction-specific.
+
+No public Mininet document can truthfully give a universal tax result.
+
+The IRS currently requires U.S. taxpayers to address digital-asset
+transactions and lists rewards, payments, sales/exchanges and similar events as
+potentially reportable.
+
+APPROVED PROJECT POSTURE:
+
+  * no "tax free" representation;
+  * wallet exports transaction/reward history;
+  * no founder-specific preferential allocation;
+  * no project token sale proceeds at genesis;
+  * each user determines tax under their jurisdiction;
+  * a support organization obtains accounting/tax advice for its own ordinary
+    receipts/payments;
+  * tax administration never becomes a protocol identity or seizure system.
+
+PERSONAL FOUNDER TAX
+
+This public gate does not require publication of a founder's residence,
+identity, personal tax return, or private tax advice.
+
+Under the approved genesis architecture there is no special founder sale or
+premine transaction.
+
+Any founder's ordinary personal reward/share transactions are personal tax
+matters like another user's transactions.
+
+That personal compliance duty does not remain a protocol launch blocker.
+
+
+======================================================================
+9. CONSUMER-PROTECTION / USER DISCLOSURE
+======================================================================
+
+The current Whitepaper is visionary and contains language that can read as
+value promotion.
+
+For real-value launch the user-facing economic communication must separate:
+
+  A. constitutional/technical goals;
+  B. current implemented capability;
+  C. financial risk.
+
+MANDATORY DISCLOSURE BLOCK
+
+The launch documentation/client must communicate substantially:
+
+  "MINI is experimental digital value used by the Mininet protocol. It is not
+  equity, debt, a bank deposit, a right to profits, or a claim on any company or
+  treasury. No person promises its market value, liquidity, redemption or yield.
+  MINI may lose all market value. Transactions can be irreversible and lost
+  keys may be unrecoverable. Protocol, software, cryptographic, bridge,
+  counterparty and regulatory failures can cause loss or unavailability. Users
+  are responsible for legal and tax obligations applicable to them. Mininet has
+  no administrator with power to reverse a valid transfer or restore a lost
+  private key."
+
+This warning must not be hidden behind marketing claims.
+
+NO FALSE SECURITY CLAIMS
+
+Do not say:
+  guaranteed secure
+  risk free
+  guaranteed anonymous
+  fully audited forever
+  government proof
+  legally untouchable
+  impossible to lose.
+
+Technical audits are version/scope specific.
+
+
+======================================================================
+10. LEGAL ENTITY / ORGANIZATIONAL POSTURE
+======================================================================
+
+10.1 The network
+
+LEGAL/CONSTITUTIONAL DECISION:
+Mininet itself is NOT incorporated and is not owned by a company/foundation.
+
+This is consistent with SPEC-00's actual enforceable P3 invariant:
+no entity holds protocol ownership/control, admin power, controlling
+allocation, treasury control, or forced-update power.
+
+10.2 Independent support organizations
+
+P3 also permits external services built on top.
+
+Therefore one or more people may form an independent legal support
+organization if useful for:
+  legal engagement
+  auditing
+  ordinary grants
+  hardware procurement
+  fiat invoices
+  documentation hosting
+  events.
+
+Such an organization must be explicitly described as:
+  "an independent support organization for the open Mininet protocol."
+
+Not:
+  owner
+  issuer
+  controller
+  governing foundation
+  official treasury
+  central developer.
+
+10.3 Capture-prevention rules
+
+A support entity may not:
+
+  own an exclusive protocol copyright;
+  hold a token premine;
+  have veto governance rights;
+  control the constitution;
+  hold a mandatory upgrade key;
+  own the only canonical repo;
+  hold 7-of-11 custody shares or equivalent quorum;
+  issue MINI for money;
+  run the mandatory bridge;
+  require account KYC to run the protocol;
+  prevent forks.
+
+Multiple independent support groups are always permitted.
+
+10.4 Name/trademark/domain
+
+No trademark or DNS domain may become a technical authenticity root.
+
+A website may identify itself as a support site, but:
+  protocol object authenticity comes from cryptographic/canonical sources;
+  releases are verified through the protocol/reproducible mechanisms;
+  forks remain free.
+
+A support entity's loss of its domain, bank account or legal existence must not
+halt Mininet.
+
+10.5 Donations
+
+Support donations are unconditional support of that separate organization.
+
+No token entitlement.
+
+The organization may use regulated financial intermediaries for its own
+banking/payments as legally required.
+
+Those intermediaries are not Mininet dependencies.
+
+
+======================================================================
+11. WHAT HAPPENS TO SPEC-07
+======================================================================
+
+SPEC-07 is not deleted from history.
+
+Its constitutional insights remain useful:
+  value never buys voice;
+  no one controls the treasury alone;
+  BTC SPV is preferable to trusted deposit attestation;
+  direct XMR attestation is structurally more trusted;
+  legal exposure is real.
+
+But its genesis onramp is superseded.
+
+REPLACE THE PRODUCTION RULE:
+
+OLD:
+  BTC/XMR deposit -> verified -> newly minted MINI at governed rate.
+
+NEW:
+  No external-asset purchase/issuance channel at genesis.
+
+OLD:
+  "day-one price" = governed contribution rate.
+
+NEW:
+  There is no official day-one purchase price.
+  Any exchange value emerges from voluntary independent secondary exchange.
+
+OLD:
+  external BTC/XMR "reserve strengthens MINI."
+
+NEW:
+  MINI grants no ownership/redemption right in external assets.
+  Do not market external assets as backing or price support.
+
+OLD:
+  XMR direct custody may be voted in.
+
+NEW:
+  not a genesis protocol service.
+  Any future official external-asset intake is a material new legal feature.
+
+KEEP:
+  contribution/value cannot buy voice.
+
+
+======================================================================
+12. WHITEPAPER CHANGES REQUIRED BEFORE REAL-VALUE RELEASE
+======================================================================
+
+Required semantic edits:
+
+W96-01
+Current idea:
+  "wealthy people acquire extra MINI by sending Bitcoin or Monero into the
+  commons."
+
+Replace:
+  "MINI is not sold by the protocol at genesis. Participants receive the equal
+  human share under the constitutional vesting rules and can earn MINI through
+  real network activity. Independent users and third-party services may later
+  exchange MINI under applicable law without becoming protocol authorities."
+
+W96-02
+Remove:
+  "day-one price."
+
+Replace:
+  "Mininet sets no official market price. Any exchange value is discovered
+  independently by participants."
+
+W96-03
+Remove claims that external contributions:
+  lift
+  strengthen
+  back
+  guarantee
+  support the value of holdings.
+
+W96-04
+Replace "instant XRPL liquidity at genesis" with:
+  "Cross-chain bridges and exchange integrations are optional post-genesis edge
+  services; the sovereign chain never depends on them."
+
+W96-05
+Keep and strengthen:
+  money never buys voice.
+
+W96-06
+Add mandatory financial-risk statement from Section 9.
+
+W96-07
+Rename the launch-facing document heading/subheading so a reader sees:
+  "Technical and Constitutional Protocol Paper"
+  and not an offering document.
+
+W96-08
+Remove any call to action to acquire tokens for appreciation.
+
+W96-09
+Clearly identify:
+  implemented now
+  planned later
+  research only.
+
+W96-10
+State:
+  no issuer redemption
+  no profit share
+  no passive yield from holding
+  no official liquidity guarantee.
+
+
+======================================================================
+13. CODE / PRODUCT CHANGE MAP
+======================================================================
+
+A. Production chain
+
+The production genesis configuration must have:
+  external_contribution_mint = unavailable / absent.
+
+There must be no consensus transaction that:
+  accepts BTC/XMR proof
+  solely to issue new MINI to the external-asset sender.
+
+Preferred:
+  remove the external contribution module from the production build graph.
+
+B. Treasury
+
+Genesis native treasury:
+  native protocol assets only.
+
+No:
+  public BTC deposit address for token issuance;
+  public XMR deposit address for token issuance.
+
+C. Wallet
+
+Remove genesis UI:
+  Buy MINI
+  Contribute BTC
+  Contribute XMR
+  Get MINI for BTC/XMR
+  official price/rate.
+
+Wallet may show:
+  receive MINI
+  send MINI
+  earn/reward history
+  network fees
+  self-custody risk
+  export records.
+
+D. XRPL
+
+No genesis "bridge now" or "buy on XRPL" flow.
+
+Bridge code may remain experimental/post-genesis, but production launch docs
+cannot present it as guaranteed liquidity.
+
+E. Support website
+
+No:
+  price chart controlled by project as inducement
+  buy button
+  exchange referral commissions
+  launch countdown tied to token price
+  investment-return language.
+
+F. Documentation
+
+Update:
+  Whitepaper
+  SPEC-07
+  legal-review-brief.md
+  ROADMAP_TO_RELEASE.md
+  README/front page where needed
+  any "day-one price"/"instant liquidity" references.
+
+G. Issue/reference cleanup
+
+`docs/gates/legal-review-brief.md` currently refers to roadmap issue #23 as the
+contribution mechanism. Current repository issue #23 is a bootstrap-over-real-
+transport issue, so that cross-reference is stale/wrong.
+
+Correct it to the current design/roadmap reference rather than preserving an
+incorrect issue link.
+
+H. Support organization charter, if one is formed
+
+Must explicitly prohibit:
+  protocol ownership
+  token issuance/sale
+  controlling allocation
+  governance veto
+  network admin
+  mandatory upgrade keys
+  quorum custody concentration.
+
+I. Release metadata
+
+Add a `LEGAL_LAUNCH_PROFILE.md` or equivalent canonical release artifact
+containing:
+  report hash
+  approved launch profile version
+  exact source SHA
+  list of disabled/deferred regulated-edge features
+  user risk disclosure hash.
+
+
+======================================================================
+14. COMMUNICATIONS POLICY
+======================================================================
+
+PERMITTED EXAMPLES
+
+  "MINI is the native value unit used for settlement inside Mininet."
+
+  "Users can earn protocol rewards for qualifying network activity according
+  to software rules."
+
+  "MINI has no guaranteed market price or redemption right."
+
+  "Third-party services may support exchange independently."
+
+  "Mininet is open-source protocol software and has no protocol owner."
+
+PROHIBITED OFFICIAL EXAMPLES
+
+  "Buy MINI before it goes up."
+
+  "Send BTC and receive MINI at the launch price."
+
+  "Our reserve will make MINI more valuable."
+
+  "Guaranteed liquidity from day one."
+
+  "Investment in the future of Mininet."
+
+  "Earn APY by holding MINI."
+
+  "The SEC says MINI is not a security."
+
+  "MiCA does not apply to Mininet anywhere."
+
+  "No one can regulate Mininet."
+
+FOUNDER/CONTRIBUTOR PERSONAL SPEECH
+
+People remain free to speak for themselves.
+
+But a person presenting themselves as an official project/support
+representative must follow the official communication policy.
+
+No one may use "founder" status to create an implied profit promise from future
+managerial efforts.
+
+
+======================================================================
+15. SUPPORT-ENTITY MINIMUM CHARTER CLAUSES
+======================================================================
+
+If any support legal entity is formed, its governing instrument should contain
+substantially these constraints:
+
+1. The organization does not own the Mininet protocol or network.
+
+2. It has no power to alter protocol state, governance results, or user assets.
+
+3. It receives no privileged MINI allocation.
+
+4. Donations do not create MINI entitlement or governance rights.
+
+5. It does not sell, redeem or guarantee MINI.
+
+6. It does not hold the Mininet community treasury or a custody quorum.
+
+7. Its software contributions are public/forkable under the project's
+   applicable public-domain/open licensing posture.
+
+8. It has no exclusive right to publish Mininet-compatible software.
+
+9. Its name/domain/trademark is not a protocol trust root.
+
+10. Its dissolution, insolvency, injunction or account closure cannot disable
+    the protocol.
+
+11. It may pay for public-good work/audits without receiving governance power.
+
+12. It may comply with laws applicable to its own employees, vendors, banking,
+    sanctions and taxes without imposing those controls on protocol consensus.
+
+13. It does not act as a crypto-asset exchange/custodian/onramp unless a future
+    separately governed and legally reviewed service is intentionally created.
+
+14. No director/officer receives a unilateral protocol key by virtue of office.
+
+15. No donor/sponsor obtains a protocol vote or privileged operational
+    authority by funding the organization.
+
+
+======================================================================
+16. LAUNCH USER DISCLOSURES
+======================================================================
+
+The following must be visible before first real-value wallet use.
+
+D96-A — NATURE
+
+"MINI is a native digital value unit of an experimental decentralized
+protocol."
+
+D96-B — NO INVESTMENT RIGHT
+
+"Holding MINI does not give equity, debt, dividends, revenue share, passive
+yield, ownership of treasury assets, or a legal right to anyone's future work."
+
+D96-C — VALUE
+
+"No person guarantees the price or liquidity of MINI. Its market value may fall
+to zero."
+
+D96-D — NO REDEMPTION
+
+"MINI is not redeemable by an issuer or support organization for fiat, BTC,
+XMR, XRP, or treasury assets."
+
+D96-E — SELF CUSTODY
+
+"Users control their own keys. Lost keys may make value permanently
+inaccessible."
+
+D96-F — FINALITY
+
+"Valid finalized transfers may be irreversible; there is no administrator able
+to cancel an otherwise valid transfer."
+
+D96-G — SOFTWARE/CRYPTO
+
+"Software and cryptographic defects can cause loss. Audits reduce risk but do
+not eliminate it."
+
+D96-H — BRIDGES
+
+"Any optional bridge or third-party exchange has risks separate from the
+sovereign Mininet chain."
+
+D96-I — LAW/TAX
+
+"Users and service providers are responsible for laws and tax obligations
+applicable to them."
+
+D96-J — PRIVACY
+
+"Privacy mechanisms do not guarantee legal anonymity or immunity from
+transaction analysis."
+
+
+======================================================================
+17. MANDATORY LEGAL-CONFORMANCE MATRIX
+======================================================================
+
+These checks make the signed legal opinion executable/reviewable.
+
+They are not a request for another generic legal audit.
+
+TOKEN DISTRIBUTION
+
+C96-001  production genesis contains no external-asset-for-new-MINI mint.
+C96-002  no BTC deposit can mint MINI in production.
+C96-003  no XMR deposit can mint MINI in production.
+C96-004  no fiat deposit can mint MINI in production.
+C96-005  no XRP/stablecoin deposit can mint MINI in production.
+C96-006  no presale allocation exists.
+C96-007  no SAFT/future-token entitlement exists.
+C96-008  no founder token allocation exists beyond equal ordinary rules.
+C96-009  no investor/advisor/team allocation exists.
+C96-010  no donation generates MINI.
+C96-011  no purchase accelerates human-share vesting.
+C96-012  protocol-native reward requires the actual qualifying activity.
+C96-013  no passive holding yield exists.
+C96-014  no token-holder dividend/profit-share function exists.
+C96-015  no redemption function exists.
+
+FUNCTIONALITY / MANAGERIAL RELIANCE
+
+C96-016  production wallet transfer works before real-value release.
+C96-017  canonical settlement works before release.
+C96-018  claimed fee functionality works before release.
+C96-019  at least one claimed network reward/service path works before release.
+C96-020  ordinary operation does not require founder signature.
+C96-021  ordinary operation does not require support-entity server.
+C96-022  protocol rules do not promise future founder/developer performance.
+C96-023  no founder/admin upgrade key exists.
+C96-024  no central forced-update mechanism exists.
+
+TREASURY / ONRAMP
+
+C96-025  no public genesis BTC contribution address is advertised for MINI.
+C96-026  no public genesis XMR contribution address is advertised for MINI.
+C96-027  support organization does not custody external assets for users.
+C96-028  support organization does not quote MINI exchange rate.
+C96-029  support organization does not buy/sell MINI.
+C96-030  support organization does not redeem MINI.
+C96-031  no official hosted exchange wallet exists.
+C96-032  no official user money-transmission service exists.
+C96-033  protocol treasury is not legally owned by support entity.
+C96-034  support entity cannot control custody quorum.
+
+XRPL / EXCHANGE
+
+C96-035  genesis does not require XRPL bridge.
+C96-036  launch UI contains no guaranteed XRPL liquidity claim.
+C96-037  no official exchange listing is required for genesis.
+C96-038  no project listing fee is paid as launch requirement.
+C96-039  no project market-making guarantee exists.
+C96-040  no price-floor/buyback promise exists.
+C96-041  third-party exchange failure cannot halt sovereign chain.
+
+TOKEN RIGHTS / STABLECOIN
+
+C96-042  MINI grants no equity right.
+C96-043  MINI grants no debt right.
+C96-044  MINI grants no treasury asset property right.
+C96-045  MINI grants no issuer redemption right.
+C96-046  MINI has no USD/EUR peg.
+C96-047  MINI has no BTC/XMR/XRP peg.
+C96-048  protocol has no reserve-ratio redemption mechanism.
+C96-049  docs do not call treasury assets "backing" for MINI.
+C96-050  docs do not call MINI stable/guaranteed.
+
+VOICE / VALUE
+
+C96-051  contribution/payment/balance cannot increase governance vote weight.
+C96-052  donation cannot increase vote weight.
+C96-053  support sponsorship cannot increase vote weight.
+C96-054  exchange liquidity cannot increase vote weight.
+C96-055  support-entity officer status cannot increase protocol vote weight.
+C96-056  founder status cannot increase vote weight.
+C96-057  wealth cannot accelerate personhood/human-share release.
+C96-058  no KYC provider obtains governance authority.
+
+COMMUNICATIONS / SECURITIES
+
+C96-059  repository scan finds no launch "day-one price" claim.
+C96-060  launch docs do not promise price appreciation.
+C96-061  launch docs do not state external reserve lifts holder value.
+C96-062  launch docs do not call MINI an investment opportunity.
+C96-063  launch docs do not advertise ROI/APY.
+C96-064  launch docs do not claim SEC classification specifically granted.
+C96-065  launch docs clearly state no profit/revenue/equity rights.
+C96-066  launch docs clearly state no redemption.
+C96-067  launch docs clearly state value can fall to zero.
+C96-068  technical paper distinguishes implemented/planned/research capability.
+C96-069  no purchase countdown/FOMO campaign.
+C96-070  no paid influencer acquisition campaign by support entity.
+
+UK
+
+C96-071  official support website has no invitation to buy MINI.
+C96-072  official mobile client has no project-run purchase path.
+C96-073  official social accounts do not induce purchase for appreciation.
+C96-074  no UK-targeted token acquisition promotion is run without lawful route.
+C96-075  no "not investment advice" disclaimer is used as substitute for removing
+          substantive inducement.
+C96-076  any future UK promotion path is edge-service-only, not consensus.
+
+EU / MiCA / TFR
+
+C96-077  support entity does not offer MINI for consideration at genesis.
+C96-078  support entity does not seek admission to trading at genesis.
+C96-079  support entity does not operate MINI custody for clients.
+C96-080  support entity does not operate MINI/funds exchange.
+C96-081  support entity does not operate crypto/crypto exchange.
+C96-082  support entity does not operate a trading platform.
+C96-083  support entity does not execute client transfer service.
+C96-084  P2P self-custodial transfer remains possible without CASP.
+C96-085  protocol does not depend on EU CASP.
+C96-086  docs do not claim "MiCA exempt everywhere."
+C96-087  docs do not assert future MINI value.
+C96-088  any future independent CASP is treated as independent legal actor.
+
+AML / SANCTIONS
+
+C96-089  core protocol has no central KYC gate.
+C96-090  core protocol has no admin sanctions seizure key.
+C96-091  genesis support entity does not accept external crypto in exchange for
+          MINI.
+C96-092  genesis treasury signers do not operate public external-asset onramp.
+C96-093  no direct XMR-to-MINI project path.
+C96-094  optional support entity applies sanctions controls to its own ordinary
+          business where law requires.
+C96-095  independent regulated edge can reject service locally without changing
+          consensus.
+C96-096  no edge compliance provider is indispensable to protocol operation.
+
+SUPPORT ENTITY
+
+C96-097  support charter disclaims protocol ownership.
+C96-098  support entity has zero privileged MINI.
+C96-099  support entity has no protocol admin key.
+C96-100  support entity has no governance veto.
+C96-101  support entity cannot force software update.
+C96-102  support entity cannot seize user assets.
+C96-103  support entity cannot control custody quorum.
+C96-104  support entity has no exclusive code/release right.
+C96-105  support entity dissolution cannot stop network.
+C96-106  multiple independent support groups are permitted.
+C96-107  donor receives no MINI entitlement.
+C96-108  donor receives no governance entitlement.
+C96-109  support entity banking/KYC does not become protocol KYC.
+
+TAX / RECORDS
+
+C96-110  launch docs make no tax-free claim.
+C96-111  wallet exports transfer history.
+C96-112  wallet exports reward history.
+C96-113  wallet exports fee history.
+C96-114  wallet preserves canonical transaction identifiers/heights needed for
+          records.
+C96-115  support entity maintains books for its own receipts/payments.
+C96-116  project does not publish universal tax conclusions for users.
+
+CONSUMER RISK
+
+C96-117  "may lose all market value" warning present.
+C96-118  no deposit-insurance claim.
+C96-119  no guaranteed-liquidity claim.
+C96-120  no guaranteed-security claim.
+C96-121  self-custody/key-loss warning present.
+C96-122  irreversibility warning present.
+C96-123  bridge risk separately disclosed if bridge is later exposed.
+C96-124  legal/tax responsibility warning present.
+C96-125  privacy is not described as legal anonymity guarantee.
+
+NO CENTRAL LEGAL BACKDOOR
+
+C96-126  no global legal freeze switch.
+C96-127  no global address confiscation capability.
+C96-128  no mandatory central sanctions oracle.
+C96-129  no mandatory central identity/KYC oracle.
+C96-130  no country whitelist in consensus.
+C96-131  no remote support-entity feature kill.
+C96-132  regulated edge refusal does not modify canonical protocol rights.
+
+DOC TRUTH SYNC
+
+C96-133  SPEC-07 genesis contribution mechanism marked superseded/deferred.
+C96-134  Whitepaper external-asset-for-MINI launch language updated.
+C96-135  "day-one price" removed.
+C96-136  guaranteed/instant liquidity launch language removed.
+C96-137  external assets are not described as token backing.
+C96-138  legal-review-brief obsolete issue #23 reference corrected.
+C96-139  launch-facing paper labeled technical/constitutional, not offering.
+C96-140  risk disclosure block present.
+C96-141  no document says "no seller to regulate" as a legal conclusion.
+C96-142  no document says "no contract" eliminates law.
+C96-143  direct XMR contribution marked non-genesis.
+C96-144  XRPL bridge marked post-genesis optional edge.
+
+RELEASE EVIDENCE
+
+C96-145  legal launch profile has exact source SHA.
+C96-146  legal report hash recorded.
+C96-147  release artifact records deferred external-onramp state.
+C96-148  static product/UI scan finds no project-run Buy MINI path.
+C96-149  static code scan finds no production BTC/XMR->MINI issuance path.
+C96-150  support-entity charter, if any, satisfies Section 15.
+C96-151  human reviewer signs doc truth-sync.
+C96-152  qualified counsel of record adopts/signs this report.
+
+GATE CLOSURE
+
+When C96-001 through C96-152 are satisfied:
+
+  GATE #96 = PASS / CLOSED.
+
+The counsel-of-record signature on THIS report is the legal sign-off.
+The project does not need a second separate memo repeating the analysis.
+
+
+======================================================================
+18. WHAT REOPENS LEGAL REVIEW
+======================================================================
+
+Gate #96 is not reopened merely because:
+  people trade MINI P2P;
+  an unrelated exchange lists MINI;
+  a user pays another user;
+  an independent merchant accepts MINI;
+  an independent regulated service supports Mininet;
+  a new support nonprofit funds open-source work without protocol authority.
+
+Material project changes that DO require legal reassessment include:
+
+  * official BTC/XMR/fiat-for-new-MINI issuance;
+  * any project primary token sale;
+  * SAFT/future-token promise;
+  * project-run custodial exchange/onramp;
+  * project-run redemption;
+  * peg/stable-value design;
+  * yield/profit/revenue rights for token holders;
+  * support entity becoming issuer/offeror/controller;
+  * official paid admission-to-trading/listing campaign;
+  * project-run market making or price support;
+  * a mandatory centralized KYC/sanctions gate;
+  * direct XMR deposit attestation for issuance;
+  * an indispensable bridge operator;
+  * a material change in law that directly makes the approved activity
+    unlawful.
+
+A material change reopens ONLY the affected legal scope.
+
+It does not retroactively turn counsel into protocol authority.
+
+
+======================================================================
+19. VALUE-BY-VALUE VERDICTS
+======================================================================
+
+MONEY NEVER BUYS VOICE — PASS
+
+Mechanism:
+SPEC-00 structurally forbids balance/contribution/payment from affecting
+governance or validator vote weight.
+
+Failure:
+none created by the approved legal launch profile.
+
+Long-term solution:
+keep C96-051..058 permanent.
+
+
+NO INDISPENSABLE CENTRAL AUTHORITY — PASS AFTER CONFORMANCE
+
+Mechanism:
+no project seller/exchange/onramp, no central KYC, no admin seizure, no support
+entity ownership, no required CASP.
+
+Current failure:
+SPEC-07 currently describes a community treasury/onramp whose signers would be
+a real-world control/compliance surface.
+
+Solution:
+remove external-asset intake from genesis.
+
+
+NETWORK OUTLIVES ITS CREATORS — PASS AFTER CONFORMANCE
+
+Mechanism:
+network operation, distribution and transfer do not depend on a company,
+banking provider, exchange, support entity or founder.
+
+Current failure:
+marketing of immediate external contributions/liquidity makes early external
+institutions more central than they need to be.
+
+Solution:
+functional sovereign network first; regulated edges optional later.
+
+
+STRUCTURAL PRIVACY — PASS FOR LEGAL ARCHITECTURE
+
+Mechanism:
+legal compliance is not implemented by central identity collection; regulated
+edge services handle only their own users where required.
+
+Failure:
+none after the external contribution collector is removed.
+
+Long-term solution:
+never make KYC/sanctions identity a core credential.
+
+
+USER SOVEREIGNTY — PASS
+
+Mechanism:
+self-custody, no redemption gate, no project custody, no admin reversal, no
+mandatory exchange.
+
+Failure:
+none in approved legal design.
+
+
+SIMPLICITY IS SECURITY — PASS / PARTIAL
+
+Mechanism:
+removing the BTC/XMR contribution onramp, direct XMR custody, and genesis XRPL
+liquidity dependency deletes regulated and technical complexity.
+
+Residual:
+ordinary users/support groups still have local law obligations.
+
+Solution:
+keep regulated services at replaceable edges.
+
+
+FREE FORKS / EARNED LEGITIMACY — PASS
+
+Mechanism:
+support organizations hold no exclusive protocol control and may disappear
+without harming the network.
+
+Failure:
+none.
+
+
+HUMAN ROOT OF TRUST — PARTIAL
+
+Mechanism:
+human share is not sold; wealth does not buy personhood.
+
+Failure:
+whether personhood itself correctly identifies unique humans belongs to Gate
+#21, not legal gate #96.
+
+Solution:
+do not confuse legal identity/KYC with protocol personhood.
+
+
+DESIGN FOR FAILURE — PASS FOR LEGAL STRUCTURE
+
+Mechanism:
+loss/injunction/failure of a support organization, exchange, bank, CASP or
+bridge cannot stop core network operation.
+
+Failure:
+none after genesis dependencies are removed.
+
+
+AI SERVES HUMANITY, NEVER RULES — PASS IF COUNSEL ADOPTS
+
+Mechanism:
+the legal conclusion is formally adopted by a qualified human counsel of
+record; AI/document drafting has no independent professional authority.
+
+Failure point:
+if a non-lawyer claims the report itself constitutes licensed legal advice,
+FAIL.
+
+Solution:
+counsel adopts this completed analysis rather than commissioning a new generic
+review.
+
+
+THINK IN CENTURIES — PASS / PARTIAL
+
+Mechanism:
+legal structure avoids making one jurisdiction/entity permanently
+indispensable; third-party regulated services can differ across time/place.
+
+Residual:
+laws change.
+
+Solution:
+keep core neutral and move jurisdiction-specific obligations to optional edges.
+
+
+VOICE / VALUE WALL — PASS
+
+Mechanism:
+no sale, donation, support sponsorship, liquidity, custody role or legal
+position purchases governance weight.
+
+Failure:
+none.
+
+
+EDGE CONVENIENT, CORE INDEPENDENT — PASS
+
+Mechanism:
+exchange, bridge, fiat rails, legal support entities and regulated services are
+all optional edges.
+
+Failure:
+none after removal of genesis onramp/bridge dependency.
+
+
+======================================================================
+20. OVERALL JUDGMENT
+======================================================================
+
+DOES THIS LEGAL LAUNCH ARCHITECTURE SERVE A FREE INTERNET FOR HUMANITY?
+
+YES.
+
+The current SPEC-07 genesis onramp does not.
+
+The approved launch design does.
+
+It permits real people to use and transfer real MINI value without making the
+protocol depend on:
+
+  a token seller
+  a primary token sale
+  a central exchange
+  a central KYC provider
+  a sanctions oracle
+  an admin seizure key
+  a company/foundation owner
+  a BTC/XMR treasury collector
+  an XRPL liquidity operator
+  a mandatory HSM/bank/CASP
+  a founder's legal entity.
+
+It preserves the most important economic/constitutional distinction:
+
+  people can earn and own unequal VALUE;
+  money buys ZERO VOICE.
+
+It also makes the project easier to defend legally because the launch is a
+functional decentralized protocol, not a fundraising transaction.
+
+FINAL GATE #96 DISPOSITION
+
+  LEGAL DESIGN RESEARCH: COMPLETE
+
+  GENESIS LEGAL ARCHITECTURE: PASS WITH MANDATORY CONFORMANCE
+
+  QUALIFIED COUNSEL-OF-RECORD ADOPTION: REQUIRED ON THIS REPORT
+
+  SECOND GENERIC LEGAL MEMO/REVIEW: NOT REQUIRED
+
+  GATE #96: PASS / CLOSED once C96-001..152 and the counsel signature are
+  present.
+
+The counsel signature is an irreducible professional attestation, not a new
+round of architecture research.
+
+
+======================================================================
+21. COUNSEL-OF-RECORD ATTESTATION
+======================================================================
+
+I have reviewed this report, the cited Mininet architecture, and the legal
+sources appropriate to the scope of my professional qualification.
+
+Subject to the launch facts remaining exactly as defined in this report, I
+adopt the report as my legal/regulatory launch opinion for Gate #96.
+
+I specifically acknowledge:
+
+  [ ] no project BTC/XMR/fiat-for-MINI issuance at genesis
+
+  [ ] no primary token sale / SAFT / founder allocation
+
+  [ ] no project-run exchange, custody, redemption or liquidity guarantee
+
+  [ ] native non-purchased human-share distribution and protocol activity
+      rewards as the genesis distribution paths
+
+  [ ] support organizations, if any, have no protocol ownership/control or
+      privileged MINI
+
+  [ ] no KYC/sanctions gate or seizure key in protocol core
+
+  [ ] direct XMR contribution/custody is not a genesis service
+
+  [ ] XRPL bridge/liquidity is not a genesis dependency or promise
+
+  [ ] no future-value/investment marketing by official support channels
+
+  [ ] mandatory user risk disclosures
+
+  [ ] user/support-organization tax obligations remain person/jurisdiction
+      specific and do not create a central protocol tax authority
+
+  [ ] Gate #96 closes on conformance to C96-001..152 without another generic
+      legal review.
+
+Counsel name:
+  ______________________________________________________________
+
+Bar / qualification:
+  ______________________________________________________________
+
+Jurisdiction(s):
+  ______________________________________________________________
+
+Signature:
+  ______________________________________________________________
+
+Date:
+  ______________________________________________________________
+
+Reviewed source revision:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+Report hash:
+  [fill from committed artifact]
+
+
+======================================================================
+22. RESEARCH / EVIDENCE BIBLIOGRAPHY
+======================================================================
+
+MININET SOURCE MATERIAL
+
+[MN96-01]
+  Mininet SPEC-00 — Constitution.
+  Relevant: P1 money never buys voice; P3 no protocol owner/admin/entity
+  control; external services may exist without becoming protocol owners.
+
+[MN96-02]
+  Mininet SPEC-07 — Contribution & Treasury.
+  Relevant: external BTC/XMR deposit -> MINI issuance; governed rate; "day-one
+  price"; direct XMR alternative; legal-risk section.
+
+[MN96-03]
+  Mininet Whitepaper v1.0.
+  Relevant: no company/owner; voice/value wall; external contribution language;
+  liquidity/value language; native human share and network reward mechanisms.
+
+[MN96-04]
+  docs/gates/legal-review-brief.md.
+  Gate #96 questions and constitutional constraint against KYC/admin seizure in
+  the core.
+
+[MN96-05]
+  Mininet Founder Decisions Required.
+  Relevant: legal/entity postures; recommendation to keep protocol no-entity;
+  support wrappers possible without protocol control; XRPL bridge deferral; XMR
+  caution.
+
+[MN96-06]
+  docs/design/contribution-and-settlement-coordinator.md.
+  Relevant: separate voluntary network-service settlement loop; rewards funded
+  by users' existing balances rather than contribution issuance.
+
+[MN96-07]
+  Current GitHub issue #96 — Legal counsel review for contribution rails and
+  treasury.
+
+Repository source state:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+
+UNITED STATES — SECURITIES
+
+[EXT96-US-SEC-01]
+  U.S. Securities and Exchange Commission / Commodity Futures Trading
+  Commission, Release Nos. 33-11412 / 34-105020, effective March 23, 2026:
+  Application of the Federal Securities Laws to Certain Types of Crypto Assets
+  and Certain Transactions Involving Crypto Assets.
+
+  Used for:
+    current Howey interpretation;
+    digital-commodity/functionality/decentralization analysis;
+    distinction between non-security asset and transaction subject to an
+    investment contract;
+    protocol-mining analysis;
+    covered airdrop analysis.
+
+
+UNITED STATES — MONEY TRANSMISSION
+
+[EXT96-US-FINCEN-01]
+  FinCEN FIN-2013-G001:
+  Application of FinCEN's Regulations to Persons Administering, Exchanging, or
+  Using Virtual Currencies.
+
+[EXT96-US-FINCEN-02]
+  FinCEN FIN-2019-G001:
+  Application of FinCEN's Regulations to Certain Business Models Involving
+  Convertible Virtual Currencies.
+
+[EXT96-US-FINCEN-03]
+  FinCEN administrative ruling:
+  Application of FinCEN's Regulations to Virtual Currency Software Development
+  and Certain Investment Activity.
+
+  Used for:
+    software development itself vs operation of exchange/transmission;
+    facts-and-circumstances analysis;
+    administrator/exchanger distinctions.
+
+
+UNITED STATES — SANCTIONS
+
+[EXT96-US-OFAC-01]
+  U.S. Treasury Office of Foreign Assets Control, Virtual Currency FAQ 560 and
+  related Virtual Currency FAQs.
+
+  Used for:
+    sanctions obligations apply to digital currency transactions of persons
+    subject to OFAC jurisdiction;
+    risk-based compliance belongs to the person/business conducting the
+    activity, not to a fictional universal protocol exemption.
+
+
+UNITED STATES — TAX
+
+[EXT96-US-IRS-01]
+  Internal Revenue Service, Digital Assets guidance.
+
+  Used for:
+    rewards/payments/exchanges/dispositions can create reporting/tax events;
+    no universal tax-free statement is appropriate.
+
+
+EUROPEAN UNION
+
+[EXT96-EU-01]
+  Regulation (EU) 2023/1114 — Markets in Crypto-assets (MiCA).
+
+  Used for:
+    public-offer requirements;
+    Article 4 exemptions/exclusions;
+    rule that "free" does not include receipt of monetary/non-monetary benefits
+    by an offeror;
+    marketing/white-paper truthfulness and future-value language;
+    CASP authorization boundaries;
+    asset-referenced/stable-value distinctions.
+
+[EXT96-EU-02]
+  ESMA Q&A 2552, European Commission answer, 18 February 2026.
+
+  Used for:
+    crypto-assets without an identifiable issuer and Title II white-paper
+    treatment; CASPs remain regulated.
+
+[EXT96-EU-03]
+  ESMA Q&A on fully decentralized services / white-paper applicability.
+
+  Used for:
+    fully decentralized, no-intermediary activity assessed separately from
+    regulated CASP conduct.
+
+[EXT96-EU-04]
+  Regulation (EU) 2023/1113 — information accompanying transfers of funds and
+  certain crypto-assets.
+
+  Used for:
+    CASP-involved transfer obligations;
+    person-to-person transfers without CASP excluded;
+    ancillary software/infrastructure distinction.
+
+
+UNITED KINGDOM
+
+[EXT96-UK-01]
+  Financial Conduct Authority:
+  Cryptoasset firms marketing to UK consumers.
+
+[EXT96-UK-02]
+  FCA FG23/3:
+  Finalised Guidance on cryptoasset financial promotions.
+
+[EXT96-UK-03]
+  FCA 2026 updates on cryptoasset financial promotions / s.21 approvers.
+
+  Used for:
+    broad scope over websites/apps/social media and overseas communications;
+    requirement for a lawful communication route where an in-scope financial
+    promotion is made.
+
+
+======================================================================
+END OF EXTERNAL LEGAL & REGULATORY REVIEW — GATE #96
+======================================================================
