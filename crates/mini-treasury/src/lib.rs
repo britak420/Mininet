@@ -56,6 +56,16 @@
 //! implementation's own test/historical coverage buildable, not as a
 //! recommendation to reach for it in new work.
 //!
+//! **`frost_sign` is likewise behind `legacy-hand-rolled-signing`, off by
+//! default (Gate #72):** the same audit pattern, one layer over — this
+//! crate re-derives the two-round FROST *signing* protocol (binding
+//! factors, Lagrange interpolation, the Schnorr challenge) from raw
+//! `curve25519-dalek` arithmetic rather than composing
+//! `frost_ristretto255::round1`/`round2`/`aggregate` directly.
+//! `mini_custody::signing` is the production signing layer now, including
+//! a durable nonce-commitment journal carrying forward `frost_sign`'s own
+//! `DurableFrostSigner` crash-safety property.
+//!
 //! **Still deliberately not built here (whitepaper: "a permanent honeypot
 //! by nature"; D-0035 point 5's external-audit requirement stands even
 //! under D-0037's authorship policy change for this specific gap):**
@@ -97,6 +107,7 @@ mod frost_dkg;
 mod frost_keygen;
 #[cfg_attr(not(feature = "legacy-hand-rolled-dkg"), allow(dead_code))]
 mod frost_reshare;
+#[cfg_attr(not(feature = "legacy-hand-rolled-signing"), allow(dead_code))]
 mod frost_sign;
 mod rate;
 mod receipt;
@@ -120,6 +131,12 @@ pub use frost_keygen::{
 };
 #[cfg(feature = "legacy-hand-rolled-dkg")]
 pub use frost_reshare::{reshare_finalize, reshare_round1, verify_reshare_round1_package};
+// Off by default (Gate #72 remediation): see the crate docs' and this
+// feature's own Cargo.toml comment for why. `mod frost_sign;` above stays
+// unconditional so its own internal test coverage keeps building and
+// running regardless of this feature -- only the public, downstream-
+// visible API is gated. `mini_custody::signing` is the production path.
+#[cfg(feature = "legacy-hand-rolled-signing")]
 pub use frost_sign::{
     aggregate, round1_commit, round2_sign, verify, verify_signature_share, DurableFrostSigner,
     DurableSigningNonces, NonceCommitment, Signature, SigningNonces, SigningPackage,

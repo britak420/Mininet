@@ -2740,6 +2740,7 @@ dependencies = [
  "frost-ristretto255",
  "mini-bearer",
  "mini-crypto",
+ "mini-durable",
  "rand_core 0.6.4",
  "zeroize",
 ]

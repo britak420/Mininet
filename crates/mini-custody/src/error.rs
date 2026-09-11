@@ -51,6 +51,13 @@ pub enum CustodyError {
     /// The local OS CSPRNG failed. Never falls back to a weaker source —
     /// see `mini_crypto::random_32`'s own contract.
     Entropy,
+    /// A [`crate::signing::DurableCustodySigner`] on-disk nonce-commitment
+    /// journal operation failed: I/O error, corrupt/truncated record,
+    /// checksum mismatch, capacity exceeded, or the signer instance no
+    /// longer matches what the journal was opened against. Always
+    /// fail-closed — see that module's docs for why a durable signer never
+    /// tries to "repair" a journal it cannot fully account for.
+    SigningJournal(String),
 }
 
 impl core::fmt::Display for CustodyError {
@@ -81,6 +88,7 @@ impl core::fmt::Display for CustodyError {
                 write!(f, "invalid custody key transition: {reason}")
             }
             CustodyError::Entropy => write!(f, "OS entropy source failed"),
+            CustodyError::SigningJournal(msg) => write!(f, "signing journal error: {msg}"),
         }
     }
 }

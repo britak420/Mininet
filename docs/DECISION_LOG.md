@@ -23912,3 +23912,115 @@ Android CI (`assembleDebug`) and a real two-device test remain the only
 gates that actually exercise the Kotlin changes in this entry.
 
 **Supersedes / superseded by:** none.
+
+### D-0517 — Gate #72 (privacy/value layer) remediation, part 1: `mini_custody::signing` replaces `mini_treasury::frost_sign`'s hand-rolled two-round FROST signing math with `frost_ristretto255::round1`/`round2`/`aggregate`; old signing gated behind `legacy-hand-rolled-signing`  ·  *Shipped*
+
+**Decision:** An anonymous external audit report ("Mininet External
+Privacy & Value Layer Audit Report", Gate #72, 2026-09-11) found
+`mini_treasury::frost_sign` re-derives the entire two-round FROST signing
+protocol (binding factors, Lagrange interpolation, the Schnorr challenge)
+from raw `curve25519-dalek` scalar/point arithmetic — the same "bespoke
+re-implementation of an already-solved, already-audited problem" pattern
+D-0507/D-0508 already remediated for this crate's DKG half
+(`frost_dkg`). Verified directly against the real code before acting
+(this session's standing discipline for every audit claim, anonymous or
+otherwise): `frost_sign.rs` is 1366 lines of hand-derived signing math,
+confirmed to have no real external caller anywhere in this tree (the same
+situation `frost_dkg` was in pre-D-0507), so the same remediation shape
+applies — add a new module composing the already-integrated, pinned
+`frost-ristretto255 = "=3.0.0"` dependency's own real signing API, then
+gate the old implementation behind a feature flag rather than rewrite it
+in place.
+
+`mini_custody::signing` (new module, `crates/mini-custody/src/signing.rs`)
+provides: `round1_commit`/`build_signing_package`/`round2_sign`/
+`aggregate_signature`, thin wrappers over `frost_ristretto255::round1::
+commit`, `SigningPackage::new`, `round2::sign`, and `aggregate`
+respectively; and `DurableCustodySigner`/`DurableSigningNonces`, a
+crash-safe on-disk nonce-commitment journal carrying forward
+`mini_treasury::frost_sign::DurableFrostSigner`'s exact durability
+property (durably record a round-1 commitment *before* returning it;
+force-burn any not-yet-completed reservation on reopen, since its secret
+nonce died with the old process) re-implemented over
+`frost_ristretto255`'s own types instead of the hand-rolled ones. Only the
+public commitment is ever written to disk — never the secret nonce
+scalars, matching what the old implementation actually did despite
+storing compressed points directly rather than through the library's own
+serialization. `mini-custody` gained a new `mini-durable` dependency (the
+same atomic-replace/exclusive-lock filesystem primitives
+`mini_treasury::frost_sign` already used) to build this.
+
+`mini_treasury::frost_sign`'s public API (`round1_commit`, `round2_sign`,
+`aggregate`, `verify`, `verify_signature_share`, `DurableFrostSigner`,
+`DurableSigningNonces`, `NonceCommitment`, `Signature`, `SigningNonces`,
+`SigningPackage`) moved behind a new `legacy-hand-rolled-signing` feature,
+off by default — mirroring `legacy-hand-rolled-dkg`'s exact shape
+(D-0507). `mod frost_sign;` itself stays compiled unconditionally so its
+own 20+ tests keep running regardless of the feature; only the
+`pub use` re-export is gated. The crate's one example,
+`frost_live_demo.rs`, exercises that hand-rolled API directly, so it
+gained a `required-features = ["legacy-hand-rolled-signing"]` entry in
+`Cargo.toml` (it was previously unconditionally built by `cargo test`'s
+default example-compilation pass) and an updated run command in its own
+doc comment.
+
+**Reason:** same audit-remediation discipline as D-0507/D-0508/D-0513/
+D-0514: verify an external claim against real code, and where it holds,
+compose an already-integrated audited library instead of maintaining a
+second bespoke implementation of the same solved problem — never treat
+the audit document itself as authoritative without that check (the same
+posture already applied earlier in this effort to reject a fabricated
+"Gate #6 economic epoch" concept and an anonymous document's D-0047-
+conflicting closure claim).
+
+**Constitutional impact:** none. No dependency-edge change (voice/value
+wall unaffected — `mini-custody` and `mini-treasury` are both value-
+adjacent custody crates, neither touches `mini-forge`/governance voting).
+No new cryptographic primitive: `frost_ristretto255` was already a pinned
+dependency of `mini-custody` for the DKG half (D-0507); this entry only
+adds a second, separate real API surface (`round1`/`round2`/`aggregate`)
+from the same already-integrated, already-audited library. Both the old
+and new signing paths remain founder-overridden, AI-authored, unaudited
+prototypes per D-0036/D-0037/D-0047 — this closes a "second bespoke
+implementation" defect without claiming Gate #72 closed or changing
+D-0047's external-audit requirement.
+
+**Implementation status:** shipped. New tests in
+`mini-custody::signing::tests`:
+`a_full_signing_round_produces_a_signature_the_group_key_verifies`,
+`a_durable_signer_produces_a_verifiable_signature`,
+`reopening_a_durable_signer_burns_any_uncompleted_reservation`,
+`a_durable_signer_rejects_a_journal_opened_for_a_different_key`. Full
+workspace `cargo fmt --all`, `cargo clippy --all-targets --all-features
+--workspace -- -D warnings`, and `cargo test --workspace --all-features`
+(run both with and without `--features legacy-hand-rolled-dkg,
+legacy-hand-rolled-signing` on `mini-treasury` specifically) are all
+clean except the same pre-existing, sandbox-only `wasm32-wasip2`/
+`wasm32-wasip1`-target-missing failures every prior entry in this log
+since D-0071 already records (`mini-build-runner-wasmtime`'s and
+`mini-cli`'s adversarial guest-compilation tests; no Rust wasm target is
+installed in this environment) — unrelated to this entry, confirmed by
+`rustup target list --installed` showing only `x86_64-unknown-linux-gnu`.
+
+**Failure point:** this closes the signing-half duplication only. It does
+not touch `mini_treasury::frost_keygen` (trusted-dealer keygen, already
+prototype-acknowledged, out of this batch's scope) or Gate #72's larger
+remaining items — Bulletproofs/IPA (`mini-value::bp_range`/`bp_ipa`),
+`PrivatePaymentV3`'s wire format, canonical claim bytes in consensus, and
+calibrated decoy distribution all remain open, tracked below.
+
+**Required follow-up:** the rest of the Gate #72 remediation set:
+replace `mini-value`'s hand-rolled Bulletproofs/IPA range proofs with the
+vendored `bulletproofs` crate (unlike this entry's signing swap, this one
+has real, wide external callers across `mini-private-payment`,
+`mini-bounty`, and `mini-shielded-verify` — a different Pedersen
+commitment basis is a breaking wire-format change across all of them,
+not an isolated swap, and needs its own dedicated decision); a
+`PrivatePaymentV3` wire format with a three-digest scheme and memo;
+canonical claim bytes wired into consensus plus derived key images;
+unifying the separate key-image/double-spend ledgers between the
+transparent and bounty ring-signature paths; and a calibrated (or
+honestly-labeled-as-uncalibrated) decoy distribution. None of these are
+started by this entry.
+
+**Supersedes / superseded by:** none.

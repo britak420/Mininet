@@ -31,6 +31,11 @@ did-mini = { path = "../did-mini" }
 # end-to-end ceremony test.
 rand_core = { version = "0.6", features = ["getrandom"] }
 blake3 = "1"
+# Crash-safe nonce-commitment journal for `signing::DurableCustodySigner` --
+# the same atomic-replace/exclusive-lock filesystem discipline
+# `mini_treasury::frost_sign::DurableFrostSigner` already established for
+# the hand-rolled signer this crate's `signing` module replaces.
+mini-durable = { path = "../mini-durable" }
 # Portable offline share-backup key derivation (Section 10 of the audit
 # report) -- a genuinely new primitive for this tree (password/passphrase
 # stretching), not a duplicate of anything mini-crypto already wraps.

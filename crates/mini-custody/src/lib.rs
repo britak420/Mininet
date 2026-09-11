@@ -96,6 +96,7 @@ pub mod manifest;
 pub mod rotation;
 pub mod session;
 pub mod share_store;
+pub mod signing;
 pub mod transport;
 
 mod error;

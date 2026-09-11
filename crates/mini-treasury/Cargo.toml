@@ -36,3 +36,20 @@ mini-durable = { path = "../mini-durable" }
 # coverage and any deliberate opt-in comparison work; it is not a
 # recommendation to use it for a new production ceremony.
 legacy-hand-rolled-dkg = []
+# `frost_sign`'s hand-rolled two-round FROST signing math (binding factors,
+# Lagrange interpolation, and the Schnorr challenge re-derived from raw
+# `curve25519-dalek` scalar/point arithmetic) is off the crate's default
+# public API for the same reason `legacy-hand-rolled-dkg` is (Gate #72
+# remediation, mirroring D-0507/D-0508): `mini-custody::signing` is the
+# production signing path now, wrapping `frost_ristretto255::round1`/
+# `round2`/`aggregate` directly instead of re-deriving that protocol a
+# second time. This feature keeps the old implementation reachable for its
+# own test/historical coverage and any deliberate opt-in comparison work;
+# it is not a recommendation to use it for new production signing.
+legacy-hand-rolled-signing = []
+
+[[example]]
+name = "frost_live_demo"
+# Demonstrates `frost_sign`'s hand-rolled signing math specifically, so it
+# needs the same feature gate that API is now behind.
+required-features = ["legacy-hand-rolled-signing"]
