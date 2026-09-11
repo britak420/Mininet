@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-09T21:00:00Z",
+  "updated_at": "2026-09-11T17:04:24Z",
   "claims": [
     {
       "issue": 122,
@@ -1201,7 +1201,7 @@
     },
     {
       "issue": 92,
-      "status": "active",
+      "status": "closed",
       "contributor": "claude-agent",
       "branch": "claude/go-live-punch-list",
       "lease_expires": "2026-09-15",
@@ -1307,7 +1307,43 @@
         "D-0500",
         "D-0501"
       ],
-      "notes": "PR #332 review remediation is active. Overall F-01\u2013F-24 status is PARTIAL and real value / real people remain NO-GO. See docs/audits/PR332_REMEDIATION_STATUS.md for claim-to-executor evidence, unmet acceptance tests and external gates. Historical all-closed wording is not current implementation status. Follow-up integration and current-head CodeQL remain required."
+      "notes": "PR #332 review remediation is active. Overall F-01\u2013F-24 status is PARTIAL and real value / real people remain NO-GO. See docs/audits/PR332_REMEDIATION_STATUS.md for claim-to-executor evidence, unmet acceptance tests and external gates. Historical all-closed wording is not current implementation status. Follow-up integration and current-head CodeQL remain required.",
+      "pull_request": 332
+    },
+    {
+      "issue": 93,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/gate-72-93-crypto-custody-remediation",
+      "pull_request": null,
+      "lease_expires": "2026-09-25",
+      "paths": [
+        "Cargo.toml",
+        "Cargo.lock",
+        "crates/mini-custody/Cargo.toml",
+        "crates/mini-custody/src/lib.rs",
+        "crates/mini-custody/src/error.rs",
+        "crates/mini-custody/src/wire.rs",
+        "crates/mini-custody/src/manifest.rs",
+        "crates/mini-custody/src/session.rs",
+        "crates/mini-custody/src/transport.rs",
+        "crates/mini-custody/src/abort.rs",
+        "crates/mini-custody/src/domains.rs",
+        "crates/mini-custody/src/rotation.rs",
+        "crates/mini-custody/src/share_store.rs",
+        "crates/mini-custody/tests/full_ceremony.rs",
+        "crates/mini-treasury/src/frost_dkg.rs",
+        "crates/mini-treasury/src/frost_reshare.rs",
+        "docs/DECISION_LOG.md",
+        "docs/_generated/REPO_INDEX.json",
+        "docs/_generated/REPO_INDEX.jsonl",
+        "docs/_generated/REPO_MAP.md"
+      ],
+      "decision_ids": [
+        "D-0502",
+        "D-0503"
+      ],
+      "notes": "Gate #93 (and, in follow-up scope, Gate #72) engineering remediation from two anonymous external audit reports, adopted per explicit founder/user 'full scope now' instruction. D-0502 fixes the verified index-0 DKG vulnerability in mini_treasury::frost_dkg. D-0503 adds mini-custody, a production ceremony layer over frost_ristretto255's audited DKG. Per D-0047, neither report nor this remediation closes Gate #93/#72 -- see the decision log entries for the explicit non-claims."
     }
   ]
 }

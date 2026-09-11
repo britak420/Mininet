@@ -865,6 +865,38 @@ given time.
   two different byte strings could decode to the same signature. Fixes
   API-level hazards only — the crate's overall D-0047/#72 gate and the
   trusted-dealer-only prototype status are unchanged.
+  **Index-0 DKG vulnerability fixed (D-0502):** an anonymous external
+  Gate #93 report identified that `dkg_generate_round2_shares` and
+  `dkg_resolve`'s complaint resolution both evaluated a Feldman/Shamir
+  polynomial at a caller-supplied index/`accuser` with no check that it
+  was nonzero — index `0` is the polynomial's constant term, the actual
+  secret. Independently verified against the real code (accurate), then
+  fixed with a boundary check at each call site plus two regression
+  tests; all 71 `mini-treasury` tests and clippy stay clean.
+  **New crate `mini-custody` (D-0503, unaudited):** rather than keep
+  hardening `frost_dkg.rs`'s hand-rolled complaint/rebuttal mechanism
+  finding by finding, `mini-custody` wraps `frost_ristretto255::keys::dkg`
+  (NCC-Group-audited; pinned `=3.0.0`) with the ceremony scaffolding no
+  DKG library provides on its own: a signed immutable session manifest,
+  an 11-of-11 manifest-acceptance barrier, a Round-1 consistent-broadcast
+  root every participant must acknowledge identically before Round 2
+  starts, `mini_bearer::Channel`-bound encrypted Round-2 transport with
+  signed channel-binding assertions, abort-and-restart-only failure
+  handling (deliberately no complaint/rebuttal path), Argon2id-wrapped
+  share storage, and a fresh-key-per-rotation rule (same-key resharing is
+  rejected — old shares stay mathematically valid under it). 30 unit
+  tests plus an 11-party end-to-end integration test that drives all
+  seven DKG phases and then produces and verifies a real 7-of-11 FROST
+  signature over the resulting group key. **Not wired up yet:**
+  `frost_dkg.rs` is not gated dev-only and nothing calls into
+  `mini-custody` in production paths; **not externally audited** — an
+  anonymous, unattributed report does not establish that, and does not
+  close Gate #93 either way (D-0047). See D-0502/D-0503 for the full,
+  explicit list of what remains undone, and the companion "Gate #72"
+  report's `mini-value`/`mini-bounty`/`mini-settlement` recommendations
+  (canonical scalar/point decoding, `frost_ristretto255` signing,
+  vendored `bulletproofs`, `PrivatePaymentV3` wire format, calibrated
+  decoy distribution), which remain entirely unimplemented.
 - **policy kernel implemented; integration and external review open
   (proposed D-0413)** — the treasury economic model (D-0073,
   `docs/design/treasury-economic-model.md`: XRPL/XMR bridge split,

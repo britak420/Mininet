@@ -22085,3 +22085,226 @@ variable name `trusted_head` itself was classified by the secret-name heuristic
 The callback is renamed `signed_sequence_floor` to state that meaning; no rule
 or finding was suppressed. Identity-capture removal alone was insufficient.
 The audit matrix records the new scan result when available.
+
+### D-0502 — `mini_treasury::frost_dkg`: reject FROST index/accuser `0` in Round-2 share generation and complaint resolution  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+External FROST DKG & Custody Audit Report", Gate #93 scope, reviewed
+revision `bc7da80f8817f856a96bcb3772232b080eef531d`), findings F93-01/
+F93-02; `crates/mini-treasury/src/frost_dkg.rs`,
+`crates/mini-treasury/src/frost_reshare.rs`.
+
+**Decision:** the report's two critical findings were independently
+verified against the real code before any change was made, per this
+tree's standing rule that founder/user assurance a document has been
+"triaged and verified" is not itself verification (see D-0503 below for
+why the report as a whole still does not close Gate #93). Both were
+confirmed accurate:
+
+1. `dkg_generate_round2_shares(secret, recipient_indices)` evaluated
+   `secret`'s Feldman/Shamir polynomial at every caller-supplied `u16` in
+   `recipient_indices` with no check. Index `0` is that polynomial's
+   constant term — the participant's actual DKG secret contribution —
+   so a caller (or a compromised/malicious peer able to influence the
+   recipient list) requesting index `0` received the raw secret in the
+   clear, not a share of it.
+2. `dkg_resolve`'s complaint-processing loop used `DkgComplaint.accuser`
+   directly as the Feldman evaluation index for the accused's public
+   rebuttal, with no check that it was nonzero. A complaint carrying
+   `accuser = 0` would, on rebuttal, disclose the accused's own secret
+   the same way.
+
+`dkg_round1` already rejected index `0` for a polynomial's *owner*; both
+gaps were on the *recipient*/*accuser* side of the same primitive.
+Fixed with a minimal boundary check at each call site (return
+`Err(TreasuryError::InvalidFrostParticipant)` for index/accuser `0`)
+rather than a broader rewrite — `accuser` is deliberately **not**
+required to already be a roster member (this module supports
+cross-roster resharing, where an accuser may not appear in the sharing
+roster), so the fix is exactly "reject zero," not "reject unknown."
+Two regression tests added:
+`requesting_a_round2_share_for_recipient_index_0_is_rejected` and
+`a_complaint_accusing_index_0_is_rejected_before_any_rebuttal_lookup`.
+
+**Reason:** in Shamir/Feldman secret sharing, the shared secret is the
+polynomial's value at `x = 0` (`f(0)`); every other evaluation point is,
+by construction, safe to disclose without revealing it (subject to the
+usual "fewer than `threshold` points" bound this module's own docs
+already state). An unchecked index/accuser of `0` is therefore not a
+generic input-validation gap but the exact, specific failure mode this
+class of cryptography is defined around — closing it is the minimal
+correct fix, not a design choice with tradeoffs to weigh.
+
+**Constitutional impact:** Invariant M2 (private key material must never
+be derivable by fewer than the declared threshold of participants) —
+this fix keeps that invariant from being violated by a single
+zero-index share request or complaint, in the module that produces
+`mini_treasury`'s FROST custody keys. Directive 14 (simplicity is
+security): the fix is a two-line boundary check per call site, not a new
+abstraction.
+
+**Implementation status:** shipped, `crates/mini-treasury/src/
+frost_dkg.rs` and `frost_reshare.rs`. All 71 `mini-treasury` tests pass
+(including the two new regression tests), `cargo clippy --all-targets
+--all-features -p mini-treasury -- -D warnings` clean. This is a narrow,
+verified boundary-check fix, not a claim that Gate #93 is closed, and not
+a claim that `frost_dkg.rs`'s design as a whole (the hand-rolled
+complaint/rebuttal mechanism itself) is the right long-term shape — see
+D-0503.
+
+**Failure point:** this fix closes the specific disclosure path the two
+findings named. It does not audit the rest of `frost_dkg.rs` line by
+line, and does not itself establish that no other input-validation gap
+exists in the same module — only that these two, independently
+confirmed against the real code, are closed.
+
+**Required follow-up:** D-0503 (below) is the follow-up: rather than
+continue hardening a second, hand-rolled DKG/complaint implementation
+finding by finding, `mini_custody` wraps the NCC-audited
+`frost_ristretto255::keys::dkg` for new production ceremonies. Gating
+`frost_dkg.rs`'s own production reachability (vs. keeping it for its
+existing test/example/cross-roster-resharing coverage) is separate,
+not-yet-done follow-up work.
+
+**Supersedes / superseded by:** none.
+
+### D-0503 — `mini-custody`: production threshold-custody DKG ceremony over `frost_ristretto255::keys::dkg`, engineering remediation for Gate #93 (not gate closure)  ·  *Shipped, unaudited*
+
+**Date:** 2026-09-11 · **Refs:** the same anonymous Gate #93 report as
+D-0502 above; `crates/mini-custody/` (new crate: `manifest.rs`,
+`session.rs`, `transport.rs`, `abort.rs`, `domains.rs`, `rotation.rs`,
+`share_store.rs`, `wire.rs`, `error.rs`, `lib.rs`,
+`tests/full_ceremony.rs`); a companion anonymous "Gate #72" report
+covering `mini-value`/`mini-bounty`/`mini-settlement` crypto is separate,
+unimplemented follow-on scope, tracked but not part of this entry.
+
+**Decision:** the report's central engineering recommendation — stop
+extending a second, bespoke Pedersen/Feldman DKG implementation
+finding-by-finding (D-0502 is exactly that pattern) and instead build the
+production custody ceremony on an independently audited DKG library — is
+adopted. New crate `mini-custody` wraps
+`frost_ristretto255::keys::dkg`'s `part1`/`part2`/`part3` (pinned
+`frost-ristretto255 = "=3.0.0"`; NCC-Group-audited; implements FROST
+KeyGen from the *original FROST paper* [Komlo & Goldberg, Figure 1], a
+Pedersen DKG variant — **not** RFC 9591, which is scoped to threshold
+*signing* and explicitly excludes key generation; `mini_treasury::
+frost_dkg`'s old module docs misattributed the construction to RFC 9591
+§4 and are corrected in the same commit as D-0502). Everything
+`frost_ristretto255::keys::dkg` does *not* provide, this crate adds:
+
+- `manifest::DkgSessionManifestV1` — one immutable, signed session
+  identity (network, custody domain, epoch, 11-member roster in
+  canonical DID order, threshold, authorization object, prior key) every
+  ceremony message binds to via its `session_id` hash.
+- `session` — the Phase A-G ceremony state machine: manifest acceptance
+  (11-of-11), DKG Round 1, a **consistent-broadcast barrier** (every
+  participant signs a Round-1 root hash and Round 2 must not start until
+  all 11 match — the exact hazard the ZF FROST Book's own docs warn a
+  naive point-to-point DKG implementation can miss), DKG Round 2/3, and
+  unanimous (11-of-11) completion attestation before a key is ever
+  treated as active.
+- `transport` — binds `mini_bearer::Channel` (the same anonymous,
+  forward-secret encrypted channel construction the BLE mesh relay work,
+  PR #333, already exercised over both in-process and real TCP sockets)
+  to a specific session/sender/receiver identity via a signed
+  channel-binding assertion and AAD-bound sealed envelopes, since
+  `Channel`'s own docs state it provides no endpoint authentication by
+  itself.
+- `abort` — the ceremony's only failure path: any invalid/missing/
+  mismatched input at any phase aborts and restarts the whole ceremony
+  with fresh randomness. Deliberately **no** complaint/rebuttal
+  exclusion mechanism (unlike `frost_dkg.rs`) — the report's own
+  reasoning (R93-05) is that for an infrequent, known-roster ceremony,
+  keeping the secret-handling surface minimal is worth more than the
+  liveness a rebuttal path buys, and D-0502's own findings lived
+  precisely in that mechanism's `accuser` field.
+- `share_store` — per-signer encrypted `KeyPackage` persistence
+  (Argon2id-stretched wrapping key over `mini_crypto`'s ChaCha20-
+  Poly1305 AEAD, `session_id` bound as associated data).
+- `domains`/`rotation` — the four named production custody domains
+  (BTC/XMR/XRPL/bounty-payout) as independent key-state chains, and the
+  fresh-key-per-rotation rule: same-key resharing is rejected outright
+  (`CustodyKeyTransitionV1::validate`), because a departing signer's old
+  share remains a mathematically valid share of the *same* secret for as
+  long as that secret exists — only a fresh key actually revokes it.
+
+Policy numbers (11 signers, 7-of-11 threshold, 180-day nominal rotation
+interval, four named domains) are adopted from the report's Section 5 as
+given, per explicit founder/user instruction to adopt the report's
+policy numbers unless told otherwise.
+
+**Reason:** Directive 14 (simplicity is security) and this tree's
+composition-not-invention cryptography rule both point the same
+direction here: `frost_ristretto255` is real, already-reviewed prior art
+implementing a real, published construction: composing it — and adding
+only the ceremony/transport/storage/rotation scaffolding no DKG library
+provides on its own — is the correct shape, not writing a third custom
+DKG (after `frost_dkg.rs` itself and, implicitly, whatever a from-scratch
+rewrite would have been). `crates/mini-custody/tests/full_ceremony.rs`
+proves this is not just well-typed plumbing: it drives phases A-G across
+all 11 synthetic participants and then uses the resulting `KeyPackage`s
+to produce and verify a real 7-of-11 FROST Schnorr signature against the
+ceremony's own group public key.
+
+**Constitutional impact:** Invariant M2 as in D-0502. No dependency edge
+between `mini-custody` and any governance/review crate — `mini-custody`
+depends only on `frost-ristretto255`, `mini-bearer`, `mini-crypto`,
+`did-mini`, `blake3`, `argon2`, `rand_core`, `zeroize` — so the P1 voice/
+value wall (Directive 16) is not implicated either direction. No
+generic `sign(bytes)`/`finalize(state)`: every signed ceremony message
+(`ManifestAcceptanceV1`, `Round1ViewAckV1`, `CompletionAttestationV1`,
+`AbortNoticeV1`, `TransportBindingV1`) has its own dedicated canonical
+byte-encoding function.
+
+**Implementation status:** shipped, new crate `mini-custody` (added to
+the workspace `Cargo.toml` members list). 30 unit tests plus one 11-party
+end-to-end integration test (`tests/full_ceremony.rs`) pass; `cargo fmt
+--all -- --check` and `cargo clippy --all-targets --all-features
+--workspace -- -D warnings` clean across the whole workspace as of this
+commit. **What this entry does NOT claim:**
+
+- **Gate #93 is not closed.** D-0047 states plainly that founder review
+  is not audit and neither is sufficient on its own; an anonymous,
+  unattributed report — however technically accurate its findings proved
+  on independent verification (D-0502) — is not a real, accountable
+  external audit and cannot substitute for one. This crate is
+  engineering remediation in response to that report's findings, not a
+  claim that the gate itself is satisfied.
+- **Not wired up.** `mini_treasury::frost_dkg` is not gated dev-only and
+  remains reachable in production call paths; nothing in `mini-treasury`
+  or elsewhere yet calls into `mini-custody`. That wiring, and actually
+  gating the old module, is separate follow-up work (tracked, not done
+  here).
+- **No network transport, no external chain integration**, stated
+  explicitly in the crate's own top-level docs — `transport`'s
+  `Channel`-binding logic is proven over in-process/real-TCP channels the
+  same way `mini-mesh` proved its own relay logic, but an actual
+  multi-machine 11-node ceremony, and any BTC/XMR/XRPL chain-specific
+  sweep/reconciliation/signing-authority-rotation integration, is
+  unstarted.
+- **Not externally audited.** Composing an already-audited library is
+  not the same as this new ceremony/transport/storage/rotation layer
+  itself having been reviewed by anyone outside this project.
+
+**Failure point:** the DKG math itself is `frost_ristretto255`'s, already
+independently audited; the risk surface this entry actually adds is the
+ceremony/transport/storage/rotation logic wrapped around it, none of
+which has external review yet. `full_ceremony.rs` proves the happy path
+produces a working key and a verifying signature; it does not exercise
+adversarial/Byzantine-participant scenarios (a lying Round-1 broadcaster,
+a malformed Round-2 package, a transport-layer replay) beyond the unit
+tests already covering each phase function's own input validation in
+isolation.
+
+**Required follow-up:** wire `mini-custody` into `mini-treasury` and gate
+`frost_dkg.rs`'s production reachability; a real multi-machine ceremony
+integration test over `mini_bearer::TcpBearer`; the Gate #72 report's
+separate `mini-value`/`mini-bounty`/`mini-settlement` recommendations
+(canonical scalar/point decoding, `frost_ristretto255` for signing math,
+vendored `bulletproofs`, `PrivatePaymentV3` wire format, calibrated decoy
+distribution) remain entirely unimplemented as of this entry; and, as
+always, a real external cryptography audit — engaging one remains
+founder action per `docs/gates/crypto-audit-scope.md`, not something any
+amount of engineering remediation on this side can substitute for.
+
+**Supersedes / superseded by:** none.

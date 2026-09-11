@@ -1,0 +1,38 @@
+[package]
+name = "mini-custody"
+version = "0.0.1"
+description = "Gate #93 remediation: production threshold-custody DKG ceremony (manifest, consistent Round-1 broadcast, encrypted Round-2 transport, abort-on-fault, 11-of-11 completion, share storage, fresh-key rotation) over frost-ristretto255's dealerless DKG -- not a second custom DKG implementation."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+# Pinned exact per the Gate #93 external audit report's normative profile
+# (Section 5) -- production DKG library, meant to replace this tree's own
+# custom Pedersen/Feldman DKG (`mini_treasury::frost_dkg`) as the
+# production path; see this crate's own docs for what still wires that up.
+frost-ristretto255 = "=3.0.0"
+# Round-2 DKG packages are secret key material; this is the exact same
+# anonymous, forward-secret encrypted channel construction (`Channel`) the
+# BLE mesh relay work (PR #333) already exercised over both in-process and
+# real TCP sockets -- reused here rather than inventing a second
+# confidential-transport primitive.
+mini-bearer = { path = "../mini-bearer" }
+mini-crypto = { path = "../mini-crypto" }
+did-mini = { path = "../did-mini" }
+# `session::dkg_part1` is generic over `RngCore + CryptoRng` (the caller
+# supplies the CSPRNG, matching `mini_treasury::frost_dkg`'s own pattern) --
+# used directly here, not just transitively through frost-ristretto255.
+# `getrandom` (same feature `mini-crypto` itself enables) brings in
+# `rand_core::OsRng`, used by production callers and by this crate's own
+# end-to-end ceremony test.
+rand_core = { version = "0.6", features = ["getrandom"] }
+blake3 = "1"
+# Portable offline share-backup key derivation (Section 10 of the audit
+# report) -- a genuinely new primitive for this tree (password/passphrase
+# stretching), not a duplicate of anything mini-crypto already wraps.
+argon2 = "0.5"
+zeroize = "1"

@@ -32,6 +32,7 @@ members = [
     "crates/mini-uniqueness",
     "crates/mini-spacetime",
     "crates/mini-treasury",
+    "crates/mini-custody",
     "crates/mini-value",
     "crates/mini-private-payment",
     "crates/mini-bounty",

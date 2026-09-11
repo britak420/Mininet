@@ -1,10 +1,28 @@
 //! FROST Distributed Key Generation — Pedersen DKG with Feldman VSS and a
-//! complaint/rebuttal exclusion mechanism (RFC 9591 §4's construction).
-//! Produces the same [`crate::KeyPackage`]/[`crate::PublicKeyPackage`]
+//! complaint/rebuttal exclusion mechanism, following FROST KeyGen from the
+//! original FROST paper (Komlo & Goldberg, <https://eprint.iacr.org/2020/852.pdf>,
+//! Figure 1) — **not** RFC 9591, whose scope is threshold *signing*
+//! (`frost_sign`'s round 1/2) and which explicitly leaves key generation
+//! out of scope; earlier revisions of this doc misattributed the DKG
+//! construction to RFC 9591 §4, corrected as part of the Gate #93 audit
+//! remediation (D-0502/D-0503). Produces the same
+//! [`crate::KeyPackage`]/[`crate::PublicKeyPackage`]
 //! [`crate::frost_keygen::trusted_dealer_keygen`] does, so
 //! [`crate::frost_sign`] needs no changes at all to sign with a
 //! DKG-generated key — this module only changes *how* those types get
 //! made, not what they are.
+//!
+//! **Gate #93 status:** the external audit report that named this
+//! module's index-0 vulnerability (fixed below, D-0502) also recommended
+//! against maintaining a second, hand-rolled DKG/complaint implementation
+//! at all. `mini_custody` (crate) is the production remediation, wrapping
+//! `frost_ristretto255::keys::dkg`'s NCC-audited implementation of this
+//! same original-FROST-paper construction with a real ceremony state
+//! machine (manifest, consistent Round-1 broadcast, encrypted Round-2
+//! transport, abort-on-fault, unanimous completion). This module remains
+//! for now as `mini_treasury`'s own historical implementation and its
+//! existing test/example coverage; production custody DKG ceremonies
+//! should use `mini_custody`, not this module directly.
 //!
 //! ## Why this closes trusted-dealer keygen's P0 gap (D-0048)
 //!
@@ -64,7 +82,9 @@
 //! Round-2 shares are sent over a private channel, so if a dishonest
 //! recipient simply *lied* about what they received, an unrebuttable
 //! complaint would let anyone frame anyone. The fix (Pedersen 1991;
-//! Gennaro, Jarecki, Krawczyk & Rabin's complaint protocol; RFC 9591 §4.3):
+//! Gennaro, Jarecki, Krawczyk & Rabin's complaint protocol -- this is a
+//! DKG-specific mechanism, not part of RFC 9591, which does not define
+//! key generation at all):
 //! the accused gets to publicly re-disclose, in the clear, the exact share
 //! value they privately sent. Feldman's verification equation has exactly
 //! one satisfying value for a fixed public commitment vector, so an
