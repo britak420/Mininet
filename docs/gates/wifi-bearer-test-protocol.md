@@ -6,7 +6,34 @@ hardware-test-protocol.md` for the physical-proximity half, #97). **Founder
 action required: same phones/router/laptop as #97** — real hardware, no
 sandbox substitute.
 
-## What Wi-Fi bearer can and cannot prove
+## What Wi-Fi bearer can and cannot prove (superseded 2026-09-11, D-0514)
+
+**Wi-Fi network context — same SSID, same BSSID, same router, same
+subnet, same hotspot, low latency, Wi-Fi Direct, Wi-Fi Aware, VPN/tunnel,
+public Wi-Fi — contributes exactly zero personhood score, zero
+physical-presence score, and zero human-continuity network-context
+score.** This supersedes this file's earlier language (below, kept
+verbatim for the historical record) implying Wi-Fi co-networking could
+itself feed the "device/home continuity" signal at up to 15/100. An
+external Wi-Fi bearer design report (adopted D-0514) made the reasoning
+for zero, not merely "lower-weight," explicit: VPNs extend private
+subnets, mDNS reflectors cross VLANs/sites, hotspots can host Sybil
+farms, public Wi-Fi joins unrelated strangers, enterprise WLANs span
+large areas, and MAC/SSID/BSSID all randomize or spoof — so no positive
+weight assigned to any of them is durable against an adversary who
+controls or joins the network.
+
+Wi-Fi may still **transport** a protected device/home-key continuity
+challenge-response (`docs/design/human-continuity-proof.md`); the
+cryptographic response is the continuity evidence, never the network
+path the bytes happened to cross. See [`mini_bearer::LocalServiceRecord`]/
+[`mini_bearer::LocalRouteHint`] (D-0514) for the closed set of fields a
+production discovery adapter may ever advertise — neither type has a
+field for personhood, presence, or human-continuity data, structurally,
+not just by convention.
+
+<details>
+<summary>Original 2026-07 text (superseded above, kept for history)</summary>
 
 At best: *"this device appears to share a local network context with the
 verifier/home node during this epoch."* It must never be read as
@@ -17,6 +44,8 @@ lower-priority, lower-weight signal than #97's presence/ranging evidence.
 In `docs/design/human-continuity-proof.md`'s terms this is connectivity
 evidence feeding the "device or home-node continuity" signal class
 (capped at 15/100), never a standalone trust source.
+
+</details>
 
 ## Hardware
 

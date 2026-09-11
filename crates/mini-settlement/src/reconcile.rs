@@ -10,8 +10,9 @@
 //! — nothing in this module ever marks a claim final on its own authority.
 
 use crate::claim::{claim_digest, verify_claim_signature, PaymentClaim};
+use crate::claim_v2::{claim_v2_digest, verify_claim_v2_signature, PaymentClaimV2};
 use crate::error::{Result, SettlementError};
-use crate::ledger::CanonicalLedgerView;
+use crate::ledger::{CanonicalLedgerView, CanonicalRejection};
 use crate::state::SettlementState;
 use crate::watcher::ClaimWatcher;
 
@@ -120,16 +121,92 @@ pub fn reconcile(
     Ok(outcome)
 }
 
+/// The V2 (height-anchored) analogue of [`evaluate_local_acceptance`] — a
+/// recipient's own pre-finality risk decision, never a truth claim. See
+/// [`crate::claim_v2`] for why V2 exists.
+pub fn evaluate_local_acceptance_v2(
+    claim: &PaymentClaimV2,
+    policy: &LocalAcceptancePolicy,
+    watcher: &mut impl ClaimWatcher,
+) -> Result<SettlementState> {
+    verify_claim_v2_signature(claim)?;
+
+    let digest = claim_v2_digest(claim);
+    if !watcher.observe(&claim.payer, claim.sequence, digest) {
+        return Err(SettlementError::ConflictsWithKnownClaim);
+    }
+
+    if claim.amount_micro <= policy.max_amount_micro_without_finality {
+        Ok(SettlementState::AcceptedLocal)
+    } else {
+        Ok(SettlementState::PendingCanonical)
+    }
+}
+
+/// The V2 (height-anchored) analogue of [`reconcile`] — the only function
+/// that can resolve a [`PaymentClaimV2`] to [`SettlementState::Finalized`].
+/// Reads `ledger.current_height()` for expiry (instead of a caller-supplied
+/// wall clock) and `ledger.is_recognized_anchor()` to reject a claim
+/// anchored to chain state that never became canonical, exactly the two
+/// checks V1 never needed because it had no chain-anchor concept at all.
+pub fn reconcile_v2(
+    claim: &PaymentClaimV2,
+    ledger: &impl CanonicalLedgerView,
+) -> Result<SettlementState> {
+    verify_claim_v2_signature(claim)?;
+
+    let digest = claim_v2_digest(claim);
+    if let Some(reason) = ledger.rejected_claim(&digest) {
+        return Ok(SettlementState::RejectedCanonical(reason));
+    }
+    let outcome = match ledger.finalized_sequence(&claim.payer) {
+        None => SettlementState::PendingCanonical,
+        Some(finalized_sequence) if finalized_sequence < claim.sequence => {
+            SettlementState::PendingCanonical
+        }
+        Some(finalized_sequence) if finalized_sequence == claim.sequence => {
+            match ledger.finalized_claim_digest(&claim.payer, claim.sequence) {
+                Some(finalized_digest) if finalized_digest == digest => SettlementState::Finalized,
+                _ => SettlementState::RejectedConflict,
+            }
+        }
+        Some(_) => SettlementState::RejectedConflict,
+    };
+
+    if !matches!(outcome, SettlementState::PendingCanonical) {
+        return Ok(outcome);
+    }
+
+    if !ledger.is_recognized_anchor(claim.anchor.height, &claim.anchor.block_id) {
+        return Ok(SettlementState::RejectedCanonical(
+            CanonicalRejection::UnrecognizedAnchor,
+        ));
+    }
+
+    if ledger.current_height() > claim.valid_through_height {
+        return Ok(SettlementState::Expired);
+    }
+    Ok(outcome)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::claim::sign_claim;
+    use crate::claim_v2::{sign_claim_v2, ChainAnchorV2};
     use crate::ledger::InMemoryLedgerView;
     use crate::watcher::InMemoryClaimWatcher;
     use mini_crypto::SigningKey;
 
     fn payer() -> SigningKey {
         SigningKey::from_seed(&[0x22; 32])
+    }
+
+    fn anchor(height: u64) -> ChainAnchorV2 {
+        ChainAnchorV2 {
+            height,
+            block_id: [height as u8; 32],
+        }
     }
 
     #[test]
@@ -300,6 +377,214 @@ mod tests {
         assert_eq!(
             evaluate_local_acceptance(&claim, &policy, 0, &mut watcher).unwrap_err(),
             SettlementError::BadSignature
+        );
+    }
+
+    // --- V2 (height-anchored) reconciliation -----------------------------
+
+    #[test]
+    fn a_v2_claim_with_nothing_finalized_and_a_recognized_anchor_is_pending() {
+        let claim = sign_claim_v2(
+            &payer(),
+            b"payee",
+            1_000,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let mut ledger = InMemoryLedgerView::new();
+        ledger.recognize_anchor(100, [100u8; 32]);
+        ledger.set_height(105);
+        assert_eq!(
+            reconcile_v2(&claim, &ledger).unwrap(),
+            SettlementState::PendingCanonical
+        );
+    }
+
+    #[test]
+    fn a_v2_claim_anchored_to_an_unrecognized_fork_is_rejected() {
+        let claim = sign_claim_v2(
+            &payer(),
+            b"payee",
+            1_000,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let mut ledger = InMemoryLedgerView::new();
+        // Never recognized -- e.g. the anchor named a block that lost a
+        // fork race and never became canonical.
+        ledger.set_height(105);
+        assert_eq!(
+            reconcile_v2(&claim, &ledger).unwrap(),
+            SettlementState::RejectedCanonical(CanonicalRejection::UnrecognizedAnchor)
+        );
+    }
+
+    #[test]
+    fn a_v2_claim_past_its_valid_through_height_expires() {
+        let claim = sign_claim_v2(
+            &payer(),
+            b"payee",
+            1_000,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let mut ledger = InMemoryLedgerView::new();
+        ledger.recognize_anchor(100, [100u8; 32]);
+        ledger.set_height(113); // strictly past valid_through_height
+        assert_eq!(
+            reconcile_v2(&claim, &ledger).unwrap(),
+            SettlementState::Expired
+        );
+    }
+
+    #[test]
+    fn a_v2_claim_exactly_at_its_valid_through_height_is_still_eligible() {
+        let claim = sign_claim_v2(
+            &payer(),
+            b"payee",
+            1_000,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let mut ledger = InMemoryLedgerView::new();
+        ledger.recognize_anchor(100, [100u8; 32]);
+        ledger.set_height(112);
+        assert_eq!(
+            reconcile_v2(&claim, &ledger).unwrap(),
+            SettlementState::PendingCanonical
+        );
+    }
+
+    #[test]
+    fn a_v2_claim_that_matches_what_the_ledger_finalized_is_finalized_even_long_after_its_transport_window(
+    ) {
+        let claim = sign_claim_v2(
+            &payer(),
+            b"payee",
+            1_000,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let mut ledger = InMemoryLedgerView::new();
+        ledger.recognize_anchor(100, [100u8; 32]);
+        ledger.finalize(&claim.payer, 0, crate::claim_v2::claim_v2_digest(&claim));
+        // Height moved far past valid_through_height, but the claim
+        // already won finality -- D28-30: transport expiry never
+        // un-finalizes money, exactly like V1's own equivalent test.
+        ledger.set_height(999_999);
+        assert_eq!(
+            reconcile_v2(&claim, &ledger).unwrap(),
+            SettlementState::Finalized
+        );
+    }
+
+    #[test]
+    fn conflicting_v2_claims_at_the_same_sequence_never_both_finalize() {
+        let claim_a = sign_claim_v2(
+            &payer(),
+            b"merchant-a",
+            5_000,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let claim_b = sign_claim_v2(
+            &payer(),
+            b"merchant-b",
+            5_000,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let mut ledger = InMemoryLedgerView::new();
+        ledger.recognize_anchor(100, [100u8; 32]);
+        ledger.finalize(
+            &claim_a.payer,
+            0,
+            crate::claim_v2::claim_v2_digest(&claim_a),
+        );
+
+        assert_eq!(
+            reconcile_v2(&claim_a, &ledger).unwrap(),
+            SettlementState::Finalized
+        );
+        assert_eq!(
+            reconcile_v2(&claim_b, &ledger).unwrap(),
+            SettlementState::RejectedConflict
+        );
+    }
+
+    #[test]
+    fn v2_local_acceptance_within_policy_threshold_is_accepted_but_never_reports_as_final() {
+        let claim =
+            sign_claim_v2(&payer(), b"payee", 100, 0, anchor(100), 112, 100, [0u8; 32]).unwrap();
+        let policy = LocalAcceptancePolicy {
+            max_amount_micro_without_finality: 500,
+        };
+        let mut watcher = InMemoryClaimWatcher::new();
+        let state = evaluate_local_acceptance_v2(&claim, &policy, &mut watcher).unwrap();
+        assert_eq!(state, SettlementState::AcceptedLocal);
+        assert!(!state.is_final());
+    }
+
+    #[test]
+    fn v2_local_acceptance_rejects_a_second_conflicting_claim_at_the_same_slot() {
+        let claim_a = sign_claim_v2(
+            &payer(),
+            b"merchant-a",
+            100,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let claim_b = sign_claim_v2(
+            &payer(),
+            b"merchant-b",
+            100,
+            0,
+            anchor(100),
+            112,
+            100,
+            [0u8; 32],
+        )
+        .unwrap();
+        let policy = LocalAcceptancePolicy {
+            max_amount_micro_without_finality: 500,
+        };
+        let mut watcher = InMemoryClaimWatcher::new();
+        assert!(evaluate_local_acceptance_v2(&claim_a, &policy, &mut watcher).is_ok());
+        assert_eq!(
+            evaluate_local_acceptance_v2(&claim_b, &policy, &mut watcher).unwrap_err(),
+            SettlementError::ConflictsWithKnownClaim
         );
     }
 }

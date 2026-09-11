@@ -376,6 +376,11 @@ fn rejection_tag(reason: CanonicalRejection) -> u8 {
         CanonicalRejection::UnsupportedPayee => 1,
         CanonicalRejection::StaleSequence => 2,
         CanonicalRejection::InsufficientFunds => 3,
+        // Gate #28, D-0513: a PaymentClaimV2 anchored to chain state that
+        // never became canonical. Appended, never renumbering 0-3, so an
+        // existing persisted snapshot's tags keep meaning what they always
+        // meant.
+        CanonicalRejection::UnrecognizedAnchor => 4,
     }
 }
 
@@ -385,6 +390,7 @@ fn decode_rejection(tag: u8) -> Result<CanonicalRejection> {
         1 => Ok(CanonicalRejection::UnsupportedPayee),
         2 => Ok(CanonicalRejection::StaleSequence),
         3 => Ok(CanonicalRejection::InsufficientFunds),
+        4 => Ok(CanonicalRejection::UnrecognizedAnchor),
         _ => Err(ExecutionError::SnapshotMalformed),
     }
 }

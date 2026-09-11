@@ -2762,6 +2762,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mini-dtn"
+version = "0.0.1"
+dependencies = [
+ "mini-crypto",
+]
+
+[[package]]
 name = "mini-durable"
 version = "0.0.1"
 

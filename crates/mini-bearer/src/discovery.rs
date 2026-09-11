@@ -11,6 +11,17 @@
 //! anything above the [`SocketAddr`] it hands off to
 //! [`crate::TcpBearer::connect`].
 //!
+//! **This module is legacy/development/test discovery, not the production
+//! path** (Gate #98, D-0514, F98-05/D98-010 of the adopted design
+//! report): production infrastructure-LAN discovery is real platform
+//! RFC 6762/6763 DNS-SD (Android `NsdManager`, Apple Bonjour/
+//! `Network.framework`) advertising `_mininet._tcp` with a
+//! [`crate::LocalServiceRecord`] TXT payload — unbuilt in this repository
+//! today, since it needs a real Android/iOS SDK this environment does not
+//! have. Nothing in this module should ever be described as mDNS in
+//! product-facing text, and it must never gain a personhood/proximity API
+//! (D98-010: no product support claim, no background mobile default).
+//!
 //! Like every other primitive in this crate, discovery carries no
 //! identity: an announce datagram says only "a Mininet peer is listening
 //! for bearer connections on this port," never who. Bring your own
@@ -19,9 +30,14 @@
 //!
 //! `docs/gates/wifi-bearer-test-protocol.md` gates whether this signal is
 //! *trustworthy* evidence of real local co-presence (needs real routers,
-//! phones, VPN/hotspot attack testing — W1-W7, not startable here). This
-//! module only builds the underlying discovery mechanism the gate would
-//! go on to test; it makes no trust claim of its own.
+//! phones, VPN/hotspot attack testing — W1-W7, not startable here). As of
+//! D-0514 that document states the answer is a flat, structural zero
+//! regardless of what the physical testing finds: local network context
+//! (SSID/BSSID/subnet/hotspot/VPN co-membership) contributes zero
+//! personhood, zero physical-presence, and zero human-continuity score —
+//! see [`crate::LocalServiceRecord`]/[`crate::LocalRouteHint`] for the
+//! types that boundary is enforced through. This module only builds the
+//! underlying discovery mechanism; it makes no trust claim of its own.
 
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 use std::time::Duration;

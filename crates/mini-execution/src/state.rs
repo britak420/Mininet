@@ -500,6 +500,10 @@ fn rejection_tag(reason: CanonicalRejection) -> u8 {
         CanonicalRejection::UnsupportedPayee => 1,
         CanonicalRejection::StaleSequence => 2,
         CanonicalRejection::InsufficientFunds => 3,
+        // Gate #28, D-0513: kept numerically identical to
+        // `snapshot::rejection_tag`'s own append-only tag for the same
+        // variant.
+        CanonicalRejection::UnrecognizedAnchor => 4,
     }
 }
 

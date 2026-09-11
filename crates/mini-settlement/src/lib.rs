@@ -55,6 +55,7 @@
 #![warn(missing_debug_implementations)]
 
 mod claim;
+mod claim_v2;
 mod error;
 mod ledger;
 mod reconcile;
@@ -65,8 +66,15 @@ pub use claim::{
     claim_digest, sign_claim, sign_claim_for_network, verify_claim_signature, PaymentClaim,
     MAX_CLAIM_FIELD_BYTES, MAX_PAYMENT_CLAIM_BYTES, MININET_NETWORK_ID,
 };
+pub use claim_v2::{
+    claim_v2_digest, sign_claim_v2, sign_claim_v2_for_network, verify_claim_v2_signature,
+    ChainAnchorV2, PaymentClaimV2, MAX_PAYMENT_CLAIM_V2_BYTES,
+};
 pub use error::{Result, SettlementError};
 pub use ledger::{CanonicalLedgerView, CanonicalRejection, InMemoryLedgerView};
-pub use reconcile::{evaluate_local_acceptance, reconcile, LocalAcceptancePolicy};
+pub use reconcile::{
+    evaluate_local_acceptance, evaluate_local_acceptance_v2, reconcile, reconcile_v2,
+    LocalAcceptancePolicy,
+};
 pub use state::{SettlementState, WalletLabel};
 pub use watcher::{ClaimWatcher, InMemoryClaimWatcher};

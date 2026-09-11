@@ -18,6 +18,11 @@ pub enum CanonicalRejection {
     UnsupportedPayee,
     StaleSequence,
     InsufficientFunds,
+    /// A [`crate::PaymentClaimV2`]'s [`crate::ChainAnchorV2`] is not a
+    /// recognized ancestor of the canonical chain state this view
+    /// represents (Gate #28, D-0513) — e.g. it names a height/block id
+    /// from a fork that never became canonical.
+    UnrecognizedAnchor,
 }
 
 pub trait CanonicalLedgerView {
@@ -34,6 +39,24 @@ pub trait CanonicalLedgerView {
     fn rejected_claim(&self, _digest: &[u8; 32]) -> Option<CanonicalRejection> {
         None
     }
+
+    /// The current canonical chain height, used to evaluate a
+    /// [`crate::PaymentClaimV2`]'s height-anchored validity window
+    /// (Gate #28, D-0513). A `CanonicalLedgerView` that only supports V1
+    /// claims never has this called and may leave the default.
+    fn current_height(&self) -> u64 {
+        0
+    }
+
+    /// Whether `(height, block_id)` is a recognized ancestor of the
+    /// current canonical chain state this view represents. A real ledger
+    /// answers this from actual chain history. Default `false` (fail
+    /// closed): a `CanonicalLedgerView` that does not implement V2
+    /// anchoring must not have every claimed anchor treated as valid by
+    /// accident.
+    fn is_recognized_anchor(&self, _height: u64, _block_id: &[u8; 32]) -> bool {
+        false
+    }
 }
 
 /// A trivial in-memory [`CanonicalLedgerView`] — test-only. Production
@@ -43,6 +66,8 @@ pub trait CanonicalLedgerView {
 pub struct InMemoryLedgerView {
     finalized: std::collections::HashMap<Vec<u8>, Vec<(u64, [u8; 32])>>,
     rejected: std::collections::HashMap<[u8; 32], CanonicalRejection>,
+    height: u64,
+    recognized_anchors: std::collections::HashSet<(u64, [u8; 32])>,
 }
 
 impl InMemoryLedgerView {
@@ -64,6 +89,19 @@ impl InMemoryLedgerView {
     pub fn reject(&mut self, digest: [u8; 32], reason: CanonicalRejection) {
         self.rejected.insert(digest, reason);
     }
+
+    /// Set the current canonical chain height this view reports. Test-only
+    /// helper for exercising [`crate::PaymentClaimV2`] expiry.
+    pub fn set_height(&mut self, height: u64) {
+        self.height = height;
+    }
+
+    /// Record `(height, block_id)` as a recognized canonical ancestor.
+    /// Test-only helper — a real ledger answers this from actual chain
+    /// history, never a direct allow-list.
+    pub fn recognize_anchor(&mut self, height: u64, block_id: [u8; 32]) {
+        self.recognized_anchors.insert((height, block_id));
+    }
 }
 
 impl CanonicalLedgerView for InMemoryLedgerView {
@@ -83,5 +121,13 @@ impl CanonicalLedgerView for InMemoryLedgerView {
 
     fn rejected_claim(&self, digest: &[u8; 32]) -> Option<CanonicalRejection> {
         self.rejected.get(digest).copied()
+    }
+
+    fn current_height(&self) -> u64 {
+        self.height
+    }
+
+    fn is_recognized_anchor(&self, height: u64, block_id: &[u8; 32]) -> bool {
+        self.recognized_anchors.contains(&(height, *block_id))
     }
 }

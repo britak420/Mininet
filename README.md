@@ -40,13 +40,17 @@ code, and frozen. A full, code-mapped register is in
   choose to run.
 - **Offline money is a signed promise, never final ownership** until canonical
   consensus accepts it — so a network partition can never manufacture a
-  double-spend ([`crates/mini-settlement`](crates/mini-settlement)).
+  double-spend ([`crates/mini-settlement`](crates/mini-settlement), whose
+  height-anchored `PaymentClaimV2` and the new
+  [`crates/mini-dtn`](crates/mini-dtn) store-carry-forward scaffold extend
+  that same rule to disaster/satellite-scale delay — D-0513 — without
+  ever letting a partitioned region finalize canonical money on its own).
 - **Forking is always free; legitimacy is earned by continuity,** never owned
   by a repository or a trademark ([`docs/design/fork-legitimacy.md`](docs/design/fork-legitimacy.md)).
 
 ## What exists today — honestly
 
-This repository is the **self-contained Rust core**: 77 crates indexed by
+This repository is the **self-contained Rust core**: 79 crates indexed by
 `tools/mininet_nav.py`, with no external
 dependency on any single company's infrastructure to keep running. Nothing
 here is ready for real people, real money, or real custody yet — and it says
@@ -407,15 +411,18 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0512`
-   (`D-0512`, the second PR #333 CI/CodeQL/Codex remediation batch —
-   `SignedRangingEvidenceV2` device authentication closing a Gate #97
-   authentication bypass, NADM/ordering/OOB-digest hardening, the
-   `mini-mesh` poll/flush split, custody roster/rollback fixes, and a
-   bounded BLE worker pool — is the newest at the time of this edit; the
-   Mininet Node Appliance deployment profile this line previously credited
-   to `D-0439` is `D-0446` — `D-0439` is the identity-bound
-   replica-registration decision),
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0514`
+   (`D-0513`/`D-0514`, adopting external Gate #28 DTN/satellite and Gate #98
+   Wi-Fi bearer design-report architectures on engineering merit — new
+   `mini-dtn` crate scaffold, `mini-settlement::PaymentClaimV2`
+   height-anchored settlement, `mini-bearer::LocalServiceRecord`/
+   `LocalRouteHint` closed types, zero Wi-Fi network-context personhood
+   weight — while explicitly leaving issues #28/#98 open, since neither
+   uploaded document is the identified human auditor its own closure rule
+   requires, are the newest at the time of this edit; the Mininet Node
+   Appliance deployment profile this line previously credited to `D-0439`
+   is `D-0446` — `D-0439` is the identity-bound replica-registration
+   decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
    privacy/cost-doctrine track's `D-0300`–, and the edge/provider-layer
    track's `D-0400`– — see the log's "Decision-number allocation across

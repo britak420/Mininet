@@ -23314,3 +23314,350 @@ follow-up items D-0506–D-0511 already name remain open. Real Android CI
 actually exercise the Kotlin changes in this entry.
 
 **Supersedes / superseded by:** none.
+
+### D-0513 — Gate #28 (extreme-environment/DTN/satellite): adoption of an external DTN/satellite design report's architecture, `mini-dtn` crate scaffold, `PaymentClaimV2` height-anchored settlement  ·  *Architecture adopted; implementation is an early scaffold, unaudited, no interop evidence*
+
+**Date:** 2026-09-11 · **Refs:** roadmap #28; uploaded document
+`Mininet_External_DTN_Satellite_Audit_07_Gate_28_Extreme_Environment_FINAL.txt`
+(claimed exact main revision reviewed: `bc7da80f8817f856a96bcb3772232b080eef531d`);
+supersedes `docs/gates/dtn-design-constraints.md`'s founder-action-required
+framing; touches new crate `crates/mini-dtn/` (`Cargo.toml`, `src/{lib,model,
+transport,memory}.rs`); `crates/mini-settlement/src/{claim_v2,ledger,
+reconcile,lib}.rs` (new); `crates/mini-execution/src/{snapshot,state}.rs`;
+`Cargo.toml` (workspace members).
+
+**Decision:** the uploaded document is an unsigned, anonymously-delivered
+report, not a canonical Constitution/Decision/Invariant document and not
+itself "the auditor/domain-expert of record" the report's own closure
+rule (G28-01) requires to identify themselves before issue #28 can
+close. Per this tree's standing D-0047/D-0083 discipline (chat/uploaded-
+document instruction cannot substitute for the exact process a gate's own
+closure rule names), **issue #28 is NOT closed by this entry.** What *is*
+adopted here, on engineering merit, independently verified against real
+code, is the report's actual architecture: four operating regimes
+(R0 ordinary/R1 disaster-opportunistic/R2 scheduled-satellite/R3
+deep-space), RFC 9171 BPv7 as the deferred-transport interoperability
+baseline (not a bespoke "MINI Bundle Protocol"), a `mini-dtn` crate
+separate from the live `mini-bearer::Bearer`/`Channel` (D28-09: live and
+deferred transport are different semantics, never conflated), custody
+transfer as optional/experimental rather than mandatory (D28-06/D28-12/
+Gate #93's audit already established the general principle that no
+correctness property may depend on a relay's promise), the "no
+same-global-MINI local finality" rule (a partitioned region may
+communicate, queue, and locally accept risk, but never finalize canonical
+money/governance on its own — `mini-settlement`'s existing M1/M2/M3
+already enforce exactly this and needed no change), and bounded
+priority/lifetime/admission semantics (four DRR-weighted priority classes,
+bounded lifetime classes, bounded payload sizes, expiry-before-scheduling,
+cheap-before-expensive validation ordering).
+
+One specific claim in the uploaded report was checked against real code
+and found not to correspond to anything in this repository: the report's
+`PaymentClaimV2::valid_through_economic_epoch` design anchors to "Gate
+#6's twelve deterministic Economic Epochs per Economic Year." No roadmap
+issue #6, no canonical economic-epoch concept, and no such calendar-epoch
+mechanism exists anywhere in this tree — `mini-execution` has monetary
+*issuance* epochs (`ScalableEpochPlan`), a different, unrelated concept.
+Rather than invent a new canonical economic-time primitive unilaterally
+on an unverified external document's say-so (precisely the "verify
+claims against real code before implementing" discipline this session
+has applied to every prior audit in this batch), `PaymentClaimV2` anchors
+to canonical chain **height** instead — a primitive `mini-settlement`
+already models via `CanonicalLedgerView`. The report's actual underlying
+engineering point (replace wall-clock `valid_until_ms` expiry with a
+canonical, chain-anchored boundary, bounded so no claim is an
+indefinitely reusable spend authorization) is fully implemented; only the
+specific "economic epoch" vocabulary is not, because it does not
+correspond to anything real. See `crates/mini-settlement/src/claim_v2.rs`'s
+own module docs for the full explanation, written into the code itself so
+this does not need rediscovering later.
+
+Shipped in this batch:
+
+1. **`mini-settlement::claim_v2`** — `ChainAnchorV2 { height, block_id }`,
+   `PaymentClaimV2` (network id, payer, payee, amount, sequence, anchor,
+   `valid_through_height`, opaque `claim_context`, signature),
+   `sign_claim_v2`/`sign_claim_v2_for_network` (rejecting a window at or
+   before the anchor height, and a window wider than a caller-supplied
+   `max_validity_height_span` — this crate takes no position on the right
+   number of blocks, since that depends on real block cadence it stays
+   decoupled from), `verify_claim_v2_signature`, `claim_v2_digest`, and a
+   bounded wire codec (`to_wire_bytes`/`from_wire_bytes`, allocation
+   bounds checked before parsing, the same discipline `PaymentClaim`'s V1
+   codec already uses).
+2. **`mini-settlement::ledger`** — `CanonicalLedgerView` gained
+   `current_height()` (default `0`) and `is_recognized_anchor()` (default
+   `false`, fail-closed) so a V1-only implementor is unaffected;
+   `CanonicalRejection` gained `UnrecognizedAnchor`; `InMemoryLedgerView`
+   gained `set_height`/`recognize_anchor` test setters.
+3. **`mini-settlement::reconcile`** — `evaluate_local_acceptance_v2`/
+   `reconcile_v2`, the V2 analogues of the existing V1 functions:
+   `reconcile_v2` checks the anchor is a recognized ancestor before
+   anything else, and expires against `ledger.current_height()` instead
+   of a caller-supplied wall clock — otherwise identical M1/M2/M3
+   semantics (a claim that already won or lost reports that truth
+   regardless of height; only `Finalized` ever comes from
+   `CanonicalLedgerView`).
+4. **New crate `mini-dtn`** — the design report's own `mini-dtn::queue`/
+   `mini-dtn::route` engineering pieces, explicitly *not* its `bpv7`/`cla`
+   pieces (see "what this closes" below): `DeferredTransport` trait
+   (`enqueue`/`poll_delivered`/`status`/`cancel_local`, each taking an
+   explicit `now_ms` rather than reading a system clock, since this crate
+   assumes no node has a trustworthy wall clock — D28-29's Bundle-Age
+   reasoning, generalized); `DeferredParcel`/`DeferredId`/
+   `DeliveredParcel`/`DeferredStatus`; `Priority` (P0-P3, D28-32's four
+   classes, `drr_weight()` giving the report's 4/3/2/1 nominal shares);
+   `LifetimeClass` (Ephemeral/Short/Standard/Archival/DeepSpace, D28-27's
+   bounded retention windows); `BundleAge`/`HopCount` (RFC 9171 concepts,
+   generated hop limits capped at 64 per D28-03); `EndpointId` (an opaque,
+   bounded route capability, never a `did:mini` root, per D28-51/52); and
+   `InMemoryDeferredTransport`, a bounded single-process loopback
+   scheduler implementing real deficit round robin across the four
+   priority classes (weight-proportional service, verified by test that
+   bulk traffic is never starved forever once higher classes drain),
+   admission bounds (per-priority entry cap, total-byte cap, a P0/P1
+   control-class payload cap of 64 KiB and a general 1 MiB cap per
+   D28-20/21), and content/semantic-id deduplication (D28-15/41).
+
+**Reason:** the report's core engineering insight — separate live from
+deferred transport, use an existing standards protocol rather than invent
+one, keep canonical monetary/governance finality single-region no matter
+how store-and-forward delivery is — is sound and consistent with this
+tree's existing `mini-settlement` M1/M2/M3 invariants without requiring
+any change to them. Building the scaffold now, on real reviewed code with
+real tests, follows this project's standing "verify claims against real
+code, then implement conservatively" discipline exactly as every prior
+Gate #72/#93/#97 batch in this PR did — including finding and correcting
+the one place the source document's claim didn't hold up (the fabricated
+"Gate #6" economic-epoch reference).
+
+**Constitutional impact:** none. No dependency-edge change (`mini-dtn`
+depends only on `mini-crypto` for content-identity hashing; `mini-
+settlement` remains decoupled from `mini-execution`/`mini-chain` through
+the existing `CanonicalLedgerView` seam). No new cryptographic primitive.
+M1 (no CRDT-merge of money), M2 (signed-pending-claim, never final until
+canonical inclusion), and M3 (canonical ordering alone resolves conflicts)
+are unchanged and unweakened by `PaymentClaimV2`/`reconcile_v2` — they are
+the same rules applied to a height-anchored claim instead of a wall-clock
+one. `mini-dtn` introduces no monetary or governance authority of its own
+(D28-13/76: a deferred-transport agent may drop, delay, duplicate, or
+reorder a parcel; it can never forge, finalize, or authorize one).
+
+**Implementation status:** early scaffold, shipped and tested, explicitly
+**not** claiming what it does not do. New tests: `mini-settlement` gains
+`claim_v2::tests::*` (9 tests: signing bounds, tampering, wire round-trip,
+truncation, oversized-length-before-allocation, digest distinctness) and
+`reconcile::tests::*` (7 new V2 tests: pending/recognized-anchor,
+unrecognized-anchor rejection, exact-boundary/past-boundary expiry,
+finality survives transport-window expiry, conflicting claims never both
+finalize, local-acceptance accept/conflict paths); `mini-dtn` gains 22
+tests across `model`/`memory` (hop-count/bundle-age/transport-id
+correctness, admission bounds, dedup by transport id and by semantic id,
+lifetime expiry, cancel-local, DRR priority ordering and no-starvation).
+`cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features
+--workspace -- -D warnings`, and `cargo build --workspace --all-features`
+are all clean; `cargo test --workspace --all-features --no-fail-fast`
+passes everywhere except the same pre-existing, sandbox-only
+`wasm32-wasip2`-target-missing failures already recorded in D-0509/D-0510/
+D-0511/D-0512 (`mini-build-runner-wasmtime`'s adversarial suite, and three
+`mini-cli` tests that invoke the same wasmtime runner subprocess —
+`cli_spine_commands`, `network_build_workers`,
+`self_hosted_spine_e2e` — all failing on the identical missing-target
+cause, confirmed via their own `error[E0463]`/`wasm32-wasip2` output, not
+a new or different defect). `CanonicalRejection::UnrecognizedAnchor`
+required adding a fifth wire tag (`4`) to `mini-execution`'s two existing
+append-only `rejection_tag`/`decode_rejection` functions
+(`snapshot.rs`/`state.rs`) — additive only, tags 0-3 unchanged, so no
+existing persisted snapshot's meaning changes.
+
+**What this closes and what it explicitly does not:** adopted and closed
+as an *architecture* question: the four-regime scope, RFC 9171 as the
+interoperability baseline, TCPCLv4 as the first native IP convergence-
+layer target, BPSec/application-security separation, optional custody
+transfer, the no-same-global-MINI-finality rule, and bounded priority/
+lifetime/resource semantics — all independently sound, all consistent
+with existing invariants, all implementable without waiting for anyone.
+**Not closed, and not claimed:** issue #28 itself (no identified human
+auditor of record has signed G28-01..10, per the report's own closure
+rule — an anonymous uploaded document is not that signature); any RFC
+9171 wire-format/CBOR compliance claim (`mini-dtn::model::DeferredParcel`
+is a Mininet-internal admission record, not a BPv7 bundle — see the
+crate's own module docs for why an unverified from-scratch BPv7 codec
+would repeat the exact mistake `mini_bearer::discovery` was careful never
+to make about mDNS); TCPCLv4 or any other convergence layer; durable
+(`mini-durable`-backed) queue persistence — `InMemoryDeferredTransport` is
+RAM-only and never reports a "durably stored" status; BPSec; contact-plan/
+SABR routing; or any application-crate wiring (`mini-objects`/
+`mini-messaging`/`mini-forge`/governance dispatch). The design report's
+own P28-02..25 implementation roadmap remains exactly that — a roadmap,
+not a blocker to this entry or to terrestrial real-value launch, which the
+report itself states explicitly (D28-08).
+
+**Failure point:** if `mini-dtn` is ever wired to a real network path
+before TCPCLv4/BPSec/interop evidence exists, or if any caller starts
+trusting `InMemoryDeferredTransport`'s in-RAM state as durable, this
+entry's own "not closed" list is the thing to re-read first. If a future
+change gives any DTN-carried object elevated trust merely for having
+arrived over this path (a "DTN-verified" flag influencing personhood,
+presence, or finality), that is a regression of D28-13/76 the same way a
+Gate #97/#98 network-context personhood leak would be.
+
+**Required follow-up:** the design report's own P28-02..25 sequence
+(bounded BPv7 wire codec with real interop evidence against at least two
+independent BPv7 implementations before any standards-compliance claim;
+`mini-durable`-backed durable queue; TCPCLv4; BPSec; contact-plan/SABR
+routing; application-crate dispatch) remains open, unscheduled, and is a
+priority call for the founder alongside D-0066 Batch 6/Branches A-D per
+`CLAUDE.md`'s standing "widening is the founder's call" rule — this entry
+does not schedule it. Issue #28 itself stays open pending an identified
+human auditor of record's actual sign-off per G28-01..10.
+
+**Supersedes / superseded by:** none (adopts, but does not supersede,
+`docs/gates/dtn-design-constraints.md`'s founder-action-required framing
+— that file is updated to point here, not deleted, since its own
+"engineering's own reasoning pending the expert" section remains an
+accurate historical record).
+
+### D-0514 — Gate #98 (local Wi-Fi bearer): adoption of an external Wi-Fi bearer design report's architecture, zero network-context personhood/presence/continuity weight, `LocalServiceRecord`/`LocalRouteHint` closed types, legacy-labeled `discovery.rs`  ·  *Architecture adopted; Android production wiring remains FAIL/LAB-ONLY, unchanged by this entry*
+
+**Date:** 2026-09-11 · **Refs:** roadmap #98; uploaded document
+`Mininet_External_WiFi_Bearer_Audit_08_Gate_98_FINAL.txt` (claimed exact
+main revision reviewed: `bc7da80f8817f856a96bcb3772232b080eef531d`);
+touches `docs/gates/wifi-bearer-test-protocol.md`; `crates/mini-bearer/
+src/{discovery,local_route,error,lib}.rs` (new module).
+
+**Decision:** same posture as D-0513: the uploaded document is an
+unsigned, anonymously-delivered report. Its own final verdicts are
+unambiguous and are taken at face value because they cost this project
+nothing to accept — **"CURRENT SHIPPING WI-FI CAPABILITY: FAIL / LAB-
+ONLY"** and **"ISSUE #98: KEEP OPEN UNTIL PHYSICAL EVIDENCE"** are not
+gate-closure claims this session would need to independently certify;
+they are the report's own honest self-assessment, and this entry changes
+nothing about that status. What this entry *does* adopt, on engineering
+merit: the architecture question is answered (production infrastructure
+discovery should be real RFC 6762/6763 DNS-SD via platform APIs, not the
+existing hand-rolled `MININET1` multicast prototype; Wi-Fi Direct/Aware
+are optional; TCP is the V1 local data plane; QUIC is additive later) —
+and, more importantly, a specific, load-bearing correction to this
+repository's own prior documentation: `docs/gates/wifi-bearer-test-
+protocol.md` previously implied Wi-Fi network co-membership could feed
+the "device/home continuity" signal at up to 15/100 weight
+(`docs/design/human-continuity-proof.md`'s scoring). The report's
+security argument for why that must be exactly zero, not merely
+"lower-weight," is sound and independently checked against this
+repository's own threat reasoning: VPNs extend private subnets, mDNS
+reflectors cross network boundaries, a single hotspot can host a Sybil
+farm, public Wi-Fi joins unrelated strangers, enterprise WLANs span large
+areas, and MAC/SSID/BSSID all randomize or spoof at will — so any nonzero
+weight assigned to network co-membership is a standing invitation to
+manufacture it. `docs/design/human-continuity-proof.md` itself already
+excluded "Wi-Fi name" from continuity evidence (§7) and needed no
+correction; only `wifi-bearer-test-protocol.md`'s own scoring language
+was stale.
+
+Shipped in this batch:
+
+1. **`docs/gates/wifi-bearer-test-protocol.md`** — the 15/100 network-
+   context weight language is superseded (kept verbatim in a collapsed
+   historical section, per this log's own append-only-history discipline
+   applied to *other* documents) by an explicit zero-weight statement:
+   Wi-Fi network context contributes zero personhood, zero
+   physical-presence, and zero human-continuity network-context score,
+   full stop; only a protected device-key challenge-response transported
+   over Wi-Fi is continuity evidence, never the network path itself.
+2. **`crates/mini-bearer/src/local_route.rs`** (new) — `LocalServiceRecord`
+   (protocol version, a bounded capability bitset, a dynamic port) and
+   `LocalRouteHint` (candidate addresses, port), the platform-neutral
+   local-discovery types a future production `NsdManager`/Bonjour adapter
+   would build advertisements from. Both types are *closed*: there is no
+   field for a DID, display name, balance, governance weight, or router
+   fingerprint on either struct, structurally, not by convention — a
+   future change adding one is a Gate #98/personhood-boundary regression
+   to flag in review the same way a voice/value dependency edge is.
+   `LocalServiceRecord` gained a bounded (1024-byte, D98-023) TXT-record
+   codec with allocation-bounds-checked-before-parsing decode, the same
+   discipline every wire format in this tree already uses.
+3. **`crates/mini-bearer/src/discovery.rs`** — module docs strengthened
+   (F98-05/D98-010): the existing `MININET1` custom multicast prototype
+   was already documented as "not full mDNS," but now states explicitly
+   that it is legacy/development/test discovery, not the production path,
+   names what production discovery actually requires (real platform
+   RFC 6762/6763 DNS-SD, which needs an Android/iOS SDK this environment
+   does not have), and points at the new zero-weight rule and the types
+   that enforce it.
+
+**Reason:** correcting a stale weighted-trust claim in this repository's
+own gate documentation is exactly the kind of finding this tree's review
+discipline exists to catch, the same category as this PR's other
+"real gap between what a document claims and what the code/threat model
+actually supports" fixes. Closing the *types* to make the zero-weight
+rule structural, not just documented, follows Directive 14 (simplicity is
+security) the same way a typed-domain signing function is preferred over
+`sign(bytes)`: a compile-time-fixed field list is a stronger guarantee
+than a comment asking future authors not to add a DID field.
+
+**Constitutional impact:** none. No dependency-edge change; no new
+cryptography (the TXT codec is a plain bounded byte format, structurally
+identical to every other wire codec in this crate). `mini-bearer`'s
+existing anonymity/no-identity-in-discovery posture is unchanged and
+reinforced. The Wi-Fi-network-context-is-personhood-relevant idea this
+entry retires was never load-bearing in code — no crate in this
+repository reads SSID/BSSID/router-fingerprint data into any personhood
+or presence calculation today — so this is a documentation and future-
+proofing correction, not a behavior change to any shipped scoring logic.
+
+**Implementation status:** shipped and tested. New tests:
+`local_route::tests::*` (6 tests: TXT round-trip, truncation rejected at
+every cut point, trailing-bytes rejected, wrong-magic rejected, an
+oversized declared input rejected before any field is read, a route hint
+builds candidates for both IPv4 and IPv6). `cargo fmt --all -- --check`,
+`cargo clippy --all-targets --all-features --workspace -- -D warnings`,
+and `cargo build --workspace --all-features` are all clean; `cargo test
+--workspace --all-features --no-fail-fast` passes for `mini-bearer` (57
+tests) and everywhere else except the same pre-existing, sandbox-only
+`wasm32-wasip2`-target-missing failures D-0513 already records (unrelated
+to this entry). `BearerError` gained one new `#[non_exhaustive]` variant
+(`MalformedLocalServiceRecord`) — additive only, no existing match arm
+required updating since every consumer of `BearerError` in this workspace
+already matches non-exhaustively or via `Display`/`Error`.
+
+**What this closes and what it explicitly does not:** adopted as
+*architecture*: production discovery should be real DNS-SD, not
+`MININET1`; the zero network-context weight rule, now structural via
+`LocalServiceRecord`/`LocalRouteHint`'s closed field lists. **Not closed,
+and not claimed:** issue #98 itself remains FAIL/LAB-ONLY exactly as the
+report's own final verdict states — no Android `NsdManager`/Wi-Fi Direct/
+Wi-Fi Aware production wiring exists, the Android manifest still declares
+only `INTERNET` for networking, `MainActivity.kt` still selects the first
+site-local IPv4 rather than a platform-scoped route, and zero physical
+phone/router/hotspot/VPN/public-Wi-Fi hardware evidence exists in this
+repository. None of that was attempted in this batch: it requires a real
+Android/iOS SDK and physical hardware this environment does not have, and
+attempting Kotlin `NsdManager`/`WifiP2pManager`/`WifiAwareManager`
+adapters without the ability to compile or run them would produce
+unverified code exactly contrary to this project's "verify before
+shipping" discipline — the same reasoning every prior Android-only
+limitation in this log already states.
+
+**Failure point:** this closes the specific documentation/type-boundary
+gap above; it is not a general audit of `mini-bearer` or the Android app.
+If a future Android/iOS discovery adapter is ever built, it must be built
+against `LocalServiceRecord`/`LocalRouteHint` (or types with the same
+closed-field discipline) and must not reintroduce any personhood/presence
+input from network context — the exact regression this entry's zero-
+weight rule and closed types exist to make structurally hard.
+
+**Required follow-up:** real Android `NsdManager` wiring, real local-
+network permission/lifecycle handling, removal of `MainActivity.kt`'s
+first-site-local-IPv4 selection, and the full physical hardware test
+matrix (W98-001..120 in the uploaded report) remain open, unscheduled,
+and require hardware/SDK access this environment does not have — the same
+class of follow-up every prior Android/hardware-gated entry in this log
+already names. Issue #98 stays open per the report's own G98-01..24
+closure rule until that physical evidence exists and a human tester/
+reviewer signs it.
+
+**Supersedes / superseded by:** none (supersedes stale *language* inside
+`docs/gates/wifi-bearer-test-protocol.md`, kept as a collapsed historical
+section per this log's own precedent for correcting other documents
+without deleting their history).

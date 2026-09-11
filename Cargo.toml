@@ -37,6 +37,7 @@ members = [
     "crates/mini-private-payment",
     "crates/mini-bounty",
     "crates/mini-settlement",
+    "crates/mini-dtn",
     "crates/mini-execution",
     "crates/mini-consensus",
     "crates/mini-porep",
