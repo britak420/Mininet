@@ -23,7 +23,7 @@ fn boxed(bearer: TcpBearer) -> Box<dyn Bearer + Send> {
 /// Poll `mesh` until at least one message has been relayed through it or
 /// `deadline` passes, returning every message seen. A real device runs this
 /// loop forever; a test needs it bounded.
-fn poll_until_nonempty(mesh: &mut MeshNode, deadline: Instant) -> Vec<([u8; 32], Vec<u8>)> {
+fn poll_until_nonempty(mesh: &MeshNode, deadline: Instant) -> Vec<([u8; 32], Vec<u8>)> {
     loop {
         let messages = mesh.poll_and_flush();
         if !messages.is_empty() || Instant::now() >= deadline {
@@ -36,7 +36,7 @@ fn poll_until_nonempty(mesh: &mut MeshNode, deadline: Instant) -> Vec<([u8; 32],
 /// Keeps `mesh` polling (and therefore relaying) until `deadline`, ignoring
 /// what it sees -- for an intermediate relay node (B, C) that must keep
 /// forwarding even though the test only asserts delivery at the far end.
-fn relay_until(mesh: &mut MeshNode, deadline: Instant) {
+fn relay_until(mesh: &MeshNode, deadline: Instant) {
     while Instant::now() < deadline {
         mesh.poll_and_flush();
         thread::sleep(Duration::from_millis(5));
@@ -67,10 +67,10 @@ fn a_broadcast_from_one_end_of_a_real_tcp_line_topology_reaches_the_other_end_vi
         let (stream, _) = listener_cd.accept().unwrap();
         let bearer = TcpBearer::from_stream(stream).unwrap();
         let link = EncryptedLink::accept(boxed(bearer)).unwrap();
-        let mut mesh = MeshNode::new();
+        let mesh = MeshNode::new();
         mesh.add_link(link);
         let deadline = Instant::now() + Duration::from_secs(deadline_secs);
-        let received = poll_until_nonempty(&mut mesh, deadline);
+        let received = poll_until_nonempty(&mesh, deadline);
         d_tx.send(received).unwrap();
     });
 
@@ -85,13 +85,10 @@ fn a_broadcast_from_one_end_of_a_real_tcp_line_topology_reaches_the_other_end_vi
         let cd_bearer = TcpBearer::connect(addr_cd).unwrap();
         let cd_link = EncryptedLink::dial(boxed(cd_bearer)).unwrap();
 
-        let mut mesh = MeshNode::new();
+        let mesh = MeshNode::new();
         mesh.add_link(bc_link);
         mesh.add_link(cd_link);
-        relay_until(
-            &mut mesh,
-            Instant::now() + Duration::from_secs(deadline_secs),
-        );
+        relay_until(&mesh, Instant::now() + Duration::from_secs(deadline_secs));
     });
 
     // B: accepts the A-B link, dials the B-C link, relays the same way.
@@ -103,13 +100,10 @@ fn a_broadcast_from_one_end_of_a_real_tcp_line_topology_reaches_the_other_end_vi
         let bc_bearer = TcpBearer::connect(addr_bc).unwrap();
         let bc_link = EncryptedLink::dial(boxed(bc_bearer)).unwrap();
 
-        let mut mesh = MeshNode::new();
+        let mesh = MeshNode::new();
         mesh.add_link(ab_link);
         mesh.add_link(bc_link);
-        relay_until(
-            &mut mesh,
-            Instant::now() + Duration::from_secs(deadline_secs),
-        );
+        relay_until(&mesh, Instant::now() + Duration::from_secs(deadline_secs));
     });
 
     // A: dials the A-B link and broadcasts once. No direct connection to
@@ -118,7 +112,7 @@ fn a_broadcast_from_one_end_of_a_real_tcp_line_topology_reaches_the_other_end_vi
     let a = thread::spawn(move || {
         let ab_bearer = TcpBearer::connect(addr_ab).unwrap();
         let ab_link = EncryptedLink::dial(boxed(ab_bearer)).unwrap();
-        let mut mesh = MeshNode::new();
+        let mesh = MeshNode::new();
         mesh.add_link(ab_link);
         mesh.broadcast(PAYLOAD).unwrap();
         // Keep the link alive long enough for B to finish reading it --

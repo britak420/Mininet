@@ -411,15 +411,19 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0514`
-   (`D-0513`/`D-0514`, adopting external Gate #28 DTN/satellite and Gate #98
-   Wi-Fi bearer design-report architectures on engineering merit — new
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0516`
+   (`D-0513`–`D-0516`: adopting external Gate #28 DTN/satellite and Gate #98
+   Wi-Fi bearer design-report architectures on engineering merit (new
    `mini-dtn` crate scaffold, `mini-settlement::PaymentClaimV2`
    height-anchored settlement, `mini-bearer::LocalServiceRecord`/
    `LocalRouteHint` closed types, zero Wi-Fi network-context personhood
-   weight — while explicitly leaving issues #28/#98 open, since neither
-   uploaded document is the identified human auditor its own closure rule
-   requires, are the newest at the time of this edit; the Mininet Node
+   weight) while explicitly leaving issues #28/#98 open; a governance-doc
+   numbering/registry fix (`D-0515`); and a third Codex remediation batch
+   (`D-0516`) making `mini-custody`'s DKG Round-1 barrier a structural type
+   requirement, requiring real two-device corroboration for Gate #97
+   "two-sided" ranging evidence, and giving `mini-mesh` genuine per-link
+   locking so one slow peer's send can no longer stall every other link's
+   receive path — are the newest at the time of this edit; the Mininet Node
    Appliance deployment profile this line previously credited to `D-0439`
    is `D-0446` — `D-0439` is the identity-bound replica-registration
    decision),

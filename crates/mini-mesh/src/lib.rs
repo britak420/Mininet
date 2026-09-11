@@ -22,10 +22,19 @@
 #![warn(missing_debug_implementations)]
 
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 use mini_bearer::{Bearer, BearerError, EncryptedLink, MAX_CHANNEL_PLAINTEXT_BYTES};
 use mini_crypto::HashAlgorithm;
 use mini_net::GossipRouter;
+
+/// A mesh link, individually lockable so [`MeshNode::poll`] never has to
+/// wait behind [`MeshNode::flush_reflood`]'s potentially slow send on a
+/// *different* link -- see the module docs on the two methods for why this
+/// exists (a Codex review finding on PR #333: an earlier revision put every
+/// link behind one lock shared with the caller's own `MeshHandle`, so one
+/// slow peer's blocking send starved receiving on every other link too).
+type LinkHandle = Arc<Mutex<EncryptedLink<Box<dyn Bearer + Send>>>>;
 
 /// How many recently-seen message ids [`MeshNode`] remembers before evicting
 /// the oldest — bounds memory under a flood of distinct messages, the same
@@ -48,6 +57,16 @@ pub const MAX_MESSAGES_PER_LINK_PER_POLL: usize = 64;
 /// (`MAX_MESSAGES_PER_LINK_PER_POLL` distinct new messages per link).
 pub const MAX_PENDING_REFLOOD: usize = 4_096;
 
+/// Total bytes [`MeshNode::poll`] lets the reflood queue hold before it
+/// starts dropping the oldest entries, regardless of how many entries that
+/// is (a Codex review finding on PR #333: bounding only by *count* still
+/// let a high-capacity peer queue up to `MAX_PENDING_REFLOOD *
+/// MAX_CHANNEL_PLAINTEXT_BYTES` — tens of gigabytes — since each accepted
+/// payload can be nearly `MAX_CHANNEL_PLAINTEXT_BYTES` on its own). Sized
+/// generously above one realistic `poll()` batch's worst case, still far
+/// below the old count-only bound's actual worst case.
+pub const MAX_PENDING_REFLOOD_BYTES: usize = 64 * 1024 * 1024;
+
 /// A content id for a mesh payload: the BLAKE3 digest of its raw bytes.
 /// Every hop computes the same id independently from the same bytes, so
 /// nothing needs to carry an id on the wire — the payload *is* its own id,
@@ -64,18 +83,55 @@ pub fn message_id(payload: &[u8]) -> [u8; 32] {
 /// connect; nothing about this type assumes a fixed topology decided up
 /// front, unlike `TcpMesh`.
 pub struct MeshNode {
-    links: Vec<EncryptedLink<Box<dyn Bearer + Send>>>,
-    seen: GossipRouter,
+    links: Mutex<Vec<LinkHandle>>,
+    seen: Mutex<GossipRouter>,
     /// Payloads [`Self::poll`] has already deduped and needs reflooded, not
     /// yet actually sent — see [`Self::flush_reflood`].
-    pending_reflood: VecDeque<Vec<u8>>,
+    pending_reflood: Mutex<PendingReflood>,
+}
+
+/// [`MeshNode::pending_reflood`]'s queue plus a running byte total, kept
+/// consistent together so eviction can enforce [`MAX_PENDING_REFLOOD`] and
+/// [`MAX_PENDING_REFLOOD_BYTES`] as one operation rather than two locks (or
+/// one lock with the byte total silently drifting from the queue's real
+/// contents).
+#[derive(Debug, Default)]
+struct PendingReflood {
+    queue: VecDeque<Vec<u8>>,
+    bytes: usize,
+}
+
+impl PendingReflood {
+    /// Queue `payload`, evicting the oldest entries first until both the
+    /// entry-count and total-byte bounds hold (including for the entry
+    /// just pushed).
+    fn push(&mut self, payload: Vec<u8>) {
+        self.bytes += payload.len();
+        self.queue.push_back(payload);
+        while self.queue.len() > MAX_PENDING_REFLOOD || self.bytes > MAX_PENDING_REFLOOD_BYTES {
+            let Some(evicted) = self.queue.pop_front() else {
+                break;
+            };
+            self.bytes = self.bytes.saturating_sub(evicted.len());
+        }
+    }
+
+    fn pop(&mut self) -> Option<Vec<u8>> {
+        let payload = self.queue.pop_front()?;
+        self.bytes = self.bytes.saturating_sub(payload.len());
+        Some(payload)
+    }
+
+    fn len(&self) -> usize {
+        self.queue.len()
+    }
 }
 
 impl std::fmt::Debug for MeshNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MeshNode")
-            .field("links", &self.links.len())
-            .field("seen", &self.seen.len())
+            .field("links", &self.lock_links().len())
+            .field("seen", &self.lock_seen().len())
             .finish()
     }
 }
@@ -90,17 +146,45 @@ impl MeshNode {
     /// A mesh node with a caller-chosen dedup-cache capacity.
     pub fn with_seen_capacity(seen_capacity: usize) -> Self {
         MeshNode {
-            links: Vec::new(),
-            seen: GossipRouter::new(seen_capacity),
-            pending_reflood: VecDeque::new(),
+            links: Mutex::new(Vec::new()),
+            seen: Mutex::new(GossipRouter::new(seen_capacity)),
+            pending_reflood: Mutex::new(PendingReflood::default()),
         }
+    }
+
+    // A poisoned lock (a panic while held) still hands back its contents --
+    // one panicking caller must not permanently wedge every future
+    // poll()/flush_reflood()/broadcast() call on this node.
+    fn lock_links(&self) -> std::sync::MutexGuard<'_, Vec<LinkHandle>> {
+        self.links.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn lock_seen(&self) -> std::sync::MutexGuard<'_, GossipRouter> {
+        self.seen.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn lock_pending(&self) -> std::sync::MutexGuard<'_, PendingReflood> {
+        self.pending_reflood
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Remove exactly the given links (by identity, not position, since the
+    /// live list may have changed under us between snapshotting it and
+    /// finishing a send/receive pass) from the held set.
+    fn prune_dead(&self, dead: &[LinkHandle]) {
+        if dead.is_empty() {
+            return;
+        }
+        self.lock_links()
+            .retain(|h| !dead.iter().any(|d| Arc::ptr_eq(d, h)));
     }
 
     /// Add a new live link — e.g. a BLE connection that just finished its
     /// [`EncryptedLink`] handshake. Takes effect on the next [`Self::broadcast`]
     /// or [`Self::poll`].
-    pub fn add_link(&mut self, link: EncryptedLink<Box<dyn Bearer + Send>>) {
-        self.links.push(link);
+    pub fn add_link(&self, link: EncryptedLink<Box<dyn Bearer + Send>>) {
+        self.lock_links().push(Arc::new(Mutex::new(link)));
     }
 
     /// How many links are currently held. A link that has failed a
@@ -110,7 +194,7 @@ impl MeshNode {
     /// other bearer-broadcast in this tree) until that link's next failed
     /// `try_recv`.
     pub fn link_count(&self) -> usize {
-        self.links.len()
+        self.lock_links().len()
     }
 
     /// Send `payload` to every held link and mark it seen, so an echo of it
@@ -149,17 +233,22 @@ impl MeshNode {
     /// bearer mesh wanting partial delivery to only the links that can
     /// carry a given payload would need real routing, not flooding; out of
     /// scope here (see the design doc's "no routing" honest limit).
-    pub fn broadcast(&mut self, payload: &[u8]) -> Result<[u8; 32], BearerError> {
+    pub fn broadcast(&self, payload: &[u8]) -> Result<[u8; 32], BearerError> {
         if payload.len() > MAX_CHANNEL_PLAINTEXT_BYTES {
             return Err(BearerError::FrameTooLarge {
                 max: MAX_CHANNEL_PLAINTEXT_BYTES,
                 got: payload.len(),
             });
         }
-        if let Some(min_capacity) = self
-            .links
+        let snapshot: Vec<LinkHandle> = self.lock_links().clone();
+        if let Some(min_capacity) = snapshot
             .iter()
-            .filter_map(|link| link.max_sendable_plaintext_bytes())
+            .filter_map(|handle| {
+                handle
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .max_sendable_plaintext_bytes()
+            })
             .min()
         {
             if payload.len() > min_capacity {
@@ -170,8 +259,15 @@ impl MeshNode {
             }
         }
         let id = message_id(payload);
-        self.seen.record_seen(id);
-        self.links.retain_mut(|link| link.send(payload).is_ok());
+        self.lock_seen().record_seen(id);
+        let mut dead = Vec::new();
+        for handle in &snapshot {
+            let mut link = handle.lock().unwrap_or_else(|p| p.into_inner());
+            if link.send(payload).is_err() {
+                dead.push(Arc::clone(handle));
+            }
+        }
+        self.prune_dead(&dead);
         Ok(id)
     }
 
@@ -191,48 +287,60 @@ impl MeshNode {
     /// Android GATT), one write can wait seconds for a peer's
     /// acknowledgement, and a large relayed payload can be many chunks.
     /// Calling `send` here for every reflooded payload would let one slow
-    /// or hostile peer stall this call — and with it, whatever caller-side
-    /// lock guards the whole `MeshNode` — for as long as that peer keeps
+    /// or hostile peer stall this call for as long as that peer keeps
     /// acking slowly. Queuing instead and leaving the actual sends to
     /// [`Self::flush_reflood`] means a caller can run that on its own
     /// thread/schedule, never blocking the fast receive-and-dedup path
     /// this function's own contract promises.
-    pub fn poll(&mut self) -> Vec<([u8; 32], Vec<u8>)> {
+    ///
+    /// Per-link locking (a Codex review finding on PR #333) means this also
+    /// never blocks *waiting* for [`Self::flush_reflood`]: a link currently
+    /// mid-send is simply skipped this round (its `try_lock` fails) rather
+    /// than stalling every other link's receive progress behind it — it is
+    /// tried again on the next `poll()` call once free.
+    pub fn poll(&self) -> Vec<([u8; 32], Vec<u8>)> {
         let mut new_messages = Vec::new();
+        let snapshot: Vec<LinkHandle> = self.lock_links().clone();
+        let mut dead = Vec::new();
 
-        let seen = &mut self.seen;
-        let pending_reflood = &mut self.pending_reflood;
-        self.links.retain_mut(|link| {
+        for handle in &snapshot {
+            let Ok(mut link) = handle.try_lock() else {
+                // Busy (flush_reflood is sending on it right now) -- move
+                // on rather than waiting; nothing here is lost, only
+                // deferred to the next poll().
+                continue;
+            };
             for _ in 0..MAX_MESSAGES_PER_LINK_PER_POLL {
                 match link.try_recv() {
                     Ok(Some(payload)) => {
                         let id = message_id(&payload);
-                        if seen.record_seen(id) {
-                            // Bounded: under sustained overload, the
-                            // oldest not-yet-reflooded payload is dropped
-                            // rather than growing this queue without
-                            // bound or making poll() itself start
-                            // blocking to keep up. The payload is still
-                            // returned to the caller below either way —
-                            // this only bounds the *relay* obligation to
-                            // other links, not local delivery.
-                            if pending_reflood.len() >= MAX_PENDING_REFLOOD {
-                                pending_reflood.pop_front();
-                            }
-                            pending_reflood.push_back(payload.clone());
+                        if self.lock_seen().record_seen(id) {
+                            // Bounded (both by entry count and total bytes):
+                            // under sustained overload, the oldest
+                            // not-yet-reflooded payload is dropped rather
+                            // than growing this queue without bound or
+                            // making poll() itself start blocking to keep
+                            // up. The payload is still returned to the
+                            // caller below either way — this only bounds
+                            // the *relay* obligation to other links, not
+                            // local delivery.
+                            self.lock_pending().push(payload.clone());
                             new_messages.push((id, payload));
                         }
                         // A repeat: already relayed and delivered once, drop it.
                     }
-                    Ok(None) => return true,
+                    Ok(None) => break,
                     // Terminal for this link: drop it from the mesh instead
                     // of retrying a dead connection forever.
-                    Err(_) => return false,
+                    Err(_) => {
+                        dead.push(Arc::clone(handle));
+                        break;
+                    }
                 }
             }
-            true
-        });
+        }
 
+        self.prune_dead(&dead);
         new_messages
     }
 
@@ -261,14 +369,30 @@ impl MeshNode {
     /// Returns the number of payloads actually drained from the queue (sent
     /// to at least an attempt on every live link, whether or not every
     /// individual send succeeded).
-    pub fn flush_reflood(&mut self) -> usize {
+    ///
+    /// Per-link locking (a Codex review finding on PR #333) means a slow
+    /// send here only ever blocks [`Self::poll`]'s *next* attempt on this
+    /// exact link, never on any other link and never on this method itself
+    /// — an earlier revision held one lock across the whole `MeshNode` for
+    /// the entire flush, so a single slow peer's GATT write starved
+    /// receiving on every other link too.
+    pub fn flush_reflood(&self) -> usize {
         let mut flushed = 0;
-        while let Some(payload) = self.pending_reflood.pop_front() {
-            self.links.retain_mut(|link| match link.send(&payload) {
-                Ok(()) => true,
-                Err(BearerError::FrameTooLarge { .. }) => true,
-                Err(_) => false,
-            });
+        loop {
+            let Some(payload) = self.lock_pending().pop() else {
+                break;
+            };
+            let snapshot: Vec<LinkHandle> = self.lock_links().clone();
+            let mut dead = Vec::new();
+            for handle in &snapshot {
+                let mut link = handle.lock().unwrap_or_else(|p| p.into_inner());
+                match link.send(&payload) {
+                    Ok(()) => {}
+                    Err(BearerError::FrameTooLarge { .. }) => {}
+                    Err(_) => dead.push(Arc::clone(handle)),
+                }
+            }
+            self.prune_dead(&dead);
             flushed += 1;
         }
         flushed
@@ -277,7 +401,7 @@ impl MeshNode {
     /// How many payloads [`Self::poll`] has queued for reflooding but
     /// [`Self::flush_reflood`] has not yet sent.
     pub fn pending_reflood_count(&self) -> usize {
-        self.pending_reflood.len()
+        self.lock_pending().len()
     }
 
     /// Convenience: [`Self::poll`] immediately followed by
@@ -288,7 +412,7 @@ impl MeshNode {
     /// where a single send can stall (e.g. Android GATT) should call
     /// [`Self::poll`] and [`Self::flush_reflood`] separately, from
     /// different threads, instead of this.
-    pub fn poll_and_flush(&mut self) -> Vec<([u8; 32], Vec<u8>)> {
+    pub fn poll_and_flush(&self) -> Vec<([u8; 32], Vec<u8>)> {
         let messages = self.poll();
         self.flush_reflood();
         messages
@@ -715,5 +839,154 @@ mod tests {
             b.poll();
         }
         assert_eq!(b.pending_reflood_count(), MAX_PENDING_REFLOOD);
+    }
+
+    #[test]
+    fn pending_reflood_drops_the_oldest_once_the_byte_budget_is_exceeded_well_under_the_count_cap()
+    {
+        // Regression test for a Codex finding on PR #333: bounding only by
+        // entry count still let a high-capacity peer queue up to
+        // MAX_PENDING_REFLOOD * MAX_CHANNEL_PLAINTEXT_BYTES (tens of
+        // gigabytes), since each accepted payload can be nearly
+        // MAX_CHANNEL_PLAINTEXT_BYTES on its own. Large payloads here must
+        // hit the byte budget and start evicting long before the count cap
+        // (MAX_PENDING_REFLOOD, in the thousands) is anywhere close.
+        let mut a = MeshNode::new();
+        let mut b = MeshNode::new();
+        link(&mut a, &mut b);
+
+        let big = vec![0u8; 1_000_000]; // 1 MiB
+        let how_many = MAX_PENDING_REFLOOD_BYTES / big.len() + 4;
+        assert!(
+            how_many < MAX_PENDING_REFLOOD,
+            "test setup must exercise the byte budget, not the count cap"
+        );
+        for _ in 0..how_many {
+            // Each payload must be distinct or poll()'s own dedup (not the
+            // reflood queue's bound) would be what's actually exercised.
+            let mut payload = big.clone();
+            payload.extend_from_slice(&mini_crypto::random_32().unwrap());
+            a.broadcast(&payload).unwrap();
+            b.poll();
+        }
+        assert!(
+            b.pending_reflood_count() < how_many,
+            "the byte budget must have evicted something well before the count cap would"
+        );
+    }
+
+    /// A [`Bearer`] whose `send` blocks until a test-controlled gate opens —
+    /// stands in for a real platform bearer's slow write (e.g. Android GATT
+    /// waiting on a peer's acknowledgement) without needing real hardware.
+    struct GatedSendBearer {
+        inner: InProcessBearer,
+        gate: std::sync::mpsc::Receiver<()>,
+    }
+
+    impl Bearer for GatedSendBearer {
+        fn send(&mut self, frame: &[u8]) -> mini_bearer::Result<()> {
+            let _ = self.gate.recv();
+            self.inner.send(frame)
+        }
+        fn recv(&mut self) -> mini_bearer::Result<Vec<u8>> {
+            self.inner.recv()
+        }
+        fn try_recv(&mut self) -> mini_bearer::Result<Option<Vec<u8>>> {
+            self.inner.try_recv()
+        }
+    }
+
+    #[test]
+    fn poll_on_a_healthy_link_makes_progress_while_flush_reflood_is_blocked_sending_on_another() {
+        // The core proof for the Codex finding this per-link locking closes:
+        // an earlier revision put every link behind one lock shared with
+        // flush_reflood's own blocking send, so a single slow peer starved
+        // receiving on every other link too. Here `a` holds a link to a
+        // gated (slow) peer `slow_peer` and a normal link to `fast_peer`;
+        // flush_reflood is deliberately stuck sending toward `slow_peer` on
+        // a background thread while the main thread's poll() must still see
+        // `fast_peer`'s waiting message promptly.
+        let a = std::sync::Arc::new(MeshNode::new());
+        let slow_peer = MeshNode::new();
+        let mut fast_peer = MeshNode::new();
+
+        // a <-> slow_peer, with a's send side gated. `dial()` itself sends
+        // exactly one frame (its hello), so pre-load one permit for the
+        // handshake to go through -- the gate is empty again immediately
+        // afterward, ready to block the real test send below.
+        let (tx_gate, rx_gate) = std::sync::mpsc::channel::<()>();
+        tx_gate.send(()).unwrap();
+        let (bearer_a_slow, bearer_slow_a) = mini_bearer::pair();
+        let gated: Box<dyn Bearer + Send> = Box::new(GatedSendBearer {
+            inner: bearer_a_slow,
+            gate: rx_gate,
+        });
+        let boxed_slow = boxed(bearer_slow_a);
+        let accepter = std::thread::spawn(move || EncryptedLink::accept(boxed_slow).unwrap());
+        a.add_link(EncryptedLink::dial(gated).unwrap());
+        slow_peer.add_link(accepter.join().unwrap());
+
+        // a <-> fast_peer, an ordinary unblocked link.
+        link_shared(&a, &mut fast_peer);
+
+        // Queue a message for both links to relay.
+        fast_peer.broadcast(b"from fast peer").unwrap();
+        // a receives it from fast_peer and queues it for reflood to every
+        // link, including the gated one toward slow_peer.
+        a.poll();
+        assert_eq!(a.pending_reflood_count(), 1);
+
+        // Start flush_reflood on a background thread: it will send to
+        // fast_peer's link first or slow_peer's link first depending on
+        // internal ordering, but either way it will block once it reaches
+        // the gated link, since the gate has not been opened yet.
+        let a_flusher = std::sync::Arc::clone(&a);
+        let flusher = std::thread::spawn(move || a_flusher.flush_reflood());
+
+        // Give the flusher a moment to actually reach (and block on) the
+        // gated send.
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
+        // fast_peer sends a second, independent message toward `a` on the
+        // OTHER link. poll() must see it promptly -- it must not be stuck
+        // waiting for flush_reflood's lock on the gated link.
+        fast_peer
+            .broadcast(b"second message, different link")
+            .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        let mut received = Vec::new();
+        while received.is_empty() && std::time::Instant::now() < deadline {
+            received = a.poll();
+            if received.is_empty() {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        }
+        assert_eq!(
+            received.len(),
+            1,
+            "poll() must keep receiving on the healthy link while flush_reflood \
+             is still blocked sending on the gated one"
+        );
+        assert_eq!(received[0].1, b"second message, different link");
+
+        // Release the gate so the background flusher can finish cleanly.
+        // More than one payload can be queued for the gated link by now
+        // (poll()'s retry loop above may have queued the second message
+        // too), so send enough permits to cover every remaining send
+        // rather than just one.
+        for _ in 0..8 {
+            let _ = tx_gate.send(());
+        }
+        flusher.join().unwrap();
+    }
+
+    /// Same connection dance as [`link`], but for an already-shared
+    /// [`std::sync::Arc<MeshNode>`] on the dialing side.
+    fn link_shared(a: &std::sync::Arc<MeshNode>, b: &mut MeshNode) {
+        let (bearer_a, bearer_b) = mini_bearer::pair();
+        let boxed_b = boxed(bearer_b);
+        let accepter = std::thread::spawn(move || EncryptedLink::accept(boxed_b).unwrap());
+        a.add_link(EncryptedLink::dial(boxed(bearer_a)).unwrap());
+        b.add_link(accepter.join().unwrap());
     }
 }

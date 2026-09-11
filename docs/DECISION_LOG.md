@@ -23661,3 +23661,254 @@ reviewer signs it.
 `docs/gates/wifi-bearer-test-protocol.md`, kept as a collapsed historical
 section per this log's own precedent for correcting other documents
 without deleting their history).
+
+### D-0515 — Governance doc numbering fix: `docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md` renumbered to `52`, registered in the governance index; this decision-log entry is that document's first canonical-registry record  ·  *Administrative fix; the document's own substantive claims are not endorsed or re-evaluated by this entry*
+
+**Date:** 2026-09-11 · **Refs:** Codex review finding on PR #333 (`docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md:5`, P2); touches
+`docs/governance/{40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md -> 52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md,00_GOVERNANCE_INDEX.md}`.
+
+**Decision:** `docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md` (added to
+this PR by an earlier commit, `755ff33`, before this session's own work)
+collided with the already-existing document 40
+(`40_GOVERNANCE_SIMULATION_AND_STRESS_TESTING.md`), and — separately —
+had never been listed in `docs/governance/00_GOVERNANCE_INDEX.md` or
+recorded anywhere in this decision log, despite the document's own text
+describing itself as an active "Founder bootstrap decision" that
+"supersedes conflicting bootstrap governance procedure" (its own Section
+8). Per the reviewing tool's finding: readers and tooling consulting the
+canonical governance index would have no way to discover this document
+or know it claims to override active policy. Fixed by renumbering to
+`52` (the next unused slot after the highest currently registered,
+`51_BOOTSTRAP_WORK_CLAIMS.md`) and adding it to
+`00_GOVERNANCE_INDEX.md` under a new "Bootstrap operating decisions"
+heading. No change to the document's own content or wording.
+
+**This entry is the document's first appearance in `docs/DECISION_LOG.md`
+at all** — closing the "decision registry" half of the same finding. Per
+this project's own workflow ritual, every operating decision should carry
+a D-number; this document previously had none.
+
+**A tension this entry deliberately does not resolve:** the document's
+own Section 5 ("Anonymous evidence can close a gate") and its "A1 /
+external cryptography audit gate" subsection state that a fully anonymous
+cryptography audit report may close the external crypto audit gate during
+the Pre-Go-Live period, and that D-0083's limits are superseded "to the
+extent D-0083 says the temporary Founder bootstrap exception may not
+affect governance-process gates, external-audit gate procedure." This is
+in direct tension with this same session's own standing, repeatedly
+applied discipline this whole PR — D-0047 (external cryptography audit
+gate; AI-authored/founder-reviewed work is explicitly not audit-
+equivalent) and D-0083 (the bootstrap exception explicitly does **not**
+lower crypto-audit gates or Tier-F invariants) — under which every
+anonymous audit-style document received in this session (the Gate #72/
+#93/#97/#28/#98 reports) was treated as engineering input to verify and
+implement conservatively, never as something that could itself close
+D-0047/#72 or unfreeze a Tier-F row. This entry registers the document's
+existence and fixes its numbering/discoverability only. It does not
+adopt, ratify, apply, or independently re-authorize the document's claim
+that an anonymous report can close the external cryptography audit gate,
+and it does not treat any anonymous document received in this session as
+having closed that gate under this document's Section 5. Per this
+project's own standing rule ("when uncertain whether something is
+decided or open: DECISION_LOG first, then FAILURE_BOOK, then ask — never
+guess a policy into existence"), whether Section 5's specific override of
+D-0047/D-0083 is actually in effect is a question for the founder to
+confirm explicitly, not something this fix decides either way.
+
+**Constitutional impact:** none from this entry itself (a renumbering and
+registry fix carries no substantive policy content). The tension named
+above, if left unresolved, is a real open question about which document
+governs gate closure during the bootstrap period — flagged here rather
+than silently adjudicated.
+
+**Implementation status:** shipped (file rename via `git mv`, preserving
+history; index entry added). No code, test, or build-tooling change.
+
+**Failure point:** if this renumbering is ever mistaken for a substantive
+review or endorsement of the document's content, that would misrepresent
+this entry's actual (administrative-only) scope.
+
+**Required follow-up:** the founder should explicitly confirm whether
+`52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md`'s Section 5/A1 override of D-0047/
+D-0083 is intended to actually take effect, and if so, record that
+confirmation as its own decision-log entry rather than relying on the
+governance document's own self-activation clause ("Effective when this
+exact document becomes canonical on `main`") to have silently done so
+already. Document 51 (`51_BOOTSTRAP_WORK_CLAIMS.md`) is also not yet
+listed in `00_GOVERNANCE_INDEX.md` — outside this entry's scope (the
+Codex finding named only document 40's collision) but worth the same
+fix in a future pass.
+
+**Supersedes / superseded by:** none.
+
+### D-0516 — Third CI/Codex remediation batch on PR #333 head `ca3c7c6`: DKG Round-1 barrier made structural, two-sided ranging evidence requires real corroboration, `mini-mesh` per-link locking, governance-doc numbering/registry fix, two Android BLE races  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** Codex automated review on PR #333, commit
+`ca3c7c6` (the D-0513/D-0514 push, itself triggering this review round);
+touches `crates/mini-custody/src/session.rs`,
+`crates/mini-custody/tests/{full_ceremony,session_binding}.rs`;
+`crates/mini-presence/src/verify.rs`,
+`crates/mini-presence/tests/presence_v2.rs`; `crates/mini-mesh/src/lib.rs`,
+`crates/mini-mesh/tests/tcp_relay.rs`; `crates/mini-ffi/src/mesh.rs`;
+`docs/governance/{40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md ->
+52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md,00_GOVERNANCE_INDEX.md}`;
+`app/android/app/src/main/java/org/mininet/app/{BleMeshService,
+BlePeripheralServer}.kt`.
+
+**Decision:** every finding below was independently verified against the
+real code before being fixed, per this tree's standing discipline
+(D-0506/D-0507/D-0509/D-0510/D-0511/D-0512's identical practice) — none
+was taken on the reviewing tool's word alone.
+
+1. **P1 — `mini-custody::session::dkg_part2` did not require the Round-1
+   consistent-broadcast barrier it is supposed to wait behind.** This
+   crate's own docs present the 11-of-11 `round1_view_confirmed` check as
+   an enforced ceremony property, but `dkg_part2` was a bare wrapper
+   around `frost_ristretto255::keys::dkg::part2` — nothing stopped a
+   caller from invoking it without ever checking `round1_view_confirmed`
+   first, letting a participant driver be induced to run Round 2 on an
+   equivocated or unconfirmed package view. Fixed with a typed witness,
+   `Round1ViewConfirmation`, constructible only via a new
+   `confirm_round1_view` function that performs the full check;
+   `dkg_part2` now requires one and additionally checks it is bound to the
+   exact manifest passed in (`CustodyError::Round1ViewMismatch` otherwise)
+   — the barrier is now a type-level requirement, not a caller convention.
+2. **P1 — two-sided ranging evidence (`MeasurementSidedness::TwoSided`)
+   accepted a single device's self-report.** `sidedness` lives inside the
+   `RangingEvidenceV2` record a single device signs, so nothing previously
+   stopped one compromised endpoint from setting `TwoSided`, signing
+   alone, and being classified `CertifiedSecure` — the assurance level
+   documented as requiring both devices to independently measure and
+   cross-check. `verify_presence_v2` gained a `counterpart_evidence`
+   parameter: a `TwoSided` classification is now honored only when a
+   second, independently signed evidence record from the *other* attested
+   party is supplied, itself session-bound and verifiable, and agreeing
+   with the primary evidence on which physical session/technology/OOB
+   configuration it describes; otherwise the assurance silently downgrades
+   to `CertifiedMedium` rather than rejecting the (still genuinely signed,
+   just weaker) attestation outright.
+3. **P1 — `mini-ffi::MeshHandle`'s single lock coupled `poll()` to
+   `flush_reflood()`'s worst-case send latency.** `MeshHandle` wrapped the
+   entire `mini_mesh::MeshNode` in one `Mutex`, so a slow platform GATT
+   write inside `flush_reflood()` held that lock for the whole send,
+   preventing `poll()` (running on a separate executor specifically so
+   this could never happen) from making any receive progress on *any*
+   link, healthy or not, until the slow send finished. Fixed at the root:
+   `MeshNode` is now internally synchronized per link
+   (`Arc<Mutex<EncryptedLink<...>>>` entries, plus separate `Mutex`es for
+   the link list, dedup cache, and reflood queue, all recovering from
+   poisoning rather than propagating one panicking caller's failure to
+   every future call), so `poll`/`flush_reflood`/`broadcast` all take
+   `&self` and can run concurrently from separate threads. `poll()` uses
+   `try_lock` per link — a link currently mid-send is simply skipped that
+   round (tried again next `poll()`) rather than stalling every other
+   link's receive progress behind it. `MeshHandle` no longer needs (or
+   has) a wrapper lock of its own.
+4. **P1 — `pending_reflood` bounded only by entry count, not bytes.**
+   `MAX_PENDING_REFLOOD` (4,096 entries) bounded how many payloads could
+   queue, but each can be nearly `MAX_CHANNEL_PLAINTEXT_BYTES` (16 MiB) on
+   its own — a high-capacity peer could in principle leave tens of
+   gigabytes queued before the count cap ever engaged. Added
+   `MAX_PENDING_REFLOOD_BYTES` (64 MiB) tracked alongside the existing
+   count via a small `PendingReflood { queue, bytes }` wrapper that evicts
+   the oldest entry first whenever either bound is exceeded, keeping the
+   byte total and the queue's real contents consistent under one lock.
+5. **P2 — `docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md` collided
+   with the existing document 40** (`40_GOVERNANCE_SIMULATION_AND_
+   STRESS_TESTING.md`) and was listed in neither
+   `00_GOVERNANCE_INDEX.md` nor this decision log, despite describing
+   itself as an active Founder bootstrap decision that supersedes
+   conflicting bootstrap procedure. Renumbered to `52` (the next unused
+   slot after `51_BOOTSTRAP_WORK_CLAIMS.md`) via `git mv`, no content
+   change, and registered in the index under a new "Bootstrap operating
+   decisions" heading. This is the document's first appearance in this
+   decision log; see the immediately preceding entry (D-0515) for the
+   full administrative-only scope of that fix and the tension it
+   deliberately leaves for the founder to resolve (that document's
+   Section 5 claims an anonymous audit may close the external
+   cryptography gate — in direct tension with this same PR's own D-0047/
+   D-0083 discipline — which this fix neither adopts nor resolves).
+6. **P2 — `BleMeshService.start()`'s `onStarted` callback could silently
+   never fire.** `runOnWorker`'s two internal `close()`-race checks (the
+   pre-submission check and the queued task's own recheck once it starts)
+   could both decline to run the passed block with no way for a caller
+   relying on "exactly one completion callback" to know — a `close()`
+   landing in either gap left `start()`'s caller waiting on `onStarted`
+   forever. `runOnWorker` gained an `onDeclined` parameter (default no-op,
+   so its three other fire-and-forget call sites are unaffected) invoked
+   from every path that skips `block`; `start()` now passes
+   `onDeclined = { onStarted(false) }`, guaranteeing exactly one call to
+   `onStarted` on every path.
+7. **P2 — dropping a stale `PeripheralLinkRadio` could disconnect a
+   reconnected central's new link.** `disconnect()` called
+   `gattServer.cancelConnection(state.device)` unconditionally; since
+   `cancelConnection` addresses the `BluetoothDevice`, not a specific
+   `LinkState`, a stale radio's drop (e.g. `mini_mesh::MeshNode` pruning
+   an old link after the same central already reconnected with a new
+   `LinkState` at the same address) would tear down the *replacement*
+   connection instead of doing nothing to an already-gone stale one.
+   Fixed with the same identity check (`links[state.device.address] !==
+   state`) `writeChunk` already uses for the identical reconnect race.
+
+**Reason:** same category as D-0511/D-0512/D-0513/D-0514 — real gaps
+between what a check or doc comment claims to enforce and what the code
+actually enforced, found by the same CI/Codex review discipline this tree
+runs on every push. Item 1 in particular closes a real secret-recovery-
+adjacent process gap in the author's own D-0507 ceremony design, the same
+"verify claims and fix real bugs in recently-shipped work, not just
+others'" discipline this session has applied consistently across Gate
+#93/#97 findings.
+
+**Constitutional impact:** none. No dependency-edge change; no new
+cryptographic primitive (item 2 composes the same `did_mini` Ed25519 KEL
+signing D-0512 already introduced; item 1 adds a typed witness over
+existing `frost_ristretto255` calls). All affected crates
+(`mini-custody`, `mini-presence`, `mini-mesh`, `mini-ffi`, the Android
+app) remain founder-overridden, AI-authored, unaudited prototypes per
+D-0036/D-0037/D-0047 — this closes concrete defects without changing that
+status or claiming any gate closure. Item 5's governance-document
+renumbering is purely administrative — see D-0515 for its own explicit
+non-adoption of that document's substantive claims.
+
+**Implementation status:** shipped. New/changed tests: `mini-custody`
+gains `session_binding::tests::
+a_round1_confirmation_from_a_different_manifest_is_rejected_by_dkg_part2`;
+`mini-presence`'s `tests/presence_v2.rs` is substantially revised (single-
+signer evidence now asserts `CertifiedMedium`, not `CertifiedSecure`) and
+gains
+`well_formed_corroborated_hardware_evidence_reaches_certified_secure`,
+`a_lone_signer_claiming_two_sided_evidence_is_capped_at_certified_medium`,
+`a_counterpart_signed_by_the_same_device_as_the_primary_does_not_
+corroborate`, `a_counterpart_describing_a_different_technology_does_not_
+corroborate`; `mini-mesh` gains
+`pending_reflood_drops_the_oldest_once_the_byte_budget_is_exceeded_well_
+under_the_count_cap` and
+`poll_on_a_healthy_link_makes_progress_while_flush_reflood_is_blocked_
+sending_on_another` (a real multi-threaded proof using a gated test
+`Bearer` whose `send` blocks until released, confirming `poll()` on a
+healthy link keeps working while `flush_reflood` is genuinely stuck
+sending on a different, slow link). `cargo fmt --all -- --check`,
+`cargo clippy --all-targets --all-features --workspace -- -D warnings`,
+and `cargo test --workspace --all-features --no-fail-fast` are all clean
+except the same pre-existing, sandbox-only `wasm32-wasip2`-target-missing
+failures D-0513 already records (unrelated to this entry). The two
+Kotlin changes compile by inspection only — no JDK/Android SDK in this
+environment, the same honest limit every prior Android-side decision in
+this log states.
+
+**Failure point:** this closes the specific findings above; it is not a
+general audit of `mini-custody`/`mini-presence`/`mini-mesh`/the BLE mesh
+stack. Item 2's corroboration check is a structural requirement, not a
+cryptographic proof that two *physically distinct* devices measured
+anything real — it only proves two *different signing keys* each
+independently signed matching evidence; Gate #97's underlying physical-
+hardware-validation gap (no real UWB/BLE Channel Sounding hardware
+exercised anywhere in this repository) is unrelated to this batch and
+remains exactly as open as D-0510/D-0512 already state.
+
+**Required follow-up:** none blocking; the same Gate #72/#93/#97/#28/#98
+follow-up items already named across D-0506–D-0515 remain open. Real
+Android CI (`assembleDebug`) and a real two-device test remain the only
+gates that actually exercise the Kotlin changes in this entry.
+
+**Supersedes / superseded by:** none.

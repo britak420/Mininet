@@ -116,6 +116,7 @@ fn full_11_party_ceremony_produces_a_usable_threshold_key() {
         .map(|p| session::sign_round1_view_ack(session_id, root, &p.did, &p.device_key))
         .collect();
     assert!(session::round1_view_confirmed(&manifest, &acks, &root));
+    let confirmation = session::confirm_round1_view(&manifest, &acks, &root).unwrap();
 
     // Phase D: DKG Round 2. Each participant's `round1_packages` argument
     // is every *other* participant's package.
@@ -131,7 +132,8 @@ fn full_11_party_ceremony_produces_a_usable_threshold_key() {
             .filter(|(id, _)| **id != identifier)
             .map(|(id, pkg)| (*id, pkg.clone()))
             .collect();
-        let (secret2, outbox) = session::dkg_part2(own_secret, &others).unwrap();
+        let (secret2, outbox) =
+            session::dkg_part2(&manifest, &confirmation, own_secret, &others).unwrap();
         round2_secrets.insert(identifier, secret2);
         round2_outboxes.insert(identifier, outbox);
     }

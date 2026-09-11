@@ -4,7 +4,9 @@ use std::collections::HashSet;
 
 use did_mini::{verify_delegation, Capabilities, Did, Kel};
 
-use crate::attestation::{kel_digest, Party, PresenceAttestation, TransportKind, PRESENCE_VERSION};
+use crate::attestation::{
+    kel_digest, AttestationFields, Party, PresenceAttestation, TransportKind, PRESENCE_VERSION,
+};
 use crate::error::{PresenceError, Result};
 use crate::evidence_v2::{
     classify_ranging_evidence, HardwareCapabilityRegistryV1, PresenceAssuranceV2, PresencePolicyV2,
@@ -306,6 +308,14 @@ pub struct PresenceVerdictV2 {
 ///   [`classify_ranging_evidence`] — never trusting any caller-side claim
 ///   about the evidence's own quality, because [`RangingEvidenceV2`] has no
 ///   such field to trust in the first place;
+/// - for a [`MeasurementSidedness::TwoSided`]-classified record: proof that
+///   *both* attested devices actually produced and signed evidence for
+///   this exact session, not just one device unilaterally setting its own
+///   `sidedness` field to `TwoSided` and signing alone (a Codex review
+///   finding on PR #333 — `sidedness` lives inside the evidence a single
+///   device signs, so nothing previously stopped one compromised endpoint
+///   from self-certifying the two-sided assurance level). See
+///   `counterpart_evidence` below;
 /// - that the derived assurance meets `min_assurance`;
 /// - with no `evidence`: [`PresencePolicyV2`]'s own fixed
 ///   `MIN_SOFTWARE_RTT_SAMPLES`/`MAX_SOFTWARE_RTT_MS` bounds, checked
@@ -313,10 +323,24 @@ pub struct PresenceVerdictV2 {
 ///   `ctx.policy` (caller-configurable, and a caller could set
 ///   `min_rtt_samples` to `0` or `max_rtt_ms` arbitrarily high) — only then
 ///   is [`PresenceAssuranceV2::WeakSoftware`] used against `min_assurance`.
+///
+/// `counterpart_evidence`, if supplied, must be the *other* attested
+/// device's own independently signed evidence for the same session. It is
+/// only consulted when `evidence` classifies as
+/// [`PresenceAssuranceV2::CertifiedSecure`] (i.e. `evidence.evidence.sidedness
+/// == MeasurementSidedness::TwoSided`); if it is missing, signed by the
+/// same device as `evidence`, not itself session-bound/verifiable, or
+/// disagrees with `evidence` on which physical session/technology/OOB
+/// configuration it describes, the assurance is silently downgraded to
+/// [`PresenceAssuranceV2::CertifiedMedium`] rather than trusting a single
+/// device's unverified two-sided claim — this never rejects the
+/// attestation outright, since a validly-signed one-sided report is still
+/// real, just weaker, evidence.
 #[allow(clippy::too_many_arguments)]
 pub fn verify_presence_v2(
     att: &PresenceAttestation,
     evidence: Option<&SignedRangingEvidenceV2>,
+    counterpart_evidence: Option<&SignedRangingEvidenceV2>,
     ctx: &VerifyContext<'_>,
     replay: &mut dyn ReplayGuard,
     registry: &HardwareCapabilityRegistryV1,
@@ -345,9 +369,14 @@ pub fn verify_presence_v2(
             if !signed.verify(signer_kel) {
                 return Err(PresenceError::EvidenceSignatureInvalid);
             }
-            let assurance = classify_ranging_evidence(&signed.evidence, registry);
+            let mut assurance = classify_ranging_evidence(&signed.evidence, registry);
             if assurance == PresenceAssuranceV2::Unusable {
                 return Err(PresenceError::EvidenceUnusable);
+            }
+            if assurance == PresenceAssuranceV2::CertifiedSecure
+                && !two_sided_corroborated(signed, counterpart_evidence, f, ctx, registry)
+            {
+                assurance = PresenceAssuranceV2::CertifiedMedium;
             }
             assurance
         }
@@ -369,6 +398,63 @@ pub fn verify_presence_v2(
 
     let verdict = verify_presence(att, ctx, replay)?;
     Ok(PresenceVerdictV2 { verdict, assurance })
+}
+
+/// Whether `counterpart` genuinely corroborates `primary` as two-sided
+/// evidence: signed by the *other* attested device, itself verifiable and
+/// session-bound, and describing the same physical ranging session
+/// (technology, OOB configuration, and capability class all agree) rather
+/// than an unrelated or self-serving claim. See [`verify_presence_v2`]'s
+/// docs for why this exists — `sidedness` alone, self-reported inside a
+/// single device's signed evidence, is not proof two devices measured
+/// anything.
+fn two_sided_corroborated(
+    primary: &SignedRangingEvidenceV2,
+    counterpart_evidence: Option<&SignedRangingEvidenceV2>,
+    f: &AttestationFields,
+    ctx: &VerifyContext<'_>,
+    registry: &HardwareCapabilityRegistryV1,
+) -> bool {
+    let Some(counterpart) = counterpart_evidence else {
+        return false;
+    };
+
+    // Must come from the *other* party, not a second signature by the
+    // same device pretending to be independent corroboration.
+    if counterpart.signer_device.as_str() == primary.signer_device.as_str() {
+        return false;
+    }
+    let counterpart_kel = if counterpart.signer_device.as_str() == f.initiator.device.as_str() {
+        ctx.initiator_device
+    } else if counterpart.signer_device.as_str() == f.responder.device.as_str() {
+        ctx.responder_device
+    } else {
+        return false;
+    };
+    if !counterpart.verify(counterpart_kel) {
+        return false;
+    }
+
+    // Must be bound to this exact session, not replayed from elsewhere.
+    let transcript = f.transcript();
+    let expected_binding = RangingEvidenceV2::bind_to_transcript(&transcript);
+    if counterpart.evidence.session_binding_digest != expected_binding {
+        return false;
+    }
+
+    // Must describe the same physical measurement: same technology, same
+    // out-of-band ranging configuration, same capability class. Distance/
+    // sample-count fields are allowed to differ slightly between the two
+    // sides' own independent measurement chains -- requiring those to
+    // match exactly would reject genuinely independent honest reports.
+    if counterpart.evidence.technology != primary.evidence.technology
+        || counterpart.evidence.oob_config_digest != primary.evidence.oob_config_digest
+        || counterpart.evidence.capability_class_id != primary.evidence.capability_class_id
+    {
+        return false;
+    }
+
+    classify_ranging_evidence(&counterpart.evidence, registry) != PresenceAssuranceV2::Unusable
 }
 
 fn check_party(

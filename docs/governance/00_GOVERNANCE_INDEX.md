@@ -128,3 +128,7 @@ The charter becomes canonical only through an exact-state activation decision. S
 - [49 — v1 Release Audit and Sign-off](49_V1_RELEASE_AUDIT_AND_SIGNOFF.md)
 - [RFC-0004 — Constitutional Amendments](RFC-0004_CONSTITUTIONAL_AMENDMENTS.md)
 - [RFC-0005 — Forge Cutover and Platform Exit](RFC-0005_FORGE_CUTOVER_AND_PLATFORM_EXIT.md)
+
+## Bootstrap operating decisions
+
+- [52 — Pre-Go-Live Governance Pause and Anonymous-Only Bootstrap Participation](52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md) — temporary Founder bootstrap operating override; supersedes conflicting bootstrap procedure only for the Pre-Go-Live period per its own Section 8, and does not weaken the Section 7 substantive protections or any Tier-F frozen invariant. Originally filed as `40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md`, colliding with document 40 above (Governance Simulation and Stress Testing); renumbered to 52 (the next unused slot after 51) with no change to its content.

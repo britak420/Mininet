@@ -2,8 +2,8 @@
   "counts": {
     "crates": 79,
     "files": 991,
-    "headings": 3573,
-    "rust_symbols": 10238
+    "headings": 3574,
+    "rust_symbols": 10263
   },
   "crates": {
     "did-mini": {
@@ -1784,7 +1784,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 28782,
+      "bytes": 29080,
       "group": "root",
       "headings": [
         {
@@ -1824,7 +1824,7 @@
         },
         {
           "level": 2,
-          "line": 454,
+          "line": 458,
           "text": "License"
         }
       ],
@@ -1854,9 +1854,9 @@
         "switch",
         "nothing"
       ],
-      "lines": 458,
+      "lines": 462,
       "path": "README.md",
-      "sha256": "3b32b0d54a0b169ee4db5ad21296c5628d216f080b6611bcf6865d9777e5af1b",
+      "sha256": "e96961dd14c81fbfaa679d2bdf751f110c623f17b8a1c0303d61c4ff8dd2a719",
       "symbols": [],
       "title": "Mininet"
     },
@@ -26466,7 +26466,7 @@
       "title": "use crate::error::{CustodyError, Result};"
     },
     {
-      "bytes": 16432,
+      "bytes": 18223,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
@@ -26495,9 +26495,9 @@
         "see",
         "position"
       ],
-      "lines": 438,
+      "lines": 478,
       "path": "crates/mini-custody/src/session.rs",
-      "sha256": "6b371c364456c04233dfabb886408dcc469562a872d55bb91a5314669375c51b",
+      "sha256": "f5d65f28807401cb3d307e1facaf5fef7eb41bb0fd04badcfb16d8b3c7740215",
       "symbols": [
         {
           "kind": "fn",
@@ -26575,43 +26575,53 @@
           "name": "round1_view_confirmed"
         },
         {
+          "kind": "struct",
+          "line": 288,
+          "name": "Round1ViewConfirmation"
+        },
+        {
           "kind": "fn",
-          "line": 286,
+          "line": 295,
+          "name": "confirm_round1_view"
+        },
+        {
+          "kind": "fn",
+          "line": 321,
           "name": "dkg_part2"
         },
         {
           "kind": "fn",
-          "line": 297,
+          "line": 337,
           "name": "dkg_part3"
         },
         {
           "kind": "fn",
-          "line": 311,
+          "line": 351,
           "name": "public_package_hash"
         },
         {
           "kind": "struct",
-          "line": 327,
+          "line": 367,
           "name": "CompletionAttestationV1"
         },
         {
           "kind": "fn",
-          "line": 336,
+          "line": 376,
           "name": "completion_message"
         },
         {
           "kind": "fn",
-          "line": 352,
+          "line": 392,
           "name": "sign_completion_attestation"
         },
         {
           "kind": "fn",
-          "line": 376,
+          "line": 416,
           "name": "verify_completion_attestation"
         },
         {
           "kind": "fn",
-          "line": 401,
+          "line": 441,
           "name": "completion_confirmed"
         }
       ],
@@ -26878,7 +26888,7 @@
       "title": "use crate::error::{CustodyError, Result};"
     },
     {
-      "bytes": 9474,
+      "bytes": 9599,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
@@ -26886,30 +26896,30 @@
         "did",
         "unwrap",
         "identifier",
-        "participants",
         "session",
-        "dkg",
+        "participants",
         "roster",
         "seed",
         "device_key",
         "vec",
         "testparticipant",
-        "phase",
+        "dkg",
         "btreemap",
         "signingkey",
         "map",
         "collect",
+        "root",
         "session_id",
+        "phase",
         "frost_ristretto255",
         "key",
         "round1",
         "multihash",
-        "participant",
         "iter"
       ],
-      "lines": 225,
+      "lines": 227,
       "path": "crates/mini-custody/tests/full_ceremony.rs",
-      "sha256": "26e18b8071d9c052225a97b787774bff1c7cecf2746f852c1854be658e4aeb9c",
+      "sha256": "f5347d0f268667016d605776e26a7f7f9130792a6262bd2a70a98d63c406e480",
       "symbols": [
         {
           "kind": "fn",
@@ -26935,66 +26945,71 @@
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 4068,
+      "bytes": 6923,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
-        "did",
         "session",
         "session_id",
+        "did",
+        "manifest_a",
         "manifest",
         "participants",
-        "manifest_a",
         "build_roster",
-        "seed",
-        "device_key",
         "manifest_b",
-        "testparticipant",
+        "different",
         "attempt",
         "roster",
+        "seed",
+        "device_key",
+        "testparticipant",
         "signingkey",
         "vec",
+        "round1_view_confirmed",
         "acks",
         "attestations",
-        "different",
+        "new",
         "multihash",
         "map",
         "collect",
-        "root",
-        "session_id_a",
-        "assert"
+        "root"
       ],
-      "lines": 109,
+      "lines": 167,
       "path": "crates/mini-custody/tests/session_binding.rs",
-      "sha256": "948c91d7f303b5b6034d28e21eacf62ba0ee57ec62a915ea86ca42b2600ee34e",
+      "sha256": "4aee60f5a74554aa913fb5fd9cc7ad3760c2cc25a08c6ad4e96373950aafd89a",
       "symbols": [
         {
           "kind": "fn",
-          "line": 16,
+          "line": 20,
           "name": "test_did"
         },
         {
           "kind": "struct",
-          "line": 22,
+          "line": 26,
           "name": "TestParticipant"
         },
         {
           "kind": "fn",
-          "line": 30,
+          "line": 34,
           "name": "build_roster"
         },
         {
           "kind": "fn",
-          "line": 66,
+          "line": 70,
           "name": "round1_view_acks_from_a_retried_attempt_do_not_satisfy_a_different_manifest"
         },
         {
           "kind": "fn",
-          "line": 83,
+          "line": 87,
           "name": "completion_attestations_from_a_retried_attempt_do_not_satisfy_a_different_manifest"
+        },
+        {
+          "kind": "fn",
+          "line": 121,
+          "name": "a_round1_confirmation_from_a_different_manifest_is_rejected_by_dkg_part2"
         }
       ],
-      "title": "use did_mini::Did;"
+      "title": "use std::collections::BTreeMap;"
     },
     {
       "bytes": 1100,
@@ -35138,132 +35153,127 @@
       "title": "use std::sync::Mutex;"
     },
     {
-      "bytes": 14083,
+      "bytes": 14379,
       "group": "crate:mini-ffi",
       "headings": [],
       "keywords": [
+        "link",
         "self",
         "new",
-        "link",
-        "mini_mesh",
         "ble",
         "meshhandle",
-        "lock",
         "mesherror",
+        "mini_mesh",
         "connection",
         "bearer",
         "payload",
         "meshnode",
         "radio",
+        "inner",
         "box",
         "mesh",
+        "broadcast",
+        "flush_reflood",
         "handshake",
         "encryptedlink",
-        "vec",
-        "mtu",
+        "own",
+        "every",
         "send",
-        "broadcast",
-        "poll",
-        "bleradio",
-        "real"
+        "mtu",
+        "bleradio"
       ],
       "lines": 334,
       "path": "crates/mini-ffi/src/mesh.rs",
-      "sha256": "c270f8f88c798e6961001f3b23b90e85ef0d829c2ade8d0fcbf26b312fd926f7",
+      "sha256": "e72d086bc9408fba4e8d5f48d66ef2942f5937c1bb861b094b9d95af904e2f82",
       "symbols": [
         {
           "kind": "struct",
-          "line": 33,
+          "line": 31,
           "name": "MeshMessage"
         },
         {
           "kind": "struct",
-          "line": 40,
+          "line": 45,
           "name": "MeshHandle"
         },
         {
           "kind": "impl",
-          "line": 44,
+          "line": 49,
           "name": "MeshHandle"
         },
         {
           "kind": "fn",
-          "line": 46,
+          "line": 51,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 52,
-          "name": "lock"
-        },
-        {
-          "kind": "fn",
-          "line": 62,
+          "line": 61,
           "name": "add_dialed_link"
         },
         {
           "kind": "fn",
-          "line": 73,
+          "line": 72,
           "name": "add_accepted_link"
         },
         {
           "kind": "fn",
-          "line": 82,
+          "line": 81,
           "name": "link_count"
         },
         {
           "kind": "fn",
-          "line": 93,
+          "line": 92,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 108,
+          "line": 107,
           "name": "poll"
         },
         {
           "kind": "fn",
-          "line": 125,
+          "line": 124,
           "name": "flush_reflood"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 133,
           "name": "poll_and_flush"
         },
         {
           "kind": "impl",
-          "line": 141,
+          "line": 140,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 141,
           "name": "default"
         },
         {
           "kind": "enum",
-          "line": 153,
+          "line": 152,
           "name": "MeshError"
         },
         {
           "kind": "impl",
-          "line": 160,
+          "line": 159,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 161,
+          "line": 160,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 169,
+          "line": 168,
           "name": "std::error::Error"
         },
         {
           "kind": "mod",
-          "line": 172,
+          "line": 171,
           "name": "tests"
         },
         {
@@ -35317,7 +35327,7 @@
           "name": "an_oversized_broadcast_surfaces_payload_too_large_without_dropping_links"
         }
       ],
-      "title": "use std::sync::Mutex;"
+      "title": "use mini_bearer::{Bearer, EncryptedLink};"
     },
     {
       "bytes": 26894,
@@ -42408,264 +42418,359 @@
       "title": "The transport (Bearer, EncryptedLink) this crate composes over."
     },
     {
-      "bytes": 30915,
+      "bytes": 43144,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
-        "meshnode",
         "link",
-        "self",
-        "links",
+        "meshnode",
         "poll",
-        "new",
-        "fmt",
-        "bearer",
-        "encryptedlink",
         "one",
-        "std",
-        "mesh",
+        "bearer",
+        "every",
+        "see",
+        "send",
         "relay",
         "same",
-        "ble",
-        "see",
+        "own",
         "how",
-        "default_seen_capacity",
-        "every",
+        "payload",
+        "flush_reflood",
+        "mesh",
+        "links",
         "mini_bearer",
+        "ble",
+        "peer",
+        "encryptedlink",
         "already",
-        "gossiprouter",
+        "mutex",
         "many",
-        "usize"
+        "const"
       ],
-      "lines": 720,
+      "lines": 993,
       "path": "crates/mini-mesh/src/lib.rs",
-      "sha256": "c6955ea04348503712946d07acd233689fd84f903e0d9c8336773e990d16db71",
+      "sha256": "bffa7f0bce02746f33360739a8548669e2023a5c406a1e6272fe794493b53b26",
       "symbols": [
         {
+          "kind": "type",
+          "line": 37,
+          "name": "LinkHandle"
+        },
+        {
           "kind": "const",
-          "line": 33,
+          "line": 42,
           "name": "DEFAULT_SEEN_CAPACITY"
         },
         {
           "kind": "const",
-          "line": 41,
+          "line": 50,
           "name": "MAX_MESSAGES_PER_LINK_PER_POLL"
         },
         {
           "kind": "const",
-          "line": 49,
+          "line": 58,
           "name": "MAX_PENDING_REFLOOD"
         },
         {
+          "kind": "const",
+          "line": 68,
+          "name": "MAX_PENDING_REFLOOD_BYTES"
+        },
+        {
           "kind": "fn",
-          "line": 55,
+          "line": 74,
           "name": "message_id"
         },
         {
           "kind": "struct",
-          "line": 66,
+          "line": 85,
           "name": "MeshNode"
         },
         {
+          "kind": "struct",
+          "line": 99,
+          "name": "PendingReflood"
+        },
+        {
           "kind": "impl",
-          "line": 74,
+          "line": 104,
+          "name": "PendingReflood"
+        },
+        {
+          "kind": "fn",
+          "line": 108,
+          "name": "push"
+        },
+        {
+          "kind": "fn",
+          "line": 119,
+          "name": "pop"
+        },
+        {
+          "kind": "fn",
+          "line": 125,
+          "name": "len"
+        },
+        {
+          "kind": "impl",
+          "line": 130,
           "name": "std::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 75,
+          "line": 131,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 83,
+          "line": 139,
           "name": "MeshNode"
         },
         {
           "kind": "fn",
-          "line": 86,
+          "line": 142,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 91,
+          "line": 147,
           "name": "with_seen_capacity"
         },
         {
           "kind": "fn",
-          "line": 102,
+          "line": 158,
+          "name": "lock_links"
+        },
+        {
+          "kind": "fn",
+          "line": 162,
+          "name": "lock_seen"
+        },
+        {
+          "kind": "fn",
+          "line": 166,
+          "name": "lock_pending"
+        },
+        {
+          "kind": "fn",
+          "line": 175,
+          "name": "prune_dead"
+        },
+        {
+          "kind": "fn",
+          "line": 186,
           "name": "add_link"
         },
         {
           "kind": "fn",
-          "line": 112,
+          "line": 196,
           "name": "link_count"
         },
         {
           "kind": "fn",
-          "line": 152,
+          "line": 236,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 200,
+          "line": 301,
           "name": "poll"
         },
         {
           "kind": "fn",
-          "line": 264,
+          "line": 379,
           "name": "flush_reflood"
         },
         {
           "kind": "fn",
-          "line": 279,
+          "line": 403,
           "name": "pending_reflood_count"
         },
         {
           "kind": "fn",
-          "line": 291,
+          "line": 415,
           "name": "poll_and_flush"
         },
         {
           "kind": "impl",
-          "line": 298,
+          "line": 422,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 299,
+          "line": 423,
           "name": "default"
         },
         {
           "kind": "mod",
-          "line": 305,
+          "line": 429,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 309,
+          "line": 433,
           "name": "boxed"
         },
         {
           "kind": "fn",
-          "line": 320,
+          "line": 444,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 329,
+          "line": 453,
           "name": "two_directly_linked_nodes_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 341,
+          "line": 465,
           "name": "a_repeated_broadcast_is_deduped_not_delivered_twice"
         },
         {
           "kind": "fn",
-          "line": 362,
+          "line": 486,
           "name": "a_broadcast_from_one_end_of_a_line_topology_reaches_the_other_end_via_relay"
         },
         {
           "kind": "fn",
-          "line": 407,
+          "line": 531,
           "name": "a_disconnected_pair_never_hears_a_broadcast_from_the_other_side"
         },
         {
           "kind": "fn",
-          "line": 426,
+          "line": 550,
           "name": "a_node_recognizes_its_own_broadcast_echoed_back_and_does_not_redeliver_it"
         },
         {
           "kind": "fn",
-          "line": 441,
+          "line": 565,
           "name": "link_count_reflects_added_links"
         },
         {
           "kind": "fn",
-          "line": 451,
+          "line": 575,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_broadcast_not_just_poll"
         },
         {
           "kind": "fn",
-          "line": 470,
+          "line": 594,
           "name": "a_dead_link_is_pruned_during_polls_own_reflood_step_too"
         },
         {
           "kind": "fn",
-          "line": 494,
+          "line": 618,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever"
         },
         {
           "kind": "fn",
-          "line": 514,
+          "line": 638,
           "name": "poll_never_drains_more_than_the_per_link_cap_in_one_call"
         },
         {
           "kind": "fn",
-          "line": 532,
+          "line": 656,
           "name": "an_oversized_broadcast_is_rejected_without_touching_any_link"
         },
         {
           "kind": "struct",
-          "line": 566,
+          "line": 690,
           "name": "BoundedBearer"
         },
         {
           "kind": "impl",
-          "line": 571,
+          "line": 695,
           "name": "Bearer"
         },
         {
           "kind": "fn",
-          "line": 572,
+          "line": 696,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 575,
+          "line": 699,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 578,
+          "line": 702,
           "name": "try_recv"
         },
         {
           "kind": "fn",
-          "line": 581,
+          "line": 705,
           "name": "max_frame_bytes"
         },
         {
           "kind": "fn",
-          "line": 588,
+          "line": 712,
           "name": "link_with_bound"
         },
         {
           "kind": "fn",
-          "line": 601,
+          "line": 725,
           "name": "a_broadcast_too_large_for_one_links_bearer_is_rejected_without_touching_any_link"
         },
         {
           "kind": "fn",
-          "line": 632,
+          "line": 756,
           "name": "a_relayed_payload_too_large_for_one_links_bearer_does_not_prune_that_link"
         },
         {
           "kind": "fn",
-          "line": 673,
+          "line": 797,
           "name": "poll_stages_a_relay_but_never_sends_it_until_flush_reflood_is_called"
         },
         {
           "kind": "fn",
-          "line": 706,
+          "line": 830,
           "name": "pending_reflood_drops_the_oldest_past_capacity_rather_than_growing_unbounded"
+        },
+        {
+          "kind": "fn",
+          "line": 845,
+          "name": "pending_reflood_drops_the_oldest_once_the_byte_budget_is_exceeded_well_under_the_count_cap"
+        },
+        {
+          "kind": "struct",
+          "line": 881,
+          "name": "GatedSendBearer"
+        },
+        {
+          "kind": "impl",
+          "line": 886,
+          "name": "Bearer"
+        },
+        {
+          "kind": "fn",
+          "line": 887,
+          "name": "send"
+        },
+        {
+          "kind": "fn",
+          "line": 891,
+          "name": "recv"
+        },
+        {
+          "kind": "fn",
+          "line": 894,
+          "name": "try_recv"
+        },
+        {
+          "kind": "fn",
+          "line": 900,
+          "name": "poll_on_a_healthy_link_makes_progress_while_flush_reflood_is_blocked_sending_on_another"
+        },
+        {
+          "kind": "fn",
+          "line": 985,
+          "name": "link_shared"
         }
       ],
       "title": "use std::collections::VecDeque;"
     },
     {
-      "bytes": 5811,
+      "bytes": 5705,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
@@ -42673,17 +42778,18 @@
         "mesh",
         "tcpbearer",
         "deadline",
-        "instant",
-        "link",
         "boxed",
         "meshnode",
+        "instant",
+        "link",
         "thread",
+        "encryptedlink",
         "real",
         "duration",
         "bearer",
-        "encryptedlink",
         "stream",
         "accept",
+        "new",
         "message",
         "now",
         "add_link",
@@ -42691,12 +42797,11 @@
         "messages",
         "std",
         "tcplistener",
-        "new",
         "until"
       ],
-      "lines": 144,
+      "lines": 138,
       "path": "crates/mini-mesh/tests/tcp_relay.rs",
-      "sha256": "f3b5c6b2e357d0abf6dd86b89ee2f6dd64a1240a6e59ce35ea65c30d68f48b90",
+      "sha256": "667f2d4e5d42dee0f3be2bdce7257b37211ddb93c3f2196a1223637425261b92",
       "symbols": [
         {
           "kind": "fn",
@@ -49505,7 +49610,7 @@
       "title": "use crate::attestation::UwbRanging;"
     },
     {
-      "bytes": 16599,
+      "bytes": 20784,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
@@ -49534,108 +49639,113 @@
         "round-trip",
         "u32"
       ],
-      "lines": 400,
+      "lines": 486,
       "path": "crates/mini-presence/src/verify.rs",
-      "sha256": "c0ff9f28b3176bfc4d586c7b0b58e6ab6f6c1676db665d36e87df3ca9849340d",
+      "sha256": "83e6b037fcbfb8e2554914bdb1611d49817dc52676f28374a81cdee077034e88",
       "symbols": [
         {
           "kind": "struct",
-          "line": 16,
+          "line": 18,
           "name": "RangePolicy"
         },
         {
           "kind": "impl",
-          "line": 39,
+          "line": 41,
           "name": "RangePolicy"
         },
         {
           "kind": "fn",
-          "line": 43,
+          "line": 45,
           "name": "ble_default"
         },
         {
           "kind": "struct",
-          "line": 59,
+          "line": 61,
           "name": "VerifyContext"
         },
         {
           "kind": "struct",
-          "line": 79,
+          "line": 81,
           "name": "PresenceVerdict"
         },
         {
           "kind": "impl",
-          "line": 94,
+          "line": 96,
           "name": "PresenceVerdict"
         },
         {
           "kind": "fn",
-          "line": 97,
+          "line": 99,
           "name": "pair_key"
         },
         {
           "kind": "trait",
-          "line": 115,
+          "line": 117,
           "name": "ReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 117,
+          "line": 119,
           "name": "is_seen"
         },
         {
           "kind": "fn",
-          "line": 121,
+          "line": 123,
           "name": "check_and_record"
         },
         {
           "kind": "struct",
-          "line": 126,
+          "line": 128,
           "name": "InMemoryReplayGuard"
         },
         {
           "kind": "impl",
-          "line": 130,
+          "line": 132,
           "name": "InMemoryReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 132,
+          "line": 134,
           "name": "new"
         },
         {
           "kind": "impl",
-          "line": 137,
+          "line": 139,
           "name": "ReplayGuard"
         },
         {
           "kind": "fn",
-          "line": 138,
+          "line": 140,
           "name": "is_seen"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 144,
           "name": "check_and_record"
         },
         {
           "kind": "fn",
-          "line": 153,
+          "line": 155,
           "name": "verify_presence"
         },
         {
           "kind": "struct",
-          "line": 270,
+          "line": 272,
           "name": "PresenceVerdictV2"
         },
         {
           "kind": "fn",
-          "line": 317,
+          "line": 340,
           "name": "verify_presence_v2"
         },
         {
           "kind": "fn",
-          "line": 374,
+          "line": 411,
+          "name": "two_sided_corroborated"
+        },
+        {
+          "kind": "fn",
+          "line": 460,
           "name": "check_party"
         }
       ],
@@ -49779,7 +49889,7 @@
       "title": "use did_mini::{Capabilities, Controller};"
     },
     {
-      "bytes": 19386,
+      "bytes": 25038,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
@@ -49808,9 +49918,9 @@
         "transportkind",
         "root"
       ],
-      "lines": 554,
+      "lines": 704,
       "path": "crates/mini-presence/tests/presence_v2.rs",
-      "sha256": "efc07a58558f97ed42d5cb8a32f7212cd275febd05094d1847f4862463bfab32",
+      "sha256": "b3518d71d663a8320e2e736feb4638b56c89133c4ebd63232c084d37823de3a6",
       "symbols": [
         {
           "kind": "fn",
@@ -49864,57 +49974,72 @@
         },
         {
           "kind": "fn",
-          "line": 168,
+          "line": 169,
           "name": "no_evidence_at_or_below_weak_software_minimum_succeeds"
         },
         {
           "kind": "fn",
-          "line": 201,
+          "line": 203,
           "name": "no_evidence_but_certified_minimum_required_is_refused"
         },
         {
           "kind": "fn",
-          "line": 230,
+          "line": 233,
           "name": "no_evidence_below_the_fixed_v2_rtt_sample_floor_is_rejected_even_with_a_loose_ctx_policy"
         },
         {
           "kind": "fn",
-          "line": 270,
+          "line": 274,
           "name": "a_rejected_v2_attempt_never_burns_replay_nonces_for_a_legitimate_retry"
         },
         {
           "kind": "fn",
-          "line": 319,
-          "name": "well_formed_hardware_evidence_reaches_certified_secure"
+          "line": 327,
+          "name": "well_formed_corroborated_hardware_evidence_reaches_certified_secure"
         },
         {
           "kind": "fn",
-          "line": 352,
-          "name": "evidence_signed_by_the_responder_is_also_accepted"
-        },
-        {
-          "kind": "fn",
-          "line": 384,
-          "name": "evidence_with_a_forged_signature_is_rejected_even_with_a_correct_binding"
+          "line": 362,
+          "name": "a_lone_signer_claiming_two_sided_evidence_is_capped_at_certified_medium"
         },
         {
           "kind": "fn",
           "line": 420,
+          "name": "a_counterpart_signed_by_the_same_device_as_the_primary_does_not_corroborate"
+        },
+        {
+          "kind": "fn",
+          "line": 455,
+          "name": "a_counterpart_describing_a_different_technology_does_not_corroborate"
+        },
+        {
+          "kind": "fn",
+          "line": 495,
+          "name": "evidence_signed_by_the_responder_is_also_accepted"
+        },
+        {
+          "kind": "fn",
+          "line": 529,
+          "name": "evidence_with_a_forged_signature_is_rejected_even_with_a_correct_binding"
+        },
+        {
+          "kind": "fn",
+          "line": 566,
           "name": "evidence_signed_by_someone_who_is_not_a_party_to_this_session_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 458,
+          "line": 605,
           "name": "evidence_bound_to_a_different_session_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 492,
+          "line": 640,
           "name": "unusable_evidence_is_rejected_even_though_no_evidence_would_have_passed"
         },
         {
           "kind": "fn",
-          "line": 524,
+          "line": 673,
           "name": "one_sided_evidence_does_not_satisfy_a_certified_secure_minimum"
         }
       ],
@@ -84066,7 +84191,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1428328,
+      "bytes": 1444410,
       "group": "docs",
       "headings": [
         {
@@ -84483,22 +84608,22 @@
         "phase",
         "review",
         "design",
+        "batch",
         "audit",
         "gate",
-        "batch",
         "closes",
         "decision",
         "local",
+        "first",
         "signed",
         "roadmap",
         "new",
         "doctrine",
-        "log",
-        "release"
+        "own"
       ],
-      "lines": 23664,
+      "lines": 23915,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "58ce838e888384e258c05d3353264235d9ba6329b00ea882a8224ab859d16488",
+      "sha256": "492fe8f6a734aaf8ff06e8ffe40559604ebc21b93cce8ffe8826633f6657a860",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -95317,7 +95442,7 @@
       "title": "Architecture of Mininet Governance"
     },
     {
-      "bytes": 8722,
+      "bytes": 9331,
       "group": "docs",
       "headings": [
         {
@@ -95369,14 +95494,19 @@
           "level": 2,
           "line": 116,
           "text": "Version 1 completion documents"
+        },
+        {
+          "level": 2,
+          "line": 132,
+          "text": "Bootstrap operating decisions"
         }
       ],
       "keywords": [
         "governance",
+        "bootstrap",
         "github",
         "canonical",
         "rules",
-        "bootstrap",
         "evidence",
         "authority",
         "implementation",
@@ -95397,9 +95527,9 @@
         "governed",
         "owner"
       ],
-      "lines": 131,
+      "lines": 135,
       "path": "docs/governance/00_GOVERNANCE_INDEX.md",
-      "sha256": "0ceefb607582b2bc5a2a36a3cc7071c5869a0718463f345ca7b4ca2f5618e16e",
+      "sha256": "e2eabff5b6f59200bb92b1ba0883d714ed97b1b4ecea41dc9985ccdebc7ca746",
       "symbols": [],
       "title": "Mininet Governance Index"
     },
@@ -99659,153 +99789,6 @@
       "title": "Governance Simulation and Stress Testing"
     },
     {
-      "bytes": 18979,
-      "group": "docs",
-      "headings": [
-        {
-          "level": 1,
-          "line": 1,
-          "text": "Pre-Go-Live Governance Pause and Anonymous-Only Bootstrap Participation"
-        },
-        {
-          "level": 2,
-          "line": 9,
-          "text": "1. Purpose"
-        },
-        {
-          "level": 2,
-          "line": 17,
-          "text": "2. Definitions"
-        },
-        {
-          "level": 3,
-          "line": 19,
-          "text": "Pre-Go-Live"
-        },
-        {
-          "level": 3,
-          "line": 23,
-          "text": "Go-Live"
-        },
-        {
-          "level": 3,
-          "line": 34,
-          "text": "Anonymous-only bootstrap identity"
-        },
-        {
-          "level": 3,
-          "line": 42,
-          "text": "Governance process requirements"
-        },
-        {
-          "level": 2,
-          "line": 48,
-          "text": "3. Decision: governance procedure is paused until Go-Live"
-        },
-        {
-          "level": 2,
-          "line": 65,
-          "text": "4. Decision: Pre-Go-Live participation is canonically anonymous; no pseudonyms"
-        },
-        {
-          "level": 2,
-          "line": 94,
-          "text": "5. Anonymous evidence can close a gate"
-        },
-        {
-          "level": 3,
-          "line": 115,
-          "text": "A1 / external cryptography audit gate"
-        },
-        {
-          "level": 2,
-          "line": 123,
-          "text": "6. Bootstrap authority while governance is paused"
-        },
-        {
-          "level": 2,
-          "line": 139,
-          "text": "7. Substantive protections that are NOT paused"
-        },
-        {
-          "level": 2,
-          "line": 156,
-          "text": "8. Supersession and precedence during Pre-Go-Live"
-        },
-        {
-          "level": 2,
-          "line": 170,
-          "text": "9. Automatic sunset at Go-Live"
-        },
-        {
-          "level": 2,
-          "line": 185,
-          "text": "10. Engineering implementation required by this decision"
-        },
-        {
-          "level": 2,
-          "line": 203,
-          "text": "11. Security and legitimacy analysis"
-        },
-        {
-          "level": 3,
-          "line": 205,
-          "text": "Benefit"
-        },
-        {
-          "level": 3,
-          "line": 209,
-          "text": "Cost"
-        },
-        {
-          "level": 3,
-          "line": 213,
-          "text": "Mitigation"
-        },
-        {
-          "level": 3,
-          "line": 217,
-          "text": "Exact failure point"
-        },
-        {
-          "level": 2,
-          "line": 223,
-          "text": "12. Overall judgment"
-        }
-      ],
-      "keywords": [
-        "governance",
-        "go-live",
-        "bootstrap",
-        "identity",
-        "pre-go-live",
-        "decision",
-        "requirements",
-        "gate",
-        "anonymous-only",
-        "process",
-        "audit",
-        "engineering",
-        "founder",
-        "canonical",
-        "github",
-        "network",
-        "pause",
-        "participation",
-        "paused",
-        "until",
-        "canonically",
-        "anonymous",
-        "authority",
-        "substantive"
-      ],
-      "lines": 228,
-      "path": "docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md",
-      "sha256": "690fabb4215f02d8671f5350a74e0b183377e48e21b9476ed3ebb6be8c75d5a4",
-      "symbols": [],
-      "title": "Pre-Go-Live Governance Pause and Anonymous-Only Bootstrap Participation"
-    },
-    {
       "bytes": 2786,
       "group": "docs",
       "headings": [
@@ -100752,6 +100735,153 @@
       "sha256": "79ce4e86fde2b130851926c4047786924c2c3bfc685aed8e7a93e901b48b75dd",
       "symbols": [],
       "title": "Bootstrap Work Claims"
+    },
+    {
+      "bytes": 18979,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Pre-Go-Live Governance Pause and Anonymous-Only Bootstrap Participation"
+        },
+        {
+          "level": 2,
+          "line": 9,
+          "text": "1. Purpose"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "2. Definitions"
+        },
+        {
+          "level": 3,
+          "line": 19,
+          "text": "Pre-Go-Live"
+        },
+        {
+          "level": 3,
+          "line": 23,
+          "text": "Go-Live"
+        },
+        {
+          "level": 3,
+          "line": 34,
+          "text": "Anonymous-only bootstrap identity"
+        },
+        {
+          "level": 3,
+          "line": 42,
+          "text": "Governance process requirements"
+        },
+        {
+          "level": 2,
+          "line": 48,
+          "text": "3. Decision: governance procedure is paused until Go-Live"
+        },
+        {
+          "level": 2,
+          "line": 65,
+          "text": "4. Decision: Pre-Go-Live participation is canonically anonymous; no pseudonyms"
+        },
+        {
+          "level": 2,
+          "line": 94,
+          "text": "5. Anonymous evidence can close a gate"
+        },
+        {
+          "level": 3,
+          "line": 115,
+          "text": "A1 / external cryptography audit gate"
+        },
+        {
+          "level": 2,
+          "line": 123,
+          "text": "6. Bootstrap authority while governance is paused"
+        },
+        {
+          "level": 2,
+          "line": 139,
+          "text": "7. Substantive protections that are NOT paused"
+        },
+        {
+          "level": 2,
+          "line": 156,
+          "text": "8. Supersession and precedence during Pre-Go-Live"
+        },
+        {
+          "level": 2,
+          "line": 170,
+          "text": "9. Automatic sunset at Go-Live"
+        },
+        {
+          "level": 2,
+          "line": 185,
+          "text": "10. Engineering implementation required by this decision"
+        },
+        {
+          "level": 2,
+          "line": 203,
+          "text": "11. Security and legitimacy analysis"
+        },
+        {
+          "level": 3,
+          "line": 205,
+          "text": "Benefit"
+        },
+        {
+          "level": 3,
+          "line": 209,
+          "text": "Cost"
+        },
+        {
+          "level": 3,
+          "line": 213,
+          "text": "Mitigation"
+        },
+        {
+          "level": 3,
+          "line": 217,
+          "text": "Exact failure point"
+        },
+        {
+          "level": 2,
+          "line": 223,
+          "text": "12. Overall judgment"
+        }
+      ],
+      "keywords": [
+        "governance",
+        "go-live",
+        "bootstrap",
+        "identity",
+        "pre-go-live",
+        "decision",
+        "requirements",
+        "gate",
+        "anonymous-only",
+        "process",
+        "audit",
+        "engineering",
+        "founder",
+        "canonical",
+        "github",
+        "network",
+        "pause",
+        "participation",
+        "paused",
+        "until",
+        "canonically",
+        "anonymous",
+        "authority",
+        "substantive"
+      ],
+      "lines": 228,
+      "path": "docs/governance/52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md",
+      "sha256": "690fabb4215f02d8671f5350a74e0b183377e48e21b9476ed3ebb6be8c75d5a4",
+      "symbols": [],
+      "title": "Pre-Go-Live Governance Pause and Anonymous-Only Bootstrap Participation"
     },
     {
       "bytes": 4182,
@@ -104508,7 +104638,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 93699,
+      "bytes": 95836,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -104537,9 +104667,9 @@
         "independently",
         "both"
       ],
-      "lines": 1407,
+      "lines": 1416,
       "path": "governance/work-claims.json",
-      "sha256": "79da62a096dec4aee6d63aa6115c35601bc87069cab4f2192a66bd6d948bb900",
+      "sha256": "2129c208b3d54fff753e2c8052b7ae959d8a7f447cf82219396c3045d94dad18",
       "symbols": [],
       "title": "{"
     },

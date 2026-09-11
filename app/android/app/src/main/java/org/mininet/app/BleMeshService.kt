@@ -172,8 +172,22 @@ class BleMeshService(context: Context) {
         ThreadPoolExecutor.DiscardPolicy(),
     )
 
-    private fun runOnWorker(block: () -> Unit) {
-        if (closed) return
+    // `onDeclined` fires (synchronously, on the caller's thread) in every
+    // path where `block` will NOT run because `close()` won the race --
+    // the pre-submission check, a `RejectedExecutionException`, or the
+    // queued task's own recheck once it actually starts. Defaults to a
+    // no-op for fire-and-forget callers that don't need to know; a caller
+    // whose `block` is the only place a one-shot completion callback (e.g.
+    // `start`'s `onStarted`) would otherwise fire MUST supply one, or that
+    // callback can silently never run at all (a Codex review finding on
+    // PR #333: `start()` previously relied on `block` alone, so a `close()`
+    // landing in either gap left its caller waiting on `onStarted`
+    // forever, despite the API promising exactly one completion call).
+    private fun runOnWorker(onDeclined: () -> Unit = {}, block: () -> Unit) {
+        if (closed) {
+            onDeclined()
+            return
+        }
         try {
             worker.execute {
                 // Rechecked here, not just by the caller above: close() can
@@ -183,12 +197,16 @@ class BleMeshService(context: Context) {
                 // them), which would otherwise let e.g. a discovery task
                 // call connectGatt or add a mesh link after close() has
                 // already closed and cleared everything.
-                if (closed) return@execute
+                if (closed) {
+                    onDeclined()
+                    return@execute
+                }
                 block()
             }
         } catch (_: RejectedExecutionException) {
             // Lost the race with close() between the check above and this
             // call -- not an error, just already shutting down.
+            onDeclined()
         }
     }
 
@@ -246,7 +264,10 @@ class BleMeshService(context: Context) {
             onStarted(false)
             return
         }
-        runOnWorker { onStarted(startBlocking(onMessage)) }
+        // onDeclined guarantees onStarted still fires exactly once even if
+        // close() wins the race before the worker task ever runs `block`
+        // (see runOnWorker's own doc for the two points that can happen).
+        runOnWorker(onDeclined = { onStarted(false) }) { onStarted(startBlocking(onMessage)) }
     }
 
     private fun startBlocking(onMessage: (List<UByte>) -> Unit): Boolean {

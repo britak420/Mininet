@@ -507,7 +507,19 @@ class BlePeripheralServer(context: Context) : BluetoothGattServerCallback() {
         // from `links` and marks it disconnected once the platform
         // confirms the teardown, exactly as it already does for every
         // other disconnect path.
+        //
+        // Identity-checked (===), same reasoning as writeChunk above: if
+        // this central already disconnected and reconnected with the same
+        // address before this stale radio's drop got around to calling
+        // disconnect(), links[state.device.address] now points at the
+        // *new* LinkState, not this one. cancelConnection is addressed to
+        // the BluetoothDevice, not to a specific LinkState, so an
+        // unguarded call here would tear down the replacement connection
+        // instead of doing nothing to an already-gone stale one.
         override fun disconnect() {
+            if (links[state.device.address] !== state) {
+                return
+            }
             runCatching { gattServer?.cancelConnection(state.device) }
         }
     }

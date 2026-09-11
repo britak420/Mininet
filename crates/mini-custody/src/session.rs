@@ -275,6 +275,37 @@ pub fn round1_view_confirmed(
     seen.len() == manifest.roster.len()
 }
 
+/// Proof that the 11-of-11 Round-1 consistent-broadcast barrier held for
+/// one exact `(session_id, round1_root)` pair. The only way to construct
+/// one is [`confirm_round1_view`], which performs the full
+/// [`round1_view_confirmed`] check -- so [`dkg_part2`] requiring this type
+/// as a parameter makes the barrier a compile-time requirement, not a
+/// convention callers might skip (the gap a Codex review found: this
+/// crate's own docs called Round-1 confirmation an "enforced ceremony
+/// property," but nothing previously stopped a caller from invoking
+/// `dkg_part2` without ever checking `round1_view_confirmed` first).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Round1ViewConfirmation {
+    session_id: [u8; 32],
+    round1_root: [u8; 32],
+}
+
+/// The only constructor for [`Round1ViewConfirmation`]. Fails exactly when
+/// [`round1_view_confirmed`] would return `false`.
+pub fn confirm_round1_view(
+    manifest: &DkgSessionManifestV1,
+    acks: &[Round1ViewAckV1],
+    expected_root: &[u8; 32],
+) -> Result<Round1ViewConfirmation> {
+    if !round1_view_confirmed(manifest, acks, expected_root) {
+        return Err(CustodyError::Round1ViewMismatch);
+    }
+    Ok(Round1ViewConfirmation {
+        session_id: manifest.session_id(),
+        round1_root: *expected_root,
+    })
+}
+
 // ---------------------------------------------------------------------
 // Phase D/F: DKG Round 2 / part 3
 // ---------------------------------------------------------------------
@@ -282,11 +313,20 @@ pub fn round1_view_confirmed(
 /// Wraps `frost_ristretto255::keys::dkg::part2`. `round1_packages` must be
 /// every *other* roster member's Round-1 package (not this participant's
 /// own), keyed by their FROST identifier -- the same map shape
-/// `part2`/`part3` themselves require.
+/// `part2`/`part3` themselves require. `confirmation` must have been
+/// obtained from [`confirm_round1_view`] for this exact `manifest`
+/// (checked below) -- there is no other way to construct a
+/// [`Round1ViewConfirmation`], so there is no way to reach this function
+/// without having passed the Round-1 barrier first.
 pub fn dkg_part2(
+    manifest: &DkgSessionManifestV1,
+    confirmation: &Round1ViewConfirmation,
     secret_package: round1::SecretPackage,
     round1_packages: &BTreeMap<Identifier, round1::Package>,
 ) -> Result<(round2::SecretPackage, BTreeMap<Identifier, round2::Package>)> {
+    if confirmation.session_id != manifest.session_id() {
+        return Err(CustodyError::Round1ViewMismatch);
+    }
     frost_ristretto255::keys::dkg::part2(secret_package, round1_packages).map_err(frost_err)
 }
 

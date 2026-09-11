@@ -155,6 +155,7 @@ fn in_process_transport_is_always_rejected_by_v2() {
     let err = verify_presence_v2(
         &f.att,
         None,
+        None,
         &ctx,
         &mut replay,
         &registry,
@@ -183,6 +184,7 @@ fn no_evidence_at_or_below_weak_software_minimum_succeeds() {
     let registry = HardwareCapabilityRegistryV1::builtin();
     let verdict = verify_presence_v2(
         &f.att,
+        None,
         None,
         &ctx,
         &mut replay,
@@ -216,6 +218,7 @@ fn no_evidence_but_certified_minimum_required_is_refused() {
     let registry = HardwareCapabilityRegistryV1::builtin();
     let err = verify_presence_v2(
         &f.att,
+        None,
         None,
         &ctx,
         &mut replay,
@@ -257,6 +260,7 @@ fn no_evidence_below_the_fixed_v2_rtt_sample_floor_is_rejected_even_with_a_loose
     let err = verify_presence_v2(
         &loose_att,
         None,
+        None,
         &ctx,
         &mut replay,
         &registry,
@@ -292,6 +296,7 @@ fn a_rejected_v2_attempt_never_burns_replay_nonces_for_a_legitimate_retry() {
     let err = verify_presence_v2(
         &f.att,
         None,
+        None,
         &ctx,
         &mut replay,
         &registry,
@@ -300,12 +305,15 @@ fn a_rejected_v2_attempt_never_burns_replay_nonces_for_a_legitimate_retry() {
     .unwrap_err();
     assert_eq!(err, PresenceError::InsufficientAssurance);
 
-    // Retry with real evidence over the SAME attestation (same nonces):
-    // must succeed, proving the first attempt never recorded them.
+    // Retry with real, corroborated two-sided evidence over the SAME
+    // attestation (same nonces): must succeed, proving the first attempt
+    // never recorded them.
     let evidence = sign_evidence(good_evidence(&f.att, &registry), &f.a_dev);
+    let counterpart = sign_evidence(good_evidence(&f.att, &registry), &f.b_dev);
     let verdict = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        Some(&counterpart),
         &ctx,
         &mut replay,
         &registry,
@@ -316,7 +324,48 @@ fn a_rejected_v2_attempt_never_burns_replay_nonces_for_a_legitimate_retry() {
 }
 
 #[test]
-fn well_formed_hardware_evidence_reaches_certified_secure() {
+fn well_formed_corroborated_hardware_evidence_reaches_certified_secure() {
+    let f = fixture(TransportKind::Ble);
+    let (a_root_kel, b_root_kel) = (f.a_root.kel(), f.b_root.kel());
+    let (a_dev_kel, b_dev_kel) = (f.a_dev.kel(), f.b_dev.kel());
+    let policy = policy();
+    let ctx = VerifyContext {
+        initiator_root: &a_root_kel,
+        responder_root: &b_root_kel,
+        initiator_device: &a_dev_kel,
+        responder_device: &b_dev_kel,
+        policy: &policy,
+        now_ms: Some(2_000),
+        expected_binding: Some(f.binding),
+    };
+    let mut replay = InMemoryReplayGuard::new();
+    let registry = HardwareCapabilityRegistryV1::builtin();
+    let evidence = sign_evidence(good_evidence(&f.att, &registry), &f.a_dev);
+    let counterpart = sign_evidence(good_evidence(&f.att, &registry), &f.b_dev);
+    let verdict = verify_presence_v2(
+        &f.att,
+        Some(&evidence),
+        Some(&counterpart),
+        &ctx,
+        &mut replay,
+        &registry,
+        PresenceAssuranceV2::CertifiedSecure,
+    )
+    .unwrap();
+    assert_eq!(verdict.assurance, PresenceAssuranceV2::CertifiedSecure);
+    // `verdict.verdict.hardware_ranged` reflects only V1's `AttestationFields::uwb`
+    // (unset in this fixture), not the V2 `RangingEvidenceV2` passed separately —
+    // `verdict.assurance` above is the V2-accurate signal.
+}
+
+#[test]
+fn a_lone_signer_claiming_two_sided_evidence_is_capped_at_certified_medium() {
+    // The core Codex finding this test closes: `sidedness` lives inside the
+    // evidence a single device signs, so nothing previously stopped one
+    // compromised endpoint from setting `TwoSided`, signing alone, and
+    // being classified `CertifiedSecure`. Without a genuine, independently
+    // signed counterpart, the assurance must silently downgrade rather than
+    // trust the self-reported sidedness.
     let f = fixture(TransportKind::Ble);
     let (a_root_kel, b_root_kel) = (f.a_root.kel(), f.b_root.kel());
     let (a_dev_kel, b_dev_kel) = (f.a_dev.kel(), f.b_dev.kel());
@@ -336,22 +385,117 @@ fn well_formed_hardware_evidence_reaches_certified_secure() {
     let verdict = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        None, // no counterpart at all
         &ctx,
         &mut replay,
         &registry,
-        PresenceAssuranceV2::CertifiedSecure,
+        PresenceAssuranceV2::CertifiedMedium,
     )
     .unwrap();
-    assert_eq!(verdict.assurance, PresenceAssuranceV2::CertifiedSecure);
-    // `verdict.verdict.hardware_ranged` reflects only V1's `AttestationFields::uwb`
-    // (unset in this fixture), not the V2 `RangingEvidenceV2` passed separately —
-    // `verdict.assurance` above is the V2-accurate signal.
+    assert_eq!(verdict.assurance, PresenceAssuranceV2::CertifiedMedium);
+
+    // And, being capped, it must not satisfy a CertifiedSecure minimum.
+    let mut replay2 = InMemoryReplayGuard::new();
+    let mut att2 = f.att.clone();
+    att2.fields.initiator.nonce = test_nonce(3);
+    att2.fields.responder.nonce = test_nonce(4);
+    let init_sig = att2.fields.sign(&f.a_dev);
+    let resp_sig = att2.fields.sign(&f.b_dev);
+    let att2 = PresenceAttestation::new(att2.fields, init_sig, resp_sig);
+    let evidence2 = sign_evidence(good_evidence(&att2, &registry), &f.a_dev);
+    let err = verify_presence_v2(
+        &att2,
+        Some(&evidence2),
+        None,
+        &ctx,
+        &mut replay2,
+        &registry,
+        PresenceAssuranceV2::CertifiedSecure,
+    )
+    .unwrap_err();
+    assert_eq!(err, PresenceError::InsufficientAssurance);
+}
+
+#[test]
+fn a_counterpart_signed_by_the_same_device_as_the_primary_does_not_corroborate() {
+    // A second signature from the SAME device is not independent
+    // corroboration -- it must be treated exactly like having no
+    // counterpart at all.
+    let f = fixture(TransportKind::Ble);
+    let (a_root_kel, b_root_kel) = (f.a_root.kel(), f.b_root.kel());
+    let (a_dev_kel, b_dev_kel) = (f.a_dev.kel(), f.b_dev.kel());
+    let policy = policy();
+    let ctx = VerifyContext {
+        initiator_root: &a_root_kel,
+        responder_root: &b_root_kel,
+        initiator_device: &a_dev_kel,
+        responder_device: &b_dev_kel,
+        policy: &policy,
+        now_ms: Some(2_000),
+        expected_binding: Some(f.binding),
+    };
+    let mut replay = InMemoryReplayGuard::new();
+    let registry = HardwareCapabilityRegistryV1::builtin();
+    let evidence = sign_evidence(good_evidence(&f.att, &registry), &f.a_dev);
+    let fake_counterpart = sign_evidence(good_evidence(&f.att, &registry), &f.a_dev);
+    let verdict = verify_presence_v2(
+        &f.att,
+        Some(&evidence),
+        Some(&fake_counterpart),
+        &ctx,
+        &mut replay,
+        &registry,
+        PresenceAssuranceV2::CertifiedMedium,
+    )
+    .unwrap();
+    assert_eq!(verdict.assurance, PresenceAssuranceV2::CertifiedMedium);
+}
+
+#[test]
+fn a_counterpart_describing_a_different_technology_does_not_corroborate() {
+    // A "counterpart" that doesn't actually describe the same physical
+    // ranging exchange (different technology here) must not be accepted
+    // as cross-checking the primary evidence.
+    let f = fixture(TransportKind::Ble);
+    let (a_root_kel, b_root_kel) = (f.a_root.kel(), f.b_root.kel());
+    let (a_dev_kel, b_dev_kel) = (f.a_dev.kel(), f.b_dev.kel());
+    let policy = policy();
+    let ctx = VerifyContext {
+        initiator_root: &a_root_kel,
+        responder_root: &b_root_kel,
+        initiator_device: &a_dev_kel,
+        responder_device: &b_dev_kel,
+        policy: &policy,
+        now_ms: Some(2_000),
+        expected_binding: Some(f.binding),
+    };
+    let mut replay = InMemoryReplayGuard::new();
+    let registry = HardwareCapabilityRegistryV1::builtin();
+    let evidence = sign_evidence(good_evidence(&f.att, &registry), &f.a_dev);
+    let mut mismatched = good_evidence(&f.att, &registry);
+    mismatched.technology = RangingTechnologyV2::BleChannelSounding;
+    mismatched.capability_class_id = registry
+        .id_for("Bluetooth Channel Sounding (HADM)")
+        .unwrap();
+    let mismatched_counterpart = sign_evidence(mismatched, &f.b_dev);
+    let verdict = verify_presence_v2(
+        &f.att,
+        Some(&evidence),
+        Some(&mismatched_counterpart),
+        &ctx,
+        &mut replay,
+        &registry,
+        PresenceAssuranceV2::CertifiedMedium,
+    )
+    .unwrap();
+    assert_eq!(verdict.assurance, PresenceAssuranceV2::CertifiedMedium);
 }
 
 #[test]
 fn evidence_signed_by_the_responder_is_also_accepted() {
     // Either attested party may be the evidence's signer -- the ranging
-    // exchange can legitimately be observed/reported by either side.
+    // exchange can legitimately be observed/reported by either side. Alone
+    // (no counterpart), it is still capped at CertifiedMedium.
     let f = fixture(TransportKind::Ble);
     let (a_root_kel, b_root_kel) = (f.a_root.kel(), f.b_root.kel());
     let (a_dev_kel, b_dev_kel) = (f.a_dev.kel(), f.b_dev.kel());
@@ -371,13 +515,14 @@ fn evidence_signed_by_the_responder_is_also_accepted() {
     let verdict = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        None,
         &ctx,
         &mut replay,
         &registry,
-        PresenceAssuranceV2::CertifiedSecure,
+        PresenceAssuranceV2::CertifiedMedium,
     )
     .unwrap();
-    assert_eq!(verdict.assurance, PresenceAssuranceV2::CertifiedSecure);
+    assert_eq!(verdict.assurance, PresenceAssuranceV2::CertifiedMedium);
 }
 
 #[test]
@@ -407,6 +552,7 @@ fn evidence_with_a_forged_signature_is_rejected_even_with_a_correct_binding() {
     let err = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        None,
         &ctx,
         &mut replay,
         &registry,
@@ -445,6 +591,7 @@ fn evidence_signed_by_someone_who_is_not_a_party_to_this_session_is_rejected() {
     let err = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        None,
         &ctx,
         &mut replay,
         &registry,
@@ -479,6 +626,7 @@ fn evidence_bound_to_a_different_session_is_rejected() {
     let err = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        None,
         &ctx,
         &mut replay,
         &registry,
@@ -511,6 +659,7 @@ fn unusable_evidence_is_rejected_even_though_no_evidence_would_have_passed() {
     let err = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        None,
         &ctx,
         &mut replay,
         &registry,
@@ -543,6 +692,7 @@ fn one_sided_evidence_does_not_satisfy_a_certified_secure_minimum() {
     let err = verify_presence_v2(
         &f.att,
         Some(&evidence),
+        None,
         &ctx,
         &mut replay,
         &registry,

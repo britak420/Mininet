@@ -21,8 +21,6 @@
 //! `mini_bearer::InProcessBearer` (no hardware needed); this module is only
 //! the thin UniFFI adapter around it.
 
-use std::sync::Mutex;
-
 use mini_bearer::{Bearer, EncryptedLink};
 
 use crate::ble::{android_bearer, BleRadio};
@@ -35,24 +33,25 @@ pub struct MeshMessage {
     pub payload: Vec<u8>,
 }
 
-/// UniFFI object wrapping one device's `mini_mesh::MeshNode`.
+/// UniFFI object wrapping one device's `mini_mesh::MeshNode`. No wrapper
+/// lock of its own (a Codex review finding on PR #333: an earlier revision
+/// put one here, which meant `flush_reflood`'s potentially slow send held
+/// it for the whole call and blocked `poll()` from making progress on
+/// every *other* link too) — `mini_mesh::MeshNode` is internally
+/// synchronized per-link, exactly so `poll`/`flush_reflood`/`broadcast` can
+/// be called concurrently from separate threads/schedules as this crate's
+/// own docs already ask callers to do.
 #[derive(Debug)]
 pub struct MeshHandle {
-    inner: Mutex<mini_mesh::MeshNode>,
+    inner: mini_mesh::MeshNode,
 }
 
 impl MeshHandle {
     /// A mesh with no links yet.
     pub fn new() -> Self {
         MeshHandle {
-            inner: Mutex::new(mini_mesh::MeshNode::new()),
+            inner: mini_mesh::MeshNode::new(),
         }
-    }
-
-    fn lock(&self) -> std::sync::MutexGuard<'_, mini_mesh::MeshNode> {
-        self.inner
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner())
     }
 
     /// Add a link for a BLE connection this device **dialed** (a central
@@ -63,7 +62,7 @@ impl MeshHandle {
         let bearer = android_bearer(radio, mtu);
         let boxed: Box<dyn Bearer + Send> = Box::new(bearer);
         let link = EncryptedLink::dial(boxed).map_err(|_| MeshError::HandshakeFailed)?;
-        self.lock().add_link(link);
+        self.inner.add_link(link);
         Ok(())
     }
 
@@ -74,13 +73,13 @@ impl MeshHandle {
         let bearer = android_bearer(radio, mtu);
         let boxed: Box<dyn Bearer + Send> = Box::new(bearer);
         let link = EncryptedLink::accept(boxed).map_err(|_| MeshError::HandshakeFailed)?;
-        self.lock().add_link(link);
+        self.inner.add_link(link);
         Ok(())
     }
 
     /// How many links are currently held.
     pub fn link_count(&self) -> u32 {
-        self.lock().link_count() as u32
+        self.inner.link_count() as u32
     }
 
     /// Send `payload` to every held link. Returns its content id.
@@ -91,7 +90,7 @@ impl MeshHandle {
     /// failure legitimately does (see `mini_mesh::MeshNode::broadcast`'s
     /// own docs).
     pub fn broadcast(&self, payload: Vec<u8>) -> Result<Vec<u8>, MeshError> {
-        self.lock()
+        self.inner
             .broadcast(&payload)
             .map(|id| id.to_vec())
             .map_err(|_| MeshError::PayloadTooLarge)
@@ -106,7 +105,7 @@ impl MeshHandle {
     /// GATT) a single send can wait seconds for a peer's acknowledgement —
     /// see `mini_mesh::MeshNode::poll`'s own docs for why the two are split.
     pub fn poll(&self) -> Vec<MeshMessage> {
-        self.lock()
+        self.inner
             .poll()
             .into_iter()
             .map(|(id, payload)| MeshMessage {
@@ -123,7 +122,7 @@ impl MeshHandle {
     /// so one slow peer's acknowledgement can never stall receiving and
     /// delivering messages from every other link.
     pub fn flush_reflood(&self) {
-        self.lock().flush_reflood();
+        self.inner.flush_reflood();
     }
 
     /// Convenience: [`Self::poll`] immediately followed by
@@ -173,6 +172,7 @@ mod tests {
     use super::*;
     use crate::ble::BleRadioError;
     use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+    use std::sync::Mutex;
 
     struct MockRadio {
         tx: Sender<Vec<u8>>,
