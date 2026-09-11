@@ -5,6 +5,23 @@
          server. QR capture is delegated to the system camera activity, so no
          direct CAMERA permission is requested. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- BlePeripheralRadio/BleCentralRadio (issue #201, D-0502): the real
+         GATT bearer, neither wired into the app's UI flow nor exercised on
+         real hardware yet -- see those classes' own "Honest limit" notes.
+         Legacy permissions cap at API 30, where BLUETOOTH_SCAN/ADVERTISE/
+         CONNECT take over; `neverForLocation` is correct because this app
+         only ever uses scan results to find the Mininet GATT service, never
+         to derive a physical location. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

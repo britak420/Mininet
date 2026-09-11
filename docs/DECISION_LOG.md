@@ -19022,3 +19022,84 @@ remaining honest limit) and wiring either fanout variant into a real
 running multi-node mesh both remain open, tracked in roadmap #24.
 
 **Supersedes / superseded by:** extends D-0472; supersedes nothing.
+
+### D-0502 — Kotlin-side BLE GATT implementation of `BleRadio` (issue #201, Android beta slice 5)  ·  *Proposed*
+
+**Decision:** Add `BlePeripheralRadio` (GATT server/advertiser) and
+`BleCentralRadio` (GATT client/scanner) under `app/android/app/src/main/
+java/org/mininet/app/`, both implementing the UniFFI-generated
+`org.mininet.core.BleRadio` callback interface directly against real
+Android `BluetoothGattServer`/`BluetoothGattCallback`/`BluetoothGatt`
+APIs, plus the manifest permissions (`BLUETOOTH_SCAN`/`ADVERTISE`/
+`CONNECT`, legacy `BLUETOOTH`/`BLUETOOTH_ADMIN`/`ACCESS_FINE_LOCATION`
+capped at API 30, `neverForLocation` on the scan permission since this
+app never derives location from scan results) and the `bluetooth_le`
+required feature declaration those classes need.
+
+**Reason:** D-0374/D-0375 built the entire chain up to the Kotlin
+boundary — `mini_bearer::android_ble::AndroidBleBearer` (a full, tested
+`impl Bearer` generic over any radio), and `mini_ffi::ble`'s UniFFI
+`callback interface BleRadio`/`BleBearerHandle` letting Kotlin drive it —
+and named the real Kotlin GATT implementation as the one piece neither
+closed. `docs/BETA_STATUS.md` item 1 and `docs/ROADMAP_TO_RELEASE.md`'s
+R10 both still named it as outstanding. This closes that specific gap:
+one MTU-bounded write characteristic (central → peripheral) and one
+notify characteristic (peripheral → central), a standard CCCD descriptor
+for enabling notifications, both roles draining/feeding a
+`LinkedBlockingQueue<ByteArray>` to satisfy `BleRadio.read_chunk`'s
+blocking contract and `try_read_chunk`'s non-blocking one, and a
+`CountDownLatch`-based synchronous wait over each async GATT
+write/notify callback so `write_chunk`'s synchronous UniFFI contract
+(Rust calls it and blocks on the result) is honored correctly despite
+Android's BLE APIs being callback-driven rather than blocking.
+
+**Constitutional impact:** none. No new cryptography — this is transport
+plumbing, not a security boundary; presence/identity verification
+(`mini-presence`, `did-mini`) still runs entirely on top of whatever
+bearer carries it, unchanged by which bearer that is. No voice/value
+edge: `mini-bearer`/`mini-ffi` gain no new crate dependency, and this PR
+adds no Cargo dependency at all — only new Kotlin files and a manifest
+permission block.
+
+**Implementation status:** prototype, unverified. New:
+`app/android/app/src/main/java/org/mininet/app/BleGattProfile.kt`
+(shared service/characteristic/CCCD UUID constants),
+`BlePeripheralRadio.kt`, `BleCentralRadio.kt`;
+`app/android/app/src/main/AndroidManifest.xml` gains the BLE permission
+block above. Doc comments in `crates/mini-bearer/src/android_ble.rs` and
+`crates/mini-ffi/src/ble.rs` updated to point at this decision instead of
+describing the Kotlin gap as still fully open. **Written without a
+JDK/Android SDK available in this environment — this has never actually
+been compiled.** Android CI's `assembleDebug` is the first real compile
+check either class will ever have had. Neither class is wired into
+`MiniViewModel`'s pairing flow or `mini-keystone::run_demo` yet, and no
+real BLE hardware exists in this environment to test against — a real
+two-device connection remains the only thing that can prove this
+protocol implementation is actually correct end to end, not merely
+structurally plausible against the documented GATT API surface, exactly
+the same honest limit D-0374/D-0375 already stated for the layers below
+this one.
+
+**Failure point:** if the UniFFI Kotlin codegen for a fieldless
+`[Error] enum` variant (`BleRadioError::Failed`) does not generate a
+single-string-argument constructor on `BleRadioException.Failed` the way
+it does for the structurally identical `StorageCipherError`/
+`StorageCipherException` pair this code's calling convention was copied
+from (D-0338, already compiling in CI), this fails to build — the first
+real signal will be Android CI's `assembleDebug`, not this environment.
+Beyond that: any subtle mismatch against the real `BluetoothGattServer`/
+`BluetoothGattCallback` contract (a wrong callback signature, a missed
+`sendResponse`, an MTU assumption that doesn't hold on a real radio)
+cannot be caught by compilation alone and will only surface in the real
+two-device test this decision explicitly does not claim to have run.
+
+**Required follow-up:** wire `BlePeripheralRadio`/`BleCentralRadio` into
+`MiniViewModel`'s pairing flow (a UI path for choosing/advertising a BLE
+role is separate, later work) and into `mini-keystone::run_demo` so the
+keystone demo can run over a real bearer instead of only the in-process
+one; then the real two-device test itself (roadmap R10/R11, hardware
+gate #97, `docs/gates/hardware-test-protocol.md`). None of that follow-up
+is code-only.
+
+**Supersedes / superseded by:** extends D-0374/D-0375; supersedes
+nothing.

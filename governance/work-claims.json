@@ -2,7 +2,7 @@
   "$schema": "./work-claims.schema.json",
   "schema_version": 1,
   "registry_id": "mininet-bootstrap-work-claims",
-  "updated_at": "2026-09-08T09:00:00Z",
+  "updated_at": "2026-09-11T07:28:36Z",
   "claims": [
     {
       "issue": 122,
@@ -1197,6 +1197,27 @@
         "D-0473"
       ],
       "notes": "D-0473: mini_net::randomized_fanout_peers/randomized_dialable_fanout close gossip.rs's own named honest limit -- fanout selection was deterministic closest-first, letting an attacker who occupies a victim's nearest routing positions guarantee it always gets selected. Selection now sorts candidates by a domain-separated BLAKE3(seed || id) key instead of caller order, the same seeded-derivation shape mini_porep::sample_challenges (D-0064) already uses for auditor challenge sampling. randomized_dialable_fanout is the address-aware counterpart over the same dialable-candidate pool dialable_fanout (D-0472) already gathers, factored into a shared private dialable_candidates helper. Raises the cost of a partial eclipse (some but not all of a victim's nearby routing positions attacker-controlled) -- does not defend a fully eclipsed candidate pool, and seed freshness (so selection is actually unpredictable, not just a different fixed answer) is the caller's responsibility. docs/THREAT_MODEL.md's Routing attacks row updated to cite this as partial mitigation. 7 new tests. Coordination evidence only, not approval or authority."
+    },
+    {
+      "issue": 201,
+      "status": "active",
+      "contributor": "claude-agent",
+      "branch": "claude/pr-merge-readiness-tkejaf",
+      "pull_request": null,
+      "lease_expires": "2026-09-18",
+      "paths": [
+        "app/android/",
+        "crates/mini-bearer/src/android_ble.rs",
+        "crates/mini-ffi/src/ble.rs",
+        "docs/BETA_STATUS.md",
+        "docs/DECISION_LOG.md",
+        "docs/STATUS.md",
+        "governance/work-claims.json"
+      ],
+      "decision_ids": [
+        "D-0502"
+      ],
+      "notes": "D-0502: Kotlin-side BLE GATT implementation of BleRadio (issue #201 Android beta slice 5) -- BlePeripheralRadio (GATT server/advertiser) and BleCentralRadio (GATT client/scanner), the last piece BETA_STATUS.md item 1 named as missing. Unverified on real hardware; Android CI assembleDebug is the first real compile gate."
     }
   ]
 }

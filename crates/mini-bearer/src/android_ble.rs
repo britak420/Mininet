@@ -10,17 +10,20 @@
 //! implement the full [`crate::Bearer`] trait generically.
 //!
 //! **Honest limit — what this closes and what it does not.** This is the
-//! Rust-side half of Android beta slice 5 (issue #201). It is not wired
-//! into `mini-ffi`'s UniFFI boundary yet (no `.udl` callback interface
-//! exists for this trait, unlike `mini-ffi::StorageCipher`, D-0338), and
-//! no Kotlin `BluetoothGattServer`/`BluetoothGattCallback` implementation
-//! exists — that remains the Kotlin-side half of #201's division of
-//! labor, and Android CI's `assembleDebug` is the only real verification
-//! gate for it once it exists (this environment has no JDK/Android SDK).
-//! What *is* real and tested here: the chunking/reassembly wiring that
-//! turns any [`BleRadio`] implementation — Kotlin's real one, a future
-//! different platform's, or the mock used in this file's own tests — into
-//! a complete, drop-in [`crate::Bearer`].
+//! Rust-side half of Android beta slice 5 (issue #201). D-0375 wired it
+//! into `mini-ffi`'s UniFFI boundary (`mini_ffi::ble::BleBearerHandle`),
+//! and D-0502 added the Kotlin-side `BluetoothGattServer`/
+//! `BluetoothGattCallback` implementations
+//! (`org.mininet.app.BlePeripheralRadio`/`BleCentralRadio`) that actually
+//! drive real radio I/O. None of that chain has run on real hardware yet:
+//! Android CI's `assembleDebug` is the only verification this environment
+//! can perform (no JDK/Android SDK here), and a real two-device BLE
+//! connection remains the only thing that can prove the protocol is
+//! correct end to end, not just structurally plausible. What *is* real
+//! and tested here: the chunking/reassembly wiring that turns any
+//! [`BleRadio`] implementation — Kotlin's real ones, a future different
+//! platform's, or the mock used in this file's own tests — into a
+//! complete, drop-in [`crate::Bearer`].
 //!
 //! Named `AndroidBleBearer` to match the name [`crate::ble`]'s own doc
 //! comment already uses for this exact gap, despite nothing in this file

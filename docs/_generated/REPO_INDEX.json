@@ -1,8 +1,8 @@
 {
   "counts": {
     "crates": 74,
-    "files": 930,
-    "headings": 3270,
+    "files": 942,
+    "headings": 3432,
     "rust_symbols": 9311
   },
   "crates": {
@@ -8107,182 +8107,182 @@
       "title": "mini-bearer"
     },
     {
-      "bytes": 8488,
+      "bytes": 8647,
       "group": "crate:mini-bearer",
       "headings": [],
       "keywords": [
         "self",
         "androidblebearer",
         "bleradio",
-        "chunk",
         "radio",
+        "chunk",
         "bearer",
+        "ble",
         "mtu",
         "result",
         "frame",
-        "ble",
+        "real",
         "fmt",
         "reassembler",
         "try_read_chunk",
-        "std",
-        "one",
         "what",
-        "real",
         "write_chunk",
         "read_chunk",
-        "trait",
+        "std",
+        "one",
         "chunk_frame",
         "chunkreassembler",
+        "none",
         "vec",
         "return"
       ],
-      "lines": 230,
+      "lines": 233,
       "path": "crates/mini-bearer/src/android_ble.rs",
-      "sha256": "8e04210c60745a64d7fc3cfa9eafe299599e39f7167482ecc9bef9e85cfe28b7",
+      "sha256": "0d8f8e6cccd1b5601a7e487e841fea06c2cba351ca90468f32ebf9728c7347fe",
       "symbols": [
         {
           "kind": "trait",
-          "line": 37,
-          "name": "BleRadio"
-        },
-        {
-          "kind": "fn",
           "line": 40,
-          "name": "write_chunk"
+          "name": "BleRadio"
         },
         {
           "kind": "fn",
           "line": 43,
-          "name": "read_chunk"
-        },
-        {
-          "kind": "fn",
-          "line": 48,
-          "name": "try_read_chunk"
-        },
-        {
-          "kind": "struct",
-          "line": 54,
-          "name": "AndroidBleBearer"
-        },
-        {
-          "kind": "impl",
-          "line": 60,
-          "name": "std::fmt::Debug"
-        },
-        {
-          "kind": "fn",
-          "line": 61,
-          "name": "fmt"
-        },
-        {
-          "kind": "impl",
-          "line": 69,
-          "name": "AndroidBleBearer<R>"
-        },
-        {
-          "kind": "fn",
-          "line": 75,
-          "name": "new"
-        },
-        {
-          "kind": "impl",
-          "line": 84,
-          "name": "Bearer"
-        },
-        {
-          "kind": "fn",
-          "line": 85,
-          "name": "send"
-        },
-        {
-          "kind": "fn",
-          "line": 92,
-          "name": "recv"
-        },
-        {
-          "kind": "fn",
-          "line": 101,
-          "name": "try_recv"
-        },
-        {
-          "kind": "mod",
-          "line": 120,
-          "name": "tests"
-        },
-        {
-          "kind": "struct",
-          "line": 125,
-          "name": "MockRadio"
-        },
-        {
-          "kind": "impl",
-          "line": 130,
-          "name": "BleRadio"
-        },
-        {
-          "kind": "fn",
-          "line": 131,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 136,
+          "line": 46,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
+          "line": 51,
+          "name": "try_read_chunk"
+        },
+        {
+          "kind": "struct",
+          "line": 57,
+          "name": "AndroidBleBearer"
+        },
+        {
+          "kind": "impl",
+          "line": 63,
+          "name": "std::fmt::Debug"
+        },
+        {
+          "kind": "fn",
+          "line": 64,
+          "name": "fmt"
+        },
+        {
+          "kind": "impl",
+          "line": 72,
+          "name": "AndroidBleBearer<R>"
+        },
+        {
+          "kind": "fn",
+          "line": 78,
+          "name": "new"
+        },
+        {
+          "kind": "impl",
+          "line": 87,
+          "name": "Bearer"
+        },
+        {
+          "kind": "fn",
+          "line": 88,
+          "name": "send"
+        },
+        {
+          "kind": "fn",
+          "line": 95,
+          "name": "recv"
+        },
+        {
+          "kind": "fn",
+          "line": 104,
+          "name": "try_recv"
+        },
+        {
+          "kind": "mod",
+          "line": 123,
+          "name": "tests"
+        },
+        {
+          "kind": "struct",
+          "line": 128,
+          "name": "MockRadio"
+        },
+        {
+          "kind": "impl",
+          "line": 133,
+          "name": "BleRadio"
+        },
+        {
+          "kind": "fn",
+          "line": 134,
+          "name": "write_chunk"
+        },
+        {
+          "kind": "fn",
           "line": 139,
+          "name": "read_chunk"
+        },
+        {
+          "kind": "fn",
+          "line": 142,
           "name": "try_read_chunk"
         },
         {
           "kind": "fn",
-          "line": 148,
+          "line": 151,
           "name": "pair_with_mtu"
         },
         {
           "kind": "fn",
-          "line": 159,
+          "line": 162,
           "name": "pair"
         },
         {
           "kind": "fn",
-          "line": 164,
+          "line": 167,
           "name": "a_frame_larger_than_one_chunk_round_trips_through_chunking_and_reassembly"
         },
         {
           "kind": "fn",
-          "line": 172,
+          "line": 175,
           "name": "multiple_frames_round_trip_in_order"
         },
         {
           "kind": "fn",
-          "line": 185,
+          "line": 188,
           "name": "try_recv_returns_none_with_nothing_pending_then_the_frame_once_sent"
         },
         {
           "kind": "fn",
-          "line": 193,
+          "line": 196,
           "name": "a_write_failure_when_the_peer_radio_is_gone_surfaces_through_send"
         },
         {
           "kind": "fn",
-          "line": 201,
+          "line": 204,
           "name": "a_read_failure_when_the_peer_radio_is_gone_surfaces_through_recv"
         },
         {
           "kind": "fn",
-          "line": 209,
+          "line": 212,
           "name": "an_empty_frame_round_trips"
         },
         {
           "kind": "fn",
-          "line": 216,
+          "line": 219,
           "name": "a_tiny_mtu_forces_many_chunks_and_still_reassembles_correctly"
         },
         {
           "kind": "fn",
-          "line": 224,
+          "line": 227,
           "name": "an_mtu_too_small_for_even_the_header_is_rejected_before_any_write"
         }
       ],
@@ -30444,7 +30444,7 @@
       "title": "fn main() {"
     },
     {
-      "bytes": 11901,
+      "bytes": 12033,
       "group": "crate:mini-ffi",
       "headings": [],
       "keywords": [
@@ -30455,246 +30455,246 @@
         "read_chunk",
         "try_read_chunk",
         "fmt",
-        "androidblebearer",
         "bleradioerror",
-        "kotlin",
+        "androidblebearer",
         "chunk",
         "result",
         "error",
         "radioadapter",
         "uniffi",
+        "kotlin",
         "core",
         "blebearerhandle",
-        "send",
         "bearer",
         "radio",
         "vec",
         "ble",
         "std",
+        "send",
         "boundary"
       ],
-      "lines": 300,
+      "lines": 302,
       "path": "crates/mini-ffi/src/ble.rs",
-      "sha256": "4665ff36619a0e418fb1e0fee63e400653105b29d9e10ad4c7fdb3b87f9dc7e2",
+      "sha256": "92dce4d33a919df67ae672b1985fe9d201f3a756910427a23d57139bf9bbdff9",
       "symbols": [
         {
           "kind": "trait",
-          "line": 39,
-          "name": "BleRadio"
-        },
-        {
-          "kind": "fn",
           "line": 41,
-          "name": "write_chunk"
+          "name": "BleRadio"
         },
         {
           "kind": "fn",
           "line": 43,
+          "name": "write_chunk"
+        },
+        {
+          "kind": "fn",
+          "line": 45,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 46,
+          "line": 48,
           "name": "try_read_chunk"
         },
         {
           "kind": "enum",
-          "line": 56,
+          "line": 58,
           "name": "BleRadioError"
         },
         {
           "kind": "impl",
-          "line": 61,
+          "line": 63,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 62,
+          "line": 64,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 67,
+          "line": 69,
           "name": "std::error::Error"
         },
         {
           "kind": "struct",
-          "line": 74,
+          "line": 76,
           "name": "RadioAdapter"
         },
         {
           "kind": "impl",
-          "line": 76,
+          "line": 78,
           "name": "mini_bearer::BleRadio"
         },
         {
           "kind": "fn",
-          "line": 77,
+          "line": 79,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 83,
+          "line": 85,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 89,
+          "line": 91,
           "name": "try_read_chunk"
         },
         {
           "kind": "struct",
-          "line": 101,
+          "line": 103,
           "name": "BleBearerHandle"
         },
         {
           "kind": "impl",
-          "line": 105,
+          "line": 107,
           "name": "BleBearerHandle"
         },
         {
           "kind": "fn",
-          "line": 112,
+          "line": 114,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 119,
+          "line": 121,
           "name": "lock"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 128,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 133,
+          "line": 135,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 139,
+          "line": 141,
           "name": "try_recv"
         },
         {
           "kind": "enum",
-          "line": 151,
+          "line": 153,
           "name": "BleBearerError"
         },
         {
           "kind": "impl",
-          "line": 166,
+          "line": 168,
           "name": "BleBearerError"
         },
         {
           "kind": "fn",
-          "line": 167,
+          "line": 169,
           "name": "from_bearer"
         },
         {
           "kind": "impl",
-          "line": 178,
+          "line": 180,
           "name": "core::fmt::Display"
         },
         {
           "kind": "fn",
-          "line": 179,
+          "line": 181,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 193,
+          "line": 195,
           "name": "std::error::Error"
         },
         {
           "kind": "mod",
-          "line": 196,
+          "line": 198,
           "name": "tests"
         },
         {
           "kind": "struct",
-          "line": 200,
+          "line": 202,
           "name": "MockRadio"
         },
         {
           "kind": "impl",
-          "line": 205,
+          "line": 207,
           "name": "BleRadio"
         },
         {
           "kind": "fn",
-          "line": 206,
+          "line": 208,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 209,
+          "line": 211,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 216,
+          "line": 218,
           "name": "try_read_chunk"
         },
         {
           "kind": "fn",
-          "line": 225,
+          "line": 227,
           "name": "pair_with_mtu"
         },
         {
           "kind": "fn",
-          "line": 242,
+          "line": 244,
           "name": "pair"
         },
         {
           "kind": "fn",
-          "line": 247,
+          "line": 249,
           "name": "a_frame_larger_than_one_chunk_round_trips_through_the_ffi_handle"
         },
         {
           "kind": "fn",
-          "line": 255,
+          "line": 257,
           "name": "try_recv_returns_none_with_nothing_pending_then_the_frame_once_sent"
         },
         {
           "kind": "fn",
-          "line": 263,
+          "line": 265,
           "name": "a_radio_failure_surfaces_as_radio_failed_not_a_panic"
         },
         {
           "kind": "fn",
-          "line": 271,
+          "line": 273,
           "name": "an_mtu_too_small_for_the_header_is_reported_distinctly"
         },
         {
           "kind": "fn",
-          "line": 278,
+          "line": 280,
           "name": "a_bleradio_error_maps_to_radio_failed_through_the_adapter"
         },
         {
           "kind": "struct",
-          "line": 279,
+          "line": 281,
           "name": "AlwaysFailingRadio"
         },
         {
           "kind": "impl",
-          "line": 280,
+          "line": 282,
           "name": "BleRadio"
         },
         {
           "kind": "fn",
-          "line": 281,
+          "line": 283,
           "name": "write_chunk"
         },
         {
           "kind": "fn",
-          "line": 284,
+          "line": 286,
           "name": "read_chunk"
         },
         {
           "kind": "fn",
-          "line": 287,
+          "line": 289,
           "name": "try_read_chunk"
         }
       ],
@@ -39306,7 +39306,7 @@
       "title": "use core::fmt;"
     },
     {
-      "bytes": 9138,
+      "bytes": 9158,
       "group": "crate:mini-net",
       "headings": [],
       "keywords": [
@@ -39335,9 +39335,9 @@
         "usize",
         "exclude"
       ],
-      "lines": 207,
+      "lines": 208,
       "path": "crates/mini-net/src/gossip.rs",
-      "sha256": "311a73f9601c2293f6e86b197b4bee15a4cdd53aaf8657a0ebffe9d5a16db5bc",
+      "sha256": "cde237f37f63eea1481481cfa545a158e57fa9ec889ff338f29219a94ba073d8",
       "symbols": [
         {
           "kind": "struct",
@@ -77225,7 +77225,7 @@
       "title": "Beta contributor guide"
     },
     {
-      "bytes": 7150,
+      "bytes": 7604,
       "group": "docs",
       "headings": [
         {
@@ -77240,49 +77240,49 @@
         },
         {
           "level": 2,
-          "line": 95,
+          "line": 102,
           "text": "Before trusting any of this"
         },
         {
           "level": 2,
-          "line": 109,
+          "line": 116,
           "text": "UI beta (the product layer)"
         },
         {
           "level": 2,
-          "line": 116,
+          "line": 123,
           "text": "Post-beta (not on the critical path)"
         }
       ],
       "keywords": [
         "beta",
         "real",
+        "still",
+        "honest",
         "path",
         "keystone",
-        "reward",
-        "identity",
+        "generated",
         "cargo",
-        "still",
         "bearer",
         "ble",
-        "but",
-        "implementation",
+        "gatt",
+        "mini-keystone",
         "own",
         "status",
         "what",
         "here",
-        "honest",
+        "reward",
         "see",
-        "generated",
-        "presence",
+        "identity",
         "trait",
-        "work",
-        "d-0374",
+        "demo",
+        "protocol",
+        "adds",
         "bleradio"
       ],
-      "lines": 122,
+      "lines": 129,
       "path": "docs/BETA_STATUS.md",
-      "sha256": "3f29d626046fe50b660be17a61e4f706712aeed12ecbbc5c2d348b5dd057a089",
+      "sha256": "8550f44791d266ef1ef67acd4ae24f42292963a702712d078713fb886dfeccf9",
       "symbols": [],
       "title": "Beta status"
     },
@@ -77512,7 +77512,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1147744,
+      "bytes": 1152589,
       "group": "docs",
       "headings": [
         {
@@ -77922,8 +77922,8 @@
         "track",
         "real",
         "issue",
-        "founder",
         "android",
+        "founder",
         "slice",
         "beta",
         "review",
@@ -77942,9 +77942,9 @@
         "first",
         "witness"
       ],
-      "lines": 19025,
+      "lines": 19106,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "a24c148c65ab836a169ad8629f4338949d8d866499046192eba3a7e776936263",
+      "sha256": "39f3e05bddeffc9fea638be0e60584e78790e003482af204ebcfc1c14a2a769f",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -81927,6 +81927,1219 @@
       "sha256": "b4da099b3afb02b8c3ceeb2e7f3ddd042f69965dc51687ec8b2e9cb7e452cf1c",
       "symbols": [],
       "title": "Constitutional audit"
+    },
+    {
+      "bytes": 17106,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "PR #327: cross-system findings and review boundaries"
+        },
+        {
+          "level": 2,
+          "line": 15,
+          "text": "1. What the founder's idea requires from the implementation"
+        },
+        {
+          "level": 2,
+          "line": 25,
+          "text": "2. Validator-channel identity is not validator-set admission"
+        },
+        {
+          "level": 2,
+          "line": 41,
+          "text": "3. Channel transcript scope should be specified, not inferred"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "4. Encryption, endpoint authentication, and anonymity are different claims"
+        },
+        {
+          "level": 2,
+          "line": 71,
+          "text": "5. Constitutional meaning and implementation evidence need separate precedence"
+        },
+        {
+          "level": 2,
+          "line": 87,
+          "text": "6. The voice/value wall includes eligibility and operating costs"
+        },
+        {
+          "level": 2,
+          "line": 101,
+          "text": "7. An external library is not automatically an external authority"
+        },
+        {
+          "level": 2,
+          "line": 115,
+          "text": "8. Completion criteria for the requested exhaustive review"
+        }
+      ],
+      "keywords": [
+        "admission",
+        "review",
+        "implementation",
+        "evidence",
+        "validator",
+        "requires",
+        "identity",
+        "its",
+        "root",
+        "device",
+        "external",
+        "vote",
+        "findings",
+        "what",
+        "founder",
+        "authentication",
+        "authority",
+        "audit",
+        "canonical",
+        "source",
+        "below",
+        "claimed",
+        "prs",
+        "membership"
+      ],
+      "lines": 124,
+      "path": "docs/audits/pr-327-cross-system-findings-2026-09-07.md",
+      "sha256": "63395a2b96efa5d36381ccb5590c8ef638343e1f491fd96a8a135af60b45810f",
+      "symbols": [],
+      "title": "PR #327: cross-system findings and review boundaries"
+    },
+    {
+      "bytes": 3413,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Whole-history founder-vision review \u2014 2026-09-07"
+        },
+        {
+          "level": 2,
+          "line": 15,
+          "text": "Scope and ownership"
+        },
+        {
+          "level": 2,
+          "line": 23,
+          "text": "Reproducible evidence capture"
+        }
+      ],
+      "keywords": [
+        "evidence",
+        "review",
+        "capture",
+        "scope",
+        "audit",
+        "inventory",
+        "github",
+        "prs",
+        "research",
+        "reproducible",
+        "commit",
+        "pinned",
+        "source",
+        "every",
+        "local",
+        "its",
+        "external",
+        "later",
+        "through",
+        "file",
+        "whole-history",
+        "founder-vision",
+        "ownership",
+        "reviewed"
+      ],
+      "lines": 37,
+      "path": "docs/audits/pr-history-2026-09-07/README.md",
+      "sha256": "fb47f3ad303ba45d63a1951d3f7c9fc6940908a2dbe3b48bfa96cccd126de524",
+      "symbols": [],
+      "title": "Whole-history founder-vision review \u2014 2026-09-07"
+    },
+    {
+      "bytes": 735097,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Exhaustive Mininet PR-by-PR substantive review"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "How to read this report"
+        },
+        {
+          "level": 2,
+          "line": 27,
+          "text": "PR #1: Add mini-chain: finality-verification core of the custom BFT chain"
+        },
+        {
+          "level": 2,
+          "line": 57,
+          "text": "PR #2: Add mini-storage and mini-net; CodeQL follow-up; D-0034 founder decisions"
+        },
+        {
+          "level": 2,
+          "line": 87,
+          "text": "PR #3: Whitepaper reconciliation + full D-0034 batch (net, UWB, uniqueness, spacetime, treasury, value)"
+        },
+        {
+          "level": 2,
+          "line": 117,
+          "text": "PR #4: mini-value: real stealth-address and ring-signature prototypes (D-0036 override)"
+        },
+        {
+          "level": 2,
+          "line": 147,
+          "text": "PR #5: D-0037/D-0038/D-0039/D-0040/D-0041: policy generalization, personhood, storage proof, Bulletproofs, FROST custody"
+        },
+        {
+          "level": 2,
+          "line": 179,
+          "text": "PR #6: D-0042: real TCP transport (mini-bearer) + live multi-process gossip demo (mini-net)"
+        },
+        {
+          "level": 2,
+          "line": 209,
+          "text": "PR #7: D-0043\u2013D-0048: Founder Directives, Failure Book, master roadmap, CI security, 4 audits, doc restructuring"
+        },
+        {
+          "level": 2,
+          "line": 239,
+          "text": "PR #94: D-0049\u2013D-0054: bounty, addressing, threat model, traceability, review wall, fork legitimacy, identity hardening"
+        },
+        {
+          "level": 2,
+          "line": 271,
+          "text": "PR #95: D-0055 \u2192 D-0060: mini-settlement, External Legitimacy Gates, README front door, nonce\u2192sequence rename, zeroize hardening, FROST DKG + resharing"
+        },
+        {
+          "level": 2,
+          "line": 303,
+          "text": "PR #100: D-0061/D-0062: mini-execution (closes #40) + real-transport interop for mini-bootstrap/mini-sync (closes #23)"
+        },
+        {
+          "level": 2,
+          "line": 333,
+          "text": "PR #101: Storage/crypto batch (mini-porep, mini-erasure) + self-hosted forge spine Batch 1 (mini-cli)"
+        },
+        {
+          "level": 2,
+          "line": 365,
+          "text": "PR #103: Self-hosted forge spine Batch 2a+2b: build provenance + isolated Wasmtime sandbox (D-0068/D-0069)"
+        },
+        {
+          "level": 2,
+          "line": 397,
+          "text": "PR #104: Ship self-hosted forge spine Batch 3: TUF-adapted release verification (D-0070)"
+        },
+        {
+          "level": 2,
+          "line": 429,
+          "text": "PR #105: Ship self-hosted forge spine Batch 4: real installation, mini-installer (D-0071)"
+        },
+        {
+          "level": 2,
+          "line": 459,
+          "text": "PR #106: mini-erasure MDS fix + mini-cli network sync (D-0072, Batch 5)"
+        },
+        {
+          "level": 2,
+          "line": 491,
+          "text": "PR #107: mini-forge git SHA-256 export bridge + treasury/inflation/human-continuity economic decisions (D-0073\u2013D-0075)"
+        },
+        {
+          "level": 2,
+          "line": 523,
+          "text": "PR #108: docs: pre-audit validation prep (#47/50/97/98/28/21) + pre-coding planning triage"
+        },
+        {
+          "level": 2,
+          "line": 553,
+          "text": "PR #109: test: self-hosted forge spine end-to-end harness"
+        },
+        {
+          "level": 2,
+          "line": 583,
+          "text": "PR #110: installer: persisted event log (D-0076) + cli: wire build/release/provenance/installer commands (D-0077)"
+        },
+        {
+          "level": 2,
+          "line": 615,
+          "text": "PR #111: cli: stable --json output for build/release/provenance/installer (#112)"
+        },
+        {
+          "level": 2,
+          "line": 645,
+          "text": "PR #112: release/installer: adversarial CLI fixtures (#113)"
+        },
+        {
+          "level": 2,
+          "line": 675,
+          "text": "PR #113: sync: prove the full spine reaches a peer over mini sync alone (#114)"
+        },
+        {
+          "level": 2,
+          "line": 705,
+          "text": "PR #114: Networked multi-round Tendermint consensus \u2014 `mini-consensus` (D-0200\u2013D-0203)"
+        },
+        {
+          "level": 2,
+          "line": 737,
+          "text": "PR #115: forge: no-GitHub outage demo (#115)"
+        },
+        {
+          "level": 2,
+          "line": 767,
+          "text": "PR #116: mini-consensus: equivocation evidence + re-gossip over partial meshes (D-0204, D-0205)"
+        },
+        {
+          "level": 2,
+          "line": 797,
+          "text": "PR #117: governance: integrate founder-supplied Governance Pack v1.0 (D-0082)"
+        },
+        {
+          "level": 2,
+          "line": 829,
+          "text": "PR #118: governance: activate Primary AI Engineer charter v1.1"
+        },
+        {
+          "level": 2,
+          "line": 861,
+          "text": "PR #119: consensus: edge-case attack review \u2014 timestamps, replay, fee manipulation (closes #44)"
+        },
+        {
+          "level": 2,
+          "line": 893,
+          "text": "PR #120: consensus: wire mini_bearer::Channel into TcpMesh \u2014 links now confidential and tamper-evident"
+        },
+        {
+          "level": 2,
+          "line": 923,
+          "text": "PR #121: security: harden consensus timestamp, replay, and fee handling"
+        },
+        {
+          "level": 2,
+          "line": 953,
+          "text": "PR #123: uniqueness: rename HumanStatus::FullHuman to EvidenceQualifiedHuman (D-0086)"
+        },
+        {
+          "level": 2,
+          "line": 983,
+          "text": "PR #124: consensus/value: deterministic timestamps + fee-overflow fix (D-0087, reconciles PR #121)"
+        },
+        {
+          "level": 2,
+          "line": 1015,
+          "text": "PR #125: identity/consensus: KEL freshness pin + equivocation-evidence consequence (D-0088)"
+        },
+        {
+          "level": 2,
+          "line": 1047,
+          "text": "PR #126: docs: credential taxonomy, custody-separation clause, docs-supersession finding (D-0089)"
+        },
+        {
+          "level": 2,
+          "line": 1077,
+          "text": "PR #127: docs: canonicalize the 17 Founder Directives; generate constitution registry (D-0090)"
+        },
+        {
+          "level": 2,
+          "line": 1107,
+          "text": "PR #128: sync/bearer: real mid-transfer TCP-kill resume test; local peer discovery over UDP multicast (D-0091)"
+        },
+        {
+          "level": 2,
+          "line": 1137,
+          "text": "PR #129: mini-net: peer exchange (PEX) discovery over real TCP (D-0092)"
+        },
+        {
+          "level": 2,
+          "line": 1167,
+          "text": "PR #130: mini-consensus: state sync / catch-up over real TCP (D-0093)"
+        },
+        {
+          "level": 2,
+          "line": 1197,
+          "text": "PR #131: Adopt founder research V2 (cost doctrine); ship mini-privacy-policy (D-0094)"
+        },
+        {
+          "level": 2,
+          "line": 1227,
+          "text": "PR #138: mini-transport-policy: TransportRequest policy router (L2, MN-201, D-0301)"
+        },
+        {
+          "level": 2,
+          "line": 1259,
+          "text": "PR #139: mini-resource-pricing: PriceVector/quote engine (L4, MN-601, D-0302)"
+        },
+        {
+          "level": 2,
+          "line": 1289,
+          "text": "PR #140: Human-evidence taxonomy reconciliation: no rival taxonomy (L5, MN-401, D-0303)"
+        },
+        {
+          "level": 2,
+          "line": 1319,
+          "text": "PR #141: ObjectEnvelope v2 + capability grants + scoped pseudonyms (L1, D-0304)"
+        },
+        {
+          "level": 2,
+          "line": 1351,
+          "text": "PR #142: Sphinx-style mix network research report + protocol spec (L3, MN-204, D-0305)"
+        },
+        {
+          "level": 2,
+          "line": 1381,
+          "text": "PR #143: Privacy/cost-doctrine lanes L1, L3, L4, L5 (consolidated): object privacy boundary, mixnet research, resource pricing, human-evidence taxonomy"
+        },
+        {
+          "level": 2,
+          "line": 1413,
+          "text": "PR #145: mini-relay: Tier 1 relay + rendezvous protocol (L6, MN-202, D-0306)"
+        },
+        {
+          "level": 2,
+          "line": 1443,
+          "text": "PR #146: mini-relay follow-up: route-decision wiring + live TCP demo (D-0307, D-0308)"
+        },
+        {
+          "level": 2,
+          "line": 1473,
+          "text": "PR #147: mini-bridge + mini-private-index: pluggable transports (MN-207) and private-lookup boundary (MN-208)"
+        },
+        {
+          "level": 2,
+          "line": 1505,
+          "text": "PR #148: mini-crypto: SignatureSuite::MlDsa65 verify-only support (D-0095, issue #15 Phase 1)"
+        },
+        {
+          "level": 2,
+          "line": 1535,
+          "text": "PR #149: KEL witness receipts + duplicity gossip: design direction for the \"never seen a fresher log\" gap (D-0096, audit #12 F4)"
+        },
+        {
+          "level": 2,
+          "line": 1565,
+          "text": "PR #150: mini-bridge: generic Tor PT v1 process manager (D-0097, PR2 of bridge-adapter-integration sequence)"
+        },
+        {
+          "level": 2,
+          "line": 1595,
+          "text": "PR #151: mini-private-index/mini-resource-pricing: PIR + anonymous resource-payment research preparation (D-0098, D-0099)"
+        },
+        {
+          "level": 2,
+          "line": 1625,
+          "text": "PR #152: Native Intake / Public Commons / Open Web Search: founder decisions D-0311, D-0312 + legal disclaimer + priority update"
+        },
+        {
+          "level": 2,
+          "line": 1655,
+          "text": "PR #153: mini-intake-types: shared Mininet Intake vocabulary (D-0313, Track B1)"
+        },
+        {
+          "level": 2,
+          "line": 1685,
+          "text": "PR #154: Harden social, storage, and forge validation"
+        },
+        {
+          "level": 2,
+          "line": 1715,
+          "text": "PR #156: ci: narrow the reproducibility check's PR trigger + reduce docs-log merge friction (D-0314)"
+        },
+        {
+          "level": 2,
+          "line": 1747,
+          "text": "PR #157: coordination: add bootstrap work claims"
+        },
+        {
+          "level": 2,
+          "line": 1777,
+          "text": "PR #158: Scale and harden filesystem store traversal"
+        },
+        {
+          "level": 2,
+          "line": 1807,
+          "text": "PR #159: mini-intake: trusted intake coordinator (D-0315, Track B2)"
+        },
+        {
+          "level": 2,
+          "line": 1839,
+          "text": "PR #160: mini-web-types: MiniSearch shared vocabulary (D-0316)"
+        },
+        {
+          "level": 2,
+          "line": 1869,
+          "text": "PR #162: mini-crawler: deterministic MiniSearch crawl planning (D-0317)"
+        },
+        {
+          "level": 2,
+          "line": 1901,
+          "text": "PR #163: Forge: add strict release log queries"
+        },
+        {
+          "level": 2,
+          "line": 1931,
+          "text": "PR #164: Forge: validate branch head targets"
+        },
+        {
+          "level": 2,
+          "line": 1961,
+          "text": "PR #165: Make CLI sequence allocation process-safe"
+        },
+        {
+          "level": 2,
+          "line": 1991,
+          "text": "PR #166: Forge: add governed native release fetch"
+        },
+        {
+          "level": 2,
+          "line": 2021,
+          "text": "PR #170: Windows social UI, People discovery, and route-scoped Inbox beta"
+        },
+        {
+          "level": 2,
+          "line": 2053,
+          "text": "PR #171: fix(mini-installer): compile on non-Unix hosts (D-0318, closes #167)"
+        },
+        {
+          "level": 2,
+          "line": 2085,
+          "text": "PR #172: mini-extract: isolated extractor protocol + process host (D-0319, Track B3)"
+        },
+        {
+          "level": 2,
+          "line": 2115,
+          "text": "PR #174: ci(reproducibility): build only the artifacts the job actually hashes (D-0320, closes #173)"
+        },
+        {
+          "level": 2,
+          "line": 2147,
+          "text": "PR #176: mini-crypto: ML-DSA-65 key generation + isolated signing (D-0322, Phase 2)"
+        },
+        {
+          "level": 2,
+          "line": 2177,
+          "text": "PR #179: Android mobile foundation: UniFFI core and Compose shell"
+        },
+        {
+          "level": 2,
+          "line": 2207,
+          "text": "PR #180: did-mini: KEL witness receipt types (D-0321, Phase 1 of D-0096)"
+        },
+        {
+          "level": 2,
+          "line": 2237,
+          "text": "PR #181: docs: add the project's first public whitepaper (D-0323)"
+        },
+        {
+          "level": 2,
+          "line": 2267,
+          "text": "PR #183: fix(mini-extract-host): make a zero-millisecond deadline a deterministic timeout"
+        },
+        {
+          "level": 2,
+          "line": 2297,
+          "text": "PR #185: fix(ci): make the reproducibility required check always reach a conclusion"
+        },
+        {
+          "level": 2,
+          "line": 2327,
+          "text": "PR #187: did-mini: in-memory witness state machine + duplicity proofs (D-0326, Phase 2 of KEL witness receipts)"
+        },
+        {
+          "level": 2,
+          "line": 2357,
+          "text": "PR #189: mini-store: chronological index \u2014 Store::since/Store::recent (D-0327, Batch 5 forge priority)"
+        },
+        {
+          "level": 2,
+          "line": 2387,
+          "text": "PR #191: did-mini: KEL witness receipts Phase 3 \u2014 KelAssurance, chain-verified observe, duplicity registry (D-0328/D-0329/D-0330)"
+        }
+      ],
+      "keywords": [
+        "track",
+        "add",
+        "real",
+        "closes",
+        "forge",
+        "phase",
+        "batch",
+        "review",
+        "roadmap",
+        "fix",
+        "release",
+        "evidence",
+        "consensus",
+        "kel",
+        "witness",
+        "bounded",
+        "founder",
+        "spine",
+        "research",
+        "head",
+        "doc",
+        "build",
+        "sync",
+        "bridge"
+      ],
+      "lines": 5383,
+      "path": "docs/audits/pr-history-2026-09-08/ALL_174_PR_REVIEWS.md",
+      "sha256": "1391caedd1056256e5af7446a76d072eaee6d9d8c0683c653c4721827ffea769",
+      "symbols": [],
+      "title": "Exhaustive Mininet PR-by-PR substantive review"
+    },
+    {
+      "bytes": 1764369,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "mininet-labs",
+        "github",
+        "https",
+        "com",
+        "t07",
+        "t23",
+        "json",
+        "mini-chain",
+        "collection",
+        "completion",
+        "review",
+        "capture",
+        "inventory",
+        "review_completed",
+        "false",
+        "dossier",
+        "url",
+        "ba9c79976962c0537ad69229fe5da84ef7b10135",
+        "cargo",
+        "lock",
+        "audits",
+        "pr-history-2026-09-08",
+        "evidence_map",
+        "schema_version"
+      ],
+      "lines": 34803,
+      "path": "docs/audits/pr-history-2026-09-08/EVIDENCE_MAP.json",
+      "sha256": "755bc45c079ffa0408f5d70cef1838ad0e66559b249a0b66282df41431817a32",
+      "symbols": [],
+      "title": "{"
+    },
+    {
+      "bytes": 52216,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Cross-system findings and implementation plan"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "Reading the findings"
+        },
+        {
+          "level": 2,
+          "line": 21,
+          "text": "F-01 - FROST signing nonces can be reused through the public API"
+        },
+        {
+          "level": 2,
+          "line": 37,
+          "text": "F-02 - FROST share verification can index a missing signing participant"
+        },
+        {
+          "level": 2,
+          "line": 53,
+          "text": "F-03 - FROST scalar wire decoding accepts multiple encodings"
+        },
+        {
+          "level": 2,
+          "line": 69,
+          "text": "F-04 - A corrupt author sequence file silently becomes a fresh counter"
+        },
+        {
+          "level": 2,
+          "line": 85,
+          "text": "F-05 - Witness state is accepted in memory before durable commitment"
+        },
+        {
+          "level": 2,
+          "line": 101,
+          "text": "F-06 - Witness transition certification needs its own anti-equivocation state"
+        },
+        {
+          "level": 2,
+          "line": 117,
+          "text": "F-07 - Consensus orders shielded key images without proving spend validity"
+        },
+        {
+          "level": 2,
+          "line": 133,
+          "text": "F-08 - ProvenCapacity can be constructed from unverified declarations"
+        },
+        {
+          "level": 2,
+          "line": 149,
+          "text": "F-09 - Intake review labels and crash journals are not authority proofs"
+        },
+        {
+          "level": 2,
+          "line": 165,
+          "text": "F-10 - Signature size and count limits have drifted under new names"
+        },
+        {
+          "level": 2,
+          "line": 181,
+          "text": "F-11 - The dependency scanner can accept a parseable error report as success"
+        },
+        {
+          "level": 2,
+          "line": 197,
+          "text": "F-12 - Replay persistence can fail open across restart and malformed tails"
+        },
+        {
+          "level": 2,
+          "line": 213,
+          "text": "F-13 - Capability signature validity is not resource-owner authorization"
+        },
+        {
+          "level": 2,
+          "line": 229,
+          "text": "F-14 - Anonymous channel confidentiality and validator admission are different properties"
+        },
+        {
+          "level": 2,
+          "line": 245,
+          "text": "F-15 - Plans and quotes can overstate achieved privacy"
+        },
+        {
+          "level": 2,
+          "line": 261,
+          "text": "F-16 - Appliance backup and restore need a stronger local-secret boundary"
+        },
+        {
+          "level": 2,
+          "line": 277,
+          "text": "F-17 - Founder-guarded governance is a declared current central control point"
+        },
+        {
+          "level": 2,
+          "line": 293,
+          "text": "F-18 - F5 has deliberately failed economic and resource gates"
+        },
+        {
+          "level": 2,
+          "line": 309,
+          "text": "F-19 - Personhood and operator independence remain empirical trust dependencies"
+        },
+        {
+          "level": 2,
+          "line": 325,
+          "text": "F-20 - Airdrop claim bookkeeping is not atomic successful payment"
+        },
+        {
+          "level": 2,
+          "line": 341,
+          "text": "F-21 - Search pluralism requires honest provenance, not blind score trust"
+        },
+        {
+          "level": 2,
+          "line": 357,
+          "text": "F-22 - Chunk Merkle consistency is not an independently finalized chunk root"
+        },
+        {
+          "level": 2,
+          "line": 373,
+          "text": "F-23 - Post-quantum primitive support is not post-quantum identity recovery"
+        },
+        {
+          "level": 2,
+          "line": 389,
+          "text": "F-24 - Audit and decision machinery can be structurally consistent but false"
+        },
+        {
+          "level": 2,
+          "line": 405,
+          "text": "Implementation order and stop conditions"
+        }
+      ],
+      "keywords": [
+        "github",
+        "https",
+        "com",
+        "mininet-labs",
+        "frost",
+        "signing",
+        "mini-treasury",
+        "frost_sign",
+        "api",
+        "evidence",
+        "prs",
+        "findings",
+        "missing",
+        "participant",
+        "commitment",
+        "fail",
+        "boundary",
+        "audit",
+        "baa103c075299a375d1ed9a3327185c0ba02b",
+        "records",
+        "pull",
+        "pair",
+        "implementation",
+        "public"
+      ],
+      "lines": 414,
+      "path": "docs/audits/pr-history-2026-09-08/FINDINGS_AND_IMPROVEMENTS.md",
+      "sha256": "87d380b907c64f4be45ac6158d33927c10ddec31238c6fa4463f44d6f241f3fb",
+      "symbols": [],
+      "title": "Cross-system findings and implementation plan"
+    },
+    {
+      "bytes": 23774,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Mininet: founder vision, whole-history review and production verdict"
+        },
+        {
+          "level": 2,
+          "line": 17,
+          "text": "Overall judgment"
+        },
+        {
+          "level": 2,
+          "line": 27,
+          "text": "What the founder's idea demands"
+        },
+        {
+          "level": 2,
+          "line": 33,
+          "text": "The actual build story"
+        },
+        {
+          "level": 3,
+          "line": 35,
+          "text": "Before PR #1: the repository was not empty"
+        },
+        {
+          "level": 3,
+          "line": 39,
+          "text": "#1-#100: executable roots, then the value/finality boundary"
+        },
+        {
+          "level": 3,
+          "line": 43,
+          "text": "#101-#130: a network that can build and recover itself"
+        },
+        {
+          "level": 3,
+          "line": 47,
+          "text": "#131-#195: privacy policy, applications and witnessed identity"
+        },
+        {
+          "level": 3,
+          "line": 51,
+          "text": "#206-#270: devices, edge services and usable contribution workflows"
+        },
+        {
+          "level": 3,
+          "line": 55,
+          "text": "#271-#306: economics and transport meet adversarial reality"
+        },
+        {
+          "level": 3,
+          "line": 59,
+          "text": "#307-#326: privacy composition and assurance are closer, not finished"
+        },
+        {
+          "level": 2,
+          "line": 63,
+          "text": "Verdict on each canonical directive"
+        },
+        {
+          "level": 3,
+          "line": 67,
+          "text": "FD-01: Humanity Before Technology - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 73,
+          "text": "FD-02: Assume Every Central Authority Will Eventually Fail - FAIL"
+        },
+        {
+          "level": 3,
+          "line": 79,
+          "text": "FD-03: The Network Must Outlive Its Creators - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 85,
+          "text": "FD-04: Money Is Never Worth More Than Legitimacy - FAIL"
+        },
+        {
+          "level": 3,
+          "line": 91,
+          "text": "FD-05: Canonical Truth Is Sacred - FAIL"
+        },
+        {
+          "level": 3,
+          "line": 97,
+          "text": "FD-06: Design for Failure, Not Success - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 103,
+          "text": "FD-07: Forks Must Remain Free, But Legitimacy Must Be Earned - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 109,
+          "text": "FD-08: The Human Is the Root of Trust - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 115,
+          "text": "FD-09: Privacy Is Structural - FAIL"
+        },
+        {
+          "level": 3,
+          "line": 121,
+          "text": "FD-10: Every Optimization Has a Cost - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 127,
+          "text": "FD-11: The Weakest Device Matters Most - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 133,
+          "text": "FD-12: AI Serves Humanity - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 139,
+          "text": "FD-13: Think in Centuries - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 145,
+          "text": "FD-14: Simplicity Is Security - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 151,
+          "text": "FD-15: Build for the Honest Majority, Defend Against the Malicious Minority - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 157,
+          "text": "FD-16: Preserve the Voice/Value Wall at All Costs - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 163,
+          "text": "FD-17: Every Decision Must Survive the Future Child Test - PARTIAL"
+        },
+        {
+          "level": 3,
+          "line": 169,
+          "text": "FD-18: The Edge May Be Convenient; The Core May Never Depend On It - PARTIAL"
+        },
+        {
+          "level": 2,
+          "line": 175,
+          "text": "The most important architectural correction"
+        },
+        {
+          "level": 2,
+          "line": 181,
+          "text": "What must not be weakened to ship"
+        },
+        {
+          "level": 2,
+          "line": 187,
+          "text": "Scope corrections to earlier reports"
+        }
+      ],
+      "keywords": [
+        "partial",
+        "review",
+        "what",
+        "value",
+        "evidence",
+        "founder",
+        "build",
+        "boundary",
+        "canonical",
+        "fail",
+        "but",
+        "source",
+        "production",
+        "network",
+        "privacy",
+        "every",
+        "central",
+        "its",
+        "prs",
+        "external",
+        "does",
+        "inventory",
+        "vision",
+        "verdict"
+      ],
+      "lines": 192,
+      "path": "docs/audits/pr-history-2026-09-08/MASTER_REVIEW.md",
+      "sha256": "2dfba8da1d789c1abdd3b21de24abd1050ba1bc20ec317c597907aee6c8e8e95",
+      "symbols": [],
+      "title": "Mininet: founder vision, whole-history review and production verdict"
+    },
+    {
+      "bytes": 1975,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "path",
+        "source_attachment",
+        "bytes",
+        "sha256",
+        "git_blob_sha",
+        "json",
+        "html",
+        "audits",
+        "pr-history-2026-09-08",
+        "publication_manifest",
+        "schema_version",
+        "publication_date",
+        "canonical_source",
+        "baa103c075299a375d1ed9a3327185c0ba02b",
+        "through_pr",
+        "pr_count",
+        "merged",
+        "closed_unmerged",
+        "files",
+        "master_review",
+        "mininet_executive_review",
+        "fef2864d80361686434a9c83ae5f4724892f25be",
+        "findings_and_improvements",
+        "mininet_findings_and_improvements"
+      ],
+      "lines": 51,
+      "path": "docs/audits/pr-history-2026-09-08/PUBLICATION_MANIFEST.json",
+      "sha256": "2c00e29ab09b8d68ef7f05270d0864ffd6a1d7f6f3d4cec818366d9e15e86eee",
+      "symbols": [],
+      "title": "{"
+    },
+    {
+      "bytes": 4823,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Complete review publication - 2026-09-08"
+        },
+        {
+          "level": 2,
+          "line": 5,
+          "text": "Read the review"
+        },
+        {
+          "level": 2,
+          "line": 16,
+          "text": "Traceability and reproducible checks"
+        },
+        {
+          "level": 2,
+          "line": 40,
+          "text": "Original evidence retention"
+        },
+        {
+          "level": 2,
+          "line": 46,
+          "text": "Recommendations are not implemented fixes"
+        }
+      ],
+      "keywords": [
+        "review",
+        "publication",
+        "evidence",
+        "json",
+        "checks",
+        "historical",
+        "its",
+        "evidence_map",
+        "audits",
+        "pr-history-2026-09-08",
+        "complete",
+        "later",
+        "html",
+        "records",
+        "approval",
+        "archive",
+        "original",
+        "four",
+        "every",
+        "source",
+        "does",
+        "improvements",
+        "reports",
+        "raw"
+      ],
+      "lines": 51,
+      "path": "docs/audits/pr-history-2026-09-08/README.md",
+      "sha256": "04877437f1904e240af973e181cc804d9b09f6cbfe5f72e032dfda09680b0398",
+      "symbols": [],
+      "title": "Complete review publication - 2026-09-08"
+    },
+    {
+      "bytes": 5047,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Publication validation record - 2026-09-08"
+        },
+        {
+          "level": 2,
+          "line": 3,
+          "text": "Scope"
+        },
+        {
+          "level": 2,
+          "line": 15,
+          "text": "Checks actually completed during publication"
+        },
+        {
+          "level": 2,
+          "line": 29,
+          "text": "Historical claims are not new results"
+        },
+        {
+          "level": 2,
+          "line": 37,
+          "text": "Evidence lifetime and authority"
+        }
+      ],
+      "keywords": [
+        "publication",
+        "original",
+        "checks",
+        "html",
+        "github",
+        "map",
+        "json",
+        "actions",
+        "runs",
+        "recorded",
+        "capture",
+        "pass",
+        "https",
+        "com",
+        "mininet-labs",
+        "validation",
+        "record",
+        "historical",
+        "new",
+        "evidence",
+        "source",
+        "exact",
+        "sha-256",
+        "run"
+      ],
+      "lines": 42,
+      "path": "docs/audits/pr-history-2026-09-08/VALIDATION_RECORD.md",
+      "sha256": "78d0f973d65263fbfd596c1569a9d432eb87531711fb65d254100b9d255f6e0e",
+      "symbols": [],
+      "title": "Publication validation record - 2026-09-08"
+    },
+    {
+      "bytes": 2574,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "row",
+        "key",
+        "json",
+        "archive",
+        "import",
+        "raise",
+        "rows",
+        "result",
+        "output",
+        "evidence",
+        "sys",
+        "path",
+        "len",
+        "hashlib",
+        "zipfile",
+        "expected",
+        "valueerror",
+        "capture",
+        "inv",
+        "inventory",
+        "source",
+        "pull_requests",
+        "raw",
+        "files"
+      ],
+      "lines": 46,
+      "path": "docs/audits/pr-history-2026-09-08/build_evidence_map.py",
+      "sha256": "3f63a5cbd9e17a323278d55f8520d7a46254257c17eb4267ca30fdcb25068f97",
+      "symbols": [],
+      "title": "\"\"\"Build the publication evidence index from the exact captured GitHub ZIP."
+    },
+    {
+      "bytes": 5146,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "require",
+        "html",
+        "path",
+        "root",
+        "str",
+        "len",
+        "import",
+        "entry",
+        "self",
+        "values",
+        "mismatch",
+        "rows",
+        "row",
+        "copy",
+        "verify",
+        "json",
+        "ids",
+        "pieces",
+        "numbers",
+        "target",
+        "def",
+        "none",
+        "valueerror",
+        "data"
+      ],
+      "lines": 109,
+      "path": "docs/audits/pr-history-2026-09-08/verify_publication.py",
+      "sha256": "16957d7b2a5c1c92146b587c88995848679db674321ad8f494b09d5b2e52bb1b",
+      "symbols": [],
+      "title": "\"\"\"Verify publication bytes and coverage, not protocol security or audit quality.\"\"\""
     },
     {
       "bytes": 8870,
@@ -96279,7 +97492,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 81198,
+      "bytes": 82063,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -96308,9 +97521,9 @@
         "independently",
         "both"
       ],
-      "lines": 1203,
+      "lines": 1224,
       "path": "governance/work-claims.json",
-      "sha256": "bcdd0fc8316940df86318c73d18323c6c0835d2345f2f467c85ad80f349496f1",
+      "sha256": "c140eb66b7c66dde4e7074b484baab0aa78d37788df487cf82afe0d733521aea",
       "symbols": [],
       "title": "{"
     },
@@ -96676,6 +97889,42 @@
       "sha256": "f38ac4699fb6d128cd1ae83be0d63e7b320f71a48af49ea4b9fe0c3a96b70f7e",
       "symbols": [],
       "title": "Pinning the toolchain is part of moving toward reproducible builds (SPEC-11)."
+    },
+    {
+      "bytes": 7801,
+      "group": "tools",
+      "headings": [],
+      "keywords": [
+        "path",
+        "info",
+        "import",
+        "number",
+        "parser",
+        "raise",
+        "len",
+        "root",
+        "commits",
+        "pages",
+        "valueerror",
+        "true",
+        "pulls",
+        "files",
+        "api",
+        "comments",
+        "reviews",
+        "json",
+        "def",
+        "sha",
+        "add_argument",
+        "required",
+        "export",
+        "github"
+      ],
+      "lines": 144,
+      "path": "tools/audit_history_export.py",
+      "sha256": "2e906859e9e63a311856bc7082a9990bf5e1b7ad3f8cd1f70fae068f562d6c1c",
+      "symbols": [],
+      "title": "\"\"\"Export public PR evidence without interpreting it as review or approval."
     },
     {
       "bytes": 12014,

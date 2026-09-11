@@ -14,12 +14,14 @@
 //! is the UniFFI object wrapping `mini_bearer::AndroidBleBearer` that
 //! Kotlin drives with `send`/`recv`/`try_recv`.
 //!
-//! **Honest limit:** this module still never touches a real radio. No
-//! Kotlin `BluetoothGattServer`/`BluetoothGattCallback` implementation of
-//! [`BleRadio`] exists yet, and nothing here can be exercised end to end
-//! without one — Android CI's `assembleDebug` plus a real two-device test
-//! remain the only gates that actually prove this wiring works, exactly
-//! as D-0374 named.
+//! **Honest limit:** this module itself still never touches a real radio
+//! — by design, it is pure chunk-shuttling logic. D-0502 added the
+//! Kotlin-side `BluetoothGattServer`/`BluetoothGattCallback`
+//! implementations of [`BleRadio`]
+//! (`org.mininet.app.BlePeripheralRadio`/`BleCentralRadio`), but nothing
+//! in that chain has been exercised end to end yet — Android CI's
+//! `assembleDebug` plus a real two-device test remain the only gates that
+//! actually prove this wiring works, exactly as D-0374 named.
 
 use std::sync::Mutex;
 
