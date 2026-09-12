@@ -19,6 +19,29 @@ jobs:
           fetch-depth: 0
       - name: Install pinned Rust toolchain
         run: rustup show
+      - name: Repair test borrow ordering found by first compile pass
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('crates/mini-beta-exec/tests/execution.rs')
+          s = p.read_text()
+          anchor = '    let mut f = Fixture::new();\n    let transfer = create_transfer(\n'
+          replacement = '    let mut f = Fixture::new();\n    let grant_ref = f.grant_ref();\n    let transfer = create_transfer(\n'
+          count = s.count(anchor)
+          if count != 4:
+              raise SystemExit(f'expected four single-transfer fixture anchors, found {count}')
+          s = s.replace(anchor, replacement)
+          double_anchor = '    let mut f = Fixture::new();\n    let first = create_transfer(\n'
+          double_replacement = '    let mut f = Fixture::new();\n    let grant_ref = f.grant_ref();\n    let first = create_transfer(\n'
+          if s.count(double_anchor) != 1:
+              raise SystemExit(f'expected one double-spend fixture anchor, found {s.count(double_anchor)}')
+          s = s.replace(double_anchor, double_replacement, 1)
+          count_refs = s.count('&[f.grant_ref()],')
+          if count_refs != 6:
+              raise SystemExit(f'expected six inline grant refs, found {count_refs}')
+          s = s.replace('&[f.grant_ref()],', '&[grant_ref.clone()],')
+          p.write_text(s)
+          PY
       - name: Format, compile, and update lock through Cargo
         run: |
           cargo fmt --all
@@ -34,7 +57,7 @@ jobs:
           rm .github/workflows/pr343-one-shot-compile.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Cargo.lock Cargo.toml crates/mini-beta-exec docs/design/durable-beta-mini-execution.md .github/workflows/pr343-one-shot-compile.yml
+          git add Cargo.lock Cargo.toml crates/mini-beta-exec docs/design/durable-beta-mini-execution.md forge-native/schemas/beta-account.schema.json .github/workflows/pr343-one-shot-compile.yml
           git diff --cached --check
           git commit -m 'Compile-proof durable Beta execution core'
           git push origin HEAD:gpt/issue-337-durable-beta-execution
