@@ -63,7 +63,7 @@ pub enum BetaError {
     InvalidPolicy,
     /// A grant belongs to a different beta epoch.
     WrongEpoch,
-    /// A grant authorization has already been applied to this ledger.
+    /// A grant authorization or contribution has already been applied.
     DuplicateGrant,
     /// Applying the grant would exceed a per-grant or epoch-supply bound.
     GrantLimitExceeded,
@@ -81,7 +81,7 @@ impl core::fmt::Display for BetaError {
             Self::InvalidObject => write!(f, "invalid beta object"),
             Self::InvalidPolicy => write!(f, "invalid beta policy"),
             Self::WrongEpoch => write!(f, "beta grant belongs to a different epoch"),
-            Self::DuplicateGrant => write!(f, "beta grant already applied"),
+            Self::DuplicateGrant => write!(f, "beta grant or contribution already applied"),
             Self::GrantLimitExceeded => write!(f, "beta grant or epoch limit exceeded"),
             Self::InsufficientBalance => write!(f, "insufficient Beta MINI balance"),
             Self::Store(e) => write!(f, "store: {e}"),
@@ -533,7 +533,7 @@ pub struct BetaGrantAuthorization {
     pub contribution_id: Option<ObjectId>,
     /// Resettable beta epoch.
     pub epoch: BetaEpochId,
-    /// Opaque beta account destination.
+    /// Opaque Beta MINI account destination.
     pub account: BetaAccountId,
     /// Testing or participation grant.
     pub class: GrantClass,
@@ -770,15 +770,16 @@ pub fn create_grant_authorization<B: Backend>(
         return Err(BetaError::GrantLimitExceeded);
     }
 
-    let contribution = match contribution_id {
-        Some(id) => {
+    let contribution = match (class, contribution_id) {
+        (GrantClass::Participation, Some(id)) => {
             let object = store.get(id)?;
             Some(parse_contribution_object(&object)?)
         }
-        None => None,
+        (GrantClass::Participation, None) => return Err(BetaError::InvalidObject),
+        (GrantClass::Testing, Some(_)) => return Err(BetaError::InvalidObject),
+        (GrantClass::Testing, None) => None,
     };
-    if class == GrantClass::Participation {
-        let contribution = contribution.as_ref().ok_or(BetaError::InvalidObject)?;
+    if let Some(contribution) = contribution.as_ref() {
         if contribution.campaign_id.as_ref() != Some(campaign_id) {
             return Err(BetaError::InvalidObject);
         }
@@ -1030,8 +1031,11 @@ pub fn parse_grant_object(object: &Object) -> Result<BetaGrantAuthorization> {
     if off != bytes.len() || amount == 0 {
         return Err(BetaError::InvalidObject);
     }
-    if class == GrantClass::Participation && contribution_id.is_none() {
-        return Err(BetaError::InvalidObject);
+    match (class, contribution_id.as_ref()) {
+        (GrantClass::Participation, Some(_)) | (GrantClass::Testing, None) => {}
+        (GrantClass::Participation, None) | (GrantClass::Testing, Some(_)) => {
+            return Err(BetaError::InvalidObject)
+        }
     }
     Ok(BetaGrantAuthorization {
         id: object.id().clone(),
@@ -1087,13 +1091,16 @@ impl BetaMiniPolicy {
 /// This ledger intentionally accepts already-selected grant authorizations; it
 /// does not decide which signer has authority to issue them. That selection is
 /// an outer beta/Forge policy concern and, critically, balances never feed back
-/// into it.
+/// into it. The apply path nevertheless re-loads every referenced signed object
+/// from the store and enforces object/campaign/contribution consistency; a
+/// convenience-builder check is never treated as a security boundary.
 #[derive(Debug, Clone)]
 pub struct BetaMiniLedger {
     epoch: BetaEpochId,
     policy: BetaMiniPolicy,
     balances: HashMap<BetaAccountId, u64>,
     applied_grants: HashSet<ObjectId>,
+    spent_contributions: HashSet<ObjectId>,
     total_issued: u64,
 }
 
@@ -1106,6 +1113,7 @@ impl BetaMiniLedger {
             policy,
             balances: HashMap::new(),
             applied_grants: HashSet::new(),
+            spent_contributions: HashSet::new(),
             total_issued: 0,
         })
     }
@@ -1125,27 +1133,60 @@ impl BetaMiniLedger {
         self.balances.get(account).copied().unwrap_or(0)
     }
 
-    /// Apply one already-authorized grant exactly once.
-    pub fn apply_grant(&mut self, grant: &BetaGrantAuthorization) -> Result<()> {
+    /// Apply one stored, strictly parsed grant exactly once.
+    ///
+    /// The ledger reloads the grant, campaign and (for participation grants)
+    /// contribution from the content-addressed store. This prevents a caller
+    /// from bypassing campaign caps or contribution linkage by constructing a
+    /// `BetaGrantAuthorization` struct directly instead of using the builder.
+    pub fn apply_grant<B: Backend>(
+        &mut self,
+        store: &Store<B>,
+        grant_id: &ObjectId,
+    ) -> Result<()> {
+        let grant = parse_grant_object(&store.get(grant_id)?)?;
         if grant.epoch != self.epoch {
             return Err(BetaError::WrongEpoch);
         }
         if self.applied_grants.contains(&grant.id) {
             return Err(BetaError::DuplicateGrant);
         }
-        if grant.amount == 0 {
+
+        let campaign = parse_campaign_object(&store.get(&grant.campaign_id)?)?;
+        if campaign.epoch != grant.epoch {
             return Err(BetaError::InvalidObject);
         }
-        let per_grant_limit = match grant.class {
-            GrantClass::Testing => self.policy.max_testing_grant,
-            GrantClass::Participation => self.policy.max_participation_grant,
+
+        let contribution_to_spend = match grant.class {
+            GrantClass::Testing => {
+                let per_grant_limit = self
+                    .policy
+                    .max_testing_grant
+                    .min(campaign.default_testing_grant);
+                if grant.amount > per_grant_limit {
+                    return Err(BetaError::GrantLimitExceeded);
+                }
+                None
+            }
+            GrantClass::Participation => {
+                if grant.amount > self.policy.max_participation_grant {
+                    return Err(BetaError::GrantLimitExceeded);
+                }
+                let contribution_id = grant
+                    .contribution_id
+                    .as_ref()
+                    .ok_or(BetaError::InvalidObject)?;
+                if self.spent_contributions.contains(contribution_id) {
+                    return Err(BetaError::DuplicateGrant);
+                }
+                let contribution = parse_contribution_object(&store.get(contribution_id)?)?;
+                if contribution.campaign_id.as_ref() != Some(&grant.campaign_id) {
+                    return Err(BetaError::InvalidObject);
+                }
+                Some(contribution_id.clone())
+            }
         };
-        if grant.amount > per_grant_limit {
-            return Err(BetaError::GrantLimitExceeded);
-        }
-        if grant.class == GrantClass::Participation && grant.contribution_id.is_none() {
-            return Err(BetaError::InvalidObject);
-        }
+
         let total_issued = self
             .total_issued
             .checked_add(grant.amount)
@@ -1157,9 +1198,13 @@ impl BetaMiniLedger {
         let balance = current
             .checked_add(grant.amount)
             .ok_or(BetaError::GrantLimitExceeded)?;
+
         self.balances.insert(grant.account, balance);
         self.total_issued = total_issued;
         self.applied_grants.insert(grant.id.clone());
+        if let Some(contribution_id) = contribution_to_spend {
+            self.spent_contributions.insert(contribution_id);
+        }
         Ok(())
     }
 
@@ -1174,12 +1219,12 @@ impl BetaMiniLedger {
         if amount == 0 {
             return Err(BetaError::InvalidObject);
         }
-        if from == to {
-            return Ok(());
-        }
         let from_balance = self.balance(from);
         if from_balance < amount {
             return Err(BetaError::InsufficientBalance);
+        }
+        if from == to {
+            return Ok(());
         }
         let to_balance = self
             .balance(to)
@@ -1191,8 +1236,8 @@ impl BetaMiniLedger {
     }
 
     /// Start a different epoch with zero balances, zero issued supply, and no
-    /// applied-grant history. There is deliberately no carry-over or conversion
-    /// mechanism.
+    /// applied-grant or spent-contribution history. There is deliberately no
+    /// carry-over or conversion mechanism.
     pub fn rollover(&self, new_epoch: BetaEpochId) -> Result<Self> {
         if new_epoch == self.epoch {
             return Err(BetaError::WrongEpoch);
@@ -1519,10 +1564,12 @@ mod tests {
             2,
         )
         .unwrap();
-        let grant = read_grant_authorization(&store, grant_object.id()).unwrap();
         let mut ledger = BetaMiniLedger::new(epoch, BetaMiniPolicy::open_beta_default()).unwrap();
-        ledger.apply_grant(&grant).unwrap();
-        assert!(matches!(ledger.apply_grant(&grant), Err(BetaError::DuplicateGrant)));
+        ledger.apply_grant(&store, grant_object.id()).unwrap();
+        assert!(matches!(
+            ledger.apply_grant(&store, grant_object.id()),
+            Err(BetaError::DuplicateGrant)
+        ));
         ledger
             .transfer(&alice, &bob, 125 * MICRO_BETA_MINI_PER_BETA_MINI)
             .unwrap();
@@ -1620,9 +1667,11 @@ mod tests {
             2,
         )
         .unwrap();
-        let parsed = read_grant_authorization(&store, grant.id()).unwrap();
         let mut ledger = BetaMiniLedger::new(epoch_b, BetaMiniPolicy::open_beta_default()).unwrap();
-        assert!(matches!(ledger.apply_grant(&parsed), Err(BetaError::WrongEpoch)));
+        assert!(matches!(
+            ledger.apply_grant(&store, grant.id()),
+            Err(BetaError::WrongEpoch)
+        ));
     }
 
     #[test]
