@@ -1,0 +1,78 @@
+name: PR341 fail closed on competing grant policies
+
+on:
+  push:
+    branches:
+      - gpt/issue-339-decentralized-beta-grants
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: gpt/issue-339-decentralized-beta-grants
+          fetch-depth: 0
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Add unique-policy fail-closed resolver
+        env:
+          CONFLICT_TEST_B64: CiNbdGVzdF0KZm4gY29tcGV0aW5nX3ZhbGlkX2NhbXBhaWduX3BvbGljaWVzX2ZhaWxfY2xvc2VkX2luc3RlYWRfb2ZfbG9jYWxfdGllX2JyZWFraW5nKCkgewogICAgbGV0IG11dCBmID0gRml4dHVyZTo6bmV3KCk7CiAgICBsZXQgZ3JhbnQgPSBmLnRlc3RpbmdfZ3JhbnQoQmV0YUFjY291bnRJZDo6bmV3KFsxNTsgMzJdKS51bndyYXAoKSwgInRlc3QiLCAxMCk7CiAgICBsZXQgYSA9IGYuYXBwcm92ZSgwLCBncmFudC5pZCgpLCAyMCk7CiAgICBsZXQgYiA9IGYuYXBwcm92ZSgxLCBncmFudC5pZCgpLCAyMSk7CiAgICBsZXQgbWVtYmVycyA9IGYuYXV0aG9yaXplcnMuaXRlcigpLm1hcChDb250cm9sbGVyOjpkaWQpLmNvbGxlY3Q6OjxWZWM8Xz4+KCk7CiAgICBsZXQgY29tcGV0aW5nID0gY3JlYXRlX2dyYW50X3BvbGljeSgKICAgICAgICAmbXV0IGYuc3RvcmUsCiAgICAgICAgJmYuY2FtcGFpZ25fYXV0aG9yLmRpZCgpLAogICAgICAgICZmLmNhbXBhaWduX2F1dGhvciwKICAgICAgICBmLmNhbXBhaWduLmlkKCksCiAgICAgICAgJm1lbWJlcnMsCiAgICAgICAgMiwKICAgICAgICAzLAogICAgICAgIDEwMCwKICAgICAgICAmWzEwLCAyNSwgNTBdLAogICAgICAgIDIwMCwKICAgICAgICA5XzAwMCwKICAgICAgICAxNTEsCiAgICAgICAgOTksCiAgICApCiAgICAudW53cmFwKCk7CiAgICBhc3NlcnRfbmUhKGNvbXBldGluZy5pZCgpLCBmLnBvbGljeS5pZCgpKTsKCiAgICBhc3NlcnQhKG1hdGNoZXMhKAogICAgICAgIHZhbGlkYXRlX2dyYW50X2FjY2VwdGFuY2UoCiAgICAgICAgICAgICZmLnN0b3JlLAogICAgICAgICAgICBmLnBvbGljeS5pZCgpLAogICAgICAgICAgICBncmFudC5pZCgpLAogICAgICAgICAgICAmW2EuaWQoKS5jbG9uZSgpLCBiLmlkKCkuY2xvbmUoKV0KICAgICAgICApLAogICAgICAgIEVycihHcmFudEFjY2VwdGFuY2VFcnJvcjo6UG9saWN5Q29uZmxpY3QpCiAgICApKTsKfQo=
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          p = Path('crates/mini-beta-grants/src/lib.rs')
+          s = p.read_text()
+          old = '    /// A policy was not signed by the campaign\'s record authority.\n    PolicyAuthorMismatch,\n    /// A grant did not satisfy deterministic policy rules.\n'
+          new = '    /// A policy was not signed by the campaign\'s record authority.\n    PolicyAuthorMismatch,\n    /// More than one valid policy exists for the same campaign. Fail closed; do not invent a local tie-break.\n    PolicyConflict,\n    /// A grant did not satisfy deterministic policy rules.\n'
+          if s.count(old) != 1:
+              raise SystemExit('error enum anchor missing')
+          s = s.replace(old, new, 1)
+          old = '            Self::PolicyAuthorMismatch => {\n                write!(f, "Beta grant policy author is not the campaign record author")\n            }\n            Self::GrantRuleViolation => write!(f, "Beta grant violates deterministic policy"),\n'
+          new = '            Self::PolicyAuthorMismatch => {\n                write!(f, "Beta grant policy author is not the campaign record author")\n            }\n            Self::PolicyConflict => write!(f, "multiple valid Beta grant policies exist for one campaign"),\n            Self::GrantRuleViolation => write!(f, "Beta grant violates deterministic policy"),\n'
+          if s.count(old) != 1:
+              raise SystemExit('display anchor missing')
+          s = s.replace(old, new, 1)
+          anchor = '/// Deterministically validate threshold evidence for one exact grant.\n'
+          resolver = '''/// Resolve the only valid grant policy for one campaign.  Competing valid\n/// policies fail closed: eventual replication must never cause one node to\n/// pick a local winner by timestamp, object id, arrival order, or repository.\npub fn resolve_unique_campaign_policy<B: Backend>(\n    store: &Store<B>,\n    campaign_id: &ObjectId,\n) -> Result<BetaGrantPolicy> {\n    let ids = store.by_type(&ObjectType::Custom(BETA_GRANT_POLICY_TYPE.to_string()))?;\n    let mut found: Option<BetaGrantPolicy> = None;\n    for id in ids {\n        let candidate = parse_grant_policy_object(&store.get(&id)?)?;\n        if &candidate.campaign_id != campaign_id {\n            continue;\n        }\n        let candidate = validate_policy(store, &id)?;\n        if found.is_some() {\n            return Err(GrantAcceptanceError::PolicyConflict);\n        }\n        found = Some(candidate);\n    }\n    found.ok_or(GrantAcceptanceError::InvalidPolicy)\n}\n\n'''
+          if s.count(anchor) != 1:
+              raise SystemExit('resolver insertion anchor missing')
+          s = s.replace(anchor, resolver + anchor, 1)
+          old = '    let policy = validate_policy(store, policy_id)?;\n    let grant = validate_grant_against_policy(store, &policy, grant_id)?;\n'
+          new = '    let policy = validate_policy(store, policy_id)?;\n    let unique = resolve_unique_campaign_policy(store, &policy.campaign_id)?;\n    if unique.id != *policy_id {\n        return Err(GrantAcceptanceError::PolicyConflict);\n    }\n    let grant = validate_grant_against_policy(store, &policy, grant_id)?;\n'
+          # Only patch the threshold validator occurrence, not the create-approval path.
+          idx = s.find('pub fn validate_grant_acceptance')
+          if idx < 0:
+              raise SystemExit('validator missing')
+          before, after = s[:idx], s[idx:]
+          if after.count(old) != 1:
+              raise SystemExit(f'validator policy-load anchor count {after.count(old)}')
+          s = before + after.replace(old, new, 1)
+          p.write_text(s)
+
+          t = Path('crates/mini-beta-grants/tests/acceptance.rs')
+          body = t.read_text()
+          test = base64.b64decode(os.environ['CONFLICT_TEST_B64']).decode()
+          if 'competing_valid_campaign_policies_fail_closed_instead_of_local_tie_breaking' not in body:
+              t.write_text(body.rstrip() + '\n' + test)
+          PY
+      - name: Strict focused verification
+        run: |
+          cargo fmt --all
+          cargo fmt --all -- --check
+          cargo clippy -p mini-beta-grants --all-targets --all-features -- -D warnings
+          cargo test -p mini-beta-grants --all-features
+      - name: Remove one-shot workflow and commit hardening
+        run: |
+          rm .github/workflows/pr341-policy-conflict-hardening.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/mini-beta-grants .github/workflows/pr341-policy-conflict-hardening.yml
+          git diff --cached --check
+          git commit -m 'Fail closed on competing Beta grant policies'
+          git push origin HEAD:gpt/issue-339-decentralized-beta-grants
