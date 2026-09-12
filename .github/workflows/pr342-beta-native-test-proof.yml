@@ -19,6 +19,34 @@ jobs:
           fetch-depth: 0
       - name: Install pinned Rust toolchain
         run: rustup show
+      - name: Keep fixture evidence outside the operator sequence lineage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('crates/mini-cli/tests/beta_native_flow.rs')
+          s = p.read_text()
+          old = '''    let identity = mini_cli::identity::load(&home).unwrap();
+    let mut store = mini_cli::store::open_store(&store_path).unwrap();
+    let source = ObjectBuilder::new(ObjectType::Custom("mininet.beta/test-source/v1".to_string()))
+        .timestamp_ms(1)
+        .sequence(1)
+        .payload(Payload::Public(b"accepted-work".to_vec()))
+        .sign(&identity.human_did(), &identity.device)
+        .unwrap();
+'''
+          new = '''    let source_author = did_mini::Controller::incept_single().unwrap();
+    let mut store = mini_cli::store::open_store(&store_path).unwrap();
+    let source = ObjectBuilder::new(ObjectType::Custom("mininet.beta/test-source/v1".to_string()))
+        .timestamp_ms(1)
+        .sequence(1)
+        .payload(Payload::Public(b"accepted-work".to_vec()))
+        .sign(&source_author.did(), &source_author)
+        .unwrap();
+'''
+          if s.count(old) != 1:
+              raise SystemExit('claim test fixture anchor missing')
+          p.write_text(s.replace(old, new, 1))
+          PY
       - name: Format and prove Beta native flow
         run: |
           cargo fmt --all
