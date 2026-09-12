@@ -301,8 +301,11 @@ so, everywhere, on purpose.
 - a public, installable Beta: the Android shell and LAN/QR pairing foundation
   exist, but two physical devices have not yet completed the full acceptance
   path, and the encrypted keystone/range/reward path is still separate
-- BLE / local-radio transport (needs real phone hardware and Kotlin radio
-  wiring)
+- BLE / local-radio transport: a real Rust multi-hop mesh relay driver
+  (`mini-mesh`) and Kotlin BLE central/peripheral wiring
+  (`BleMeshService.kt`/`BlePeripheralServer.kt`) both now exist and are
+  tested, but two-phone physical-hardware acceptance evidence is still
+  outstanding
 - production deployment of the networked consensus and a live chain (the
   current consensus slices are tested protocol work, not a production network)
 - external cryptography audit — the single largest gate before any real value
