@@ -8,8 +8,8 @@ use std::thread;
 use std::time::Duration;
 
 use mini_beta::{
-    create_campaign, read_contribution_receipt, read_finding, BetaEpochId,
-    BETA_CONTRIBUTION_TYPE, BETA_FINDING_TYPE,
+    create_campaign, read_contribution_receipt, read_finding, BetaEpochId, BETA_CONTRIBUTION_TYPE,
+    BETA_FINDING_TYPE,
 };
 use mini_objects::{ObjectBuilder, ObjectType, Payload};
 
@@ -270,14 +270,16 @@ fn accepted_contribution_stores_only_claim_commitment_not_private_preimage() {
     let home = tempdir("claim-home");
     let store_path = tempdir("claim-store");
     run(&["--home", home.to_str().unwrap(), "identity", "init"]);
-    let identity = mini_cli::identity::load(&home).unwrap();
+    let source_author = did_mini::Controller::incept_single().unwrap();
     let mut store = mini_cli::store::open_store(&store_path).unwrap();
-    let source = ObjectBuilder::new(ObjectType::Custom("mininet.beta/test-source/v1".to_string()))
-        .timestamp_ms(1)
-        .sequence(1)
-        .payload(Payload::Public(b"accepted-work".to_vec()))
-        .sign(&identity.human_did(), &identity.device)
-        .unwrap();
+    let source = ObjectBuilder::new(ObjectType::Custom(
+        "mininet.beta/test-source/v1".to_string(),
+    ))
+    .timestamp_ms(1)
+    .sequence(1)
+    .payload(Payload::Public(b"accepted-work".to_vec()))
+    .sign(&source_author.did(), &source_author)
+    .unwrap();
     store.insert(&source).unwrap();
     drop(store);
 
@@ -325,7 +327,9 @@ fn accepted_contribution_stores_only_claim_commitment_not_private_preimage() {
     let stored = store.get(&ids[0]).unwrap().to_bytes();
     let secret = hex_decode(secret_hex);
     assert!(
-        !stored.windows(secret.len()).any(|window| window == secret.as_slice()),
+        !stored
+            .windows(secret.len())
+            .any(|window| window == secret.as_slice()),
         "private claim preimage must never be stored in the public contribution object"
     );
 }

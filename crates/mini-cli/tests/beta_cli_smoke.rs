@@ -59,7 +59,13 @@ fn beta_empty_lists_and_claim_new_smoke() {
     );
 
     let disposition_list = run(&[
-        "--home", home_s, "--store", store_s, "beta", "disposition", "list",
+        "--home",
+        home_s,
+        "--store",
+        store_s,
+        "beta",
+        "disposition",
+        "list",
     ]);
     assert!(
         disposition_list.contains("no") || disposition_list.contains("disposition"),
@@ -67,7 +73,13 @@ fn beta_empty_lists_and_claim_new_smoke() {
     );
 
     let contribution_list = run(&[
-        "--home", home_s, "--store", store_s, "beta", "contribution", "list",
+        "--home",
+        home_s,
+        "--store",
+        store_s,
+        "beta",
+        "contribution",
+        "list",
     ]);
     assert!(
         contribution_list.contains("no accepted beta contributions")
@@ -77,11 +89,11 @@ fn beta_empty_lists_and_claim_new_smoke() {
 
     // Fresh private claim material must be generated without touching a
     // persistent contributor identity.
-    let claim_out = run(&[
-        "--home", home_s, "--store", store_s, "beta", "claim", "new",
-    ]);
+    let claim_out = run(&["--home", home_s, "--store", store_s, "beta", "claim", "new"]);
     assert!(
-        claim_out.to_lowercase().contains("claim") || claim_out.contains("ClaimTag") || claim_out.contains("account"),
+        claim_out.to_lowercase().contains("claim")
+            || claim_out.contains("ClaimTag")
+            || claim_out.contains("account"),
         "claim new should surface private claim/account material: {claim_out}"
     );
 
