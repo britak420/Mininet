@@ -69,11 +69,22 @@ fn ordinary_majority_needs_two_thirds_participation() {
 }
 
 #[test]
-fn major_and_emergency_fix_need_majority_of_all_seats() {
+fn major_motion_needs_quorum_and_majority_of_all_seats() {
+    let four_yes = yes_votes(4);
+    assert!(!motion_passes(MotionClass::Major, 7, &four_yes).unwrap());
+
+    let mut four_yes_one_abstain = four_yes;
+    four_yes_one_abstain.push(SeatVote {
+        seat: 4,
+        choice: VoteChoice::Abstain,
+    });
+    assert!(motion_passes(MotionClass::Major, 7, &four_yes_one_abstain).unwrap());
+}
+
+#[test]
+fn emergency_fix_needs_majority_of_all_seats() {
     let three = yes_votes(3);
     let four = yes_votes(4);
-    assert!(!motion_passes(MotionClass::Major, 7, &three).unwrap());
-    assert!(motion_passes(MotionClass::Major, 7, &four).unwrap());
     assert!(!motion_passes(MotionClass::EmergencyFix, 7, &three).unwrap());
     assert!(motion_passes(MotionClass::EmergencyFix, 7, &four).unwrap());
 }
