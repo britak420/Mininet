@@ -24359,3 +24359,109 @@ engineering, not a documentation gap.
 **Supersedes / superseded by:** none. Corrects (does not supersede, since
 no consensus-facing behavior existed to have been wrong about) D-0518's
 `bp_range_v2` generator choice.
+
+### D-0521 — Gate #72: F72-10 calibrated decoy distribution — `mini_private_payment::decoy::OSPEAD_AGE_WEIGHTS`/`select_ring_indices_v3`, wired into `claim_v3::build_v3`  ·  *Shipped, one interpretive judgment call disclosed*
+
+**Date:** 2026-09-12 · **Refs:** the same Gate #72 external audit report as
+D-0517–D-0520 (`docs/audits/source-reports-2026-09-12/
+Mininet_External_Audit_01_Gate_72_Cryptography_FINAL.txt`), finding F72-10,
+Section 5.4; `crates/mini-private-payment/src/decoy.rs`;
+`crates/mini-private-payment/src/claim_v3.rs`.
+
+**Decision:** replace the ad-hoc `AGE_WEIGHTS` recency table with a real
+calibrated model for `PrivatePaymentV3` decoy selection, following the
+audit's exact specification as far as it goes, and disclosing where it
+does not.
+
+F72-10 specifies the decoy age distribution as a log-GB2 (generalized beta
+of the second kind) model with four exact parameters: `scale (b) = 20.62`,
+`shape1 (a) = 4.462`, `shape2 (p) = 0.5553`, `shape3 (q) = 7.957`, whose
+CDF is `F(x; a, b, p, q) = I_z(p, q)` (the regularized incomplete beta
+function) at `z = w / (1 + w)`, `w = (x / b)^a`. That part is unambiguous
+and was computed exactly, via the standard Lentz continued-fraction
+`betacf`/`betai` method (no library dependency, no floating point at
+runtime — see below).
+
+What the audit does not state is the unit of `x`. This codebase's existing
+age buckets are already logarithmic (`AGE_WEIGHTS`: bucket `i` spans ages
+`[2^i - 1, 2^(i+1) - 1)`), which makes "log-GB2" ambiguous between `x` =
+raw age (fit in log-space internally, evaluated here on the raw value) and
+`x` = `log2(age)` directly (the bucket exponent itself). Evaluated the
+first way, the given parameters saturate the CDF almost immediately
+(`F(100) ≈ 1.0`) — a degenerate, all-mass-on-bucket-0 distribution,
+inconsistent with a "long tail that never vanishes" model and therefore
+ruled out empirically rather than assumed. Evaluated the second way, the
+same parameters produce a smooth, non-degenerate distribution whose
+support lines up almost exactly with the existing 16-bucket structure.
+Adopted the second reading on that basis. This is a judgment call this
+codebase is making, not a value read out of the audit, and it is recorded
+as such in `OSPEAD_AGE_WEIGHTS`'s own doc comment so it is not mistaken
+for an unambiguous transcription later — the same "state plainly what is
+inferred vs. given" discipline `bp_range_v2`'s and `claim_v3`'s comments
+already use for their own open questions.
+
+The frozen integer table itself: `raw[i] = round(1_000_000 * (F(i+1) -
+F(i)))` for `i = 0..=14`, and `raw[15] = round(1_000_000 * (1 - F(15)))`
+so the sixteenth bucket absorbs all remaining tail mass rather than
+truncating it. Runtime sampling stays pure-integer counter-mode hashing
+exactly like V1's `Draw`/`draw_age_offset` (`AGE_WEIGHTS`'s own "no
+floating point anywhere" rule, Directive 14's simplicity-is-security
+preference for the smaller mechanism applying equally here) — the beta
+function only ever runs offline, at derivation time, to produce the frozen
+table checked into source.
+
+Implementation, mirroring V1's shape rather than parameterizing it (same
+reasoning as `mlsag_v3` needing its own module instead of a runtime flag
+on `mlsag`: a shared code path risks a V1 caller silently picking up V3's
+table under an unrelated future change):
+
+- `OSPEAD_AGE_WEIGHTS: [u32; 16]` — the frozen table, summing to exactly
+  `1_000_000` (a probability mass function scaled by 1e6, gcd 1).
+- `DECOY_DOMAIN_V3 = b"mininet/private-payment/decoy-seed/v3"` — the
+  audit's own Section 5.4 exact domain string, so a V1/V3 transcript
+  collision under identical entropy can never reproduce one scheme's ring
+  under the other's table (`Draw` generalized to take a domain parameter,
+  `Draw::with_domain`, rather than hard-coding `DECOY_DOMAIN`).
+- `draw_age_offset_v3`/`select_ring_indices_v3`/`select_ring_v3` — V3
+  counterparts of the existing V1 functions, same bucket-then-uniform-
+  within-bucket construction, same canonical-sort-by-key-bytes and
+  bounded-attempts-then-uniform-fallback behavior.
+- `claim_v3::build_v3` now calls `select_ring_indices_v3` instead of V1's
+  `select_ring_indices` — this is the first (and, per D-0520's Required
+  follow-up, previously last-remaining-untouched) piece of F72-10 actually
+  wired into the `PrivatePaymentV3` path.
+
+**Constitutional impact:** none — no dependency-edge change, no weakened
+invariant. `mini-private-payment::decoy`'s existing `select_ring`/
+`select_ring_indices`/`AGE_WEIGHTS` (the V1/V2 path) are untouched and
+re-verified unaffected; only `claim_v3::build_v3`, itself still unreachable
+from any consensus-checked path per D-0520, changes behavior.
+
+**Implementation status:** shipped. `mini_private_payment::decoy` gained 7
+new tests (frozen-table check on `OSPEAD_AGE_WEIGHTS`, real-output-always-
+included, determinism, distinct-entropy produces distinct rings, canonical/
+dedup, V1-and-V3-domains-never-collide-under-identical-entropy, long-tail-
+still-reachable) — 18 total in that module, up from 11. Full workspace
+`cargo fmt --all`, `cargo clippy --all-targets --all-features --workspace
+-- -D warnings`, and `cargo test --workspace --all-features` are clean
+except the same pre-existing, sandbox-only `wasm32`-target-missing
+failures every entry since D-0071 already records. `mini-private-payment`
+54/54 (lib, up from 36) plus all existing integration suites unchanged.
+
+**Failure point:** closes F72-10 for `PrivatePaymentV3`'s own decoy
+selection. Does not touch V1/V2's `AGE_WEIGHTS` (that table remains the
+documented "legible starting shape, not a fitted distribution" it always
+was — no live traffic exists to justify migrating it, and D-0520 already
+established the V1/V2 and V3 paths as deliberately separate). The
+unit-of-`x` interpretation above is an inference, not a certainty; if a
+follow-up from the same audit team clarifies units, this table is a
+version bump (V4) and a new decision entry, never a silent tuning commit.
+
+**Required follow-up:** the remaining Gate #72 items are unchanged from
+D-0520's list minus this one: canonical claim bytes in consensus + derived
+key images and removing the transparent `PaymentClaim`/duplicate bounty
+ring path (Section 11, F72-05/06/08/09, deliberately not attempted here
+given consensus-breaking blast radius), and a real fee-policy registry to
+replace `quote_fee_micro`'s placeholder (F72-13).
+
+**Supersedes / superseded by:** none.

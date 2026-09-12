@@ -217,7 +217,8 @@ pub use claim_v3::{
 };
 pub use codec::MAX_FIELD_BYTES;
 pub use decoy::{
-    select_ring, select_ring_indices, InMemoryOutputSet, OutputSet, AGE_WEIGHTS, DECOY_DOMAIN,
+    select_ring, select_ring_indices, select_ring_indices_v3, select_ring_v3, InMemoryOutputSet,
+    OutputSet, AGE_WEIGHTS, DECOY_DOMAIN, DECOY_DOMAIN_V3, OSPEAD_AGE_WEIGHTS,
 };
 pub use disclosure::{
     audit, verify_disclosure, AcknowledgedIrreversibleDisclosure, VerifiedDisclosure,

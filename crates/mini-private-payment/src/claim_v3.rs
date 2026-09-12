@@ -50,9 +50,10 @@
 //! consensus path (Gate #72's "canonical claim bytes in consensus" item,
 //! Section 11, remains separate follow-up). [`quote_fee_policy_id`]'s fee
 //! derivation is an honest placeholder, not a calibrated economic
-//! function. Decoy selection reuses [`crate::select_ring_indices`]'s
-//! existing (also not-yet-calibrated) age distribution — the audit's
-//! OSPEAD log-GB2 recalibration (F72-10) is separate, undone work.
+//! function. Decoy selection uses [`crate::decoy::select_ring_indices_v3`],
+//! the audit's OSPEAD log-GB2 recalibration (F72-10) — see that function's
+//! docs, and [`crate::decoy::OSPEAD_AGE_WEIGHTS`], for the derivation and
+//! an honest disclosure of the one unit-ambiguity judgment call it makes.
 //!
 //! [FREEZE reminder — D-0036/D-0037/D-0047] Founder-overridden,
 //! AI-authored prototype. Unaudited. Nothing value-bearing may depend on
@@ -67,7 +68,7 @@ use mini_value::{
 };
 
 use crate::codec::{Reader, Writer};
-use crate::decoy::select_ring_indices;
+use crate::decoy::select_ring_indices_v3;
 use crate::error::{DecodeFailure, PrivatePaymentError, Result};
 use crate::memo::{PaymentNote, PaymentPurpose};
 use crate::memo_v3::{MemoContextV3, SealedMemoV3};
@@ -566,7 +567,7 @@ pub fn build_v3(
             &mini_crypto::random_32().map_err(|_| PrivatePaymentError::CryptoUnavailable)?,
         );
         let (indices, position) =
-            select_ring_indices(outputs, spend.set_index, RING_SIZE_V3, &entropy)?;
+            select_ring_indices_v3(outputs, spend.set_index, RING_SIZE_V3, &entropy)?;
         let ring = indices
             .iter()
             .map(|index| outputs.key_at(*index))

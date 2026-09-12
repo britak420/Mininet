@@ -3,7 +3,7 @@
     "crates": 79,
     "files": 1006,
     "headings": 3601,
-    "rust_symbols": 10497
+    "rust_symbols": 10510
   },
   "crates": {
     "did-mini": {
@@ -1784,7 +1784,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 29080,
+      "bytes": 29597,
       "group": "root",
       "headings": [
         {
@@ -1824,7 +1824,7 @@
         },
         {
           "level": 2,
-          "line": 458,
+          "line": 465,
           "text": "License"
         }
       ],
@@ -1854,9 +1854,9 @@
         "switch",
         "nothing"
       ],
-      "lines": 462,
+      "lines": 469,
       "path": "README.md",
-      "sha256": "6e41909667bdaa53b692cffdffd5fb419c37fcc4661911c205234638a5101790",
+      "sha256": "105203fc862eef4e12f7f5311c237929ed2ca8c99cc30eed69c9819c9808fbd6",
       "symbols": [],
       "title": "Mininet"
     },
@@ -52194,7 +52194,7 @@
       "title": "use mini_crypto::HashAlgorithm;"
     },
     {
-      "bytes": 36753,
+      "bytes": 36854,
       "group": "crate:mini-private-payment",
       "headings": [],
       "keywords": [
@@ -52204,12 +52204,13 @@
         "one",
         "audit",
         "mini_value",
+        "decoy",
         "claim_id",
         "fmt",
-        "private-payment",
         "own",
         "size",
         "canonical",
+        "function",
         "usize",
         "ring_size_v3",
         "privatepaymentclaimv3",
@@ -52218,368 +52219,367 @@
         "wire",
         "format",
         "same",
+        "private-payment",
         "nothing",
-        "ring",
-        "decoy",
-        "function"
+        "ring"
       ],
-      "lines": 1000,
+      "lines": 1001,
       "path": "crates/mini-private-payment/src/claim_v3.rs",
-      "sha256": "47fa5628e6e2182d0050c2c1ae56d2e7cb13bf18cd1f09670092924a9844331f",
+      "sha256": "fd397a0694a66c0a3b43df9a9ae251551a801754f16da1a14b1f1a62ed81d3c7",
       "symbols": [
         {
           "kind": "const",
-          "line": 77,
+          "line": 78,
           "name": "CLAIM_V3_MAGIC"
         },
         {
           "kind": "const",
-          "line": 80,
+          "line": 81,
           "name": "CLAIM_V3_VERSION"
         },
         {
           "kind": "const",
-          "line": 84,
+          "line": 85,
           "name": "SUITE_ID_V3"
         },
         {
           "kind": "const",
-          "line": 88,
+          "line": 89,
           "name": "RING_SIZE_V3"
         },
         {
           "kind": "const",
-          "line": 91,
+          "line": 92,
           "name": "MAX_INPUTS_V3"
         },
         {
           "kind": "const",
-          "line": 94,
+          "line": 95,
           "name": "MAX_OUTPUTS_V3"
         },
         {
           "kind": "const",
-          "line": 97,
+          "line": 98,
           "name": "MAX_CLAIM_V3_BYTES"
         },
         {
           "kind": "const",
-          "line": 99,
+          "line": 100,
           "name": "MEMO_CONTEXT_DOMAIN"
         },
         {
           "kind": "const",
-          "line": 100,
+          "line": 101,
           "name": "SIGNING_DOMAIN"
         },
         {
           "kind": "const",
-          "line": 101,
+          "line": 102,
           "name": "CLAIM_ID_DOMAIN"
         },
         {
           "kind": "struct",
-          "line": 105,
+          "line": 106,
           "name": "ClaimInputV3"
         },
         {
           "kind": "struct",
-          "line": 119,
+          "line": 120,
           "name": "ClaimOutputV3"
         },
         {
           "kind": "struct",
-          "line": 135,
+          "line": 136,
           "name": "PrivatePaymentClaimV3"
         },
         {
           "kind": "fn",
-          "line": 145,
+          "line": 146,
           "name": "write_header"
         },
         {
           "kind": "fn",
-          "line": 161,
+          "line": 162,
           "name": "write_input_unsigned"
         },
         {
           "kind": "fn",
-          "line": 172,
+          "line": 173,
           "name": "write_input_signature"
         },
         {
           "kind": "fn",
-          "line": 183,
+          "line": 184,
           "name": "write_output_unsigned"
         },
         {
           "kind": "impl",
-          "line": 190,
+          "line": 191,
           "name": "PrivatePaymentClaimV3"
         },
         {
           "kind": "fn",
-          "line": 191,
+          "line": 192,
           "name": "header_bytes"
         },
         {
           "kind": "fn",
-          "line": 206,
+          "line": 207,
           "name": "memo_context_digest"
         },
         {
           "kind": "fn",
-          "line": 223,
+          "line": 224,
           "name": "signing_digest"
         },
         {
           "kind": "fn",
-          "line": 241,
+          "line": 242,
           "name": "claim_id"
         },
         {
           "kind": "fn",
-          "line": 250,
+          "line": 251,
           "name": "encode"
         },
         {
           "kind": "fn",
-          "line": 268,
+          "line": 269,
           "name": "decode"
         },
         {
           "kind": "struct",
-          "line": 374,
+          "line": 375,
           "name": "VerifiedPrivateClaimV3"
         },
         {
           "kind": "impl",
-          "line": 379,
+          "line": 380,
           "name": "VerifiedPrivateClaimV3"
         },
         {
           "kind": "fn",
-          "line": 380,
+          "line": 381,
           "name": "claim"
         },
         {
           "kind": "fn",
-          "line": 384,
+          "line": 385,
           "name": "claim_id"
         },
         {
           "kind": "fn",
-          "line": 389,
+          "line": 390,
           "name": "key_images"
         },
         {
           "kind": "fn",
-          "line": 398,
+          "line": 399,
           "name": "open_memo"
         },
         {
           "kind": "fn",
-          "line": 430,
+          "line": 431,
           "name": "quote_fee_micro"
         },
         {
           "kind": "const",
-          "line": 431,
+          "line": 432,
           "name": "BASE_FEE_MICRO"
         },
         {
           "kind": "const",
-          "line": 432,
+          "line": 433,
           "name": "PER_INPUT_MICRO"
         },
         {
           "kind": "const",
-          "line": 433,
+          "line": 434,
           "name": "PER_OUTPUT_MICRO"
         },
         {
           "kind": "struct",
-          "line": 439,
+          "line": 440,
           "name": "SpendableOutputV3"
         },
         {
           "kind": "impl",
-          "line": 446,
+          "line": 447,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 447,
+          "line": 448,
           "name": "fmt"
         },
         {
           "kind": "struct",
-          "line": 454,
+          "line": 455,
           "name": "RecipientV3"
         },
         {
           "kind": "impl",
-          "line": 461,
+          "line": 462,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 462,
+          "line": 463,
           "name": "fmt"
         },
         {
           "kind": "struct",
-          "line": 470,
+          "line": 471,
           "name": "PaymentRequestV3"
         },
         {
           "kind": "struct",
-          "line": 479,
+          "line": 480,
           "name": "BuiltOutputV3"
         },
         {
           "kind": "fn",
-          "line": 487,
+          "line": 488,
           "name": "build_v3"
         },
         {
           "kind": "fn",
-          "line": 647,
+          "line": 648,
           "name": "pseudo_blindings_for"
         },
         {
           "kind": "fn",
-          "line": 660,
+          "line": 661,
           "name": "verify_v3"
         },
         {
           "kind": "fn",
-          "line": 757,
+          "line": 758,
           "name": "recover_shared_secret_v3"
         },
         {
           "kind": "mod",
-          "line": 776,
+          "line": 777,
           "name": "tests"
         },
         {
           "kind": "const",
-          "line": 781,
+          "line": 782,
           "name": "NETWORK"
         },
         {
           "kind": "const",
-          "line": 782,
+          "line": 783,
           "name": "FEE_POLICY"
         },
         {
           "kind": "struct",
-          "line": 784,
+          "line": 785,
           "name": "Ledger"
         },
         {
           "kind": "impl",
-          "line": 788,
+          "line": 789,
           "name": "Ledger"
         },
         {
           "kind": "fn",
-          "line": 789,
+          "line": 790,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 795,
+          "line": 796,
           "name": "fill"
         },
         {
           "kind": "fn",
-          "line": 805,
+          "line": 806,
           "name": "mint"
         },
         {
           "kind": "fn",
-          "line": 819,
+          "line": 820,
           "name": "with_funds"
         },
         {
           "kind": "impl",
-          "line": 828,
+          "line": 829,
           "name": "OutputSet"
         },
         {
           "kind": "fn",
-          "line": 829,
+          "line": 830,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 832,
+          "line": 833,
           "name": "key_at"
         },
         {
           "kind": "fn",
-          "line": 835,
+          "line": 836,
           "name": "commitment_at"
         },
         {
           "kind": "fn",
-          "line": 840,
+          "line": 841,
           "name": "pay"
         },
         {
           "kind": "fn",
-          "line": 849,
+          "line": 850,
           "name": "request_for"
         },
         {
           "kind": "fn",
-          "line": 862,
+          "line": 863,
           "name": "payment_to"
         },
         {
           "kind": "fn",
-          "line": 874,
+          "line": 875,
           "name": "a_balanced_payment_builds_and_verifies"
         },
         {
           "kind": "fn",
-          "line": 881,
+          "line": 882,
           "name": "the_recipient_opens_the_memo_and_recovers_the_spendable_opening"
         },
         {
           "kind": "fn",
-          "line": 898,
+          "line": 899,
           "name": "a_stranger_cannot_recover_the_output_or_open_the_memo"
         },
         {
           "kind": "fn",
-          "line": 912,
+          "line": 913,
           "name": "encode_decode_round_trips_and_preserves_the_claim_id"
         },
         {
           "kind": "fn",
-          "line": 923,
+          "line": 924,
           "name": "a_tampered_pseudo_commitment_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 937,
+          "line": 938,
           "name": "a_wrong_network_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 947,
+          "line": 948,
           "name": "an_unbalanced_request_cannot_be_built"
         },
         {
           "kind": "fn",
-          "line": 958,
+          "line": 959,
           "name": "a_tampered_range_proof_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 972,
+          "line": 973,
           "name": "repeating_a_key_image_within_one_claim_is_rejected"
         }
       ],
@@ -52763,38 +52763,38 @@
       "title": "use crate::error::{DecodeFailure, Result};"
     },
     {
-      "bytes": 20743,
+      "bytes": 33025,
       "group": "crate:mini-private-payment",
       "headings": [],
       "keywords": [
         "ring",
-        "wallet",
         "decoy",
         "rule",
+        "wallet",
         "one",
         "every",
         "real",
-        "newest",
         "why",
+        "newest",
+        "age_weights",
+        "new",
         "same",
         "protocol",
+        "two",
         "decoys",
-        "outputs",
         "users",
-        "nothing",
         "because",
         "set",
-        "age",
+        "domain",
         "never",
-        "age_weights",
+        "decoy_domain",
         "outputset",
-        "len",
-        "new",
+        "draw",
         "who"
       ],
-      "lines": 530,
+      "lines": 834,
       "path": "crates/mini-private-payment/src/decoy.rs",
-      "sha256": "ba007909e8789d210a7a39d023352710e1783bb842fc8b78909b8ffdd6a09ccd",
+      "sha256": "8efcb7c72f85e1c41e5b80c47963dffa30127d62eb8cca6c0fa023e1e1e1268f",
       "symbols": [
         {
           "kind": "const",
@@ -52803,178 +52803,243 @@
         },
         {
           "kind": "const",
-          "line": 85,
+          "line": 76,
+          "name": "DECOY_DOMAIN_V3"
+        },
+        {
+          "kind": "const",
+          "line": 94,
           "name": "AGE_WEIGHTS"
         },
         {
           "kind": "trait",
-          "line": 98,
+          "line": 107,
           "name": "OutputSet"
         },
         {
           "kind": "fn",
-          "line": 100,
+          "line": 109,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 103,
+          "line": 112,
           "name": "is_empty"
         },
         {
           "kind": "fn",
-          "line": 108,
+          "line": 117,
           "name": "key_at"
         },
         {
           "kind": "fn",
-          "line": 118,
+          "line": 127,
           "name": "commitment_at"
         },
         {
           "kind": "struct",
-          "line": 123,
+          "line": 132,
           "name": "InMemoryOutputSet"
         },
         {
           "kind": "impl",
-          "line": 128,
+          "line": 137,
           "name": "InMemoryOutputSet"
         },
         {
           "kind": "fn",
-          "line": 129,
+          "line": 138,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 136,
+          "line": 145,
           "name": "push"
         },
         {
           "kind": "impl",
-          "line": 164,
+          "line": 173,
           "name": "OutputSet"
         },
         {
           "kind": "fn",
-          "line": 165,
+          "line": 174,
           "name": "len"
         },
         {
           "kind": "fn",
-          "line": 169,
+          "line": 178,
           "name": "key_at"
         },
         {
           "kind": "fn",
-          "line": 173,
+          "line": 182,
           "name": "commitment_at"
         },
         {
           "kind": "struct",
-          "line": 183,
+          "line": 192,
           "name": "Draw"
         },
         {
           "kind": "impl",
-          "line": 188,
+          "line": 198,
           "name": "Draw"
         },
         {
           "kind": "fn",
-          "line": 189,
+          "line": 199,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 196,
+          "line": 207,
+          "name": "with_domain"
+        },
+        {
+          "kind": "fn",
+          "line": 215,
           "name": "next_u64"
         },
         {
           "kind": "fn",
-          "line": 212,
+          "line": 231,
           "name": "below"
         },
         {
           "kind": "fn",
-          "line": 227,
+          "line": 246,
           "name": "draw_age_offset"
         },
         {
+          "kind": "const",
+          "line": 329,
+          "name": "OSPEAD_AGE_WEIGHTS"
+        },
+        {
           "kind": "fn",
-          "line": 263,
+          "line": 336,
+          "name": "draw_age_offset_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 368,
+          "name": "select_ring_indices_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 442,
+          "name": "select_ring_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 467,
           "name": "select_ring"
         },
         {
           "kind": "fn",
-          "line": 290,
+          "line": 494,
           "name": "select_ring_indices"
         },
         {
           "kind": "mod",
-          "line": 378,
+          "line": 582,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 381,
+          "line": 585,
           "name": "set_of"
         },
         {
           "kind": "fn",
-          "line": 394,
+          "line": 598,
           "name": "the_real_output_is_always_in_the_ring_at_the_reported_index"
         },
         {
           "kind": "fn",
-          "line": 404,
+          "line": 608,
           "name": "the_same_entropy_reproduces_the_same_ring_exactly"
         },
         {
           "kind": "fn",
-          "line": 415,
+          "line": 619,
           "name": "different_entropy_produces_different_decoys"
         },
         {
           "kind": "fn",
-          "line": 423,
+          "line": 627,
           "name": "rings_are_canonical_and_free_of_duplicates"
         },
         {
           "kind": "fn",
-          "line": 435,
+          "line": 639,
           "name": "selection_skews_recent_but_still_reaches_old_outputs"
         },
         {
           "kind": "fn",
-          "line": 463,
+          "line": 667,
           "name": "a_ring_below_the_floor_is_refused"
         },
         {
           "kind": "fn",
-          "line": 472,
+          "line": 676,
           "name": "an_output_set_smaller_than_the_ring_is_refused"
         },
         {
           "kind": "fn",
-          "line": 483,
+          "line": 687,
           "name": "a_real_index_outside_the_set_is_refused"
         },
         {
           "kind": "fn",
-          "line": 492,
+          "line": 696,
           "name": "a_set_exactly_the_ring_size_still_produces_a_full_ring"
         },
         {
           "kind": "fn",
-          "line": 503,
+          "line": 707,
           "name": "the_draw_is_uniform_below_its_bound"
         },
         {
           "kind": "fn",
-          "line": 517,
+          "line": 721,
           "name": "the_age_weight_table_is_frozen"
+        },
+        {
+          "kind": "fn",
+          "line": 735,
+          "name": "the_ospead_weight_table_is_frozen"
+        },
+        {
+          "kind": "fn",
+          "line": 760,
+          "name": "the_ospead_real_output_is_always_in_the_ring_at_the_reported_index"
+        },
+        {
+          "kind": "fn",
+          "line": 770,
+          "name": "the_ospead_same_entropy_reproduces_the_same_ring_exactly"
+        },
+        {
+          "kind": "fn",
+          "line": 778,
+          "name": "the_ospead_different_entropy_produces_different_decoys"
+        },
+        {
+          "kind": "fn",
+          "line": 786,
+          "name": "the_ospead_rings_are_canonical_and_free_of_duplicates"
+        },
+        {
+          "kind": "fn",
+          "line": 798,
+          "name": "v1_and_v3_domains_never_collide"
+        },
+        {
+          "kind": "fn",
+          "line": 810,
+          "name": "the_ospead_distribution_still_reaches_old_outputs"
         }
       ],
       "title": "use mini_crypto::HashAlgorithm;"
@@ -53219,7 +53284,7 @@
       "title": "pub enum DecodeFailure {"
     },
     {
-      "bytes": 12794,
+      "bytes": 12875,
       "group": "crate:mini-private-payment",
       "headings": [],
       "keywords": [
@@ -53248,9 +53313,9 @@
         "construction",
         "does"
       ],
-      "lines": 240,
+      "lines": 241,
       "path": "crates/mini-private-payment/src/lib.rs",
-      "sha256": "71ae59ce020b6dbdc42fbe8fb59b2ccffd1a17b95480d16f99e00b664372d698",
+      "sha256": "66bf195b8d8b42938ff6a8cd46c59046fec72567b531178a99c3d7863f7b67be",
       "symbols": [
         {
           "kind": "mod",
@@ -85708,7 +85773,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1472752,
+      "bytes": 1479243,
       "group": "docs",
       "headings": [
         {
@@ -86128,8 +86193,8 @@
         "review",
         "design",
         "audit",
-        "closes",
         "shipped",
+        "closes",
         "decision",
         "local",
         "first",
@@ -86138,9 +86203,9 @@
         "new",
         "doctrine"
       ],
-      "lines": 24362,
+      "lines": 24468,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "94ddd8cef8fdafd289dbb577dfe69fc3bcf06ab6d210c9525420ebfeddd5b4d4",
+      "sha256": "0f05934ab2f77a0a29c8722ec6926d24be7c25de5bdcd006aed0a39b1b2ab6e8",
       "symbols": [],
       "title": "Decision Log"
     },
