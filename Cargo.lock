@@ -2694,6 +2694,7 @@ dependencies = [
  "did-mini",
  "fs4",
  "mini-bearer",
+ "mini-beta",
  "mini-build-runner-wasmtime",
  "mini-crypto",
  "mini-durable",

@@ -18,8 +18,7 @@ use mini_beta::{
     create_contribution_receipt, create_finding, create_finding_disposition, read_campaign,
     read_contribution_receipt, read_finding, read_finding_disposition, BetaAccountId, ClaimTag,
     ContributionKind, EvidenceClass, FindingSeverity, FindingState, SubmissionTag,
-    BETA_CAMPAIGN_TYPE, BETA_CONTRIBUTION_TYPE, BETA_FINDING_DISPOSITION_TYPE,
-    BETA_FINDING_TYPE,
+    BETA_CAMPAIGN_TYPE, BETA_CONTRIBUTION_TYPE, BETA_FINDING_DISPOSITION_TYPE, BETA_FINDING_TYPE,
 };
 use mini_crypto::{random_32, SigningKey};
 use mini_forge::{create_task_brief, create_work_claim};
@@ -175,9 +174,7 @@ fn parse_contribution_kind(value: &str) -> Result<ContributionKind> {
 /// their KEL carriers in the same store.  The caller owns the controllers only
 /// until it has signed its one artifact; dropping them destroys local signing
 /// continuity by design.
-fn ephemeral_artifact_signer<B: Backend>(
-    store: &mut Store<B>,
-) -> Result<(Controller, Controller)> {
+fn ephemeral_artifact_signer<B: Backend>(store: &mut Store<B>) -> Result<(Controller, Controller)> {
     let mut human = Controller::incept_single().map_err(|e| CliError::Identity(e.to_string()))?;
     let current = SigningKey::generate().map_err(crypto_err)?;
     let next = SigningKey::generate().map_err(crypto_err)?;
@@ -204,11 +201,13 @@ fn ephemeral_artifact_signer<B: Backend>(
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut out, byte| {
-        use std::fmt::Write;
-        let _ = write!(out, "{byte:02x}");
-        out
-    })
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut out, byte| {
+            use std::fmt::Write;
+            let _ = write!(out, "{byte:02x}");
+            out
+        })
 }
 
 /// Generate a secret and publishable commitment.  Only the commitment goes in
@@ -226,11 +225,7 @@ fn fresh_claim_secret() -> Result<([u8; 32], ClaimTag)> {
     Ok((secret, tag))
 }
 
-pub fn campaign_list(
-    _home: &Path,
-    store_path: &Path,
-    args: Vec<String>,
-) -> Result<CommandResult> {
+pub fn campaign_list(_home: &Path, store_path: &Path, args: Vec<String>) -> Result<CommandResult> {
     reject_remaining(args, "beta campaign list")?;
     let store = open_store(store_path)?;
     let ids = store
@@ -529,11 +524,7 @@ pub fn finding_to_task(
     .field("task_id", JsonValue::str(object.id().as_str())))
 }
 
-pub fn task_claim(
-    _home: &Path,
-    store_path: &Path,
-    mut args: Vec<String>,
-) -> Result<CommandResult> {
+pub fn task_claim(_home: &Path, store_path: &Path, mut args: Vec<String>) -> Result<CommandResult> {
     let task_id = parse_id(&next(&mut args, "beta task claim")?)?;
     let role = required_flag(&mut args, "--role", "beta task claim")?;
     let paths = required_items(&mut args, "--path", "beta task claim")?;
@@ -644,11 +635,7 @@ pub fn contribution_show(
     Ok(CommandResult::new(human).field("contribution", contribution_json(&contribution)))
 }
 
-pub fn claim_new(
-    _home: &Path,
-    _store_path: &Path,
-    args: Vec<String>,
-) -> Result<CommandResult> {
+pub fn claim_new(_home: &Path, _store_path: &Path, args: Vec<String>) -> Result<CommandResult> {
     reject_remaining(args, "beta claim new")?;
     let (secret, tag) = fresh_claim_secret()?;
     let account = BetaAccountId::new(random_32().map_err(crypto_err)?).map_err(beta_err)?;
@@ -782,10 +769,7 @@ fn finding_json(finding: &mini_beta::BetaFinding) -> JsonValue {
 
 fn contribution_json(contribution: &mini_beta::ContributionReceipt) -> JsonValue {
     JsonValue::Object(vec![
-        (
-            "id".to_string(),
-            JsonValue::str(contribution.id.as_str()),
-        ),
+        ("id".to_string(), JsonValue::str(contribution.id.as_str())),
         (
             "source_id".to_string(),
             JsonValue::str(contribution.source_id.as_str()),
@@ -802,10 +786,7 @@ fn contribution_json(contribution: &mini_beta::ContributionReceipt) -> JsonValue
             "kind".to_string(),
             JsonValue::str(contribution.kind.as_str()),
         ),
-        (
-            "summary".to_string(),
-            JsonValue::str(&contribution.summary),
-        ),
+        ("summary".to_string(), JsonValue::str(&contribution.summary)),
         (
             "evidence".to_string(),
             JsonValue::strs(contribution.evidence.iter().map(String::as_str)),
