@@ -53,6 +53,22 @@ const CLAIM_V2_WIRE_DOMAIN: &[u8] = b"mini-settlement/payment-claim-v2-wire/v1";
 /// two formats' bounds can diverge later without a silent coupling.
 pub const MAX_PAYMENT_CLAIM_V2_BYTES: usize = 16 * 1024;
 
+/// Canonical, non-negotiable ceiling on how far past `anchor.height`
+/// `valid_through_height` may sit, enforced at verification time
+/// regardless of what `max_validity_height_span` a particular call to
+/// [`sign_claim_v2_for_network`] used. That argument only bounds the
+/// *signer's own* helper call — a payer could call it with `u64::MAX`, or
+/// construct and sign the wire message directly without going through the
+/// helper at all, producing a claim [`verify_claim_v2_signature`] and
+/// [`crate::reconcile_v2`] could not previously distinguish from a
+/// properly bounded one (a Codex review finding on PR #333). This crate
+/// still takes no position on real block cadence (see this module's own
+/// docs) — this is a deliberately generous, provisional placeholder that
+/// only guarantees "finite, not effectively permanent," not a calibrated
+/// economic-time bound. Real calibration against actual block cadence is
+/// Gate #28 follow-up work.
+pub const MAX_VALIDITY_HEIGHT_SPAN: u64 = 1_000_000;
+
 /// The canonical chain state a [`PaymentClaimV2`] was signed against: an
 /// exact block height and its id. A real [`crate::CanonicalLedgerView`]
 /// decides whether this is still a recognized ancestor of canonical chain
@@ -176,7 +192,11 @@ pub fn sign_claim_v2_for_network(
     if valid_through_height <= anchor.height {
         return Err(SettlementError::BadValidityWindow);
     }
-    if valid_through_height - anchor.height > max_validity_height_span {
+    // Respect the caller's own (possibly tighter) policy as well as the
+    // canonical ceiling every verifier enforces regardless — no point
+    // signing a claim `verify_claim_v2_signature` will reject anyway.
+    if valid_through_height - anchor.height > max_validity_height_span.min(MAX_VALIDITY_HEIGHT_SPAN)
+    {
         return Err(SettlementError::BadValidityWindow);
     }
     let payer_bytes = payer.verifying_key().to_bytes().to_vec();
@@ -210,6 +230,15 @@ pub fn sign_claim_v2_for_network(
 pub fn verify_claim_v2_signature(claim: &PaymentClaimV2) -> Result<()> {
     if claim.amount_micro == 0 {
         return Err(SettlementError::ZeroAmount);
+    }
+    // Canonical validity-window ceiling, checked here regardless of what
+    // (if anything) bounded `valid_through_height` at signing time — see
+    // MAX_VALIDITY_HEIGHT_SPAN's docs. reconcile_v2 calls this function
+    // first, so this also covers reconciliation.
+    if claim.valid_through_height <= claim.anchor.height
+        || claim.valid_through_height - claim.anchor.height > MAX_VALIDITY_HEIGHT_SPAN
+    {
+        return Err(SettlementError::BadValidityWindow);
     }
     let payer_key = VerifyingKey::from_suite_bytes(SignatureSuite::DEFAULT, &claim.payer)
         .map_err(|_| SettlementError::BadKey)?;

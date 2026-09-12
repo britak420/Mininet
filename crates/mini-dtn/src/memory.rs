@@ -5,8 +5,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::model::{
-    DeferredId, DeferredParcel, DeferredStatus, DeliveredParcel, DtnError, Priority, Result,
-    MAX_CONTROL_PARCEL_BYTES, MAX_PARCEL_BYTES,
+    DeferredId, DeferredParcel, DeferredStatus, DeliveredParcel, DtnError, EndpointId, Priority,
+    Result, MAX_CONTROL_PARCEL_BYTES, MAX_PARCEL_BYTES,
 };
 use crate::transport::DeferredTransport;
 
@@ -40,11 +40,23 @@ struct Entry {
 pub struct InMemoryDeferredTransport {
     queues: HashMap<Priority, VecDeque<DeferredId>>,
     entries: HashMap<DeferredId, Entry>,
-    semantic_index: HashMap<[u8; 32], DeferredId>,
+    // Keyed by (destination, semantic_id), not semantic_id alone: the same
+    // application object addressed to two different endpoints is two
+    // distinct deliveries, not one duplicate (a Codex review finding on
+    // PR #333 -- keying by semantic_id alone silently dropped the second
+    // destination's parcel by handing back the first destination's id).
+    semantic_index: HashMap<(EndpointId, [u8; 32]), DeferredId>,
     total_bytes: usize,
     max_entries_per_priority: usize,
     max_total_bytes: usize,
     drr_deficit: HashMap<Priority, u32>,
+    // Deficit-round-robin cursor: which priority class to resume scanning
+    // from on the *next* `poll_delivered` call. Without this, a caller
+    // using a small `limit` (the natural `limit = 1` case) always restarts
+    // each call at the highest class, so a continuous stream of P0 traffic
+    // starves every lower class forever despite the DRR weighting -- a
+    // Codex review finding on PR #333.
+    drr_cursor: usize,
 }
 
 impl Default for InMemoryDeferredTransport {
@@ -70,6 +82,7 @@ impl InMemoryDeferredTransport {
             max_entries_per_priority,
             max_total_bytes,
             drr_deficit,
+            drr_cursor: 0,
         }
     }
 
@@ -112,6 +125,13 @@ impl InMemoryDeferredTransport {
                         self.total_bytes =
                             self.total_bytes.saturating_sub(entry.parcel.payload.len());
                         entry.status = DeferredStatus::ExpiredTransport;
+                        // Release the payload now that this entry is terminal:
+                        // only bounded status/dedup metadata needs to survive,
+                        // not the full parcel bytes (a Codex review finding on
+                        // PR #333 -- `total_bytes` was already decremented, so
+                        // admission saw reclaimed capacity while the actual
+                        // heap allocation lived on forever).
+                        entry.parcel.payload = Vec::new();
                     }
                 } else {
                     still_queued.push_back(id);
@@ -135,7 +155,8 @@ impl DeferredTransport for InMemoryDeferredTransport {
             return Ok(id);
         }
         if let Some(semantic_id) = parcel.semantic_id {
-            if let Some(existing) = self.semantic_index.get(&semantic_id) {
+            let key = (parcel.destination.clone(), semantic_id);
+            if let Some(existing) = self.semantic_index.get(&key) {
                 return Ok(*existing);
             }
         }
@@ -154,7 +175,8 @@ impl DeferredTransport for InMemoryDeferredTransport {
         let deadline_ms = now_ms.saturating_add(parcel.lifetime.duration_ms());
         self.total_bytes += parcel.payload.len();
         if let Some(semantic_id) = parcel.semantic_id {
-            self.semantic_index.insert(semantic_id, id);
+            self.semantic_index
+                .insert((parcel.destination.clone(), semantic_id), id);
         }
         let priority = parcel.priority;
         self.entries.insert(
@@ -187,16 +209,35 @@ impl DeferredTransport for InMemoryDeferredTransport {
         // deficit, so its unused share is immediately available to
         // whichever queues are actually non-empty (D28-36: bulk still
         // gets served once P0-P2 drain, never starved forever).
+        //
+        // The scan resumes from `drr_cursor` rather than always restarting
+        // at the highest class: with a small `limit` (the natural
+        // `limit = 1` case), always starting at P0 would let continuous P0
+        // traffic starve every lower class forever even though DRR gives
+        // them a weighted share -- a Codex review finding on PR #333.
+        let order = Priority::all();
+        let n = order.len();
+        // `cursor` is the fixed starting point for this round's scan;
+        // `next_cursor` records where the *next* round/call should resume
+        // without perturbing `idx`'s computation mid-scan (mutating the
+        // cursor while it is still being read to compute `idx` would make
+        // the scan skip/double-advance instead of visiting each class once
+        // per round).
+        let mut cursor = self.drr_cursor % n;
         while delivered.len() < limit {
-            let any_nonempty = Priority::all().iter().any(|p| !self.queues[p].is_empty());
+            let any_nonempty = order.iter().any(|p| !self.queues[p].is_empty());
             if !any_nonempty {
                 break;
             }
             let mut made_progress = false;
-            for priority in Priority::all() {
+            let mut next_cursor = cursor;
+            for step in 0..n {
                 if delivered.len() >= limit {
                     break;
                 }
+                let idx = (cursor + step) % n;
+                let priority = order[idx];
+                next_cursor = (idx + 1) % n;
                 if self.queues[&priority].is_empty() {
                     continue;
                 }
@@ -214,17 +255,25 @@ impl DeferredTransport for InMemoryDeferredTransport {
                     };
                     entry.status = DeferredStatus::BundleDelivered;
                     self.total_bytes = self.total_bytes.saturating_sub(entry.parcel.payload.len());
+                    // Move the payload out into the delivered record instead
+                    // of cloning it: this entry is now terminal, so the
+                    // stored copy must not go on holding the full bytes
+                    // (the same leak this fixes in `reap_expired`/
+                    // `cancel_local` below).
+                    let payload = std::mem::take(&mut entry.parcel.payload);
                     delivered.push(DeliveredParcel {
                         id: entry.id,
                         destination: entry.parcel.destination.clone(),
-                        payload: entry.parcel.payload.clone(),
+                        payload,
                     });
                 }
             }
+            cursor = next_cursor;
             if !made_progress {
                 break;
             }
         }
+        self.drr_cursor = cursor;
         Ok(delivered)
     }
 
@@ -242,6 +291,7 @@ impl DeferredTransport for InMemoryDeferredTransport {
         }
         entry.status = DeferredStatus::Cancelled;
         self.total_bytes = self.total_bytes.saturating_sub(entry.parcel.payload.len());
+        entry.parcel.payload = Vec::new();
         let priority = entry.parcel.priority;
         if let Some(queue) = self.queues.get_mut(&priority) {
             queue.retain(|queued_id| queued_id != id);
@@ -407,6 +457,65 @@ mod tests {
         // shrank by exactly 4 and P3's did not shrink at all yet.
         assert_eq!(t.queued_count(Priority::P0), 4);
         assert_eq!(t.queued_count(Priority::P3), 8);
+    }
+
+    #[test]
+    fn a_small_poll_limit_does_not_reset_the_drr_scan_to_the_highest_class_every_call() {
+        // Regression test for a Codex review finding on PR #333: with
+        // `limit == 1`, always restarting the scan at P0 would let a
+        // continuous stream of P0 traffic starve P3 forever, even though
+        // DRR is supposed to give it a weighted share. The scan must
+        // persist a cursor across calls instead.
+        let mut t = InMemoryDeferredTransport::default();
+        for i in 0..20u8 {
+            t.enqueue(parcel(Priority::P0, &[i]), 0).unwrap();
+        }
+        let bulk_id = t.enqueue(parcel(Priority::P3, b"bulk"), 0).unwrap();
+
+        let mut bulk_delivered = false;
+        for _ in 0..8 {
+            let delivered = t.poll_delivered(1, 0).unwrap();
+            assert_eq!(delivered.len(), 1);
+            if delivered[0].id == bulk_id {
+                bulk_delivered = true;
+                break;
+            }
+        }
+        assert!(
+            bulk_delivered,
+            "bulk parcel must be served within a few single-item polls, not starved by continuous P0 traffic"
+        );
+    }
+
+    #[test]
+    fn the_same_semantic_id_to_two_different_destinations_is_not_deduplicated() {
+        // Regression test for a Codex review finding on PR #333: semantic
+        // dedup was keyed by semantic_id alone, so the same application
+        // object addressed to a second destination silently reused the
+        // first destination's id instead of being queued for delivery.
+        let mut t = InMemoryDeferredTransport::default();
+        let mut to_a = DeferredParcel {
+            destination: EndpointId::new("dtn:peer-a").unwrap(),
+            payload: b"same-object".to_vec(),
+            priority: Priority::P2,
+            lifetime: LifetimeClass::Short,
+            semantic_id: Some([7u8; 32]),
+        };
+        let mut to_b = to_a.clone();
+        to_b.destination = EndpointId::new("dtn:peer-b").unwrap();
+
+        let id_a = t.enqueue(to_a.clone(), 0).unwrap();
+        let id_b = t.enqueue(to_b.clone(), 0).unwrap();
+        assert_ne!(
+            id_a, id_b,
+            "the same semantic id addressed to different destinations must not collapse into one delivery"
+        );
+
+        // Re-enqueuing the exact same (destination, semantic_id) pair still
+        // deduplicates as before.
+        to_a.payload = b"different-bytes-same-object".to_vec();
+        assert_eq!(t.enqueue(to_a, 0).unwrap(), id_a);
+        assert_eq!(t.enqueue(to_b, 0).unwrap(), id_b);
     }
 
     #[test]

@@ -24120,3 +24120,95 @@ claim bytes in consensus, unifying the transparent/bounty key-image
 ledgers, calibrated decoy distribution) are untouched by this entry.
 
 **Supersedes / superseded by:** none.
+
+### D-0519 — PR #333: sixth Codex remediation batch (fixed WeakSoftware RTT bound, cross-destination semantic dedup, terminal-payload retention, DRR cursor starvation, Gate #93 Argon2 parameters, canonical claim-v2 validity ceiling)  ·  *Shipped*
+
+**Date:** 2026-09-12 · **Refs:** Codex automated review on PR #333 at head
+`146ab55a338bcda1d9d20d8e6d438679c17a6729`; `crates/mini-presence/src/
+verify.rs`; `crates/mini-dtn/src/memory.rs`; `crates/mini-mesh/src/
+lib.rs`; `crates/mini-custody/src/share_store.rs`; `crates/mini-
+settlement/src/claim_v2.rs`.
+
+**Decision:** fix all six P2 findings from this Codex review pass; none
+required a design change, only closing gaps the D-0509/D-0513/D-0517-era
+implementations left open.
+
+1. `mini_presence::verify_presence_v2` applied its fixed, non-caller-
+   configurable `MIN_SOFTWARE_RTT_SAMPLES`/`MAX_SOFTWARE_RTT_MS` bounds
+   only when no hardware evidence was supplied at all. Signed evidence
+   whose `technology` was `SoftwareRtt` classified to `WeakSoftware`
+   through `classify_ranging_evidence`'s own (looser, hardware-window-
+   sized) duration check instead, so a signer could reach `WeakSoftware`
+   with an RTT far past the canonical 50 ms ceiling. The fixed check now
+   runs whenever the *final* derived assurance is `WeakSoftware`,
+   regardless of which branch produced it.
+2. `mini_dtn::InMemoryDeferredTransport`'s semantic-dedup index was keyed
+   by `semantic_id` alone, so the same application object addressed to a
+   second destination silently reused the first destination's delivery id
+   instead of being queued — fixed by keying on `(destination,
+   semantic_id)`.
+3. The same transport left a delivered/expired/cancelled parcel's full
+   payload bytes alive in `entries` forever after decrementing
+   `total_bytes`, so admission saw reclaimed capacity while the actual
+   heap allocation never shrank. `poll_delivered` now moves the payload
+   out via `mem::take` instead of cloning it, and `reap_expired`/
+   `cancel_local` replace it with an empty `Vec` once an entry is
+   terminal.
+4. The same transport's deficit-round-robin scan always restarted at P0
+   every `poll_delivered` call, so a caller polling with a small `limit`
+   (the natural `limit = 1` case) let continuous P0 traffic starve every
+   lower class forever despite DRR's weighting. A persisted `drr_cursor`
+   now resumes the scan where the previous call left off.
+5. `mini_mesh::MeshNode::poll` bounded each *link's* contribution
+   (`MAX_MESSAGES_PER_LINK_PER_POLL`) but not the aggregate batch
+   returned by one call across every link, so an unbounded number of
+   links could make one `poll()` call retain an arbitrarily large batch.
+   New `MAX_NEW_MESSAGES_PER_POLL`/`_BYTES` constants (set equal to the
+   existing `MAX_PENDING_REFLOOD`/`_BYTES` the same accumulation already
+   respects) cap it; once hit, remaining links are simply left for the
+   next `poll()` call, the same stance already taken for one busy link.
+6. `mini_custody::share_store`'s Argon2id wrapping-key derivation used
+   `Argon2::default()` (19,456 KiB, 2 iterations — the `argon2` crate's
+   own defaults), not the Gate #93 audit's Section 10 portable-backup
+   profile (256 MiB, 3 iterations, 1 lane) that this module's own doc
+   comment already claimed to implement. Fixed with an explicit
+   `Params::new` construction.
+7. `mini_settlement::claim_v2`'s `max_validity_height_span` only bounded
+   one particular helper's (`sign_claim_v2_for_network`) own call — a
+   payer could pass `u64::MAX`, or construct and sign the wire message
+   directly (the span is not itself part of the signed bytes), producing
+   a claim `verify_claim_v2_signature`/`reconcile_v2` could not
+   distinguish from a properly bounded one. New `MAX_VALIDITY_HEIGHT_SPAN`
+   is a canonical, non-negotiable ceiling `verify_claim_v2_signature`
+   itself now enforces (so `reconcile_v2`, which calls it first, is
+   covered too); the signing helper now also respects it as a floor on
+   top of the caller's own span. This crate still deliberately takes no
+   position on real block cadence (see the module's own docs) — the
+   constant is documented as a generous, provisional placeholder ("finite,
+   not effectively permanent"), not a calibrated economic-time bound.
+
+**Constitutional impact:** none beyond what D-0507-D-0518 already state
+for these five crates — no dependency-edge change, no weakened invariant.
+Item 7's placeholder ceiling is explicitly not an economic-calibration
+claim.
+
+**Implementation status:** shipped. New regression tests:
+`mini_dtn::memory::tests::a_small_poll_limit_does_not_reset_the_drr_scan_
+to_the_highest_class_every_call` and `::the_same_semantic_id_to_two_
+different_destinations_is_not_deduplicated`. Full workspace `cargo fmt
+--all`, `cargo clippy --all-targets --all-features --workspace -- -D
+warnings`, and the five touched crates' test suites (`mini-presence`,
+`mini-dtn`, `mini-mesh`, `mini-custody`, `mini-settlement`) are clean.
+Item 5's aggregate cap is not covered by a dedicated stress test —
+reaching it requires dozens of real `EncryptedLink` handshakes given the
+64-message per-link cap, and the accumulation logic it reuses
+(`MAX_PENDING_REFLOOD`/`_BYTES`) is already exercised by existing tests.
+
+**Failure point:** these are all engineering defects in already-adopted
+designs, not new design gaps; none reopens Gate #72/#93/#28's own
+external-audit scope per their own reopening criteria.
+
+**Required follow-up:** none specific to this batch. Gate #72's remaining
+items (D-0517/D-0518's own follow-up lists) are untouched.
+
+**Supersedes / superseded by:** none.

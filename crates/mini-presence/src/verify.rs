@@ -380,17 +380,26 @@ pub fn verify_presence_v2(
             }
             assurance
         }
-        None => {
-            if (f.rtt_samples_ms.len() as u32) < PresencePolicyV2::MIN_SOFTWARE_RTT_SAMPLES {
-                return Err(PresenceError::NotEnoughRangeSamples);
-            }
-            let best = f.rtt_samples_ms.iter().copied().min().unwrap_or(u32::MAX);
-            if best > PresencePolicyV2::MAX_SOFTWARE_RTT_MS {
-                return Err(PresenceError::RangeExceeded);
-            }
-            PresenceAssuranceV2::WeakSoftware
-        }
+        None => PresenceAssuranceV2::WeakSoftware,
     };
+
+    // Fixed, non-caller-configurable RTT bounds apply whenever the derived
+    // assurance is WeakSoftware, whether that came from having no hardware
+    // evidence at all or from signed `SoftwareRtt`-technology evidence that
+    // classified down to WeakSoftware — a Codex review finding on PR #333
+    // noted that only the `evidence == None` path enforced this, so signed
+    // SoftwareRtt evidence with an oversized `duration_ms` (checked against
+    // the looser hardware window, not `MAX_SOFTWARE_RTT_MS`) could reach
+    // WeakSoftware without ever being held to the canonical RTT limit.
+    if assurance == PresenceAssuranceV2::WeakSoftware {
+        if (f.rtt_samples_ms.len() as u32) < PresencePolicyV2::MIN_SOFTWARE_RTT_SAMPLES {
+            return Err(PresenceError::NotEnoughRangeSamples);
+        }
+        let best = f.rtt_samples_ms.iter().copied().min().unwrap_or(u32::MAX);
+        if best > PresencePolicyV2::MAX_SOFTWARE_RTT_MS {
+            return Err(PresenceError::RangeExceeded);
+        }
+    }
 
     if assurance < min_assurance {
         return Err(PresenceError::InsufficientAssurance);

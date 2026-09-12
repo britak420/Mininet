@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 79,
-    "files": 993,
-    "headings": 3599,
-    "rust_symbols": 10326
+    "files": 1002,
+    "headings": 3601,
+    "rust_symbols": 10335
   },
   "crates": {
     "did-mini": {
@@ -1856,7 +1856,7 @@
       ],
       "lines": 462,
       "path": "README.md",
-      "sha256": "638dde03e6a77d10bddb12471707feae72f64f96b1101e59d7194ca43c9cc36b",
+      "sha256": "6e41909667bdaa53b692cffdffd5fb419c37fcc4661911c205234638a5101790",
       "symbols": [],
       "title": "Mininet"
     },
@@ -26653,38 +26653,38 @@
       "title": "use std::collections::BTreeMap;"
     },
     {
-      "bytes": 8970,
+      "bytes": 10010,
       "group": "crate:mini-custody",
       "headings": [],
       "keywords": [
         "passphrase",
+        "argon2",
         "salt",
-        "session_id",
         "salt_len",
         "key",
+        "argon2id",
         "never",
         "custodyerror",
+        "session_id",
         "nonce",
         "sealedkeypackagev1",
-        "session",
-        "caller",
+        "keypackage",
+        "params",
         "result",
         "ciphertext",
-        "keypackage",
-        "share",
-        "sealed",
-        "sharestorageauthenticationfailed",
-        "derive_wrapping_key",
         "one",
-        "argon2",
+        "const",
         "key_bytes",
         "map_err",
-        "ceremony",
-        "output"
+        "sharestorageauthenticationfailed",
+        "wrapping_key_m_cost_kib",
+        "wrapping_key_t_cost",
+        "wrapping_key_p_cost",
+        "wrapping_key_argon2"
       ],
-      "lines": 199,
+      "lines": 224,
       "path": "crates/mini-custody/src/share_store.rs",
-      "sha256": "ec98469335f3770f0053ae8ef77b30513e6b0a945b6d20ead072a24804f29062",
+      "sha256": "097c3fad06c71f719ea575b1b7bdd7ec1de4a6250a418a4ac5a9efce644f1950",
       "symbols": [
         {
           "kind": "const",
@@ -26692,62 +26692,82 @@
           "name": "SALT_LEN"
         },
         {
+          "kind": "const",
+          "line": 38,
+          "name": "WRAPPING_KEY_M_COST_KIB"
+        },
+        {
+          "kind": "const",
+          "line": 41,
+          "name": "WRAPPING_KEY_T_COST"
+        },
+        {
+          "kind": "const",
+          "line": 44,
+          "name": "WRAPPING_KEY_P_COST"
+        },
+        {
+          "kind": "fn",
+          "line": 46,
+          "name": "wrapping_key_argon2"
+        },
+        {
           "kind": "struct",
-          "line": 37,
+          "line": 62,
           "name": "SealedKeyPackageV1"
         },
         {
           "kind": "fn",
-          "line": 44,
+          "line": 69,
           "name": "derive_wrapping_key"
         },
         {
           "kind": "fn",
-          "line": 58,
+          "line": 83,
           "name": "seal_key_package"
         },
         {
           "kind": "fn",
-          "line": 101,
+          "line": 126,
           "name": "open_key_package"
         },
         {
           "kind": "mod",
-          "line": 117,
+          "line": 142,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 121,
+          "line": 146,
           "name": "a_sealed_package_opens_with_the_right_passphrase"
         },
         {
           "kind": "fn",
-          "line": 132,
+          "line": 157,
           "name": "the_wrong_passphrase_fails_closed"
         },
         {
           "kind": "fn",
-          "line": 141,
+          "line": 166,
           "name": "relabeling_to_a_different_session_id_fails_closed"
         },
         {
           "kind": "fn",
-          "line": 154,
+          "line": 179,
           "name": "a_whole_record_swapped_in_from_an_earlier_session_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 178,
+          "line": 203,
           "name": "tampered_ciphertext_fails_closed"
         },
         {
           "kind": "fn",
-          "line": 189,
+          "line": 214,
           "name": "two_seals_of_the_same_payload_use_different_salts_and_nonces"
         }
       ],
-      "title": "use argon2::Argon2;"
+      "title": "use argon2::{Algorithm, Argon2, Params, Version};"
     },
     {
       "bytes": 24091,
@@ -28196,38 +28216,38 @@
       "title": "mod memory;"
     },
     {
-      "bytes": 16368,
+      "bytes": 21916,
       "group": "crate:mini-dtn",
       "headings": [],
       "keywords": [
         "priority",
-        "self",
-        "parcel",
-        "inmemorydeferredtransport",
         "new",
         "hashmap",
         "usize",
+        "inmemorydeferredtransport",
+        "parcel",
+        "self",
         "default",
-        "entry",
-        "deferredid",
         "queues",
         "vecdeque",
-        "queue",
-        "len",
+        "deferredid",
         "default_max_entries_per_priority",
-        "deferredtransport",
-        "admission",
         "real",
-        "deferredparcel",
-        "entries",
-        "total_bytes",
+        "queue",
         "drr_deficit",
+        "class",
+        "len",
         "default_max_total_bytes",
-        "admit_cheap_checks"
+        "entry",
+        "deferredtransport",
+        "poll_delivered",
+        "admission",
+        "model",
+        "deferredparcel"
       ],
-      "lines": 429,
+      "lines": 538,
       "path": "crates/mini-dtn/src/memory.rs",
-      "sha256": "6d3abfdf1ce2d521ff6e2ed25dd88408fa86c7838aa0a7120159f03f776cc393",
+      "sha256": "f0ea805f794d873722daed93f2519fda8e7a126f49b1391890086121a0cf61da",
       "symbols": [
         {
           "kind": "const",
@@ -28251,137 +28271,147 @@
         },
         {
           "kind": "impl",
-          "line": 50,
+          "line": 62,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 51,
+          "line": 63,
           "name": "default"
         },
         {
           "kind": "impl",
-          "line": 56,
+          "line": 68,
           "name": "InMemoryDeferredTransport"
         },
         {
           "kind": "fn",
-          "line": 58,
+          "line": 70,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 78,
+          "line": 91,
           "name": "queued_count"
         },
         {
           "kind": "fn",
-          "line": 82,
+          "line": 95,
           "name": "admit_cheap_checks"
         },
         {
           "kind": "fn",
-          "line": 97,
+          "line": 110,
           "name": "reap_expired"
         },
         {
           "kind": "impl",
-          "line": 125,
+          "line": 145,
           "name": "DeferredTransport"
         },
         {
           "kind": "fn",
-          "line": 126,
+          "line": 146,
           "name": "enqueue"
         },
         {
           "kind": "fn",
-          "line": 176,
+          "line": 198,
           "name": "poll_delivered"
         },
         {
           "kind": "fn",
-          "line": 231,
+          "line": 280,
           "name": "status"
         },
         {
           "kind": "fn",
-          "line": 238,
+          "line": 287,
           "name": "cancel_local"
         },
         {
           "kind": "mod",
-          "line": 254,
+          "line": 304,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 258,
+          "line": 308,
           "name": "parcel"
         },
         {
           "kind": "fn",
-          "line": 269,
+          "line": 319,
           "name": "an_admitted_parcel_is_queued_local_until_polled"
         },
         {
           "kind": "fn",
-          "line": 276,
+          "line": 326,
           "name": "polling_moves_a_parcel_to_delivered"
         },
         {
           "kind": "fn",
-          "line": 286,
+          "line": 336,
           "name": "enqueuing_the_same_parcel_twice_is_deduplicated_by_transport_id"
         },
         {
           "kind": "fn",
-          "line": 299,
+          "line": 349,
           "name": "enqueuing_two_parcels_sharing_a_semantic_id_is_deduplicated"
         },
         {
           "kind": "fn",
-          "line": 316,
+          "line": 366,
           "name": "an_oversized_payload_is_rejected_before_admission"
         },
         {
           "kind": "fn",
-          "line": 326,
+          "line": 376,
           "name": "a_p0_payload_over_the_control_bound_is_rejected_even_though_it_fits_the_general_bound"
         },
         {
           "kind": "fn",
-          "line": 339,
+          "line": 389,
           "name": "a_full_priority_queue_rejects_further_admission"
         },
         {
           "kind": "fn",
-          "line": 350,
+          "line": 400,
           "name": "a_parcel_past_its_lifetime_window_expires_and_is_never_delivered"
         },
         {
           "kind": "fn",
-          "line": 363,
+          "line": 413,
           "name": "cancel_local_removes_a_still_queued_parcel"
         },
         {
           "kind": "fn",
-          "line": 376,
+          "line": 426,
           "name": "cancel_local_on_an_already_delivered_parcel_fails"
         },
         {
           "kind": "fn",
-          "line": 384,
+          "line": 434,
           "name": "status_of_an_id_that_was_never_admitted_is_unknown"
         },
         {
           "kind": "fn",
-          "line": 391,
+          "line": 441,
           "name": "higher_priority_classes_are_scheduled_out_first_under_contention"
         },
         {
           "kind": "fn",
-          "line": 413,
+          "line": 463,
+          "name": "a_small_poll_limit_does_not_reset_the_drr_scan_to_the_highest_class_every_call"
+        },
+        {
+          "kind": "fn",
+          "line": 491,
+          "name": "the_same_semantic_id_to_two_different_destinations_is_not_deduplicated"
+        },
+        {
+          "kind": "fn",
+          "line": 522,
           "name": "bulk_traffic_is_never_starved_forever_once_higher_classes_drain"
         }
       ],
@@ -42650,38 +42680,38 @@
       "title": "The transport (Bearer, EncryptedLink) this crate composes over."
     },
     {
-      "bytes": 43144,
+      "bytes": 45011,
       "group": "crate:mini-mesh",
       "headings": [],
       "keywords": [
+        "poll",
         "link",
         "meshnode",
-        "poll",
         "one",
         "bearer",
         "every",
-        "see",
+        "max_pending_reflood",
         "send",
+        "const",
+        "usize",
+        "call",
+        "max_messages_per_link_per_poll",
         "relay",
-        "same",
-        "own",
-        "how",
-        "payload",
-        "flush_reflood",
-        "mesh",
-        "links",
         "mini_bearer",
-        "ble",
+        "same",
+        "see",
         "peer",
-        "encryptedlink",
         "already",
-        "mutex",
+        "own",
+        "max_channel_plaintext_bytes",
+        "caller",
+        "how",
         "many",
-        "const"
+        "payloads"
       ],
-      "lines": 993,
+      "lines": 1023,
       "path": "crates/mini-mesh/src/lib.rs",
-      "sha256": "bffa7f0bce02746f33360739a8548669e2023a5c406a1e6272fe794493b53b26",
+      "sha256": "95bed33c1b2bfdac999134a0122b4a4be76c59962825c54688635c7bf09e9e8e",
       "symbols": [
         {
           "kind": "type",
@@ -42709,293 +42739,303 @@
           "name": "MAX_PENDING_REFLOOD_BYTES"
         },
         {
+          "kind": "const",
+          "line": 81,
+          "name": "MAX_NEW_MESSAGES_PER_POLL"
+        },
+        {
+          "kind": "const",
+          "line": 87,
+          "name": "MAX_NEW_MESSAGES_PER_POLL_BYTES"
+        },
+        {
           "kind": "fn",
-          "line": 74,
+          "line": 93,
           "name": "message_id"
         },
         {
           "kind": "struct",
-          "line": 85,
+          "line": 104,
           "name": "MeshNode"
         },
         {
           "kind": "struct",
-          "line": 99,
+          "line": 118,
           "name": "PendingReflood"
         },
         {
           "kind": "impl",
-          "line": 104,
+          "line": 123,
           "name": "PendingReflood"
         },
         {
           "kind": "fn",
-          "line": 108,
+          "line": 127,
           "name": "push"
         },
         {
           "kind": "fn",
-          "line": 119,
+          "line": 138,
           "name": "pop"
         },
         {
           "kind": "fn",
-          "line": 125,
+          "line": 144,
           "name": "len"
         },
         {
           "kind": "impl",
-          "line": 130,
+          "line": 149,
           "name": "std::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 131,
+          "line": 150,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 139,
+          "line": 158,
           "name": "MeshNode"
         },
         {
           "kind": "fn",
-          "line": 142,
+          "line": 161,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 147,
+          "line": 166,
           "name": "with_seen_capacity"
         },
         {
           "kind": "fn",
-          "line": 158,
+          "line": 177,
           "name": "lock_links"
         },
         {
           "kind": "fn",
-          "line": 162,
+          "line": 181,
           "name": "lock_seen"
         },
         {
           "kind": "fn",
-          "line": 166,
+          "line": 185,
           "name": "lock_pending"
         },
         {
           "kind": "fn",
-          "line": 175,
+          "line": 194,
           "name": "prune_dead"
         },
         {
           "kind": "fn",
-          "line": 186,
+          "line": 205,
           "name": "add_link"
         },
         {
           "kind": "fn",
-          "line": 196,
+          "line": 215,
           "name": "link_count"
         },
         {
           "kind": "fn",
-          "line": 236,
+          "line": 255,
           "name": "broadcast"
         },
         {
           "kind": "fn",
-          "line": 301,
+          "line": 320,
           "name": "poll"
         },
         {
           "kind": "fn",
-          "line": 379,
+          "line": 409,
           "name": "flush_reflood"
         },
         {
           "kind": "fn",
-          "line": 403,
+          "line": 433,
           "name": "pending_reflood_count"
         },
         {
           "kind": "fn",
-          "line": 415,
+          "line": 445,
           "name": "poll_and_flush"
         },
         {
           "kind": "impl",
-          "line": 422,
+          "line": 452,
           "name": "Default"
         },
         {
           "kind": "fn",
-          "line": 423,
+          "line": 453,
           "name": "default"
         },
         {
           "kind": "mod",
-          "line": 429,
+          "line": 459,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 433,
+          "line": 463,
           "name": "boxed"
         },
         {
           "kind": "fn",
-          "line": 444,
+          "line": 474,
           "name": "link"
         },
         {
           "kind": "fn",
-          "line": 453,
+          "line": 483,
           "name": "two_directly_linked_nodes_exchange_a_broadcast"
         },
         {
           "kind": "fn",
-          "line": 465,
+          "line": 495,
           "name": "a_repeated_broadcast_is_deduped_not_delivered_twice"
         },
         {
           "kind": "fn",
-          "line": 486,
+          "line": 516,
           "name": "a_broadcast_from_one_end_of_a_line_topology_reaches_the_other_end_via_relay"
         },
         {
           "kind": "fn",
-          "line": 531,
+          "line": 561,
           "name": "a_disconnected_pair_never_hears_a_broadcast_from_the_other_side"
         },
         {
           "kind": "fn",
-          "line": 550,
+          "line": 580,
           "name": "a_node_recognizes_its_own_broadcast_echoed_back_and_does_not_redeliver_it"
         },
         {
           "kind": "fn",
-          "line": 565,
+          "line": 595,
           "name": "link_count_reflects_added_links"
         },
         {
           "kind": "fn",
-          "line": 575,
+          "line": 605,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_broadcast_not_just_poll"
         },
         {
           "kind": "fn",
-          "line": 594,
+          "line": 624,
           "name": "a_dead_link_is_pruned_during_polls_own_reflood_step_too"
         },
         {
           "kind": "fn",
-          "line": 618,
+          "line": 648,
           "name": "a_link_whose_peer_is_gone_is_pruned_by_poll_not_retried_forever"
         },
         {
           "kind": "fn",
-          "line": 638,
+          "line": 668,
           "name": "poll_never_drains_more_than_the_per_link_cap_in_one_call"
         },
         {
           "kind": "fn",
-          "line": 656,
+          "line": 686,
           "name": "an_oversized_broadcast_is_rejected_without_touching_any_link"
         },
         {
           "kind": "struct",
-          "line": 690,
+          "line": 720,
           "name": "BoundedBearer"
         },
         {
           "kind": "impl",
-          "line": 695,
+          "line": 725,
           "name": "Bearer"
         },
         {
           "kind": "fn",
-          "line": 696,
+          "line": 726,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 699,
+          "line": 729,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 702,
+          "line": 732,
           "name": "try_recv"
         },
         {
           "kind": "fn",
-          "line": 705,
+          "line": 735,
           "name": "max_frame_bytes"
         },
         {
           "kind": "fn",
-          "line": 712,
+          "line": 742,
           "name": "link_with_bound"
         },
         {
           "kind": "fn",
-          "line": 725,
+          "line": 755,
           "name": "a_broadcast_too_large_for_one_links_bearer_is_rejected_without_touching_any_link"
         },
         {
           "kind": "fn",
-          "line": 756,
+          "line": 786,
           "name": "a_relayed_payload_too_large_for_one_links_bearer_does_not_prune_that_link"
         },
         {
           "kind": "fn",
-          "line": 797,
+          "line": 827,
           "name": "poll_stages_a_relay_but_never_sends_it_until_flush_reflood_is_called"
         },
         {
           "kind": "fn",
-          "line": 830,
+          "line": 860,
           "name": "pending_reflood_drops_the_oldest_past_capacity_rather_than_growing_unbounded"
         },
         {
           "kind": "fn",
-          "line": 845,
+          "line": 875,
           "name": "pending_reflood_drops_the_oldest_once_the_byte_budget_is_exceeded_well_under_the_count_cap"
         },
         {
           "kind": "struct",
-          "line": 881,
+          "line": 911,
           "name": "GatedSendBearer"
         },
         {
           "kind": "impl",
-          "line": 886,
+          "line": 916,
           "name": "Bearer"
         },
         {
           "kind": "fn",
-          "line": 887,
+          "line": 917,
           "name": "send"
         },
         {
           "kind": "fn",
-          "line": 891,
+          "line": 921,
           "name": "recv"
         },
         {
           "kind": "fn",
-          "line": 894,
+          "line": 924,
           "name": "try_recv"
         },
         {
           "kind": "fn",
-          "line": 900,
+          "line": 930,
           "name": "poll_on_a_healthy_link_makes_progress_while_flush_reflood_is_blocked_sending_on_another"
         },
         {
           "kind": "fn",
-          "line": 985,
+          "line": 1015,
           "name": "link_shared"
         }
       ],
@@ -49842,7 +49882,7 @@
       "title": "use crate::attestation::UwbRanging;"
     },
     {
-      "bytes": 20784,
+      "bytes": 21401,
       "group": "crate:mini-presence",
       "headings": [],
       "keywords": [
@@ -49871,9 +49911,9 @@
         "round-trip",
         "u32"
       ],
-      "lines": 486,
+      "lines": 495,
       "path": "crates/mini-presence/src/verify.rs",
-      "sha256": "83e6b037fcbfb8e2554914bdb1611d49817dc52676f28374a81cdee077034e88",
+      "sha256": "2a01ec3e3abf5eef2b8465175d4ccb9787ca856746d11190876d07889564fde4",
       "symbols": [
         {
           "kind": "struct",
@@ -49972,12 +50012,12 @@
         },
         {
           "kind": "fn",
-          "line": 411,
+          "line": 420,
           "name": "two_sided_corroborated"
         },
         {
           "kind": "fn",
-          "line": 460,
+          "line": 469,
           "name": "check_party"
         }
       ],
@@ -63675,38 +63715,38 @@
       "title": "use mini_crypto::{HashAlgorithm, Signature, SignatureSuite, SigningKey, VerifyingKey};"
     },
     {
-      "bytes": 20834,
+      "bytes": 22591,
       "group": "crate:mini-settlement",
       "headings": [],
       "keywords": [
         "canonical",
         "claim",
-        "chain",
-        "height",
-        "paymentclaimv2",
-        "u64",
-        "exactly",
-        "signed",
         "real",
+        "paymentclaimv2",
+        "height",
+        "against",
+        "exactly",
+        "chain",
         "canonicalledgerview",
+        "module",
+        "own",
         "mini-settlement",
+        "u64",
+        "clock",
+        "block",
+        "signed",
+        "what",
+        "const",
+        "max_validity_height_span",
         "chainanchorv2",
         "anchor",
+        "gate",
         "paymentclaim",
-        "against",
-        "clock",
-        "module",
-        "bytes",
-        "device",
-        "boundary",
-        "longer",
-        "exact",
-        "what",
-        "economic"
+        "device"
       ],
-      "lines": 619,
+      "lines": 648,
       "path": "crates/mini-settlement/src/claim_v2.rs",
-      "sha256": "08385c5f13ead657cf61899c075fa6e33cc7203c8e7d2451430de8d3a271bb15",
+      "sha256": "2a0a4fb83f404b9b8b67a6b324477d153e7e8a2580e040713f4ad4136761fa1e",
       "symbols": [
         {
           "kind": "const",
@@ -63724,158 +63764,163 @@
           "name": "MAX_PAYMENT_CLAIM_V2_BYTES"
         },
         {
+          "kind": "const",
+          "line": 70,
+          "name": "MAX_VALIDITY_HEIGHT_SPAN"
+        },
+        {
           "kind": "struct",
-          "line": 62,
+          "line": 78,
           "name": "ChainAnchorV2"
         },
         {
           "kind": "struct",
-          "line": 73,
+          "line": 89,
           "name": "PaymentClaimV2"
         },
         {
           "kind": "fn",
-          "line": 97,
+          "line": 113,
           "name": "claim_v2_message"
         },
         {
           "kind": "fn",
-          "line": 134,
+          "line": 150,
           "name": "sign_claim_v2"
         },
         {
           "kind": "fn",
-          "line": 159,
+          "line": 175,
           "name": "sign_claim_v2_for_network"
         },
         {
           "kind": "fn",
-          "line": 210,
+          "line": 230,
           "name": "verify_claim_v2_signature"
         },
         {
           "kind": "fn",
-          "line": 233,
+          "line": 262,
           "name": "claim_v2_digest"
         },
         {
           "kind": "fn",
-          "line": 247,
+          "line": 276,
           "name": "put_bytes"
         },
         {
           "kind": "struct",
-          "line": 252,
+          "line": 281,
           "name": "ClaimV2Reader"
         },
         {
           "kind": "impl",
-          "line": 257,
+          "line": 286,
           "name": "ClaimV2Reader<'a>"
         },
         {
           "kind": "fn",
-          "line": 258,
+          "line": 287,
           "name": "new"
         },
         {
           "kind": "fn",
-          "line": 262,
+          "line": 291,
           "name": "take"
         },
         {
           "kind": "fn",
-          "line": 275,
+          "line": 304,
           "name": "u8"
         },
         {
           "kind": "fn",
-          "line": 279,
+          "line": 308,
           "name": "u32"
         },
         {
           "kind": "fn",
-          "line": 287,
+          "line": 316,
           "name": "u64"
         },
         {
           "kind": "fn",
-          "line": 295,
+          "line": 324,
           "name": "bytes"
         },
         {
           "kind": "fn",
-          "line": 303,
+          "line": 332,
           "name": "finished"
         },
         {
           "kind": "impl",
-          "line": 308,
+          "line": 337,
           "name": "PaymentClaimV2"
         },
         {
           "kind": "fn",
-          "line": 311,
+          "line": 340,
           "name": "to_wire_bytes"
         },
         {
           "kind": "fn",
-          "line": 337,
+          "line": 366,
           "name": "from_wire_bytes"
         },
         {
           "kind": "mod",
-          "line": 379,
+          "line": 408,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 382,
+          "line": 411,
           "name": "payer_key"
         },
         {
           "kind": "fn",
-          "line": 386,
+          "line": 415,
           "name": "anchor"
         },
         {
           "kind": "fn",
-          "line": 394,
+          "line": 423,
           "name": "a_validly_signed_claim_v2_verifies"
         },
         {
           "kind": "fn",
-          "line": 410,
+          "line": 439,
           "name": "a_window_at_or_below_the_anchor_height_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 442,
+          "line": 471,
           "name": "a_window_wider_than_the_caller_supplied_span_is_rejected"
         },
         {
           "kind": "fn",
-          "line": 472,
+          "line": 501,
           "name": "tampering_any_signed_field_breaks_verification"
         },
         {
           "kind": "fn",
-          "line": 522,
+          "line": 551,
           "name": "standalone_wire_round_trip_preserves_digest_and_signature"
         },
         {
           "kind": "fn",
-          "line": 541,
+          "line": 570,
           "name": "standalone_wire_rejects_every_truncation_and_trailing_bytes"
         },
         {
           "kind": "fn",
-          "line": 566,
+          "line": 595,
           "name": "a_declared_oversized_field_length_is_rejected_before_allocating"
         },
         {
           "kind": "fn",
-          "line": 593,
+          "line": 622,
           "name": "two_claims_differing_only_by_claim_context_have_different_digests"
         }
       ],
@@ -84705,7 +84750,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1451391,
+      "bytes": 1457651,
       "group": "docs",
       "headings": [
         {
@@ -85112,17 +85157,17 @@
       "keywords": [
         "accepted",
         "proposed",
-        "track",
         "real",
+        "track",
         "issue",
         "android",
         "founder",
         "slice",
         "beta",
+        "gate",
         "phase",
         "review",
         "design",
-        "gate",
         "batch",
         "audit",
         "closes",
@@ -85135,9 +85180,9 @@
         "doctrine",
         "own"
       ],
-      "lines": 24027,
+      "lines": 24123,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "15ba1b80a599e158d033db1838f4e18dbb58a7ec3dbc69965cf7a82b6fcd9c99",
+      "sha256": "f7c954d0ddb1eb9d54848bf824138e1f16f6e1912403fa4a67adf3fec4ca821e",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -87483,7 +87528,7 @@
       "title": "Pull-request history ledger \u2014 how to reconstruct every change"
     },
     {
-      "bytes": 5087,
+      "bytes": 5329,
       "group": "docs",
       "headings": [
         {
@@ -87495,6 +87540,11 @@
           "level": 2,
           "line": 27,
           "text": "Required scope header (D-0441)"
+        },
+        {
+          "level": 2,
+          "line": 64,
+          "text": "User-supplied source reports"
         }
       ],
       "keywords": [
@@ -87523,9 +87573,9 @@
         "header",
         "d-0441"
       ],
-      "lines": 63,
+      "lines": 67,
       "path": "docs/audits/README.md",
-      "sha256": "324cbc044ba69265c256d465e6575c608b70c55468212db63020a14fc6ee44e3",
+      "sha256": "ea8b985af5c53affb109b6cab81873d6d270945da722914ac12c9bd625dcc94d",
       "symbols": [],
       "title": "Audits"
     },
@@ -90586,6 +90636,336 @@
       "sha256": "57cd037482ba964605c5d5451ed54fbf1fe2225c3bae59252056e18c89116b35",
       "symbols": [],
       "title": "PR 332 local durability follow-up"
+    },
+    {
+      "bytes": 65017,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "audit",
+        "report",
+        "reviewed",
+        "production",
+        "gate",
+        "composition",
+        "frost",
+        "implementation",
+        "cryptographic",
+        "design",
+        "evidence",
+        "external",
+        "signing",
+        "revision",
+        "partial",
+        "current",
+        "ristretto255",
+        "private",
+        "value",
+        "bounty",
+        "exactly",
+        "handling",
+        "code",
+        "mlsag"
+      ],
+      "lines": 2126,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_External_Audit_01_Gate_72_Cryptography_FINAL.txt",
+      "sha256": "b3fdca9ed40a34b88bd1775d85646cd75665763a57586aed9d4bba3d4dfc95f7",
+      "symbols": [],
+      "title": "MININET EXTERNAL CRYPTOGRAPHY AUDIT REPORT"
+    },
+    {
+      "bytes": 45282,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "dkg",
+        "custody",
+        "key",
+        "frost",
+        "audit",
+        "secret",
+        "production",
+        "current",
+        "rebuttal",
+        "external",
+        "report",
+        "rotation",
+        "share",
+        "pass",
+        "resharing",
+        "complaint",
+        "gate",
+        "threshold",
+        "ceremony",
+        "control",
+        "repository",
+        "reviewed",
+        "complete",
+        "conformance"
+      ],
+      "lines": 1680,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_External_Audit_02_Gate_93_FROST_DKG_Custody_FINAL.txt",
+      "sha256": "db5727c54913789dc2c35ecbeb237f2a4c449afa7116c7f93e25b3a89ecefb05",
+      "symbols": [],
+      "title": "MININET EXTERNAL FROST DKG & CUSTODY AUDIT REPORT"
+    },
+    {
+      "bytes": 162315,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "dtn",
+        "global",
+        "gate",
+        "satellite",
+        "pass",
+        "architecture",
+        "operation",
+        "rfc",
+        "bpv7",
+        "already",
+        "may",
+        "canonical",
+        "finality",
+        "design",
+        "interoperability",
+        "report",
+        "current",
+        "implementation",
+        "terrestrial",
+        "launch",
+        "required",
+        "fits",
+        "transport",
+        "correct"
+      ],
+      "lines": 5771,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_External_DTN_Satellite_Audit_07_Gate_28_Extreme_Environment_FINAL.txt",
+      "sha256": "497750b54610c1255d65e122e904ccf9f47f7e3a9e4256151b892cae292250fc",
+      "symbols": [],
+      "title": "MININET EXTREME-ENVIRONMENT / DTN ARCHITECTURE AUDIT 7/8"
+    },
+    {
+      "bytes": 70439,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "legal",
+        "launch",
+        "report",
+        "current",
+        "review",
+        "sale",
+        "external",
+        "gate",
+        "sanctions",
+        "design",
+        "genesis",
+        "counsel",
+        "real-value",
+        "treasury",
+        "regulation",
+        "reviewed",
+        "qualified",
+        "opinion",
+        "legally",
+        "architecture",
+        "central",
+        "spec-07",
+        "contribution",
+        "guidance"
+      ],
+      "lines": 2199,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_External_Legal_Review_03_Gate_96_FINAL.txt",
+      "sha256": "4b07a8fd712cc01585c974282ef052b49c5c77f7771d65c420d1bba041c88b07",
+      "symbols": [],
+      "title": "MININET EXTERNAL LEGAL & REGULATORY REVIEW"
+    },
+    {
+      "bytes": 120027,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "research",
+        "current",
+        "report",
+        "personhood",
+        "one",
+        "external",
+        "audit",
+        "human",
+        "launch",
+        "design",
+        "gate",
+        "resistance",
+        "human-share",
+        "repository",
+        "complete",
+        "generic",
+        "engineering",
+        "make",
+        "evidence",
+        "credential",
+        "correct",
+        "security",
+        "audits",
+        "bootstrap"
+      ],
+      "lines": 4240,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_External_Personhood_Audit_04_Gate_21_Sybil_Human_Continuity_FINAL.txt",
+      "sha256": "c958e99d17456f865afe0b1173e886d669130fb9fd746edf56836d43e4d227a4",
+      "symbols": [],
+      "title": "MININET EXTERNAL PERSONHOOD & SYBIL-RESISTANCE RESEARCH AUDIT"
+    },
+    {
+      "bytes": 149916,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "report",
+        "contribution",
+        "reserve",
+        "economic",
+        "current",
+        "issuance",
+        "human",
+        "share",
+        "service",
+        "vesting",
+        "mechanism-design",
+        "audit",
+        "oracle",
+        "code",
+        "implementation",
+        "does",
+        "question",
+        "approximately",
+        "but",
+        "u64",
+        "receipt",
+        "external",
+        "tokenomics",
+        "gates"
+      ],
+      "lines": 5165,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_External_Tokenomics_Audit_06_Gates_47_50_Economic_Calibration_FINAL.txt",
+      "sha256": "44083c3fa71be279e0803a61d191746de110acd28ab5d4f6555f0f98ae5b23ce",
+      "symbols": [],
+      "title": "MININET REAL-VALUE READINESS \u2014 EXTERNAL MECHANISM-DESIGN / TOKENOMICS AUDIT 6/8"
+    },
+    {
+      "bytes": 91060,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "wi-fi",
+        "tcp",
+        "current",
+        "zero",
+        "aware",
+        "gate",
+        "android",
+        "direct",
+        "pass",
+        "wiring",
+        "evidence",
+        "continuity",
+        "same",
+        "local",
+        "bearer",
+        "personhood",
+        "discovery",
+        "fail",
+        "router",
+        "design",
+        "issue",
+        "feature",
+        "real-value",
+        "physical"
+      ],
+      "lines": 2564,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_External_WiFi_Bearer_Audit_08_Gate_98_FINAL.txt",
+      "sha256": "1696d5ea67c861c675e48376f4050f8860eddf52e61c613a3835f8dbed26a0bb",
+      "symbols": [],
+      "title": "MININET REAL-VALUE READINESS \u2014 FILE 8/8"
+    },
+    {
+      "bytes": 141928,
+      "group": "docs",
+      "headings": [],
+      "keywords": [
+        "hardware",
+        "whether",
+        "review",
+        "current",
+        "gate",
+        "android",
+        "ranging",
+        "relay",
+        "real",
+        "bluetooth",
+        "package",
+        "ble",
+        "uwb",
+        "evidence",
+        "main",
+        "design",
+        "implementation",
+        "fail",
+        "behavior",
+        "adapter",
+        "secure",
+        "physical",
+        "security",
+        "source"
+      ],
+      "lines": 5565,
+      "path": "docs/audits/source-reports-2026-09-12/Mininet_Hardware_Validation_05_Gate_97_BLE_UWB_Presence_FINAL.txt",
+      "sha256": "5edb88f91610a95d254d0d9f5d3e0e22a50de45eb5562fafb3e856e35e4dc7ed",
+      "symbols": [],
+      "title": "MININET REAL-PEOPLE READINESS \u2014 HARDWARE VALIDATION PACKAGE 5/8"
+    },
+    {
+      "bytes": 3189,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "User-supplied audit source reports"
+        }
+      ],
+      "keywords": [
+        "txt",
+        "source",
+        "report",
+        "audit",
+        "user-supplied",
+        "reports",
+        "scope",
+        "intake",
+        "verification",
+        "text",
+        "sha-256",
+        "bytes",
+        "inclusion",
+        "including",
+        "gate",
+        "mininet_external_legal_review_03_gate_96_final",
+        "audits",
+        "source-reports-2026-09-12",
+        "field",
+        "value",
+        "reviewed",
+        "cf96490e7065e249dc10a339af19c5189f935b02",
+        "new",
+        "code"
+      ],
+      "lines": 29,
+      "path": "docs/audits/source-reports-2026-09-12/README.md",
+      "sha256": "7e44c827ba67488c6bf046ffb402fc2d0fe889065a8132837631e07c010f272b",
+      "symbols": [],
+      "title": "User-supplied audit source reports"
     },
     {
       "bytes": 8870,
@@ -105152,7 +105532,7 @@
       "title": "version: 1"
     },
     {
-      "bytes": 96956,
+      "bytes": 97789,
       "group": "root",
       "headings": [],
       "keywords": [
@@ -105181,9 +105561,9 @@
         "independently",
         "both"
       ],
-      "lines": 1423,
+      "lines": 1426,
       "path": "governance/work-claims.json",
-      "sha256": "984f9c99a57d63a897f69e6c2723fb58dcd2ae6b35e1b72e35897f7a28be8442",
+      "sha256": "4fbd58f49fb61f791f4b28d028c84f92ce090e53fab6367abb3f3b3cd7b788d8",
       "symbols": [],
       "title": "{"
     },

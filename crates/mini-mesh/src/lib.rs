@@ -67,6 +67,25 @@ pub const MAX_PENDING_REFLOOD: usize = 4_096;
 /// below the old count-only bound's actual worst case.
 pub const MAX_PENDING_REFLOOD_BYTES: usize = 64 * 1024 * 1024;
 
+/// Aggregate budget for the `new_messages` batch [`MeshNode::poll`] returns
+/// from a *single call*, across every link in the mesh combined -- not just
+/// per link. [`MAX_MESSAGES_PER_LINK_PER_POLL`] alone only bounds one link's
+/// contribution; with an unbounded number of links, a generic high-capacity
+/// bearer could otherwise let one `poll()` call retain an arbitrarily large
+/// batch (individual payloads approaching `MAX_CHANNEL_PLAINTEXT_BYTES`
+/// each) before the caller or UniFFI delivery layer has any chance to shed
+/// it (a Codex review finding on PR #333). Once either bound is hit,
+/// remaining links are simply left unpolled this round -- their traffic is
+/// not lost, only deferred to the caller's next `poll()` call, the same
+/// stance [`MeshNode::poll`] already takes for a single busy link.
+pub const MAX_NEW_MESSAGES_PER_POLL: usize = MAX_PENDING_REFLOOD;
+
+/// Byte counterpart of [`MAX_NEW_MESSAGES_PER_POLL`], for the same reason
+/// [`MAX_PENDING_REFLOOD_BYTES`] exists alongside [`MAX_PENDING_REFLOOD`]:
+/// a handful of near-maximum-size payloads can hit a byte budget long
+/// before an entry-count budget would ever trip.
+pub const MAX_NEW_MESSAGES_PER_POLL_BYTES: usize = MAX_PENDING_REFLOOD_BYTES;
+
 /// A content id for a mesh payload: the BLAKE3 digest of its raw bytes.
 /// Every hop computes the same id independently from the same bytes, so
 /// nothing needs to carry an id on the wire — the payload *is* its own id,
@@ -300,10 +319,11 @@ impl MeshNode {
     /// tried again on the next `poll()` call once free.
     pub fn poll(&self) -> Vec<([u8; 32], Vec<u8>)> {
         let mut new_messages = Vec::new();
+        let mut new_messages_bytes: usize = 0;
         let snapshot: Vec<LinkHandle> = self.lock_links().clone();
         let mut dead = Vec::new();
 
-        for handle in &snapshot {
+        'links: for handle in &snapshot {
             let Ok(mut link) = handle.try_lock() else {
                 // Busy (flush_reflood is sending on it right now) -- move
                 // on rather than waiting; nothing here is lost, only
@@ -311,6 +331,15 @@ impl MeshNode {
                 continue;
             };
             for _ in 0..MAX_MESSAGES_PER_LINK_PER_POLL {
+                // Aggregate cap across every link this call, not just this
+                // one: see MAX_NEW_MESSAGES_PER_POLL/_BYTES. Remaining
+                // links (and the rest of this one) are left for the next
+                // poll() call rather than growing this batch further.
+                if new_messages.len() >= MAX_NEW_MESSAGES_PER_POLL
+                    || new_messages_bytes >= MAX_NEW_MESSAGES_PER_POLL_BYTES
+                {
+                    break 'links;
+                }
                 match link.try_recv() {
                     Ok(Some(payload)) => {
                         let id = message_id(&payload);
@@ -325,6 +354,7 @@ impl MeshNode {
                             // the *relay* obligation to other links, not
                             // local delivery.
                             self.lock_pending().push(payload.clone());
+                            new_messages_bytes += payload.len();
                             new_messages.push((id, payload));
                         }
                         // A repeat: already relayed and delivered once, drop it.

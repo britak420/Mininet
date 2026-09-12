@@ -20,7 +20,7 @@
 //! `KeyPackage::serialize()` output), keeping it independent of the exact
 //! FROST ciphersuite in use.
 
-use argon2::Argon2;
+use argon2::{Algorithm, Argon2, Params, Version};
 use mini_crypto::{AeadKey, AeadNonce, AeadSuite};
 use zeroize::Zeroize;
 
@@ -28,6 +28,31 @@ use crate::error::{CustodyError, Result};
 
 /// Argon2 salt length used for wrapping-key derivation.
 pub const SALT_LEN: usize = 16;
+
+/// Argon2id memory cost, in KiB, for the Gate #93 portable-backup profile
+/// (Section 10 of the audit report): 256 MiB. `Argon2::default()` uses only
+/// 19,456 KiB (`argon2::Params::DEFAULT_M_COST`) -- roughly one-thirteenth
+/// of the specified memory -- which a Codex review finding on PR #333
+/// pointed out materially weakens at-rest protection for an attacker who
+/// obtains an encrypted signer backup and brute-forces the passphrase.
+const WRAPPING_KEY_M_COST_KIB: u32 = 256 * 1024;
+
+/// Argon2id iteration count for the same profile: 3 passes.
+const WRAPPING_KEY_T_COST: u32 = 3;
+
+/// Argon2id parallelism for the same profile: 1 lane.
+const WRAPPING_KEY_P_COST: u32 = 1;
+
+fn wrapping_key_argon2() -> Argon2<'static> {
+    let params = Params::new(
+        WRAPPING_KEY_M_COST_KIB,
+        WRAPPING_KEY_T_COST,
+        WRAPPING_KEY_P_COST,
+        Some(32),
+    )
+    .expect("fixed Gate #93 Argon2 parameters are always valid");
+    Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
+}
 
 /// An encrypted, at-rest `KeyPackage` for one signer, one session.
 /// `session_id` is authenticated as AEAD associated data (not just stored
@@ -43,7 +68,7 @@ pub struct SealedKeyPackageV1 {
 
 fn derive_wrapping_key(passphrase: &[u8], salt: &[u8; SALT_LEN]) -> Result<AeadKey> {
     let mut key_bytes = [0u8; 32];
-    let result = Argon2::default().hash_password_into(passphrase, salt, &mut key_bytes);
+    let result = wrapping_key_argon2().hash_password_into(passphrase, salt, &mut key_bytes);
     let key = match result {
         Ok(()) => AeadKey::from_suite_bytes(AeadSuite::ChaCha20Poly1305, &key_bytes)
             .map_err(|_| CustodyError::ShareStorageAuthenticationFailed),
