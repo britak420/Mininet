@@ -1616,7 +1616,7 @@ mod tests {
             epoch_a,
             BetaAccountId::new([13; 32]).unwrap(),
             GrantClass::Testing,
-            1 * MICRO_BETA_MINI_PER_BETA_MINI,
+            MICRO_BETA_MINI_PER_BETA_MINI,
             "old epoch grant",
             2,
             2,
