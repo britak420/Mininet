@@ -7,6 +7,11 @@
 
 /// Initial active-seat capacity.
 pub const FOUNDING_SEATS: u32 = 7;
+/// Defensive allocation ceiling for this reference kernel. The legitimate
+/// `2n + 1` sequence reaches this exact value (7 -> ... -> 65_535), which is
+/// already far beyond plausible human parliamentary scale. Raising it later is
+/// an explicit code/evidence change rather than an unbounded allocation path.
+pub const MAX_ACTIVE_SEATS: u32 = 65_535;
 /// H0 invitation allowance in a rolling 30-day window.
 pub const H0_INVITATIONS_PER_WINDOW: u32 = 100;
 /// Ordinary Steward invitation allowance in a rolling 60-day window.
@@ -27,6 +32,8 @@ pub enum ParliamentPolicyError {
     UnknownSeat,
     /// A seat attempted to vote more than once.
     DuplicateSeatVote,
+    /// A seat-capacity input exceeded the reference kernel's allocation bound.
+    SeatCapacityOutOfRange,
     /// A threshold or quorum was not met.
     ThresholdNotMet,
     /// An invitation allowance or qualification rule was exceeded.
@@ -107,6 +114,9 @@ pub fn tally_votes(
 ) -> Result<VoteTally, ParliamentPolicyError> {
     if active_seats == 0 {
         return Err(ParliamentPolicyError::ThresholdNotMet);
+    }
+    if active_seats > MAX_ACTIVE_SEATS {
+        return Err(ParliamentPolicyError::SeatCapacityOutOfRange);
     }
     let mut seen = vec![false; active_seats as usize];
     let mut tally = VoteTally {
@@ -302,7 +312,11 @@ pub struct TransitionEvidence {
 }
 
 pub fn next_seat_capacity(current: u32) -> Option<u32> {
-    current.checked_mul(2)?.checked_add(1)
+    if current >= MAX_ACTIVE_SEATS {
+        return None;
+    }
+    let next = current.checked_mul(2)?.checked_add(1)?;
+    (next <= MAX_ACTIVE_SEATS).then_some(next)
 }
 
 /// Validate a proposed authority transition. This is intentionally stricter
@@ -312,6 +326,9 @@ pub fn validate_transition(
     next: ParliamentState,
     evidence: TransitionEvidence,
 ) -> Result<(), ParliamentPolicyError> {
+    if current.seat_capacity > MAX_ACTIVE_SEATS || next.seat_capacity > MAX_ACTIVE_SEATS {
+        return Err(ParliamentPolicyError::SeatCapacityOutOfRange);
+    }
     if current.seat_capacity == 0
         || next.seat_capacity < current.seat_capacity
         || next.public_eligibility_bps < current.public_eligibility_bps
