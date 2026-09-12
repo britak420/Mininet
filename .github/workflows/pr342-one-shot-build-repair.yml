@@ -1,0 +1,125 @@
+name: PR342 one-shot Beta CLI wiring and build repair
+
+on:
+  push:
+    branches:
+      - gpt/issue-336-forge-beta-native
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: gpt/issue-336-forge-beta-native
+          fetch-depth: 0
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Wire beta command dispatch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('crates/mini-cli/src/cli.rs')
+          s = p.read_text()
+          old_use = '''use crate::{\n    build, coordination, identity, installer, intake, keystone, pr, provenance, release, repo,\n    store, sync,\n};'''
+          new_use = '''use crate::{\n    beta, build, coordination, identity, installer, intake, keystone, pr, provenance, release, repo,\n    store, sync,\n};'''
+          if old_use not in s:
+              raise SystemExit('cli crate import anchor missing')
+          s = s.replace(old_use, new_use, 1)
+          old_dispatch = '''        "task" => dispatch_task(home, store_path, args, json),\n        "sync" => {'''
+          new_dispatch = '''        "task" => dispatch_task(home, store_path, args, json),\n        "beta" => dispatch_beta(home, store_path, args, json),\n        "sync" => {'''
+          if old_dispatch not in s:
+              raise SystemExit('cli dispatch anchor missing')
+          s = s.replace(old_dispatch, new_dispatch, 1)
+          anchor = 'fn dispatch_team(\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('dispatch_team anchor not unique')
+          beta_dispatch = r'''fn dispatch_beta(
+    home: &Path,
+    store_path: &Path,
+    mut args: Vec<String>,
+    json: bool,
+) -> Result<String> {
+    let noun = next(&mut args, "beta")?;
+    let sub = next(&mut args, &format!("beta {noun}"))?;
+    let (kind, result) = match (noun.as_str(), sub.as_str()) {
+        ("campaign", "list") => ("beta.campaign-list", beta::campaign_list(home, store_path, args)),
+        ("campaign", "show") => ("beta.campaign-show", beta::campaign_show(home, store_path, args)),
+        ("finding", "submit") => ("beta.finding-submit", beta::finding_submit(home, store_path, args)),
+        ("finding", "list") => ("beta.finding-list", beta::finding_list(home, store_path, args)),
+        ("finding", "show") => ("beta.finding-show", beta::finding_show(home, store_path, args)),
+        ("finding", "disposition") => (
+            "beta.finding-disposition",
+            beta::finding_disposition(home, store_path, args),
+        ),
+        ("finding", "to-task") => (
+            "beta.finding-to-task",
+            beta::finding_to_task(home, store_path, args),
+        ),
+        ("disposition", "list") => (
+            "beta.disposition-list",
+            beta::disposition_list(home, store_path, args),
+        ),
+        ("disposition", "show") => (
+            "beta.disposition-show",
+            beta::disposition_show(home, store_path, args),
+        ),
+        ("task", "claim") => ("beta.task-claim", beta::task_claim(home, store_path, args)),
+        ("contribution", "accept") => (
+            "beta.contribution-accept",
+            beta::contribution_accept(home, store_path, args),
+        ),
+        ("contribution", "list") => (
+            "beta.contribution-list",
+            beta::contribution_list(home, store_path, args),
+        ),
+        ("contribution", "show") => (
+            "beta.contribution-show",
+            beta::contribution_show(home, store_path, args),
+        ),
+        ("claim", "new") => ("beta.claim-new", beta::claim_new(home, store_path, args)),
+        _ => {
+            return Err(CliError::Usage(format!(
+                "unknown `beta` command: {noun:?} {sub:?}"
+            )))
+        }
+    };
+    result.map(|value| value.render(json, kind))
+}
+
+'''
+          s = s.replace(anchor, beta_dispatch + anchor, 1)
+          p.write_text(s)
+          PY
+      - name: Format and compile mini CLI
+        run: |
+          cargo fmt --all
+          cargo check -p mini-cli --all-targets --all-features
+      - name: Update lock through Cargo and prove bounded change
+        run: |
+          grep -q '^name = "mini-cli"$' Cargo.lock
+          read adds dels <<EOF
+          $(git diff --numstat -- Cargo.lock | awk '{print $1, $2}')
+          EOF
+          test -n "$adds" || true
+          test "${dels:-0}" -le 5
+          test "${adds:-0}" -le 12
+      - name: Focused strict verification
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy -p mini-cli --all-targets --all-features -- -D warnings
+          cargo test -p mini-cli --all-features
+      - name: Remove one-shot workflow and commit verified wiring
+        run: |
+          rm .github/workflows/pr342-one-shot-build-repair.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Cargo.lock crates/mini-cli docs/design/forge-native-beta-cli.md .github/workflows/pr342-one-shot-build-repair.yml
+          git diff --cached --check
+          git diff --cached --quiet && exit 0
+          git commit -m 'Wire and compile-proof Forge-native Beta CLI'
+          git push origin HEAD:gpt/issue-336-forge-beta-native
