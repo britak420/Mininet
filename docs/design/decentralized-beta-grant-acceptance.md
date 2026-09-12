@@ -73,6 +73,22 @@ A policy is valid only if:
 9. participation reward bands are non-empty, strictly increasing, unique, bounded, and non-zero; and
 10. no policy field carries vote weight or production-value conversion semantics.
 
+### One-policy-per-campaign safety rule
+
+A node MUST fail closed if its verified object set contains more than one valid grant policy for the same campaign. It MUST NOT choose a winner by:
+
+- object id;
+- timestamp;
+- arrival order;
+- GitHub/repository state;
+- balance or stake;
+- authorizer count beyond the declared threshold; or
+- whichever policy was seen first locally.
+
+`resolve_unique_campaign_policy` enforces this rule before threshold acceptance. The reason is temporal safety: a grant that was locally accepted under policy A must not silently become governed by policy B merely because policy B replicated later. Until #337/#338 provide canonical replicated conflict/finality resolution, a competing valid policy is an explicit stop condition rather than an excuse to manufacture local finality.
+
+This does not make already-executed distributed side effects magically reversible. Therefore a durable/shared product integration MUST NOT execute grants before the canonical policy/finality layer exists. The current reference wrapper is test-domain accounting only.
+
 ### Approval validity
 
 A signed `mininet.beta/grant-approval/v1` object counts only if:
@@ -112,6 +128,7 @@ The safe rule in this PR is:
 
 - threshold validation is deterministic for one exact grant and one complete approval set;
 - duplicate participation minting is blocked by the accounting core even if reviewers sign competing grant ids;
+- competing valid policies for one campaign fail closed instead of using a local tie-break;
 - tests must prove two independently constructed nodes return the same acceptance result once they possess the same immutable objects;
 - tests must also prove stale/wrong-epoch/wrong-policy/duplicate-signer evidence cannot satisfy a threshold; and
 - durable shared execution must not claim rollback-free finality until #337/#338 provide replicated state resolution and canonical conflict handling.
@@ -144,6 +161,7 @@ The PR is not complete without tests for:
 - stale/expired policy rejection;
 - wrong campaign/epoch rejection;
 - policy author different from campaign record author rejection;
+- two valid policies for one campaign fail closed rather than selecting a local winner;
 - testing amount outside the deterministic policy amount rejection;
 - participation amount outside reward bands rejection;
 - participation grant without same-campaign contribution rejection;
@@ -159,9 +177,10 @@ The PR is not complete without tests for:
 - **Human decentralization — PARTIAL.** Distinct DIDs are not proof of distinct humans. Exact failure: bootstrap policy membership can still be selected by the temporary campaign authority.
 - **Voice/value wall — PASS if no balance/reward/contribution volume enters authorization weight.**
 - **Deterministic shared validation — PASS once code/tests prove identical object sets yield identical results.**
+- **Policy-fork safety — PASS at validation time.** Competing valid policies fail closed; no node-local tie-break manufactures authority.
 - **Rollback-free distributed finality — FAIL in this PR by design.** Exact fix belongs to #337/#338 canonical replicated state resolution, not a fake local tie-break.
 - **Production value activation — PASS against it.** This mechanism is Beta-only and provides no production conversion promise.
 
 ## Exit condition
 
-Issue #339 is complete when the threshold policy and approval objects, shared-beta wrapper, Forge-native schemas, dependency-wall test, and adversarial convergence tests are green on exact-head CI, with the residual bootstrap membership-selection centralization documented rather than hidden.
+The #339 threshold-acceptance engineering slice is complete when the policy and approval objects, shared-beta wrapper, unique-policy fail-closed rule, Forge-native schemas, dependency-wall test, and adversarial convergence tests are green on exact-head CI, with the residual bootstrap membership-selection centralization documented rather than hidden. Mature independent-human authorizer selection and canonical policy/finality remain #338/personhood work and must not be implied by closing this implementation slice.
