@@ -180,10 +180,13 @@ pub fn invitation_allowance(
             active_service_days,
             completed_duty_periods,
         } if active_service_days >= STEWARD_INVITER_MIN_SERVICE_DAYS
-            && completed_duty_periods >= 1 => Ok(InvitationAllowance {
+            && completed_duty_periods >= 1 =>
+        {
+            Ok(InvitationAllowance {
                 max_invitations: STEWARD_INVITATIONS_PER_WINDOW,
                 window_days: 60,
-            }),
+            })
+        }
         InviterClass::Steward { .. } => Err(ParliamentPolicyError::InvitationNotAllowed),
     }
 }
