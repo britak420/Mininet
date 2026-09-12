@@ -24465,3 +24465,142 @@ given consensus-breaking blast radius), and a real fee-policy registry to
 replace `quote_fee_micro`'s placeholder (F72-13).
 
 **Supersedes / superseded by:** none.
+
+### D-0522 — Gate #96: adopt the external legal review's genesis-launch constraints as engineering direction; defer the BTC/XMR/XRP-for-MINI contribution mechanism and XRPL/XMR genesis liquidity framing (D-0073 amended, gate NOT closed — pending qualified counsel signature)  ·  *Adopted as engineering direction; legal gate remains open*
+
+**Date:** 2026-09-12 · **Refs:** roadmap #96 (closed `not_planned` 2026-07-10,
+before this review existed — founder should revisit that closure), #47
+(the correct current tracking issue for the treasury-contribution/bridge
+mechanism; #23 is unrelated and was a stale cross-reference this entry
+also fixes), `docs/gates/legal-review-brief.md`, `docs/audits/
+source-reports-2026-09-12/Mininet_External_Legal_Review_03_Gate_96_FINAL.txt`
+(findings L96-001 through L96-034, W96-01 through W96-10), D-0073, D-0008,
+Directive 16 / P1 (voice/value wall), Directive 2 / P3 (no owner, no admin
+key).
+
+**Decision:** a full external legal/regulatory review answering
+`docs/gates/legal-review-brief.md`'s open questions was received
+2026-09-11, written as a "counsel-of-record adoption draft" — a finished
+opinion a qualified lawyer can review, amend, and sign, rather than a
+request for a new open-ended research cycle. Its own final section is an
+attestation block (counsel name, bar, jurisdiction, signature, date) that
+is **blank** in the delivered document. Per this project's honesty-over-
+polish rule, that means **Gate #96 is not closed** by this entry, and this
+entry does not claim otherwise — no AI-drafted or founder-read document
+constitutes licensed legal advice or satisfies "engage counsel" from the
+original gate brief.
+
+What this entry does do: adopt the review's engineering-actionable
+conclusions as launch-architecture direction now, on the same reasoning
+D-0513/D-0514 already used for adopting external design-report
+architecture on engineering merit before formal process completed —
+because every one of these conclusions only *narrows* what genesis is
+allowed to do, never widens it, so adopting them early costs nothing and
+adopting them late would mean shipping the wrong thing first. Specifically,
+effective immediately for any genesis/production launch configuration:
+
+- **No external-asset-for-MINI issuance at genesis** (L96-001): the
+  SPEC-07 "verified BTC/XMR deposit → mint MINI at a governed rate"
+  mechanism (D-0073's "Mechanism D," `mini_treasury::rate`/`receipt`) is
+  deferred and production-unreachable. It may remain in source only as
+  dev/test-only, non-production-exposed code, clearly labeled superseded
+  for launch (L96-031) — already true today, since nothing wires
+  `mini_treasury::receipt`/`rate` into any minting or consensus path (see
+  `docs/STATUS.md`); this entry makes that a deliberate constraint going
+  forward, not an incidental gap.
+- **No token sale of any kind, ever, at genesis** (L96-002/003): genesis
+  MINI reaches users only through equal human-share vesting and protocol-
+  native compensation for real network work — both already Mininet's
+  existing constitutional design, not new mechanisms invented here.
+- **No peg, redemption promise, or "backing" framing** for MINI against
+  USD/EUR/BTC/XMR/XRP or any basket (L96-006), and no marketing/price-
+  promotion language — "day-one price," "strengthens/lifts holdings,"
+  "instant liquidity," "buy/acquire extra MINI," return/ROI language,
+  "investment opportunity" (L96-007, W96-01–W96-04).
+- **The XRPL and Monero bridges are optional, post-genesis edge
+  conveniences, never a genesis dependency or liquidity promise**
+  (L96-011): no project-run exchange/broker/onramp/offramp, no official
+  exchange-listing solicitation, no "instant liquidity from day one."
+  Direct XMR contribution/custody is not a genesis service (L96-010).
+- **Mandatory user risk disclosure** or equivalent at any real-value
+  release: MINI is experimental, not equity/debt/a claim on a treasury, no
+  promised price/redemption/yield/liquidity, may lose all value, transfers
+  may be irreversible, no administrator can recover keys or reverse a
+  transfer (L96-029).
+- **No false "legal safe harbor" claims** — no "not a security," "not
+  money transmission," "MiCA exempt everywhere," or "no one can regulate
+  this" (L96-030). Legal classification remains jurisdiction/fact
+  specific; the approved framing is that the protocol is designed to be
+  decentralized, functional and non-custodial, and no project entity
+  offers MINI for sale at genesis.
+- **KYC/sanctions/admin-seizure capability never enters the protocol
+  core** (L96-015, L96-034) — this was already a frozen invariant (P3);
+  the review independently confirms adopting its recommendations requires
+  no invariant change, only removing marketing/mechanism claims that
+  exceeded what the constitution actually allows.
+
+Two documentation corrections the review itself flagged (finding G):
+`docs/gates/legal-review-brief.md` cross-referenced roadmap issue #23 as
+"the contribution mechanism" — #23 is actually the unrelated, already-
+closed "[Phase 3.2] Bootstrap protocol over real transport" issue. The
+correct, still-open tracking issue is #47 ("Treasury contribution,
+XRPL/XMR bridge-liquidity, and reserve-allocation audit"), already named
+correctly in D-0073. Both stale references in the brief are corrected by
+this entry.
+
+**Constitutional impact:** none — no `docs/INVARIANTS.md` row changes, no
+frozen-invariant weakening. The review's own §19 constitutional-alignment
+pass reaches the same conclusion: the voice/value wall (P1) and no-owner/
+no-admin-key rule (P3) are already satisfied by the existing architecture;
+what changes is genesis *mechanism availability and public communication*,
+not any constitutional guarantee. This entry amends D-0073's status (the
+design remains valid engineering thinking for a possible future, non-
+genesis reopening of its contribution mechanism) without weakening
+anything D-0073 established about the voice/value wall applying to that
+layer.
+
+**Implementation status:** documentation and one code-comment update only
+in this batch — `WHITEPAPER.md` §4 (removed "kept structurally separate...
+per D-0073" framing that implied a live genesis mechanism; added the
+no-liquidity-promise disclaimer), `docs/gates/legal-review-brief.md`
+(status header, corrected issue references), `docs/design/
+treasury-economic-model.md` and `docs/gates/economic-simulation-spec.md`
+(genesis-deferral notices), `docs/STATUS.md` (D-0073 status line), and
+`crates/mini-treasury/src/receipt.rs` (doc-comment noting the legal status
+of a module that was already unreachable from production). No code
+behavior changes: `mini_treasury::rate`/`receipt` were never wired into
+any minting or consensus path, so "deferred at genesis" was already this
+crate's actual behavior — this entry makes it a documented, deliberate
+constraint rather than an artifact of incompleteness. Full repo-wide grep
+for the review's specific banned marketing phrases ("day-one price,"
+"XRPL twin," "strengthens"/"lifts... holdings," "instant liquidity") found
+no other occurrences outside the audit source material itself and this
+now-corrected set of files.
+
+**Failure point:** this is a founder-level engineering-conformance
+adoption, not a legal opinion — it cannot itself satisfy "engage counsel"
+from the original gate brief, and roadmap issue #96 should not be treated
+as resolved by this entry. If a real, qualified lawyer's review reaches a
+different conclusion on any point, that review controls and this entry
+gets a superseding decision. Roadmap issue #96 was closed `not_planned` in
+July, before this review existed; that closure is now stale and the
+founder should decide whether to reopen it or track follow-up elsewhere.
+The numeric parameters in `docs/design/treasury-economic-model.md`
+(reserve split, spread, ceilings) remain founder-set starting values,
+unvalidated by simulation or an external mechanism-design specialist,
+exactly as D-0073 already stated — this entry does not change that.
+
+**Required follow-up:** founder engages qualified counsel to review, amend
+if necessary, and sign the delivered report (or commission an independent
+equivalent) before any real-value contribution/treasury mechanism goes
+live; decide on roadmap #96's stale `not_planned` closure; if/when a
+future, separately-reviewed decision reopens external-asset-for-MINI
+issuance, that decision must itself go through this same legal-review
+discipline (L96-032) rather than being treated as a documentation change.
+
+**Supersedes / superseded by:** amends D-0073's genesis-launch status
+(D-0073's design content and its application of the voice/value wall to
+the bridge/treasury layer are not superseded — only the claim, never
+explicit but implied by D-0073's original "structurally separate... per
+D-0073" whitepaper framing, that this mechanism is live or available at
+genesis). Does not supersede D-0008 (XRPL as settlement bridge design).

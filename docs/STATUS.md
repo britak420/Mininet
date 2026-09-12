@@ -953,7 +953,9 @@ given time.
   vendored `bulletproofs`, `PrivatePaymentV3` wire format, calibrated
   decoy distribution), which remain entirely unimplemented.
 - **policy kernel implemented; integration and external review open
-  (proposed D-0413)** — the treasury economic model (D-0073,
+  (proposed D-0413); contribution/bridge-issuance mechanism deferred at
+  genesis (D-0522, Gate #96 legal review, pending counsel signature)** —
+  the treasury economic model (D-0073,
   `docs/design/treasury-economic-model.md`: XRPL/XMR bridge split,
   contribution epochs, oracle/vesting/issuance-ceiling mechanism) and the
   long-term issuance/anti-whale model (D-0074, `docs/design/

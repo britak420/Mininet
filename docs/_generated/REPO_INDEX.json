@@ -1784,7 +1784,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 29597,
+      "bytes": 29849,
       "group": "root",
       "headings": [
         {
@@ -1824,7 +1824,7 @@
         },
         {
           "level": 2,
-          "line": 465,
+          "line": 469,
           "text": "License"
         }
       ],
@@ -1854,9 +1854,9 @@
         "switch",
         "nothing"
       ],
-      "lines": 469,
+      "lines": 473,
       "path": "README.md",
-      "sha256": "105203fc862eef4e12f7f5311c237929ed2ca8c99cc30eed69c9819c9808fbd6",
+      "sha256": "f4b70b311417c7fb429d5d74a993031c1f2117d6732a2529182c2b7f8328e6f6",
       "symbols": [],
       "title": "Mininet"
     },
@@ -1923,7 +1923,7 @@
       "title": "Security Policy"
     },
     {
-      "bytes": 20608,
+      "bytes": 20862,
       "group": "root",
       "headings": [
         {
@@ -1963,37 +1963,37 @@
         },
         {
           "level": 2,
-          "line": 168,
+          "line": 171,
           "text": "5. Privacy is a purchasable resource, never a purchasable right"
         },
         {
           "level": 2,
-          "line": 190,
+          "line": 193,
           "text": "6. Storage, presence, and personhood"
         },
         {
           "level": 2,
-          "line": 210,
+          "line": 213,
           "text": "7. What is honestly not solved yet"
         },
         {
           "level": 2,
-          "line": 239,
+          "line": 242,
           "text": "8. Where the design is heading: a public information commons"
         },
         {
           "level": 2,
-          "line": 295,
+          "line": 298,
           "text": "9. Design directions under active discussion (not yet decided)"
         },
         {
           "level": 2,
-          "line": 343,
+          "line": 346,
           "text": "10. Governance"
         },
         {
           "level": 2,
-          "line": 355,
+          "line": 358,
           "text": "11. How to participate"
         }
       ],
@@ -2023,9 +2023,9 @@
         "who",
         "constitutional"
       ],
-      "lines": 376,
+      "lines": 379,
       "path": "WHITEPAPER.md",
-      "sha256": "39e89cfc42d876fd45a3075041eb9b961d5a839be93facfa8721bcf3d2f9806d",
+      "sha256": "261ab1d2a1489b88021d10be10d05b3352932bedf30400f3ffcb67583e4aa2c0",
       "symbols": [],
       "title": "The Mininet Whitepaper"
     },
@@ -77416,97 +77416,97 @@
       "title": "pub const RATE_SCALE: u64 = 1_000_000;"
     },
     {
-      "bytes": 4948,
+      "bytes": 5522,
       "group": "crate:mini-treasury",
       "headings": [],
       "keywords": [
         "contributionreceipt",
-        "rate",
-        "receipt",
-        "real",
-        "monero",
         "external",
+        "real",
+        "rate",
         "externalreceiptoracle",
         "contribution",
+        "monero",
         "u64",
-        "contributionkind",
+        "receipt",
         "noexternalreceiptoracle",
-        "bitcoin",
-        "is_confirmed",
         "cross-chain",
+        "bitcoin",
         "asset",
         "amount",
-        "new",
+        "contributionkind",
+        "is_confirmed",
         "treasury",
         "transaction",
+        "see",
         "contributed_units",
         "mini_per_unit_micro",
-        "minted_micro",
         "verifier",
-        "whitepaper"
+        "whitepaper",
+        "confirmation"
       ],
-      "lines": 123,
+      "lines": 132,
       "path": "crates/mini-treasury/src/receipt.rs",
-      "sha256": "3738d306bf342149c30560ebeb20a54722edec8e8df78557869fc17132adf775",
+      "sha256": "398aac71a8eb509ceea223301784db74323c199df05b310a0d45c3847e7ab273",
       "symbols": [
         {
           "kind": "enum",
-          "line": 16,
+          "line": 25,
           "name": "ContributionKind"
         },
         {
           "kind": "struct",
-          "line": 28,
+          "line": 37,
           "name": "ContributionReceipt"
         },
         {
           "kind": "impl",
-          "line": 43,
+          "line": 52,
           "name": "ContributionReceipt"
         },
         {
           "kind": "fn",
-          "line": 46,
+          "line": 55,
           "name": "new"
         },
         {
           "kind": "trait",
-          "line": 79,
+          "line": 88,
           "name": "ExternalReceiptOracle"
         },
         {
           "kind": "fn",
-          "line": 84,
+          "line": 93,
           "name": "is_confirmed"
         },
         {
           "kind": "struct",
-          "line": 92,
+          "line": 101,
           "name": "NoExternalReceiptOracle"
         },
         {
           "kind": "impl",
-          "line": 94,
+          "line": 103,
           "name": "ExternalReceiptOracle"
         },
         {
           "kind": "fn",
-          "line": 95,
+          "line": 104,
           "name": "is_confirmed"
         },
         {
           "kind": "mod",
-          "line": 101,
+          "line": 110,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 105,
+          "line": 114,
           "name": "receipt_computes_minted_amount_from_rate"
         },
         {
           "kind": "fn",
-          "line": 116,
+          "line": 125,
           "name": "no_external_receipt_oracle_never_confirms"
         }
       ],
@@ -85773,7 +85773,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1479243,
+      "bytes": 1488227,
       "group": "docs",
       "headings": [
         {
@@ -86185,12 +86185,12 @@
         "issue",
         "android",
         "founder",
+        "gate",
         "slice",
         "beta",
-        "gate",
+        "review",
         "phase",
         "batch",
-        "review",
         "design",
         "audit",
         "shipped",
@@ -86203,9 +86203,9 @@
         "new",
         "doctrine"
       ],
-      "lines": 24468,
+      "lines": 24607,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "0f05934ab2f77a0a29c8722ec6926d24be7c25de5bdcd006aed0a39b1b2ab6e8",
+      "sha256": "d911c76b77d99c34716d6811f94b8c7f1d32aed32c6c5067f2b62292ba13c47e",
       "symbols": [],
       "title": "Decision Log"
     },
@@ -87541,7 +87541,7 @@
       "title": "Mininet social network product contract"
     },
     {
-      "bytes": 202195,
+      "bytes": 202318,
       "group": "docs",
       "headings": [
         {
@@ -87586,72 +87586,72 @@
         },
         {
           "level": 2,
-          "line": 1045,
+          "line": 1047,
           "text": "5. Updates & forks"
         },
         {
           "level": 2,
-          "line": 1092,
+          "line": 1094,
           "text": "6. Privacy"
         },
         {
           "level": 2,
-          "line": 1325,
+          "line": 1327,
           "text": "7. Storage"
         },
         {
           "level": 2,
-          "line": 1552,
+          "line": 1554,
           "text": "8. Networking"
         },
         {
           "level": 2,
-          "line": 1677,
+          "line": 1679,
           "text": "9. AI & audit gates"
         },
         {
           "level": 2,
-          "line": 1707,
+          "line": 1709,
           "text": "10. Self-hosted forge spine (D-0066, tracking issue #102)"
         },
         {
           "level": 2,
-          "line": 2054,
+          "line": 2056,
           "text": "11. Discovery / search"
         },
         {
           "level": 2,
-          "line": 2589,
+          "line": 2591,
           "text": "Client coverage"
         },
         {
           "level": 2,
-          "line": 2680,
+          "line": 2682,
           "text": "12. Edge / provider layer (Founder Directive 18, D-0352)"
         },
         {
           "level": 2,
-          "line": 2760,
+          "line": 2762,
           "text": "13. Airdrop eligibility (D-0354)"
         },
         {
           "level": 2,
-          "line": 2860,
+          "line": 2862,
           "text": "Where to look for more detail"
         },
         {
           "level": 2,
-          "line": 2877,
+          "line": 2879,
           "text": "Privacy transport runtime convergence \u2014 D-0377 and proposed D-0438"
         },
         {
           "level": 2,
-          "line": 2913,
+          "line": 2915,
           "text": "Node deployment \u2014 Mininet Node Appliance (D-0446)"
         },
         {
           "level": 2,
-          "line": 2994,
+          "line": 2996,
           "text": "Day-0 release code hardening \u2014 D-0442/D-0443 proposal"
         }
       ],
@@ -87681,9 +87681,9 @@
         "design",
         "exists"
       ],
-      "lines": 3029,
+      "lines": 3031,
       "path": "docs/STATUS.md",
-      "sha256": "bcb42bebdd50b2bf972c4bc49a398cae71e5c1f3ab7cd48ff8245565045b383e",
+      "sha256": "20a5b2020f5ab39cfff4061c07fc8f60c5fa3ef1faa0bbe9dd2cc740c0b92822",
       "symbols": [],
       "title": "Implementation status"
     },
@@ -96126,7 +96126,7 @@
       "title": "Storage-fraud detection: identity-bound replicas, audited registration, and replica-conflict evidence"
     },
     {
-      "bytes": 12770,
+      "bytes": 13766,
       "group": "docs",
       "headings": [
         {
@@ -96136,109 +96136,109 @@
         },
         {
           "level": 2,
-          "line": 10,
+          "line": 25,
           "text": "Why this supersedes the BTC/XMR framing"
         },
         {
           "level": 2,
-          "line": 27,
+          "line": 42,
           "text": "1. Four separate economic mechanisms, never conflated"
         },
         {
           "level": 2,
-          "line": 40,
+          "line": 55,
           "text": "2. Bridge-liquidity reserve allocation"
         },
         {
           "level": 2,
-          "line": 72,
+          "line": 87,
           "text": "3. No guaranteed redemption"
         },
         {
           "level": 2,
-          "line": 81,
+          "line": 96,
           "text": "4. Treasury-contribution epochs"
         },
         {
           "level": 2,
-          "line": 92,
+          "line": 107,
           "text": "5. Contribution valuation"
         },
         {
           "level": 2,
-          "line": 107,
+          "line": 122,
           "text": "6. Reserve-protection spread and vesting"
         },
         {
           "level": 2,
-          "line": 118,
+          "line": 133,
           "text": "7. Issuance ceilings"
         },
         {
           "level": 2,
-          "line": 135,
+          "line": 150,
           "text": "8. Contribution receipts"
         },
         {
           "level": 2,
-          "line": 150,
+          "line": 165,
           "text": "9. Cellular treasury custody"
         },
         {
           "level": 2,
-          "line": 177,
+          "line": 192,
           "text": "10. Signer selection and rotation"
         },
         {
           "level": 2,
-          "line": 191,
+          "line": 206,
           "text": "11. Governance controls \u2014 explicit allow/deny list"
         },
         {
           "level": 2,
-          "line": 207,
+          "line": 222,
           "text": "12. Influence and recognition"
         },
         {
           "level": 2,
-          "line": 218,
+          "line": 233,
           "text": "13. Required economic stress tests (pre-mass-launch gate, not yet run)"
         },
         {
           "level": 2,
-          "line": 236,
+          "line": 251,
           "text": "What remains open"
         }
       ],
       "keywords": [
         "treasury",
         "xmr",
-        "contribution",
-        "reserve",
-        "btc",
+        "mechanism",
         "may",
+        "btc",
+        "reserve",
+        "bridge",
         "economic",
         "never",
-        "bridge",
         "liquidity",
-        "epoch",
+        "redemption",
+        "contribution",
         "governance",
-        "mechanism",
+        "ordinary",
         "xrpl",
         "xrp",
-        "market",
-        "founder",
-        "redemption",
-        "settlement",
-        "ordinary",
-        "value",
-        "assets",
         "design",
-        "model"
+        "founder",
+        "decision",
+        "what",
+        "genesis",
+        "below",
+        "settlement",
+        "market"
       ],
-      "lines": 250,
+      "lines": 265,
       "path": "docs/design/treasury-economic-model.md",
-      "sha256": "d86dbc6fd942826bd5cf68a02fcda35215af54a854273c831544cfeb99ca29b9",
+      "sha256": "a3324e962ee180da0dbbb0abfc1c673cbe8df7c3313d57a70db800f4dc366f1a",
       "symbols": [],
       "title": "Treasury economic model \u2014 founder decision (D-0073)"
     },
@@ -96867,7 +96867,7 @@
       "title": "Extreme-environment operation \u2014 DTN design constraints"
     },
     {
-      "bytes": 9078,
+      "bytes": 9530,
       "group": "docs",
       "headings": [
         {
@@ -96877,79 +96877,79 @@
         },
         {
           "level": 2,
-          "line": 23,
+          "line": 31,
           "text": "Why philosophy alone doesn't close this"
         },
         {
           "level": 2,
-          "line": 33,
+          "line": 41,
           "text": "What engineering should build before the specialist arrives"
         },
         {
           "level": 3,
-          "line": 78,
+          "line": 86,
           "text": "Adversary classes the harness (Python or eventual Rust) should model"
         },
         {
           "level": 3,
-          "line": 95,
+          "line": 103,
           "text": "Parameter sweep (already run by `tools/sim/tokenomics_sim.py`)"
         },
         {
           "level": 3,
-          "line": 105,
+          "line": 113,
           "text": "Failure thresholds the harness checks per scenario"
         },
         {
           "level": 3,
-          "line": 121,
+          "line": 129,
           "text": "Metrics the harness should report"
         },
         {
           "level": 3,
-          "line": 144,
+          "line": 152,
           "text": "Invariant checks the simulation should assert, not just report"
         },
         {
           "level": 2,
-          "line": 164,
+          "line": 172,
           "text": "Questions the specialist must answer"
         },
         {
           "level": 2,
-          "line": 180,
+          "line": 188,
           "text": "What closes this gate"
         }
       ],
       "keywords": [
         "harness",
+        "gate",
         "d-0074",
-        "whale",
         "treasury",
         "long-term",
         "simulation",
         "rust",
         "model",
+        "below",
+        "whale",
         "doesn",
         "specialist",
         "python",
         "eventual",
-        "run",
-        "vesting",
-        "below",
+        "still",
         "human",
         "governance",
+        "gates",
         "attack",
         "modeling",
         "spec",
         "alone",
         "what",
-        "classes",
-        "parameter"
+        "classes"
       ],
-      "lines": 186,
+      "lines": 194,
       "path": "docs/gates/economic-simulation-spec.md",
-      "sha256": "c99b26a90e6ab2e4468e8af8d20f849d766479ea2f86eacc6febd4403df7c563",
+      "sha256": "86acf095939fa9c09d0867bbd42a018f00fb6f08080267a9ff1e4a2a0371598e",
       "symbols": [],
       "title": "Treasury economics & long-term attack modeling \u2014 simulation spec"
     },
@@ -97031,7 +97031,7 @@
       "title": "Presence/ranging hardware validation \u2014 test protocol"
     },
     {
-      "bytes": 4815,
+      "bytes": 6698,
       "group": "docs",
       "headings": [
         {
@@ -97041,64 +97041,64 @@
         },
         {
           "level": 2,
-          "line": 9,
+          "line": 32,
           "text": "The mechanism, plainly"
         },
         {
           "level": 2,
-          "line": 28,
+          "line": 54,
           "text": "Why direct XMR isn't accepted directly"
         },
         {
           "level": 2,
-          "line": 39,
+          "line": 65,
           "text": "What counsel needs to evaluate"
         },
         {
           "level": 2,
-          "line": 67,
+          "line": 93,
           "text": "Related documents this brief doesn't duplicate"
         },
         {
           "level": 2,
-          "line": 78,
+          "line": 104,
           "text": "Hard constraint on the review"
         },
         {
           "level": 2,
-          "line": 91,
+          "line": 117,
           "text": "What closes this gate"
         }
       ],
       "keywords": [
         "counsel",
-        "btc",
-        "legal",
         "what",
-        "review",
+        "btc",
         "mechanism",
+        "review",
         "xmr",
-        "does",
-        "gates",
-        "brief",
-        "gate",
+        "legal",
+        "founder",
+        "genesis",
         "contribution",
-        "cryptographic",
-        "admin",
-        "real",
-        "jurisdiction",
-        "protocol",
+        "does",
         "technical",
+        "brief",
         "direct",
         "isn",
         "accepted",
-        "doesn",
-        "constraint",
-        "issues"
+        "gate",
+        "roadmap",
+        "issues",
+        "status",
+        "d-0522",
+        "sale",
+        "spec-07",
+        "treasury"
       ],
-      "lines": 96,
+      "lines": 125,
       "path": "docs/gates/legal-review-brief.md",
-      "sha256": "02bb5acfd583c09d4f96b657c7e0810f5372fd94c529b745b8a12694e9b43585",
+      "sha256": "d22d90ac99b78cde8055a569708eaf848698547c5ff6dca805e4a3ab9c562b77",
       "symbols": [],
       "title": "Legal counsel review \u2014 technical brief"
     },

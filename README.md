@@ -411,7 +411,7 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0521`
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0522`
    (`D-0513`–`D-0516`: adopting external Gate #28 DTN/satellite and Gate #98
    Wi-Fi bearer design-report architectures on engineering merit (new
    `mini-dtn` crate scaffold, `mini-settlement::PaymentClaimV2`
@@ -429,9 +429,13 @@ to people who will never meet them:
    corrected independent generator basis, the `PrivatePaymentV3` wire
    format with its three-digest scheme, and the audit's OSPEAD log-GB2
    calibrated decoy distribution — none of it yet wired into any
-   consensus-checked path (Section 11 remains open follow-up); plus a
-   sixth Codex remediation batch (`D-0519`) — are the newest at the time of
-   this edit; the Mininet Node Appliance deployment profile this line
+   consensus-checked path (Section 11 remains open follow-up); a sixth
+   Codex remediation batch (`D-0519`); and Gate #96's external legal
+   review adopted as engineering-conformance direction — no BTC/XMR/XRP-
+   for-MINI issuance at genesis, no XRPL/Monero genesis liquidity promise
+   (`D-0522`, gate itself NOT closed pending qualified counsel signature)
+   — are the newest at the time of this edit; the Mininet Node Appliance
+   deployment profile this line
    previously credited to `D-0439` is `D-0446` — `D-0439` is the
    identity-bound replica-registration decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
