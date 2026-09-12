@@ -36,7 +36,6 @@ const MAX_AUTHORIZERS: usize = 32;
 const MIN_AUTHORIZERS: usize = 3;
 const MAX_REWARD_BANDS: usize = 16;
 const MAX_APPROVAL_EVIDENCE: usize = 128;
-const MAX_OBJECT_ID_BYTES: usize = 256;
 
 /// Result type for the Beta grant-acceptance layer.
 pub type Result<T> = core::result::Result<T, GrantAcceptanceError>;
@@ -73,7 +72,10 @@ impl core::fmt::Display for GrantAcceptanceError {
             Self::InvalidObject => write!(f, "invalid Beta grant acceptance object"),
             Self::InvalidPolicy => write!(f, "invalid Beta grant policy"),
             Self::PolicyAuthorMismatch => {
-                write!(f, "Beta grant policy author is not the campaign record author")
+                write!(
+                    f,
+                    "Beta grant policy author is not the campaign record author"
+                )
             }
             Self::GrantRuleViolation => write!(f, "Beta grant violates deterministic policy"),
             Self::InvalidApproval => write!(f, "invalid Beta grant approval evidence"),
@@ -271,7 +273,11 @@ pub fn create_grant_approval<B: Backend>(
 ) -> Result<Object> {
     let policy = validate_policy(store, policy_id)?;
     let grant = validate_grant_against_policy(store, &policy, grant_id)?;
-    if !policy.members.iter().any(|member| member == authorizer_human) {
+    if !policy
+        .members
+        .iter()
+        .any(|member| member == authorizer_human)
+    {
         return Err(GrantAcceptanceError::InvalidApproval);
     }
     if timestamp_ms < grant.timestamp_ms
@@ -316,10 +322,7 @@ pub fn parse_grant_policy_object(object: &Object) -> Result<BetaGrantPolicy> {
         let did = Did::parse(&raw).map_err(|_| GrantAcceptanceError::InvalidObject)?;
         members.push(did);
     }
-    if members
-        .windows(2)
-        .any(|w| w[0].as_str() >= w[1].as_str())
-    {
+    if members.windows(2).any(|w| w[0].as_str() >= w[1].as_str()) {
         return Err(GrantAcceptanceError::InvalidPolicy);
     }
 
@@ -634,6 +637,7 @@ impl SharedBetaLedger {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validate_policy_fields(
     campaign: &mini_beta::BetaCampaign,
     members: &[Did],
@@ -660,9 +664,7 @@ fn validate_policy_fields(
         || participation_reward_bands
             .iter()
             .any(|band| *band > DEFAULT_MAX_PARTICIPATION_GRANT)
-        || participation_reward_bands
-            .windows(2)
-            .any(|w| w[0] >= w[1])
+        || participation_reward_bands.windows(2).any(|w| w[0] >= w[1])
         || valid_from_ms < campaign.starts_ms
         || valid_until_ms > campaign.ends_ms
         || valid_from_ms >= valid_until_ms
@@ -682,7 +684,13 @@ fn ensure_type_and_links(object: &Object, expected_type: &str, relations: &[&str
         return Err(GrantAcceptanceError::InvalidObject);
     }
     for relation in relations {
-        if object.links.iter().filter(|link| link.rel == *relation).count() != 1 {
+        if object
+            .links
+            .iter()
+            .filter(|link| link.rel == *relation)
+            .count()
+            != 1
+        {
             return Err(GrantAcceptanceError::InvalidObject);
         }
     }
@@ -719,9 +727,7 @@ fn put_str(out: &mut Vec<u8>, value: &str) {
 }
 
 fn take_u8(bytes: &[u8], off: &mut usize) -> Result<u8> {
-    let value = *bytes
-        .get(*off)
-        .ok_or(GrantAcceptanceError::InvalidObject)?;
+    let value = *bytes.get(*off).ok_or(GrantAcceptanceError::InvalidObject)?;
     *off += 1;
     Ok(value)
 }
@@ -779,7 +785,7 @@ fn take_str(bytes: &[u8], off: &mut usize, max: usize) -> Result<String> {
             .map_err(|_| GrantAcceptanceError::InvalidObject)?,
     ) as usize;
     *off = len_end;
-    if len == 0 || len > max || len > MAX_OBJECT_ID_BYTES.max(max) {
+    if len == 0 || len > max {
         return Err(GrantAcceptanceError::InvalidObject);
     }
     let end = off

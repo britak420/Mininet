@@ -174,7 +174,12 @@ fn one_authorizer_cannot_mint_testing_grant() {
     let approval = f.approve(0, grant.id(), 20);
 
     assert!(matches!(
-        validate_grant_acceptance(&f.store, f.policy.id(), grant.id(), &[approval.id().clone()]),
+        validate_grant_acceptance(
+            &f.store,
+            f.policy.id(),
+            grant.id(),
+            &[approval.id().clone()]
+        ),
         Err(GrantAcceptanceError::ThresholdNotMet {
             required: 2,
             observed: 1
@@ -308,7 +313,11 @@ fn approval_for_another_grant_cannot_be_reused() {
 #[test]
 fn campaign_author_cannot_delegate_policy_authorship_to_arbitrary_key() {
     let mut f = Fixture::new();
-    let members = f.authorizers.iter().map(Controller::did).collect::<Vec<_>>();
+    let members = f
+        .authorizers
+        .iter()
+        .map(Controller::did)
+        .collect::<Vec<_>>();
     let result = create_grant_policy(
         &mut f.store,
         &f.outsider.did(),
@@ -429,12 +438,9 @@ fn authorizer_equivocation_is_detected_but_not_given_hidden_blacklist_power() {
     let a = f.approve(0, first.id(), 20);
     let b = f.approve(0, second.id(), 21);
 
-    let conflicts = detect_authorizer_equivocations(
-        &f.store,
-        f.policy.id(),
-        &[a.id().clone(), b.id().clone()],
-    )
-    .unwrap();
+    let conflicts =
+        detect_authorizer_equivocations(&f.store, f.policy.id(), &[a.id().clone(), b.id().clone()])
+            .unwrap();
     assert_eq!(conflicts.len(), 1);
     assert_eq!(conflicts[0].authorizer, f.authorizers[0].did());
 }
@@ -453,12 +459,7 @@ fn offline_store_converges_after_the_same_immutable_evidence_arrives() {
     offline.insert(&a).unwrap();
 
     assert!(matches!(
-        validate_grant_acceptance(
-            &offline,
-            f.policy.id(),
-            grant.id(),
-            &[a.id().clone()]
-        ),
+        validate_grant_acceptance(&offline, f.policy.id(), grant.id(), &[a.id().clone()]),
         Err(GrantAcceptanceError::ThresholdNotMet {
             required: 2,
             observed: 1
