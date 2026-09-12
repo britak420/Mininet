@@ -544,3 +544,42 @@ fn competing_valid_campaign_policies_fail_closed_instead_of_local_tie_breaking()
         Err(GrantAcceptanceError::PolicyConflict)
     ));
 }
+
+#[test]
+fn outsider_policy_shaped_objects_cannot_veto_the_campaign_policy() {
+    let mut f = Fixture::new();
+    let grant = f.testing_grant(BetaAccountId::new([16; 32]).unwrap(), "test", 10);
+    let a = f.approve(0, grant.id(), 20);
+    let b = f.approve(1, grant.id(), 21);
+
+    let outsider_copy = ObjectBuilder::new(ObjectType::Custom(
+        mini_beta_grants::BETA_GRANT_POLICY_TYPE.to_string(),
+    ))
+    .timestamp_ms(f.policy.timestamp_ms + 1)
+    .sequence(999)
+    .payload(f.policy.payload.clone())
+    .link("campaign", f.campaign.id().clone())
+    .sign(&f.outsider.did(), &f.outsider)
+    .unwrap();
+    f.store.insert(&outsider_copy).unwrap();
+
+    let malformed = ObjectBuilder::new(ObjectType::Custom(
+        mini_beta_grants::BETA_GRANT_POLICY_TYPE.to_string(),
+    ))
+    .timestamp_ms(152)
+    .sequence(1_000)
+    .payload(Payload::Public(vec![0xff]))
+    .link("campaign", f.campaign.id().clone())
+    .sign(&f.outsider.did(), &f.outsider)
+    .unwrap();
+    f.store.insert(&malformed).unwrap();
+
+    let accepted = validate_grant_acceptance(
+        &f.store,
+        f.policy.id(),
+        grant.id(),
+        &[a.id().clone(), b.id().clone()],
+    )
+    .unwrap();
+    assert_eq!(accepted.distinct_approvers, 2);
+}

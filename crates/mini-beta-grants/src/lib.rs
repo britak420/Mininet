@@ -458,14 +458,33 @@ pub fn resolve_unique_campaign_policy<B: Backend>(
     store: &Store<B>,
     campaign_id: &ObjectId,
 ) -> Result<BetaGrantPolicy> {
+    let campaign = read_campaign(store, campaign_id)?;
     let ids = store.by_type(&ObjectType::Custom(BETA_GRANT_POLICY_TYPE.to_string()))?;
     let mut found: Option<BetaGrantPolicy> = None;
     for id in ids {
-        let candidate = parse_grant_policy_object(&store.get(&id)?)?;
-        if &candidate.campaign_id != campaign_id {
+        let object = store.get(&id)?;
+        let candidate = match parse_grant_policy_object(&object) {
+            Ok(candidate) => candidate,
+            // Any DID can publish an object with this custom type. Malformed
+            // third-party policy-shaped noise must not gain veto power merely
+            // by sharing the type index.
+            Err(_) => continue,
+        };
+        if &candidate.campaign_id != campaign_id
+            || candidate.record_author != campaign.record_author
+        {
             continue;
         }
-        let candidate = validate_policy(store, &id)?;
+        let candidate = match validate_policy(store, &id) {
+            Ok(candidate) => candidate,
+            // Only fully valid policies by the campaign record authority are
+            // candidates for the uniqueness rule. Invalid objects do not become
+            // a second policy and therefore cannot manufacture PolicyConflict.
+            Err(GrantAcceptanceError::InvalidPolicy)
+            | Err(GrantAcceptanceError::PolicyAuthorMismatch)
+            | Err(GrantAcceptanceError::InvalidObject) => continue,
+            Err(error) => return Err(error),
+        };
         if found.is_some() {
             return Err(GrantAcceptanceError::PolicyConflict);
         }
