@@ -1,0 +1,73 @@
+name: PR342 one-shot Beta CLI build repair v2
+
+on:
+  push:
+    branches:
+      - gpt/issue-336-forge-beta-native
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: gpt/issue-336-forge-beta-native
+          fetch-depth: 0
+      - name: Install pinned Rust toolchain and fixture target
+        run: |
+          rustup show
+          rustup target add wasm32-wasip2
+      - name: Wire beta command dispatch
+        env:
+          BETA_DISPATCH_B64: Zm4gZGlzcGF0Y2hfYmV0YSgKICAgIGhvbWU6ICZQYXRoLAogICAgc3RvcmVfcGF0aDogJlBhdGgsCiAgICBtdXQgYXJnczogVmVjPFN0cmluZz4sCiAgICBqc29uOiBib29sLAopIC0+IFJlc3VsdDxTdHJpbmc+IHsKICAgIGxldCBub3VuID0gbmV4dCgmbXV0IGFyZ3MsICJiZXRhIik/OwogICAgbGV0IHN1YiA9IG5leHQoJm11dCBhcmdzLCAmZm9ybWF0ISgiYmV0YSB7bm91bn0iKSk/OwogICAgbGV0IChraW5kLCByZXN1bHQpID0gbWF0Y2ggKG5vdW4uYXNfc3RyKCksIHN1Yi5hc19zdHIoKSkgewogICAgICAgICgiY2FtcGFpZ24iLCAibGlzdCIpID0+ICgiYmV0YS5jYW1wYWlnbi1saXN0IiwgYmV0YTo6Y2FtcGFpZ25fbGlzdChob21lLCBzdG9yZV9wYXRoLCBhcmdzKSksCiAgICAgICAgKCJjYW1wYWlnbiIsICJzaG93IikgPT4gKCJiZXRhLmNhbXBhaWduLXNob3ciLCBiZXRhOjpjYW1wYWlnbl9zaG93KGhvbWUsIHN0b3JlX3BhdGgsIGFyZ3MpKSwKICAgICAgICAoImZpbmRpbmciLCAic3VibWl0IikgPT4gKCJiZXRhLmZpbmRpbmctc3VibWl0IiwgYmV0YTo6ZmluZGluZ19zdWJtaXQoaG9tZSwgc3RvcmVfcGF0aCwgYXJncykpLAogICAgICAgICgiZmluZGluZyIsICJsaXN0IikgPT4gKCJiZXRhLmZpbmRpbmctbGlzdCIsIGJldGE6OmZpbmRpbmdfbGlzdChob21lLCBzdG9yZV9wYXRoLCBhcmdzKSksCiAgICAgICAgKCJmaW5kaW5nIiwgInNob3ciKSA9PiAoImJldGEuZmluZGluZy1zaG93IiwgYmV0YTo6ZmluZGluZ19zaG93KGhvbWUsIHN0b3JlX3BhdGgsIGFyZ3MpKSwKICAgICAgICAoImZpbmRpbmciLCAiZGlzcG9zaXRpb24iKSA9PiAoCiAgICAgICAgICAgICJiZXRhLmZpbmRpbmctZGlzcG9zaXRpb24iLAogICAgICAgICAgICBiZXRhOjpmaW5kaW5nX2Rpc3Bvc2l0aW9uKGhvbWUsIHN0b3JlX3BhdGgsIGFyZ3MpLAogICAgICAgICksCiAgICAgICAgKCJmaW5kaW5nIiwgInRvLXRhc2siKSA9PiAoCiAgICAgICAgICAgICJiZXRhLmZpbmRpbmctdG8tdGFzayIsCiAgICAgICAgICAgIGJldGE6OmZpbmRpbmdfdG9fdGFzayhob21lLCBzdG9yZV9wYXRoLCBhcmdzKSwKICAgICAgICApLAogICAgICAgICgiZGlzcG9zaXRpb24iLCAibGlzdCIpID0+ICgKICAgICAgICAgICAgImJldGEuZGlzcG9zaXRpb24tbGlzdCIsCiAgICAgICAgICAgIGJldGE6OmRpc3Bvc2l0aW9uX2xpc3QoaG9tZSwgc3RvcmVfcGF0aCwgYXJncyksCiAgICAgICAgKSwKICAgICAgICAoImRpc3Bvc2l0aW9uIiwgInNob3ciKSA9PiAoCiAgICAgICAgICAgICJiZXRhLmRpc3Bvc2l0aW9uLXNob3ciLAogICAgICAgICAgICBiZXRhOjpkaXNwb3NpdGlvbl9zaG93KGhvbWUsIHN0b3JlX3BhdGgsIGFyZ3MpLAogICAgICAgICksCiAgICAgICAgKCJ0YXNrIiwgImNsYWltIikgPT4gKCJiZXRhLnRhc2stY2xhaW0iLCBiZXRhOjp0YXNrX2NsYWltKGhvbWUsIHN0b3JlX3BhdGgsIGFyZ3MpKSwKICAgICAgICAoImNvbnRyaWJ1dGlvbiIsICJhY2NlcHQiKSA9PiAoCiAgICAgICAgICAgICJiZXRhLmNvbnRyaWJ1dGlvbi1hY2NlcHQiLAogICAgICAgICAgICBiZXRhOjpjb250cmlidXRpb25fYWNjZXB0KGhvbWUsIHN0b3JlX3BhdGgsIGFyZ3MpLAogICAgICAgICksCiAgICAgICAgKCJjb250cmlidXRpb24iLCAibGlzdCIpID0+ICgKICAgICAgICAgICAgImJldGEuY29udHJpYnV0aW9uLWxpc3QiLAogICAgICAgICAgICBiZXRhOjpjb250cmlidXRpb25fbGlzdChob21lLCBzdG9yZV9wYXRoLCBhcmdzKSwKICAgICAgICApLAogICAgICAgICgiY29udHJpYnV0aW9uIiwgInNob3ciKSA9PiAoCiAgICAgICAgICAgICJiZXRhLmNvbnRyaWJ1dGlvbi1zaG93IiwKICAgICAgICAgICAgYmV0YTo6Y29udHJpYnV0aW9uX3Nob3coaG9tZSwgc3RvcmVfcGF0aCwgYXJncyksCiAgICAgICAgKSwKICAgICAgICAoImNsYWltIiwgIm5ldyIpID0+ICgiYmV0YS5jbGFpbS1uZXciLCBiZXRhOjpjbGFpbV9uZXcoaG9tZSwgc3RvcmVfcGF0aCwgYXJncykpLAogICAgICAgIF8gPT4gewogICAgICAgICAgICByZXR1cm4gRXJyKENsaUVycm9yOjpVc2FnZShmb3JtYXQhKAogICAgICAgICAgICAgICAgInVua25vd24gYGJldGFgIGNvbW1hbmQ6IHtub3VuOj99IHtzdWI6P30iCiAgICAgICAgICAgICkpKQogICAgICAgIH0KICAgIH07CiAgICByZXN1bHQubWFwKHx2YWx1ZXwgdmFsdWUucmVuZGVyKGpzb24sIGtpbmQpKQp9Cgo=
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          p = Path('crates/mini-cli/src/cli.rs')
+          s = p.read_text()
+          old_use = "use crate::{\n    build, coordination, identity, installer, intake, keystone, pr, provenance, release, repo,\n    store, sync,\n};"
+          new_use = "use crate::{\n    beta, build, coordination, identity, installer, intake, keystone, pr, provenance, release, repo,\n    store, sync,\n};"
+          if old_use not in s:
+              raise SystemExit('cli crate import anchor missing')
+          s = s.replace(old_use, new_use, 1)
+          old_dispatch = "        \"task\" => dispatch_task(home, store_path, args, json),\n        \"sync\" => {"
+          new_dispatch = "        \"task\" => dispatch_task(home, store_path, args, json),\n        \"beta\" => dispatch_beta(home, store_path, args, json),\n        \"sync\" => {"
+          if old_dispatch not in s:
+              raise SystemExit('cli dispatch anchor missing')
+          s = s.replace(old_dispatch, new_dispatch, 1)
+          anchor = "fn dispatch_team(\n"
+          if s.count(anchor) != 1:
+              raise SystemExit('dispatch_team anchor not unique')
+          beta_dispatch = base64.b64decode(os.environ['BETA_DISPATCH_B64']).decode()
+          s = s.replace(anchor, beta_dispatch + anchor, 1)
+          p.write_text(s)
+          PY
+      - name: Format and strict focused verification
+        run: |
+          cargo fmt --all
+          cargo fmt --all -- --check
+          cargo clippy -p mini-cli --all-targets --all-features -- -D warnings
+          cargo test -p mini-cli --all-features
+      - name: Prove bounded lock change
+        run: |
+          grep -q '^name = "mini-cli"$' Cargo.lock
+          read adds dels <<EOF
+          $(git diff --numstat -- Cargo.lock | awk '{print $1, $2}')
+          EOF
+          test "${dels:-0}" -le 5
+          test "${adds:-0}" -le 12
+      - name: Remove both temporary workflows and commit verified wiring
+        run: |
+          rm .github/workflows/pr342-one-shot-build-repair.yml
+          rm .github/workflows/pr342-one-shot-build-repair-v2.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Cargo.lock crates/mini-cli docs/design/forge-native-beta-cli.md .github/workflows/pr342-one-shot-build-repair.yml .github/workflows/pr342-one-shot-build-repair-v2.yml
+          git diff --cached --check
+          git commit -m 'Wire and compile-proof Forge-native Beta CLI'
+          git push origin HEAD:gpt/issue-336-forge-beta-native
