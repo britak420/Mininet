@@ -142,7 +142,11 @@ pub fn motion_passes(
         MotionClass::Ordinary => {
             tally.participation() >= ceil_two_thirds(active_seats) && tally.yes > tally.no
         }
-        MotionClass::Major | MotionClass::EmergencyFix => tally.yes >= majority(active_seats),
+        MotionClass::Major => {
+            tally.participation() >= ceil_two_thirds(active_seats)
+                && tally.yes >= majority(active_seats)
+        }
+        MotionClass::EmergencyFix => tally.yes >= majority(active_seats),
         MotionClass::Constitutional | MotionClass::PublicTransition => {
             tally.yes >= ceil_two_thirds(active_seats)
         }
