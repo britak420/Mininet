@@ -1,0 +1,40 @@
+name: PR343 one-shot durable Beta compile proof
+
+on:
+  push:
+    branches:
+      - gpt/issue-337-durable-beta-execution
+
+permissions:
+  contents: write
+
+jobs:
+  prove:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: gpt/issue-337-durable-beta-execution
+          fetch-depth: 0
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Format, compile, and update lock through Cargo
+        run: |
+          cargo fmt --all
+          cargo check -p mini-beta-exec --all-targets --all-features
+          grep -q '^name = "mini-beta-exec"$' Cargo.lock
+      - name: Strict focused verification
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy -p mini-beta-exec --all-targets --all-features -- -D warnings
+          cargo test -p mini-beta-exec --all-features
+      - name: Remove one-shot workflow and commit generated proof state
+        run: |
+          rm .github/workflows/pr343-one-shot-compile.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Cargo.lock Cargo.toml crates/mini-beta-exec docs/design/durable-beta-mini-execution.md .github/workflows/pr343-one-shot-compile.yml
+          git diff --cached --check
+          git commit -m 'Compile-proof durable Beta execution core'
+          git push origin HEAD:gpt/issue-337-durable-beta-execution
