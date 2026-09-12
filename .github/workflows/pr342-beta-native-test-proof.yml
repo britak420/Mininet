@@ -1,0 +1,37 @@
+name: PR342 Beta native flow proof
+
+on:
+  push:
+    branches:
+      - gpt/issue-336-forge-beta-native
+
+permissions:
+  contents: write
+
+jobs:
+  prove:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: gpt/issue-336-forge-beta-native
+          fetch-depth: 0
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Format and prove Beta native flow
+        run: |
+          cargo fmt --all
+          cargo fmt --all -- --check
+          cargo clippy -p mini-cli --test beta_native_flow -- -D warnings
+          cargo test -p mini-cli --test beta_native_flow
+      - name: Remove one-shot workflow and commit proof formatting
+        run: |
+          rm .github/workflows/pr342-beta-native-test-proof.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/mini-cli .github/workflows/pr342-beta-native-test-proof.yml
+          git diff --cached --check
+          git diff --cached --quiet && exit 0
+          git commit -m 'Prove anonymous Beta native sync flow'
+          git push origin HEAD:gpt/issue-336-forge-beta-native
