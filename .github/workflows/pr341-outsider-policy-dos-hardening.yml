@@ -20,123 +20,26 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup show
       - name: Close outsider policy-noise DoS
+        env:
+          OLD_RESOLVER_B64: cHViIGZuIHJlc29sdmVfdW5pcXVlX2NhbXBhaWduX3BvbGljeTxCOiBCYWNrZW5kPigKICAgIHN0b3JlOiAmU3RvcmU8Qj4sCiAgICBjYW1wYWlnbl9pZDogJk9iamVjdElkLAopIC0+IFJlc3VsdDxCZXRhR3JhbnRQb2xpY3k+IHsKICAgIGxldCBpZHMgPSBzdG9yZS5ieV90eXBlKCZPYmplY3RUeXBlOjpDdXN0b20oQkVUQV9HUkFOVF9QT0xJQ1lfVFlQRS50b19zdHJpbmcoKSkpPzsKICAgIGxldCBtdXQgZm91bmQ6IE9wdGlvbjxCZXRhR3JhbnRQb2xpY3k+ID0gTm9uZTsKICAgIGZvciBpZCBpbiBpZHMgewogICAgICAgIGxldCBjYW5kaWRhdGUgPSBwYXJzZV9ncmFudF9wb2xpY3lfb2JqZWN0KCZzdG9yZS5nZXQoJmlkKT8pPzsKICAgICAgICBpZiAmY2FuZGlkYXRlLmNhbXBhaWduX2lkICE9IGNhbXBhaWduX2lkIHsKICAgICAgICAgICAgY29udGludWU7CiAgICAgICAgfQogICAgICAgIGxldCBjYW5kaWRhdGUgPSB2YWxpZGF0ZV9wb2xpY3koc3RvcmUsICZpZCk/OwogICAgICAgIGlmIGZvdW5kLmlzX3NvbWUoKSB7CiAgICAgICAgICAgIHJldHVybiBFcnIoR3JhbnRBY2NlcHRhbmNlRXJyb3I6OlBvbGljeUNvbmZsaWN0KTsKICAgICAgICB9CiAgICAgICAgZm91bmQgPSBTb21lKGNhbmRpZGF0ZSk7CiAgICB9CiAgICBmb3VuZC5va19vcihHcmFudEFjY2VwdGFuY2VFcnJvcjo6SW52YWxpZFBvbGljeSkKfQo=
+          NEW_RESOLVER_B64: cHViIGZuIHJlc29sdmVfdW5pcXVlX2NhbXBhaWduX3BvbGljeTxCOiBCYWNrZW5kPigKICAgIHN0b3JlOiAmU3RvcmU8Qj4sCiAgICBjYW1wYWlnbl9pZDogJk9iamVjdElkLAopIC0+IFJlc3VsdDxCZXRhR3JhbnRQb2xpY3k+IHsKICAgIGxldCBjYW1wYWlnbiA9IHJlYWRfY2FtcGFpZ24oc3RvcmUsIGNhbXBhaWduX2lkKT87CiAgICBsZXQgaWRzID0gc3RvcmUuYnlfdHlwZSgmT2JqZWN0VHlwZTo6Q3VzdG9tKEJFVEFfR1JBTlRfUE9MSUNZX1RZUEUudG9fc3RyaW5nKCkpKT87CiAgICBsZXQgbXV0IGZvdW5kOiBPcHRpb248QmV0YUdyYW50UG9saWN5PiA9IE5vbmU7CiAgICBmb3IgaWQgaW4gaWRzIHsKICAgICAgICBsZXQgb2JqZWN0ID0gc3RvcmUuZ2V0KCZpZCk/OwogICAgICAgIGxldCBjYW5kaWRhdGUgPSBtYXRjaCBwYXJzZV9ncmFudF9wb2xpY3lfb2JqZWN0KCZvYmplY3QpIHsKICAgICAgICAgICAgT2soY2FuZGlkYXRlKSA9PiBjYW5kaWRhdGUsCiAgICAgICAgICAgIC8vIEFueSBESUQgY2FuIHB1Ymxpc2ggYW4gb2JqZWN0IHdpdGggdGhpcyBjdXN0b20gdHlwZS4gTWFsZm9ybWVkCiAgICAgICAgICAgIC8vIHRoaXJkLXBhcnR5IHBvbGljeS1zaGFwZWQgbm9pc2UgbXVzdCBub3QgZ2FpbiB2ZXRvIHBvd2VyIG1lcmVseQogICAgICAgICAgICAvLyBieSBzaGFyaW5nIHRoZSB0eXBlIGluZGV4LgogICAgICAgICAgICBFcnIoXykgPT4gY29udGludWUsCiAgICAgICAgfTsKICAgICAgICBpZiAmY2FuZGlkYXRlLmNhbXBhaWduX2lkICE9IGNhbXBhaWduX2lkCiAgICAgICAgICAgIHx8IGNhbmRpZGF0ZS5yZWNvcmRfYXV0aG9yICE9IGNhbXBhaWduLnJlY29yZF9hdXRob3IKICAgICAgICB7CiAgICAgICAgICAgIGNvbnRpbnVlOwogICAgICAgIH0KICAgICAgICBsZXQgY2FuZGlkYXRlID0gbWF0Y2ggdmFsaWRhdGVfcG9saWN5KHN0b3JlLCAmaWQpIHsKICAgICAgICAgICAgT2soY2FuZGlkYXRlKSA9PiBjYW5kaWRhdGUsCiAgICAgICAgICAgIC8vIE9ubHkgZnVsbHkgdmFsaWQgcG9saWNpZXMgYnkgdGhlIGNhbXBhaWduIHJlY29yZCBhdXRob3JpdHkgYXJlCiAgICAgICAgICAgIC8vIGNhbmRpZGF0ZXMgZm9yIHRoZSB1bmlxdWVuZXNzIHJ1bGUuIEludmFsaWQgb2JqZWN0cyBkbyBub3QgYmVjb21lCiAgICAgICAgICAgIC8vIGEgc2Vjb25kIHBvbGljeSBhbmQgdGhlcmVmb3JlIGNhbm5vdCBtYW51ZmFjdHVyZSBQb2xpY3lDb25mbGljdC4KICAgICAgICAgICAgRXJyKEdyYW50QWNjZXB0YW5jZUVycm9yOjpJbnZhbGlkUG9saWN5KQogICAgICAgICAgICB8IEVycihHcmFudEFjY2VwdGFuY2VFcnJvcjo6UG9saWN5QXV0aG9yTWlzbWF0Y2gpCiAgICAgICAgICAgIHwgRXJyKEdyYW50QWNjZXB0YW5jZUVycm9yOjpJbnZhbGlkT2JqZWN0KSA9PiBjb250aW51ZSwKICAgICAgICAgICAgRXJyKGVycm9yKSA9PiByZXR1cm4gRXJyKGVycm9yKSwKICAgICAgICB9OwogICAgICAgIGlmIGZvdW5kLmlzX3NvbWUoKSB7CiAgICAgICAgICAgIHJldHVybiBFcnIoR3JhbnRBY2NlcHRhbmNlRXJyb3I6OlBvbGljeUNvbmZsaWN0KTsKICAgICAgICB9CiAgICAgICAgZm91bmQgPSBTb21lKGNhbmRpZGF0ZSk7CiAgICB9CiAgICBmb3VuZC5va19vcihHcmFudEFjY2VwdGFuY2VFcnJvcjo6SW52YWxpZFBvbGljeSkKfQo=
+          OUTSIDER_TEST_B64: CiNbdGVzdF0KZm4gb3V0c2lkZXJfcG9saWN5X3NoYXBlZF9vYmplY3RzX2Nhbm5vdF92ZXRvX3RoZV9jYW1wYWlnbl9wb2xpY3koKSB7CiAgICBsZXQgbXV0IGYgPSBGaXh0dXJlOjpuZXcoKTsKICAgIGxldCBncmFudCA9IGYudGVzdGluZ19ncmFudChCZXRhQWNjb3VudElkOjpuZXcoWzE2OyAzMl0pLnVud3JhcCgpLCAidGVzdCIsIDEwKTsKICAgIGxldCBhID0gZi5hcHByb3ZlKDAsIGdyYW50LmlkKCksIDIwKTsKICAgIGxldCBiID0gZi5hcHByb3ZlKDEsIGdyYW50LmlkKCksIDIxKTsKCiAgICBsZXQgb3V0c2lkZXJfY29weSA9IE9iamVjdEJ1aWxkZXI6Om5ldyhPYmplY3RUeXBlOjpDdXN0b20oCiAgICAgICAgbWluaV9iZXRhX2dyYW50czo6QkVUQV9HUkFOVF9QT0xJQ1lfVFlQRS50b19zdHJpbmcoKSwKICAgICkpCiAgICAudGltZXN0YW1wX21zKGYucG9saWN5LnRpbWVzdGFtcF9tcyArIDEpCiAgICAuc2VxdWVuY2UoOTk5KQogICAgLnBheWxvYWQoZi5wb2xpY3kucGF5bG9hZC5jbG9uZSgpKQogICAgLmxpbmsoImNhbXBhaWduIiwgZi5jYW1wYWlnbi5pZCgpLmNsb25lKCkpCiAgICAuc2lnbigmZi5vdXRzaWRlci5kaWQoKSwgJmYub3V0c2lkZXIpCiAgICAudW53cmFwKCk7CiAgICBmLnN0b3JlLmluc2VydCgmb3V0c2lkZXJfY29weSkudW53cmFwKCk7CgogICAgbGV0IG1hbGZvcm1lZCA9IE9iamVjdEJ1aWxkZXI6Om5ldyhPYmplY3RUeXBlOjpDdXN0b20oCiAgICAgICAgbWluaV9iZXRhX2dyYW50czo6QkVUQV9HUkFOVF9QT0xJQ1lfVFlQRS50b19zdHJpbmcoKSwKICAgICkpCiAgICAudGltZXN0YW1wX21zKDE1MikKICAgIC5zZXF1ZW5jZSgxXzAwMCkKICAgIC5wYXlsb2FkKFBheWxvYWQ6OlB1YmxpYyh2ZWMhWzB4ZmZdKSkKICAgIC5saW5rKCJjYW1wYWlnbiIsIGYuY2FtcGFpZ24uaWQoKS5jbG9uZSgpKQogICAgLnNpZ24oJmYub3V0c2lkZXIuZGlkKCksICZmLm91dHNpZGVyKQogICAgLnVud3JhcCgpOwogICAgZi5zdG9yZS5pbnNlcnQoJm1hbGZvcm1lZCkudW53cmFwKCk7CgogICAgbGV0IGFjY2VwdGVkID0gdmFsaWRhdGVfZ3JhbnRfYWNjZXB0YW5jZSgKICAgICAgICAmZi5zdG9yZSwKICAgICAgICBmLnBvbGljeS5pZCgpLAogICAgICAgIGdyYW50LmlkKCksCiAgICAgICAgJlthLmlkKCkuY2xvbmUoKSwgYi5pZCgpLmNsb25lKCldLAogICAgKQogICAgLnVud3JhcCgpOwogICAgYXNzZXJ0X2VxIShhY2NlcHRlZC5kaXN0aW5jdF9hcHByb3ZlcnMsIDIpOwp9Cg==
         run: |
           python3 - <<'PY'
+          import base64, os
           from pathlib import Path
           p = Path('crates/mini-beta-grants/src/lib.rs')
           s = p.read_text()
-          old = '''pub fn resolve_unique_campaign_policy<B: Backend>(
-    store: &Store<B>,
-    campaign_id: &ObjectId,
-) -> Result<BetaGrantPolicy> {
-    let ids = store.by_type(&ObjectType::Custom(BETA_GRANT_POLICY_TYPE.to_string()))?;
-    let mut found: Option<BetaGrantPolicy> = None;
-    for id in ids {
-        let candidate = parse_grant_policy_object(&store.get(&id)?)?;
-        if &candidate.campaign_id != campaign_id {
-            continue;
-        }
-        let candidate = validate_policy(store, &id)?;
-        if found.is_some() {
-            return Err(GrantAcceptanceError::PolicyConflict);
-        }
-        found = Some(candidate);
-    }
-    found.ok_or(GrantAcceptanceError::InvalidPolicy)
-}
-'''
-          new = '''pub fn resolve_unique_campaign_policy<B: Backend>(
-    store: &Store<B>,
-    campaign_id: &ObjectId,
-) -> Result<BetaGrantPolicy> {
-    let campaign = read_campaign(store, campaign_id)?;
-    let ids = store.by_type(&ObjectType::Custom(BETA_GRANT_POLICY_TYPE.to_string()))?;
-    let mut found: Option<BetaGrantPolicy> = None;
-    for id in ids {
-        let object = store.get(&id)?;
-        let candidate = match parse_grant_policy_object(&object) {
-            Ok(candidate) => candidate,
-            // Any DID can publish an object with this custom type. Malformed
-            // third-party policy-shaped noise must not gain veto power merely
-            // by sharing the type index.
-            Err(_) => continue,
-        };
-        if &candidate.campaign_id != campaign_id
-            || candidate.record_author != campaign.record_author
-        {
-            continue;
-        }
-        let candidate = match validate_policy(store, &id) {
-            Ok(candidate) => candidate,
-            // Only fully valid policies by the campaign record authority are
-            // candidates for the uniqueness rule. Invalid objects do not become
-            // a second policy and therefore cannot manufacture PolicyConflict.
-            Err(GrantAcceptanceError::InvalidPolicy)
-            | Err(GrantAcceptanceError::PolicyAuthorMismatch)
-            | Err(GrantAcceptanceError::InvalidObject) => continue,
-            Err(error) => return Err(error),
-        };
-        if found.is_some() {
-            return Err(GrantAcceptanceError::PolicyConflict);
-        }
-        found = Some(candidate);
-    }
-    found.ok_or(GrantAcceptanceError::InvalidPolicy)
-}
-'''
+          old = base64.b64decode(os.environ['OLD_RESOLVER_B64']).decode()
+          new = base64.b64decode(os.environ['NEW_RESOLVER_B64']).decode()
           if s.count(old) != 1:
-              raise SystemExit('unique-policy resolver anchor did not match exactly')
+              raise SystemExit(f'unique-policy resolver anchor count {s.count(old)}')
           p.write_text(s.replace(old, new, 1))
-
           t = Path('crates/mini-beta-grants/tests/acceptance.rs')
           body = t.read_text().rstrip()
-          test = r'''
-
-#[test]
-fn outsider_policy_shaped_objects_cannot_veto_the_campaign_policy() {
-    let mut f = Fixture::new();
-    let grant = f.testing_grant(BetaAccountId::new([16; 32]).unwrap(), "test", 10);
-    let a = f.approve(0, grant.id(), 20);
-    let b = f.approve(1, grant.id(), 21);
-
-    // A fully decodable policy payload copied by an unrelated DID must not
-    // become a competing policy: policy authority is bound to the campaign
-    // record author, not to the custom type string.
-    let outsider_copy = ObjectBuilder::new(ObjectType::Custom(
-        mini_beta_grants::BETA_GRANT_POLICY_TYPE.to_string(),
-    ))
-    .timestamp_ms(f.policy.timestamp_ms + 1)
-    .sequence(999)
-    .payload(f.policy.payload.clone())
-    .link("campaign", f.campaign.id().clone())
-    .sign(&f.outsider.did(), &f.outsider)
-    .unwrap();
-    f.store.insert(&outsider_copy).unwrap();
-
-    // Malformed outsider noise with the same type/link is also ignored.
-    let malformed = ObjectBuilder::new(ObjectType::Custom(
-        mini_beta_grants::BETA_GRANT_POLICY_TYPE.to_string(),
-    ))
-    .timestamp_ms(152)
-    .sequence(1_000)
-    .payload(Payload::Public(vec![0xff]))
-    .link("campaign", f.campaign.id().clone())
-    .sign(&f.outsider.did(), &f.outsider)
-    .unwrap();
-    f.store.insert(&malformed).unwrap();
-
-    let accepted = validate_grant_acceptance(
-        &f.store,
-        f.policy.id(),
-        grant.id(),
-        &[a.id().clone(), b.id().clone()],
-    )
-    .unwrap();
-    assert_eq!(accepted.distinct_approvers, 2);
-}
-'''
+          test = base64.b64decode(os.environ['OUTSIDER_TEST_B64']).decode()
           if 'outsider_policy_shaped_objects_cannot_veto_the_campaign_policy' not in body:
-              t.write_text(body + test + '\n')
+              t.write_text(body + '\n' + test)
           PY
       - name: Strict focused proof
         run: |
