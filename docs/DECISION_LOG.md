@@ -24212,3 +24212,150 @@ external-audit scope per their own reopening criteria.
 items (D-0517/D-0518's own follow-up lists) are untouched.
 
 **Supersedes / superseded by:** none.
+
+### D-0520 — Gate #72: fix `bp_range_v2`'s generator basis (self-found defect in D-0518); `mini_value::mlsag_v3`/`stealth_v3`; `mini_private_payment::claim_v3`/`memo_v3` — `PrivatePaymentV3` groundwork  ·  *Shipped, additive, not wired into consensus*
+
+**Date:** 2026-09-12 · **Refs:** the full Gate #72 external cryptography
+audit report the founder supplied verbatim this session (`docs/audits/
+source-reports-2026-09-12/Mininet_External_Audit_01_Gate_72_
+Cryptography_FINAL.txt`), Sections 5.1/5.4/6/7/8/9/10; `crates/mini-value/
+src/{bp_range_v2,mlsag_v3,stealth_v3}.rs`; `crates/mini-private-payment/
+src/{claim_v3,memo_v3}.rs`.
+
+**Decision:** two things happened in this batch, and the first is not
+optional to report separately just because it was found while doing the
+second.
+
+**Part A — a real defect in D-0518's `bp_range_v2`, found and fixed before
+building on it.** `bp_range_v2::generators()` used `bulletproofs::
+PedersenGens::default()`, whose documented value-axis generator `B` is
+literally `curve25519_dalek`'s Ristretto basepoint — the exact same point
+`mini_value::curve::basepoint()` uses everywhere else in this crate as the
+signing generator (one-time keys, stealth addresses, the MLSAG ownership
+column). The audit's own Section 8.1 requires `H_v != signing base point
+G` precisely because sharing a generator between a commitment's value axis
+and the key/signature layer breaks the independence a Pedersen
+commitment's hiding property depends on — the identical reasoning
+`bp_generators.rs`'s pre-existing docs already give for keeping *its*
+generators independent of `basepoint()`. D-0518 composed the vendored
+proving/verifying algorithm correctly but inherited a basis the audit
+itself forbids, unexamined. Fixed with two new domain-hashed generators
+(`H2G("mininet/value/pedersen/blinding-generator/v3")`/`H2G("mininet/
+value/pedersen/value-generator/v3")`, Section 8.1's own exact strings),
+supplied to the vendored crate's `PedersenGens` directly — the
+`bulletproofs` crate documents "pluggable bases" for exactly this reason,
+and `BulletproofGens::new` derives its own per-bit generators from a fixed
+internal label independent of whatever `PedersenGens` accompanies it, so
+nothing else about the proof system's soundness changes. `bp_range_v2` was
+never wired into any consensus path (D-0518's own stated status), so this
+had zero live blast radius — but it would have poisoned everything built
+on it, which is exactly what this batch does next.
+
+**Part B — `PrivatePaymentV3` groundwork**, additive over the
+now-corrected basis, following the audit's Sections 6/7/9/10 as closely as
+the exact byte layout given permits:
+
+- `mini_value::mlsag_v3` — the same two-column MLSAG relation as
+  `mini_value::mlsag`, over `bp_range_v2`'s basis instead of
+  `bp_generators`'s, and over the audit's exact Section 7 challenge
+  construction: every challenge link now binds `suite_id`, `network_id`,
+  the claim's own `signing_digest`, the input's index, and the full ring
+  statement (every member's key and commitment), not just an opaque
+  `message` blob — closing F72-03 for this scheme specifically. The
+  key-image base point is likewise domain- and network-separated (Section
+  7.1), unlike the original scheme's bare hash. Ring size is fixed at
+  exactly 16 (Section 7.2) — no caller-selectable size.
+- `mini_value::stealth_v3` — the same CryptoNote-style derivation as
+  `mini_value::stealth_impl`, over Section 6's exact domain-separated
+  offset hash (`suite_id || network_id || A || B || R || shared`) instead
+  of an undomained one, with the specified resample-on-degenerate-output
+  retry loop.
+- `mini_private_payment::memo_v3` — the same sealed-memo construction as
+  `mini_private_payment::memo`, over Section 10.1/10.2's exact 256-byte
+  plaintext layout (adds an explicit version byte) and HKDF/AEAD context
+  (salt bound to the network, info and AAD bound to the memo-context
+  digest, output index, and every public output field).
+- `mini_private_payment::claim_v3` — the `PrivatePaymentV3` wire format
+  (Section 9: fixed header/magic/suite id, no `valid_until_ms`/
+  `last_known_chain`, no caller-selected ring size or decoy entropy, a
+  signed `fee_policy_id` instead of an arbitrary fee bid) and the
+  three-digest scheme (Section 10.3): `memo_context_digest` (before any
+  memo exists), `signing_digest` (adds sealed memos, excludes MLSAG
+  signatures — what each input's signature actually authorizes), and
+  `claim_id` (the complete signed transaction). `claim_id` existing
+  separately from `signing_digest` closes F72-07: `mini_private_payment::
+  claim`'s V2 has only two digests, so a cache/mempool/block keyed by its
+  `transcript_digest` cannot distinguish two differently-signed encodings
+  of the same unsigned transaction — which matters once full claim bytes,
+  not a derived nullifier list, become canonical block data (Section 11,
+  still unimplemented — see Required follow-up).
+
+**Constitutional impact:** none beyond D-0036/D-0037/D-0047/D-0507-D-0519's
+existing status for these two crates — no dependency-edge change, no
+weakened invariant. Nothing here is reachable from any consensus-checked
+or currently-shipping payment path; `mini-private-payment::claim`(V2),
+`mini-bounty`, and `mini-shielded-verify` are untouched and re-verified
+unaffected.
+
+**Implementation status:** shipped. New tests: `mini_value::bp_range_v2`
+gained 2 (generator independence from the signing base point, and a
+`proof_encoding_is_exactly_672_bytes` check backing the new
+`RANGE_PROOF_V2_BYTES` constant rather than trusting the arithmetic that
+derives it) — 15 total, up from 13; `mini_value::mlsag_v3` 12 new tests
+(valid spend, wrong ring size, wrong secret/opening, altered pseudo-
+commitment/signing-digest/network/input-index, same-secret-same-key-image
+across independent signings, distinct keys produce distinct key images,
+identity key image rejected, key image domain/network separation from
+V1); `mini_value::stealth_v3` 7 new tests (shared-secret agreement,
+stranger rejection, spend-scalar opening, unlinkability across payments,
+network-domain-separation rejection, malformed/identity key rejection);
+`mini_private_payment::memo_v3` 8 new tests (open/seal round trip,
+stranger rejection, output-index/network AAD-binding rejection, fixed
+ciphertext size regardless of purpose length, oversized-purpose
+rejection, tamper rejection, wire round trip); `mini_private_payment::
+claim_v3` 9 new tests (balanced build+verify, memo open recovers the
+spendable opening, stranger cannot recover/open, encode/decode round trip
+preserving `claim_id`, tampered pseudo-commitment and range proof both
+correctly rejected — the former by the balance check, matching V2's own
+documented check ordering — wrong network rejected, unbalanced request
+refused at build time, and a real two-input same-output double-spend
+correctly caught by the repeated-key-image check with both individual
+MLSAGs and the balance sum otherwise valid). Full workspace `cargo fmt
+--all`, `cargo clippy --all-targets --all-features --workspace -- -D
+warnings`, and `cargo test --workspace --all-features` are clean except
+the same pre-existing, sandbox-only `wasm32`-target-missing failures every
+entry since D-0071 already records. `mini-value` 146/146,
+`mini-private-payment` 47/47 (lib) plus all existing integration suites
+unchanged, `mini-bounty` 21/21, `mini-shielded-verify` unaffected.
+
+**Failure point:** this closes F72-03 (transcript framing), part of F72-11
+(no caller ring size/decoy entropy — decoy *distribution calibration*,
+F72-10, remains untouched), F72-12 (no wall-clock validity fields), and
+lays the wire-format/digest groundwork F72-05/06/07/08/09 need — it does
+not itself close any of those five, all of which require the Section 11
+consensus integration (canonical claim bytes replacing derived nullifier
+facts, removing the transparent `PaymentClaim` path and the duplicate
+bounty ring signature) this entry deliberately does not attempt. F72-13's
+fee mechanism is a placeholder (`quote_fee_micro`): deterministic and
+self-consistent between builder and verifier, not a calibrated economic
+function — real fee derivation depends on a policy registry that does not
+exist yet, the same "depends on real chain state this crate stays
+decoupled from" reasoning `mini_settlement::claim_v2`'s
+`MAX_VALIDITY_HEIGHT_SPAN` (D-0519) already used for an analogous gap.
+
+**Required follow-up:** the remaining Gate #72 items are, in the project's
+own working order: canonical claim bytes in consensus + derived key
+images (Section 11, F72-05/06/08/09 — requires `mini-shielded-verify`/
+`mini-execution` integration, deliberately not attempted in this batch
+given its consensus-breaking blast radius); removing the transparent
+`PaymentClaim` path and the duplicate bounty ring signature (same Section,
+same reason); the calibrated OSPEAD log-GB2 decoy distribution (F72-10,
+independent of the above); and a real fee-policy registry to replace
+`quote_fee_micro`'s placeholder. None of these were blocked on missing
+source material this time — the full audit text was available throughout
+this batch — the remaining scope is genuinely large, consensus-facing
+engineering, not a documentation gap.
+
+**Supersedes / superseded by:** none. Corrects (does not supersede, since
+no consensus-facing behavior existed to have been wrong about) D-0518's
+`bp_range_v2` generator choice.

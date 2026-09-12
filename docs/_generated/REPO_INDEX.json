@@ -1,9 +1,9 @@
 {
   "counts": {
     "crates": 79,
-    "files": 1002,
+    "files": 1006,
     "headings": 3601,
-    "rust_symbols": 10335
+    "rust_symbols": 10497
   },
   "crates": {
     "did-mini": {
@@ -52194,6 +52194,398 @@
       "title": "use mini_crypto::HashAlgorithm;"
     },
     {
+      "bytes": 36753,
+      "group": "crate:mini-private-payment",
+      "headings": [],
+      "keywords": [
+        "claim",
+        "section",
+        "const",
+        "one",
+        "audit",
+        "mini_value",
+        "claim_id",
+        "fmt",
+        "private-payment",
+        "own",
+        "size",
+        "canonical",
+        "usize",
+        "ring_size_v3",
+        "privatepaymentclaimv3",
+        "new",
+        "gate",
+        "wire",
+        "format",
+        "same",
+        "nothing",
+        "ring",
+        "decoy",
+        "function"
+      ],
+      "lines": 1000,
+      "path": "crates/mini-private-payment/src/claim_v3.rs",
+      "sha256": "47fa5628e6e2182d0050c2c1ae56d2e7cb13bf18cd1f09670092924a9844331f",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 77,
+          "name": "CLAIM_V3_MAGIC"
+        },
+        {
+          "kind": "const",
+          "line": 80,
+          "name": "CLAIM_V3_VERSION"
+        },
+        {
+          "kind": "const",
+          "line": 84,
+          "name": "SUITE_ID_V3"
+        },
+        {
+          "kind": "const",
+          "line": 88,
+          "name": "RING_SIZE_V3"
+        },
+        {
+          "kind": "const",
+          "line": 91,
+          "name": "MAX_INPUTS_V3"
+        },
+        {
+          "kind": "const",
+          "line": 94,
+          "name": "MAX_OUTPUTS_V3"
+        },
+        {
+          "kind": "const",
+          "line": 97,
+          "name": "MAX_CLAIM_V3_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 99,
+          "name": "MEMO_CONTEXT_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 100,
+          "name": "SIGNING_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 101,
+          "name": "CLAIM_ID_DOMAIN"
+        },
+        {
+          "kind": "struct",
+          "line": 105,
+          "name": "ClaimInputV3"
+        },
+        {
+          "kind": "struct",
+          "line": 119,
+          "name": "ClaimOutputV3"
+        },
+        {
+          "kind": "struct",
+          "line": 135,
+          "name": "PrivatePaymentClaimV3"
+        },
+        {
+          "kind": "fn",
+          "line": 145,
+          "name": "write_header"
+        },
+        {
+          "kind": "fn",
+          "line": 161,
+          "name": "write_input_unsigned"
+        },
+        {
+          "kind": "fn",
+          "line": 172,
+          "name": "write_input_signature"
+        },
+        {
+          "kind": "fn",
+          "line": 183,
+          "name": "write_output_unsigned"
+        },
+        {
+          "kind": "impl",
+          "line": 190,
+          "name": "PrivatePaymentClaimV3"
+        },
+        {
+          "kind": "fn",
+          "line": 191,
+          "name": "header_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 206,
+          "name": "memo_context_digest"
+        },
+        {
+          "kind": "fn",
+          "line": 223,
+          "name": "signing_digest"
+        },
+        {
+          "kind": "fn",
+          "line": 241,
+          "name": "claim_id"
+        },
+        {
+          "kind": "fn",
+          "line": 250,
+          "name": "encode"
+        },
+        {
+          "kind": "fn",
+          "line": 268,
+          "name": "decode"
+        },
+        {
+          "kind": "struct",
+          "line": 374,
+          "name": "VerifiedPrivateClaimV3"
+        },
+        {
+          "kind": "impl",
+          "line": 379,
+          "name": "VerifiedPrivateClaimV3"
+        },
+        {
+          "kind": "fn",
+          "line": 380,
+          "name": "claim"
+        },
+        {
+          "kind": "fn",
+          "line": 384,
+          "name": "claim_id"
+        },
+        {
+          "kind": "fn",
+          "line": 389,
+          "name": "key_images"
+        },
+        {
+          "kind": "fn",
+          "line": 398,
+          "name": "open_memo"
+        },
+        {
+          "kind": "fn",
+          "line": 430,
+          "name": "quote_fee_micro"
+        },
+        {
+          "kind": "const",
+          "line": 431,
+          "name": "BASE_FEE_MICRO"
+        },
+        {
+          "kind": "const",
+          "line": 432,
+          "name": "PER_INPUT_MICRO"
+        },
+        {
+          "kind": "const",
+          "line": 433,
+          "name": "PER_OUTPUT_MICRO"
+        },
+        {
+          "kind": "struct",
+          "line": 439,
+          "name": "SpendableOutputV3"
+        },
+        {
+          "kind": "impl",
+          "line": 446,
+          "name": "core::fmt::Debug"
+        },
+        {
+          "kind": "fn",
+          "line": 447,
+          "name": "fmt"
+        },
+        {
+          "kind": "struct",
+          "line": 454,
+          "name": "RecipientV3"
+        },
+        {
+          "kind": "impl",
+          "line": 461,
+          "name": "core::fmt::Debug"
+        },
+        {
+          "kind": "fn",
+          "line": 462,
+          "name": "fmt"
+        },
+        {
+          "kind": "struct",
+          "line": 470,
+          "name": "PaymentRequestV3"
+        },
+        {
+          "kind": "struct",
+          "line": 479,
+          "name": "BuiltOutputV3"
+        },
+        {
+          "kind": "fn",
+          "line": 487,
+          "name": "build_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 647,
+          "name": "pseudo_blindings_for"
+        },
+        {
+          "kind": "fn",
+          "line": 660,
+          "name": "verify_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 757,
+          "name": "recover_shared_secret_v3"
+        },
+        {
+          "kind": "mod",
+          "line": 776,
+          "name": "tests"
+        },
+        {
+          "kind": "const",
+          "line": 781,
+          "name": "NETWORK"
+        },
+        {
+          "kind": "const",
+          "line": 782,
+          "name": "FEE_POLICY"
+        },
+        {
+          "kind": "struct",
+          "line": 784,
+          "name": "Ledger"
+        },
+        {
+          "kind": "impl",
+          "line": 788,
+          "name": "Ledger"
+        },
+        {
+          "kind": "fn",
+          "line": 789,
+          "name": "new"
+        },
+        {
+          "kind": "fn",
+          "line": 795,
+          "name": "fill"
+        },
+        {
+          "kind": "fn",
+          "line": 805,
+          "name": "mint"
+        },
+        {
+          "kind": "fn",
+          "line": 819,
+          "name": "with_funds"
+        },
+        {
+          "kind": "impl",
+          "line": 828,
+          "name": "OutputSet"
+        },
+        {
+          "kind": "fn",
+          "line": 829,
+          "name": "len"
+        },
+        {
+          "kind": "fn",
+          "line": 832,
+          "name": "key_at"
+        },
+        {
+          "kind": "fn",
+          "line": 835,
+          "name": "commitment_at"
+        },
+        {
+          "kind": "fn",
+          "line": 840,
+          "name": "pay"
+        },
+        {
+          "kind": "fn",
+          "line": 849,
+          "name": "request_for"
+        },
+        {
+          "kind": "fn",
+          "line": 862,
+          "name": "payment_to"
+        },
+        {
+          "kind": "fn",
+          "line": 874,
+          "name": "a_balanced_payment_builds_and_verifies"
+        },
+        {
+          "kind": "fn",
+          "line": 881,
+          "name": "the_recipient_opens_the_memo_and_recovers_the_spendable_opening"
+        },
+        {
+          "kind": "fn",
+          "line": 898,
+          "name": "a_stranger_cannot_recover_the_output_or_open_the_memo"
+        },
+        {
+          "kind": "fn",
+          "line": 912,
+          "name": "encode_decode_round_trips_and_preserves_the_claim_id"
+        },
+        {
+          "kind": "fn",
+          "line": 923,
+          "name": "a_tampered_pseudo_commitment_fails_verification"
+        },
+        {
+          "kind": "fn",
+          "line": 937,
+          "name": "a_wrong_network_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 947,
+          "name": "an_unbalanced_request_cannot_be_built"
+        },
+        {
+          "kind": "fn",
+          "line": 958,
+          "name": "a_tampered_range_proof_fails_verification"
+        },
+        {
+          "kind": "fn",
+          "line": 972,
+          "name": "repeating_a_key_image_within_one_claim_is_rejected"
+        }
+      ],
+      "title": "use mini_crypto::HashAlgorithm;"
+    },
+    {
       "bytes": 6247,
       "group": "crate:mini-private-payment",
       "headings": [],
@@ -52827,7 +53219,7 @@
       "title": "pub enum DecodeFailure {"
     },
     {
-      "bytes": 12272,
+      "bytes": 12794,
       "group": "crate:mini-private-payment",
       "headings": [],
       "keywords": [
@@ -52856,9 +53248,9 @@
         "construction",
         "does"
       ],
-      "lines": 228,
+      "lines": 240,
       "path": "crates/mini-private-payment/src/lib.rs",
-      "sha256": "22a13362fb860d0689d7ddac4d6a87ed897ff01f102d4afd01a659b72ce09404",
+      "sha256": "71ae59ce020b6dbdc42fbe8fb59b2ccffd1a17b95480d16f99e00b664372d698",
       "symbols": [
         {
           "kind": "mod",
@@ -52873,41 +53265,51 @@
         {
           "kind": "mod",
           "line": 191,
-          "name": "codec"
+          "name": "claim_v3"
         },
         {
           "kind": "mod",
           "line": 192,
-          "name": "decoy"
+          "name": "codec"
         },
         {
           "kind": "mod",
           "line": 193,
-          "name": "disclosure"
+          "name": "decoy"
         },
         {
           "kind": "mod",
           "line": 194,
-          "name": "error"
+          "name": "disclosure"
         },
         {
           "kind": "mod",
           "line": 195,
-          "name": "memo"
+          "name": "error"
         },
         {
           "kind": "mod",
           "line": 196,
-          "name": "nullifier"
+          "name": "memo"
         },
         {
           "kind": "mod",
           "line": 197,
-          "name": "reconcile"
+          "name": "memo_v3"
         },
         {
           "kind": "mod",
           "line": 198,
+          "name": "nullifier"
+        },
+        {
+          "kind": "mod",
+          "line": 199,
+          "name": "reconcile"
+        },
+        {
+          "kind": "mod",
+          "line": 200,
           "name": "scan"
         }
       ],
@@ -53111,6 +53513,198 @@
           "kind": "fn",
           "line": 426,
           "name": "a_purpose_never_prints_its_contents"
+        }
+      ],
+      "title": "use mini_crypto::{AeadKey, AeadNonce, AeadSuite, HashAlgorithm, KdfSuite};"
+    },
+    {
+      "bytes": 14578,
+      "group": "crate:mini-private-payment",
+      "headings": [],
+      "keywords": [
+        "memo",
+        "privatepaymenterror",
+        "byte",
+        "reference",
+        "note",
+        "block",
+        "const",
+        "malformedmemo",
+        "memo_v3_padded_bytes",
+        "aead",
+        "info",
+        "key",
+        "network",
+        "context",
+        "purpose",
+        "version",
+        "paymentnote",
+        "blinding",
+        "new",
+        "note_version_v3",
+        "max_memo_v3_bytes",
+        "memocontextv3",
+        "section",
+        "plaintext"
+      ],
+      "lines": 402,
+      "path": "crates/mini-private-payment/src/memo_v3.rs",
+      "sha256": "5d534cfa0a7c1776685e808d0a9c06edf440099abc21980a635eca1404f0e783",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 40,
+          "name": "MEMO_V3_PADDED_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 44,
+          "name": "MEMO_V3_SEALED_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 47,
+          "name": "NOTE_VERSION_V3"
+        },
+        {
+          "kind": "const",
+          "line": 52,
+          "name": "NOTE_OVERHEAD_V3_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 56,
+          "name": "MAX_MEMO_V3_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 58,
+          "name": "MEMO_SALT_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 59,
+          "name": "MEMO_KEY_DOMAIN"
+        },
+        {
+          "kind": "fn",
+          "line": 61,
+          "name": "encode_padded_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 78,
+          "name": "decode_padded_v3"
+        },
+        {
+          "kind": "struct",
+          "line": 108,
+          "name": "MemoContextV3"
+        },
+        {
+          "kind": "impl",
+          "line": 117,
+          "name": "MemoContextV3<'_>"
+        },
+        {
+          "kind": "fn",
+          "line": 118,
+          "name": "info"
+        },
+        {
+          "kind": "fn",
+          "line": 129,
+          "name": "aad"
+        },
+        {
+          "kind": "fn",
+          "line": 136,
+          "name": "key"
+        },
+        {
+          "kind": "struct",
+          "line": 152,
+          "name": "SealedMemoV3"
+        },
+        {
+          "kind": "impl",
+          "line": 156,
+          "name": "SealedMemoV3"
+        },
+        {
+          "kind": "fn",
+          "line": 159,
+          "name": "seal"
+        },
+        {
+          "kind": "fn",
+          "line": 181,
+          "name": "open"
+        },
+        {
+          "kind": "mod",
+          "line": 206,
+          "name": "tests"
+        },
+        {
+          "kind": "const",
+          "line": 210,
+          "name": "SUITE_ID"
+        },
+        {
+          "kind": "const",
+          "line": 211,
+          "name": "NETWORK"
+        },
+        {
+          "kind": "fn",
+          "line": 213,
+          "name": "secrets_and_output"
+        },
+        {
+          "kind": "fn",
+          "line": 238,
+          "name": "context"
+        },
+        {
+          "kind": "fn",
+          "line": 256,
+          "name": "the_recipient_opens_what_the_sender_sealed"
+        },
+        {
+          "kind": "fn",
+          "line": 267,
+          "name": "a_stranger_cannot_open_it"
+        },
+        {
+          "kind": "fn",
+          "line": 286,
+          "name": "moving_a_memo_to_a_different_output_index_fails_to_open"
+        },
+        {
+          "kind": "fn",
+          "line": 305,
+          "name": "a_different_network_salt_fails_to_open"
+        },
+        {
+          "kind": "fn",
+          "line": 325,
+          "name": "every_memo_is_the_same_size_regardless_of_purpose"
+        },
+        {
+          "kind": "fn",
+          "line": 351,
+          "name": "an_oversized_purpose_is_refused_rather_than_truncated"
+        },
+        {
+          "kind": "fn",
+          "line": 364,
+          "name": "a_tampered_ciphertext_does_not_open"
+        },
+        {
+          "kind": "fn",
+          "line": 383,
+          "name": "wire_round_trip_preserves_the_ciphertext"
         }
       ],
       "title": "use mini_crypto::{AeadKey, AeadNonce, AeadSuite, HashAlgorithm, KdfSuite};"
@@ -78938,38 +79532,38 @@
       "title": "use curve25519_dalek::traits::Identity;"
     },
     {
-      "bytes": 12301,
+      "bytes": 17719,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
-        "proof",
-        "bit_length",
         "bp_range",
-        "rangeproofv2",
         "bulletproofs",
-        "transcript",
-        "value",
-        "to_bytes",
-        "basis",
-        "own",
-        "inner",
-        "vendored",
         "same",
-        "rather",
-        "new",
+        "pedersen",
+        "bit_length",
+        "proof",
         "module",
-        "commitment",
+        "basis",
+        "value",
+        "gate",
+        "rather",
+        "real",
+        "exact",
+        "generator",
+        "own",
         "pedersengens",
-        "bulletproofgens",
         "made",
-        "innerrangeproof",
-        "self",
-        "transcript_label",
-        "generators"
+        "curve",
+        "section",
+        "rangeproofv2",
+        "vendored",
+        "protocol",
+        "signing",
+        "wire"
       ],
-      "lines": 294,
+      "lines": 407,
       "path": "crates/mini-value/src/bp_range_v2.rs",
-      "sha256": "93e9e41c7febbacb529d92b1d0c4e2cc263c87495f6dd9c06be541fe724f167d",
+      "sha256": "b807ad9812732b41a07eb9955c5d01c410ddc2bd5e330bfee2404f040778715b",
       "symbols": [
         {
           "kind": "const",
@@ -78978,133 +79572,173 @@
         },
         {
           "kind": "const",
-          "line": 54,
+          "line": 57,
+          "name": "RANGE_PROOF_V2_BYTES"
+        },
+        {
+          "kind": "const",
+          "line": 64,
           "name": "TRANSCRIPT_LABEL"
         },
         {
           "kind": "fn",
-          "line": 56,
+          "line": 105,
           "name": "generators"
         },
         {
           "kind": "struct",
-          "line": 63,
+          "line": 118,
           "name": "RangeProofV2"
         },
         {
           "kind": "impl",
-          "line": 67,
+          "line": 128,
+          "name": "PartialEq"
+        },
+        {
+          "kind": "fn",
+          "line": 129,
+          "name": "eq"
+        },
+        {
+          "kind": "impl",
+          "line": 134,
+          "name": "Eq"
+        },
+        {
+          "kind": "impl",
+          "line": 136,
           "name": "RangeProofV2"
         },
         {
           "kind": "fn",
-          "line": 70,
+          "line": 139,
           "name": "to_bytes"
         },
         {
           "kind": "fn",
-          "line": 77,
+          "line": 146,
           "name": "from_bytes"
         },
         {
           "kind": "fn",
-          "line": 89,
+          "line": 158,
           "name": "prove_range_v2"
         },
         {
           "kind": "fn",
-          "line": 112,
+          "line": 184,
+          "name": "prove_range_v2_from_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 195,
           "name": "verify_range_v2"
         },
         {
           "kind": "fn",
-          "line": 128,
+          "line": 211,
           "name": "pedersen_commitment_v2"
         },
         {
           "kind": "fn",
-          "line": 143,
+          "line": 226,
           "name": "public_amount_commitment_v2"
         },
         {
           "kind": "fn",
-          "line": 153,
+          "line": 236,
           "name": "sum_commitments_v2"
         },
         {
           "kind": "fn",
-          "line": 169,
+          "line": 252,
           "name": "verify_balance_v2"
         },
         {
           "kind": "mod",
-          "line": 180,
+          "line": 263,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 184,
+          "line": 267,
           "name": "a_committed_amount_verifies_its_own_range_proof"
         },
         {
           "kind": "fn",
-          "line": 191,
+          "line": 274,
           "name": "a_tampered_commitment_fails_verification"
         },
         {
           "kind": "fn",
-          "line": 199,
+          "line": 282,
           "name": "a_proof_for_a_different_value_does_not_verify_this_commitment"
         },
         {
           "kind": "fn",
-          "line": 207,
+          "line": 290,
           "name": "proof_bytes_round_trip_through_encode_decode"
         },
         {
           "kind": "fn",
-          "line": 215,
+          "line": 298,
           "name": "truncated_proof_bytes_are_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 223,
+          "line": 306,
           "name": "a_bare_commitment_is_the_same_point_the_proving_path_produces"
         },
         {
           "kind": "fn",
-          "line": 233,
+          "line": 316,
           "name": "a_bare_commitment_rejects_a_malformed_blinding_factor"
         },
         {
           "kind": "fn",
-          "line": 238,
+          "line": 321,
           "name": "balanced_inputs_and_outputs_verify"
         },
         {
           "kind": "fn",
-          "line": 252,
+          "line": 335,
           "name": "unbalanced_inputs_and_outputs_fail_verification"
         },
         {
           "kind": "fn",
-          "line": 261,
+          "line": 344,
           "name": "empty_inputs_and_outputs_are_vacuously_balanced"
         },
         {
           "kind": "fn",
-          "line": 266,
+          "line": 349,
           "name": "malformed_commitment_in_balance_check_fails_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 271,
+          "line": 354,
           "name": "a_fee_commitment_participates_correctly_in_the_balance_equation"
         },
         {
           "kind": "fn",
-          "line": 283,
+          "line": 366,
           "name": "v1_and_v2_commitments_to_the_same_value_and_blinding_do_not_match"
+        },
+        {
+          "kind": "fn",
+          "line": 383,
+          "name": "generator_independence"
+        },
+        {
+          "kind": "fn",
+          "line": 395,
+          "name": "proof_encoding_is_exactly_672_bytes"
+        },
+        {
+          "kind": "fn",
+          "line": 402,
+          "name": "generators_are_deterministic_across_calls"
         }
       ],
       "title": "use bulletproofs::{BulletproofGens, PedersenGens, RangeProof as InnerRangeProof};"
@@ -79732,7 +80366,7 @@
       "title": "use crate::error::{Result, ValueError};"
     },
     {
-      "bytes": 4003,
+      "bytes": 4393,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
@@ -79751,19 +80385,19 @@
         "confidential",
         "curve",
         "error",
+        "mlsag_v3",
+        "stealth_v3",
         "one",
         "cryptography",
         "same",
         "prototypes",
         "address",
         "proof",
-        "bp_generators",
-        "canonical",
-        "privacy"
+        "bp_generators"
       ],
-      "lines": 91,
+      "lines": 101,
       "path": "crates/mini-value/src/lib.rs",
-      "sha256": "70b0c094ad1e0a71d5816788ef673e7daa158ca4c5f4ebb66f3a886da0f971c9",
+      "sha256": "3bd60c4b7a579af9327320bd03a98297da93032357eaaa8866e16edf6b286056",
       "symbols": [
         {
           "kind": "mod",
@@ -79823,22 +80457,32 @@
         {
           "kind": "mod",
           "line": 62,
-          "name": "ring"
+          "name": "mlsag_v3"
         },
         {
           "kind": "mod",
           "line": 63,
-          "name": "ring_impl"
+          "name": "ring"
         },
         {
           "kind": "mod",
           "line": 64,
-          "name": "stealth"
+          "name": "ring_impl"
         },
         {
           "kind": "mod",
           "line": 65,
+          "name": "stealth"
+        },
+        {
+          "kind": "mod",
+          "line": 66,
           "name": "stealth_impl"
+        },
+        {
+          "kind": "mod",
+          "line": 67,
+          "name": "stealth_v3"
         }
       ],
       "title": "mod bp_generators;"
@@ -80074,6 +80718,203 @@
         }
       ],
       "title": "use zeroize::Zeroize;"
+    },
+    {
+      "bytes": 19633,
+      "group": "crate:mini-value",
+      "headings": [],
+      "keywords": [
+        "mlsag",
+        "vec",
+        "section",
+        "one",
+        "ring",
+        "challenge",
+        "commitment",
+        "basis",
+        "against",
+        "key",
+        "exact",
+        "bp_range_v2",
+        "every",
+        "domain",
+        "suite_id",
+        "same",
+        "audit",
+        "module",
+        "claim",
+        "ristrettopoint",
+        "out",
+        "key_image_v3_domain",
+        "ring_size",
+        "gate"
+      ],
+      "lines": 574,
+      "path": "crates/mini-value/src/mlsag_v3.rs",
+      "sha256": "71b355beede9fe0f61184ecc8ef4ae02ed3fc094300b61cf819d55303d860e4d",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 51,
+          "name": "MLSAG_V3_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 55,
+          "name": "KEY_IMAGE_V3_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 59,
+          "name": "RING_SIZE"
+        },
+        {
+          "kind": "struct",
+          "line": 67,
+          "name": "MlsagSignatureV3"
+        },
+        {
+          "kind": "fn",
+          "line": 76,
+          "name": "key_image_base"
+        },
+        {
+          "kind": "fn",
+          "line": 94,
+          "name": "ring_statement"
+        },
+        {
+          "kind": "fn",
+          "line": 108,
+          "name": "difference_ring"
+        },
+        {
+          "kind": "fn",
+          "line": 120,
+          "name": "challenge_hash_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 153,
+          "name": "sign_spend_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 246,
+          "name": "verify_spend_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 325,
+          "name": "reblind_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 339,
+          "name": "balancing_blinding_v3"
+        },
+        {
+          "kind": "mod",
+          "line": 352,
+          "name": "tests"
+        },
+        {
+          "kind": "const",
+          "line": 357,
+          "name": "SUITE_ID"
+        },
+        {
+          "kind": "const",
+          "line": 358,
+          "name": "NETWORK"
+        },
+        {
+          "kind": "const",
+          "line": 359,
+          "name": "DIGEST"
+        },
+        {
+          "kind": "struct",
+          "line": 361,
+          "name": "Spend"
+        },
+        {
+          "kind": "fn",
+          "line": 370,
+          "name": "spend_of"
+        },
+        {
+          "kind": "fn",
+          "line": 402,
+          "name": "sign"
+        },
+        {
+          "kind": "fn",
+          "line": 416,
+          "name": "verify"
+        },
+        {
+          "kind": "fn",
+          "line": 430,
+          "name": "a_valid_spend_verifies"
+        },
+        {
+          "kind": "fn",
+          "line": 437,
+          "name": "wrong_ring_size_is_rejected_at_signing_and_verification"
+        },
+        {
+          "kind": "fn",
+          "line": 455,
+          "name": "a_wrong_one_time_secret_fails"
+        },
+        {
+          "kind": "fn",
+          "line": 463,
+          "name": "a_wrong_commitment_opening_fails"
+        },
+        {
+          "kind": "fn",
+          "line": 471,
+          "name": "altered_pseudo_commitment_fails"
+        },
+        {
+          "kind": "fn",
+          "line": 482,
+          "name": "altered_signing_digest_fails"
+        },
+        {
+          "kind": "fn",
+          "line": 489,
+          "name": "altered_network_fails"
+        },
+        {
+          "kind": "fn",
+          "line": 505,
+          "name": "altered_input_index_fails"
+        },
+        {
+          "kind": "fn",
+          "line": 521,
+          "name": "the_same_secret_produces_the_same_key_image_across_independent_signatures"
+        },
+        {
+          "kind": "fn",
+          "line": 536,
+          "name": "distinct_keys_produce_distinct_key_images"
+        },
+        {
+          "kind": "fn",
+          "line": 545,
+          "name": "an_identity_key_image_is_rejected"
+        },
+        {
+          "kind": "fn",
+          "line": 554,
+          "name": "key_image_is_domain_and_network_separated_from_v1"
+        }
+      ],
+      "title": "use crate::bp_range_v2::{blinding_generator_v2, value_generator_v2};"
     },
     {
       "bytes": 3946,
@@ -80422,7 +81263,7 @@
       "title": "pub struct StealthOutput {"
     },
     {
-      "bytes": 25161,
+      "bytes": 25567,
       "group": "crate:mini-value",
       "headings": [],
       "keywords": [
@@ -80451,9 +81292,9 @@
         "same",
         "output"
       ],
-      "lines": 643,
+      "lines": 651,
       "path": "crates/mini-value/src/stealth_impl.rs",
-      "sha256": "d92cef4ef6de5cb958e4090ed01af2d7d2ddaf92b18152d31ce36fd3b9849912",
+      "sha256": "bb3dd1af0bd5decc614ed1a3a4dce9bbc5ef202a79a36d6d0e51e5ddada398ab",
       "symbols": [
         {
           "kind": "struct",
@@ -80542,156 +81383,273 @@
         },
         {
           "kind": "fn",
-          "line": 191,
+          "line": 199,
           "name": "as_key_material"
         },
         {
           "kind": "impl",
-          "line": 196,
+          "line": 204,
           "name": "core::fmt::Debug"
         },
         {
           "kind": "fn",
-          "line": 198,
+          "line": 206,
           "name": "fmt"
         },
         {
           "kind": "impl",
-          "line": 203,
+          "line": 211,
           "name": "Drop"
         },
         {
           "kind": "fn",
-          "line": 204,
+          "line": 212,
           "name": "drop"
         },
         {
           "kind": "fn",
-          "line": 216,
+          "line": 224,
           "name": "derive_output_with_secret"
         },
         {
           "kind": "fn",
-          "line": 244,
+          "line": 252,
           "name": "recover_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 265,
+          "line": 273,
           "name": "view_public_from_secret"
         },
         {
           "kind": "fn",
-          "line": 283,
+          "line": 291,
           "name": "stealth_address_is_well_formed"
         },
         {
           "kind": "fn",
-          "line": 295,
+          "line": 303,
           "name": "derive_spend_scalar"
         },
         {
           "kind": "mod",
-          "line": 309,
+          "line": 317,
           "name": "tests"
         },
         {
           "kind": "fn",
-          "line": 313,
+          "line": 321,
           "name": "recipient_recognizes_their_own_output"
         },
         {
           "kind": "fn",
-          "line": 331,
+          "line": 339,
           "name": "a_different_recipient_does_not_recognize_the_output"
         },
         {
           "kind": "fn",
-          "line": 350,
+          "line": 358,
           "name": "two_outputs_to_the_same_recipient_are_unlinkable"
         },
         {
           "kind": "fn",
-          "line": 383,
+          "line": 391,
           "name": "derived_spend_scalar_actually_opens_the_one_time_address"
         },
         {
           "kind": "fn",
-          "line": 405,
+          "line": 413,
           "name": "malformed_keys_are_rejected_without_panicking"
         },
         {
           "kind": "fn",
-          "line": 420,
+          "line": 428,
           "name": "identity_point_bytes"
         },
         {
           "kind": "fn",
-          "line": 428,
+          "line": 436,
           "name": "a_published_identity_view_key_is_rejected_not_silently_accepted"
         },
         {
           "kind": "fn",
-          "line": 448,
+          "line": 456,
           "name": "a_published_identity_spend_key_is_rejected_not_silently_accepted"
         },
         {
           "kind": "fn",
-          "line": 462,
+          "line": 470,
           "name": "an_identity_transaction_key_is_rejected_by_recognizes_and_recover_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 490,
+          "line": 498,
           "name": "sender_and_recipient_derive_the_same_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 507,
+          "line": 515,
           "name": "derive_output_with_secret_produces_a_recognizable_output"
         },
         {
           "kind": "fn",
-          "line": 527,
+          "line": 535,
           "name": "a_stranger_derives_a_different_shared_secret"
         },
         {
           "kind": "fn",
-          "line": 542,
+          "line": 550,
           "name": "two_payments_to_one_recipient_share_no_secret"
         },
         {
           "kind": "fn",
-          "line": 562,
+          "line": 570,
           "name": "a_shared_secret_never_prints_its_bytes"
         },
         {
           "kind": "fn",
-          "line": 584,
+          "line": 592,
           "name": "malformed_inputs_to_the_shared_secret_helpers_are_rejected"
         },
         {
           "kind": "fn",
-          "line": 590,
+          "line": 598,
           "name": "view_public_from_secret_matches_the_generated_keypair"
         },
         {
           "kind": "fn",
-          "line": 599,
+          "line": 607,
           "name": "view_public_from_secret_does_not_match_a_stranger"
         },
         {
           "kind": "fn",
-          "line": 609,
+          "line": 617,
           "name": "view_public_from_secret_rejects_non_canonical_and_degenerate_scalars"
         },
         {
           "kind": "fn",
-          "line": 621,
+          "line": 629,
           "name": "well_formed_stealth_addresses_are_accepted_and_broken_ones_are_not"
         }
       ],
       "title": "use zeroize::Zeroize;"
+    },
+    {
+      "bytes": 10693,
+      "group": "crate:mini-value",
+      "headings": [],
+      "keywords": [
+        "suite_id",
+        "shared_point",
+        "network_id",
+        "section",
+        "output",
+        "ristrettopoint",
+        "r_pub",
+        "compress",
+        "stealth_impl",
+        "shared",
+        "never",
+        "decompress_point",
+        "max_resample_attempts",
+        "network",
+        "same",
+        "scalar",
+        "different",
+        "identity",
+        "basepoint",
+        "stealthoutput",
+        "stealthsharedsecret",
+        "as_bytes",
+        "one_time_address",
+        "stealth_offset_v3_domain"
+      ],
+      "lines": 297,
+      "path": "crates/mini-value/src/stealth_v3.rs",
+      "sha256": "3dbecbd7278d119d154d662da96f8d97239a21f2791df5ef527cdf4b3b112778",
+      "symbols": [
+        {
+          "kind": "const",
+          "line": 41,
+          "name": "STEALTH_OFFSET_V3_DOMAIN"
+        },
+        {
+          "kind": "const",
+          "line": 47,
+          "name": "MAX_RESAMPLE_ATTEMPTS"
+        },
+        {
+          "kind": "fn",
+          "line": 49,
+          "name": "offset_scalar"
+        },
+        {
+          "kind": "fn",
+          "line": 72,
+          "name": "derive_output_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 109,
+          "name": "recover_and_verify_v3"
+        },
+        {
+          "kind": "fn",
+          "line": 133,
+          "name": "derive_spend_scalar_v3"
+        },
+        {
+          "kind": "mod",
+          "line": 159,
+          "name": "tests"
+        },
+        {
+          "kind": "const",
+          "line": 163,
+          "name": "SUITE_ID"
+        },
+        {
+          "kind": "const",
+          "line": 164,
+          "name": "NETWORK"
+        },
+        {
+          "kind": "fn",
+          "line": 167,
+          "name": "sender_and_recipient_derive_the_same_shared_secret"
+        },
+        {
+          "kind": "fn",
+          "line": 191,
+          "name": "a_stranger_cannot_recover_or_verify_the_output"
+        },
+        {
+          "kind": "fn",
+          "line": 212,
+          "name": "the_derived_spend_scalar_opens_the_one_time_address"
+        },
+        {
+          "kind": "fn",
+          "line": 236,
+          "name": "two_payments_to_one_recipient_are_unlinkable"
+        },
+        {
+          "kind": "fn",
+          "line": 257,
+          "name": "a_different_network_derives_a_different_offset_and_fails_to_verify"
+        },
+        {
+          "kind": "fn",
+          "line": 280,
+          "name": "malformed_recipient_keys_are_rejected_without_panicking"
+        },
+        {
+          "kind": "fn",
+          "line": 285,
+          "name": "an_identity_view_key_is_rejected"
+        }
+      ],
+      "title": "use curve25519_dalek::traits::Identity;"
     },
     {
       "bytes": 605,
@@ -84750,7 +85708,7 @@
       "title": "Contributor task brief"
     },
     {
-      "bytes": 1457651,
+      "bytes": 1472752,
       "group": "docs",
       "headings": [
         {
@@ -85166,23 +86124,23 @@
         "beta",
         "gate",
         "phase",
+        "batch",
         "review",
         "design",
-        "batch",
         "audit",
         "closes",
+        "shipped",
         "decision",
         "local",
         "first",
         "signed",
         "roadmap",
         "new",
-        "doctrine",
-        "own"
+        "doctrine"
       ],
-      "lines": 24123,
+      "lines": 24362,
       "path": "docs/DECISION_LOG.md",
-      "sha256": "f7c954d0ddb1eb9d54848bf824138e1f16f6e1912403fa4a67adf3fec4ca821e",
+      "sha256": "94ddd8cef8fdafd289dbb577dfe69fc3bcf06ab6d210c9525420ebfeddd5b4d4",
       "symbols": [],
       "title": "Decision Log"
     },
