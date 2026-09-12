@@ -1,8 +1,8 @@
 {
   "counts": {
     "crates": 79,
-    "files": 1006,
-    "headings": 3601,
+    "files": 1007,
+    "headings": 3610,
     "rust_symbols": 10510
   },
   "crates": {
@@ -1784,7 +1784,7 @@
       "title": "Creative Commons Legal Code"
     },
     {
-      "bytes": 29849,
+      "bytes": 30050,
       "group": "root",
       "headings": [
         {
@@ -1804,27 +1804,27 @@
         },
         {
           "level": 2,
-          "line": 322,
+          "line": 325,
           "text": "The road to release"
         },
         {
           "level": 2,
-          "line": 364,
+          "line": 367,
           "text": "Start here"
         },
         {
           "level": 2,
-          "line": 376,
+          "line": 379,
           "text": "Beta testing and contributing"
         },
         {
           "level": 2,
-          "line": 400,
+          "line": 403,
           "text": "The canonical documents"
         },
         {
           "level": 2,
-          "line": 469,
+          "line": 472,
           "text": "License"
         }
       ],
@@ -1854,9 +1854,9 @@
         "switch",
         "nothing"
       ],
-      "lines": 473,
+      "lines": 476,
       "path": "README.md",
-      "sha256": "f4b70b311417c7fb429d5d74a993031c1f2117d6732a2529182c2b7f8328e6f6",
+      "sha256": "863d0c23d2796caac9f8921a0749346e415265b20cd75c653c6c4730d137d796",
       "symbols": [],
       "title": "Mininet"
     },
@@ -94365,7 +94365,7 @@
       "title": "Git import bridge"
     },
     {
-      "bytes": 21122,
+      "bytes": 21655,
       "group": "docs",
       "headings": [
         {
@@ -94455,17 +94455,17 @@
         },
         {
           "level": 2,
-          "line": 330,
+          "line": 339,
           "text": "Implementation phases"
         },
         {
           "level": 2,
-          "line": 349,
+          "line": 358,
           "text": "Threats catalogue"
         },
         {
           "level": 2,
-          "line": 366,
+          "line": 375,
           "text": "What remains open"
         }
       ],
@@ -94495,9 +94495,9 @@
         "decision",
         "classes"
       ],
-      "lines": 380,
+      "lines": 389,
       "path": "docs/design/human-continuity-proof.md",
-      "sha256": "2b4314315373bf5dce71d1b26020b13493d093fc4aadfea3453b2ac39756a797",
+      "sha256": "5a9e52e8c7a2802e15aca655fea3392e856730af9176a1fbe7acc35ea6f848f2",
       "symbols": [],
       "title": "Private Human Continuity Proof \u2014 founder decision (D-0075)"
     },
@@ -105700,6 +105700,88 @@
       "sha256": "630ad609098a0a40de7076e4537b6cde96c16bebaba721d7b4c9a960562b99b2",
       "symbols": [],
       "title": "MN-208 Research Report: Private Lookup, DHT Restrictions, and Interest-Hiding Retrieval"
+    },
+    {
+      "bytes": 16734,
+      "group": "docs",
+      "headings": [
+        {
+          "level": 1,
+          "line": 1,
+          "text": "Personhood/Sybil-resistance: the vouch-quota growth ceiling, and five proposed extensions to the Gate #21 anonymous-vouching architecture"
+        },
+        {
+          "level": 2,
+          "line": 13,
+          "text": "Status of what this builds on"
+        },
+        {
+          "level": 2,
+          "line": 38,
+          "text": "Contribution 1 \u2014 the vouch-quota ceiling that bounds attacker growth bounds honest growth by the same formula"
+        },
+        {
+          "level": 2,
+          "line": 110,
+          "text": "Contribution 2 \u2014 epoch-boundary compression on the \"spread across distinct epochs\" requirement"
+        },
+        {
+          "level": 2,
+          "line": 132,
+          "text": "Contribution 3 \u2014 verifiable delay functions as a harder anchor for the elapsed-time requirements (Research Track F candidate)"
+        },
+        {
+          "level": 2,
+          "line": 162,
+          "text": "Contribution 4 \u2014 cryptographic accumulators as a complementary MatureHumanSet membership structure at scale (Research Track F candidate)"
+        },
+        {
+          "level": 2,
+          "line": 187,
+          "text": "Contribution 5 \u2014 a concrete mechanism sketch for Research Track E (coercion / vouch-rental markets)"
+        },
+        {
+          "level": 2,
+          "line": 227,
+          "text": "Explicitly rejected alternative \u2014 reviving graph-correlation heuristics for \"one person, many lives\" detection"
+        },
+        {
+          "level": 2,
+          "line": 257,
+          "text": "Summary"
+        }
+      ],
+      "keywords": [
+        "audit",
+        "growth",
+        "research",
+        "candidate",
+        "own",
+        "ceiling",
+        "gate",
+        "contribution",
+        "proposed",
+        "bounds",
+        "attacker",
+        "one",
+        "design",
+        "year",
+        "floor",
+        "vouch",
+        "vouch-quota",
+        "five",
+        "architecture",
+        "what",
+        "honest",
+        "rather",
+        "new",
+        "every"
+      ],
+      "lines": 274,
+      "path": "docs/research/MN21_PERSONHOOD_VOUCH_GROWTH_CEILING_AND_EXTENSIONS_20260912.md",
+      "sha256": "fe5a95beb48c7c4a9e4da043534c7661c4ec235763b6cdb9c43fa803b51cef10",
+      "symbols": [],
+      "title": "Personhood/Sybil-resistance: the vouch-quota growth ceiling, and five proposed extensions to the Gate #21 anonymous-vouching architecture"
     },
     {
       "bytes": 44615,
