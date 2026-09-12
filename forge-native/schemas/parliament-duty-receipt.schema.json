@@ -14,8 +14,7 @@
     "emergency_calls_assigned": {"type": "integer", "minimum": 0},
     "emergency_calls_answered": {"type": "integer", "minimum": 0},
     "substantive_review_refs": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
-    "recusal_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "eligible_for_duty_allowance": {"type": "boolean"}
+    "recusal_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
   },
   "additionalProperties": false
 }
