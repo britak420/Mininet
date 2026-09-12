@@ -504,3 +504,43 @@ fn epoch_rollover_carries_no_beta_balance() {
     assert_eq!(next.balance(&account), 0);
     assert_eq!(next.total_issued(), 0);
 }
+
+#[test]
+fn competing_valid_campaign_policies_fail_closed_instead_of_local_tie_breaking() {
+    let mut f = Fixture::new();
+    let grant = f.testing_grant(BetaAccountId::new([15; 32]).unwrap(), "test", 10);
+    let a = f.approve(0, grant.id(), 20);
+    let b = f.approve(1, grant.id(), 21);
+    let members = f
+        .authorizers
+        .iter()
+        .map(Controller::did)
+        .collect::<Vec<_>>();
+    let competing = create_grant_policy(
+        &mut f.store,
+        &f.campaign_author.did(),
+        &f.campaign_author,
+        f.campaign.id(),
+        &members,
+        2,
+        3,
+        100,
+        &[10, 25, 50],
+        200,
+        9_000,
+        151,
+        99,
+    )
+    .unwrap();
+    assert_ne!(competing.id(), f.policy.id());
+
+    assert!(matches!(
+        validate_grant_acceptance(
+            &f.store,
+            f.policy.id(),
+            grant.id(),
+            &[a.id().clone(), b.id().clone()]
+        ),
+        Err(GrantAcceptanceError::PolicyConflict)
+    ));
+}

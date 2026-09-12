@@ -50,6 +50,8 @@ pub enum GrantAcceptanceError {
     InvalidPolicy,
     /// A policy was not signed by the campaign's record authority.
     PolicyAuthorMismatch,
+    /// More than one valid policy exists for the same campaign. Fail closed; do not invent a local tie-break.
+    PolicyConflict,
     /// A grant did not satisfy deterministic policy rules.
     GrantRuleViolation,
     /// Approval evidence did not bind the requested policy/grant or signer.
@@ -77,6 +79,10 @@ impl core::fmt::Display for GrantAcceptanceError {
                     "Beta grant policy author is not the campaign record author"
                 )
             }
+            Self::PolicyConflict => write!(
+                f,
+                "multiple valid Beta grant policies exist for one campaign"
+            ),
             Self::GrantRuleViolation => write!(f, "Beta grant violates deterministic policy"),
             Self::InvalidApproval => write!(f, "invalid Beta grant approval evidence"),
             Self::ThresholdNotMet { required, observed } => write!(
@@ -445,6 +451,29 @@ pub fn validate_grant_against_policy<B: Backend>(
     Ok(grant)
 }
 
+/// Resolve the only valid grant policy for one campaign.  Competing valid
+/// policies fail closed: eventual replication must never cause one node to
+/// pick a local winner by timestamp, object id, arrival order, or repository.
+pub fn resolve_unique_campaign_policy<B: Backend>(
+    store: &Store<B>,
+    campaign_id: &ObjectId,
+) -> Result<BetaGrantPolicy> {
+    let ids = store.by_type(&ObjectType::Custom(BETA_GRANT_POLICY_TYPE.to_string()))?;
+    let mut found: Option<BetaGrantPolicy> = None;
+    for id in ids {
+        let candidate = parse_grant_policy_object(&store.get(&id)?)?;
+        if &candidate.campaign_id != campaign_id {
+            continue;
+        }
+        let candidate = validate_policy(store, &id)?;
+        if found.is_some() {
+            return Err(GrantAcceptanceError::PolicyConflict);
+        }
+        found = Some(candidate);
+    }
+    found.ok_or(GrantAcceptanceError::InvalidPolicy)
+}
+
 /// Deterministically validate threshold evidence for one exact grant.
 ///
 /// Approval order is irrelevant and repeated approvals from one DID count once.
@@ -458,6 +487,10 @@ pub fn validate_grant_acceptance<B: Backend>(
         return Err(GrantAcceptanceError::EvidenceLimit);
     }
     let policy = validate_policy(store, policy_id)?;
+    let unique = resolve_unique_campaign_policy(store, &policy.campaign_id)?;
+    if unique.id != *policy_id {
+        return Err(GrantAcceptanceError::PolicyConflict);
+    }
     let grant = validate_grant_against_policy(store, &policy, grant_id)?;
     let required = match grant.class {
         GrantClass::Testing => policy.testing_threshold,
