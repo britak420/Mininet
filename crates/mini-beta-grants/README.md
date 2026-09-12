@@ -19,6 +19,14 @@ Given one exact campaign, policy, grant and immutable approval set, independent 
 
 The wrapper `SharedBetaLedger` calls `BetaMiniLedger::apply_grant` only after threshold acceptance succeeds, preserving the accounting core's separate supply, campaign-cap, wrong-epoch and one-contribution/one-award checks.
 
+## Authenticity boundary
+
+`mini-store` is deliberately persistence, **not** the signature/provenance trust boundary. Remote policy, grant, contribution and approval objects must therefore enter a normal node through `mini-sync`'s strict verified-ingest path (KEL resolution, signature verification, delegation/revocation and capability checks) before this crate evaluates their semantic threshold rules.
+
+Direct `Store::insert` is used in local unit/integration tests for objects just created by known in-process controllers. It is not an acceptable network ingest shortcut. A product path that decodes arbitrary network objects, inserts them directly into `mini-store`, and then calls `validate_grant_acceptance` would be insecure even if the threshold mathematics passed.
+
+This separation is intentional: the domain crate must not duplicate identity/KEL validation with a second subtly different implementation. Before #341 can be wired into a shared product surface, the call path must be traced to and tested through the existing `mini-sync::Ingest` boundary. #341 does not claim that product integration yet.
+
 ## What it does **not** prove
 
 A `did:mini` is not proof of a unique human. The current campaign record authority chooses the temporary policy membership, so several listed DIDs could still be controlled by one actor. This crate removes **unilateral grant issuance**, not the remaining Pre-Go-Live bootstrap selection dependency.
