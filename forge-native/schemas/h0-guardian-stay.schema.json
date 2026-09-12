@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "H0GuardianStay payload",
   "type": "object",
-  "required": ["stay_id", "exact_target_digest", "reason", "issued_at", "expires_at"],
+  "required": ["stay_id", "exact_target_digest", "reason", "issued_at", "expires_at", "constitutional_refs"],
   "properties": {
     "stay_id": {"type": "string", "minLength": 1},
     "exact_target_digest": {"type": "string", "minLength": 16},
