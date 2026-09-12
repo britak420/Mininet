@@ -12,10 +12,12 @@ fn signer(seed: u8) -> Controller {
 }
 
 fn target(store: &mut Store<MemoryBackend>, signer: &Controller, label: &[u8]) -> ObjectId {
-    let object = ObjectBuilder::new(ObjectType::Custom("mini/beta-adversarial-target".to_string()))
-        .payload(Payload::Public(label.to_vec()))
-        .sign(&signer.did(), signer)
-        .unwrap();
+    let object = ObjectBuilder::new(ObjectType::Custom(
+        "mini/beta-adversarial-target".to_string(),
+    ))
+    .payload(Payload::Public(label.to_vec()))
+    .sign(&signer.did(), signer)
+    .unwrap();
     store.insert(&object).unwrap();
     object.id().clone()
 }
