@@ -446,6 +446,48 @@ fn authorizer_equivocation_is_detected_but_not_given_hidden_blacklist_power() {
 }
 
 #[test]
+fn three_way_equivocation_evidence_does_not_depend_on_arrival_order() {
+    // Recording conflicts only against whichever grant was seen first made
+    // the *set* of reported pairs depend on approval_ids' order -- exactly
+    // the kind of non-determinism this function's own doc comment says
+    // cannot happen once the same immutable objects have replicated. With
+    // three mutually conflicting approvals from one authorizer, every
+    // ordering must report the same three pairs.
+    let mut f = Fixture::new();
+    let account = BetaAccountId::new([13; 32]).unwrap();
+    let first = f.testing_grant(account, "first", 10);
+    let second = f.testing_grant(account, "second", 11);
+    let third = f.testing_grant(account, "third", 12);
+    let a = f.approve(0, first.id(), 20);
+    let b = f.approve(0, second.id(), 21);
+    let c = f.approve(0, third.id(), 22);
+
+    let mut forward = detect_authorizer_equivocations(
+        &f.store,
+        f.policy.id(),
+        &[a.id().clone(), b.id().clone(), c.id().clone()],
+    )
+    .unwrap();
+    let mut reordered = detect_authorizer_equivocations(
+        &f.store,
+        f.policy.id(),
+        &[c.id().clone(), a.id().clone(), b.id().clone()],
+    )
+    .unwrap();
+
+    assert_eq!(forward.len(), 3, "all three pairs must be reported");
+    let sort_key = |e: &mini_beta_grants::AuthorizerEquivocation| {
+        (
+            e.first_grant_id.as_str().to_string(),
+            e.second_grant_id.as_str().to_string(),
+        )
+    };
+    forward.sort_by_key(sort_key);
+    reordered.sort_by_key(sort_key);
+    assert_eq!(forward, reordered);
+}
+
+#[test]
 fn offline_store_converges_after_the_same_immutable_evidence_arrives() {
     let mut f = Fixture::new();
     let grant = f.testing_grant(BetaAccountId::new([12; 32]).unwrap(), "test", 10);
@@ -543,4 +585,43 @@ fn competing_valid_campaign_policies_fail_closed_instead_of_local_tie_breaking()
         ),
         Err(GrantAcceptanceError::PolicyConflict)
     ));
+}
+
+#[test]
+fn outsider_policy_shaped_objects_cannot_veto_the_campaign_policy() {
+    let mut f = Fixture::new();
+    let grant = f.testing_grant(BetaAccountId::new([16; 32]).unwrap(), "test", 10);
+    let a = f.approve(0, grant.id(), 20);
+    let b = f.approve(1, grant.id(), 21);
+
+    let outsider_copy = ObjectBuilder::new(ObjectType::Custom(
+        mini_beta_grants::BETA_GRANT_POLICY_TYPE.to_string(),
+    ))
+    .timestamp_ms(f.policy.timestamp_ms + 1)
+    .sequence(999)
+    .payload(f.policy.payload.clone())
+    .link("campaign", f.campaign.id().clone())
+    .sign(&f.outsider.did(), &f.outsider)
+    .unwrap();
+    f.store.insert(&outsider_copy).unwrap();
+
+    let malformed = ObjectBuilder::new(ObjectType::Custom(
+        mini_beta_grants::BETA_GRANT_POLICY_TYPE.to_string(),
+    ))
+    .timestamp_ms(152)
+    .sequence(1_000)
+    .payload(Payload::Public(vec![0xff]))
+    .link("campaign", f.campaign.id().clone())
+    .sign(&f.outsider.did(), &f.outsider)
+    .unwrap();
+    f.store.insert(&malformed).unwrap();
+
+    let accepted = validate_grant_acceptance(
+        &f.store,
+        f.policy.id(),
+        grant.id(),
+        &[a.id().clone(), b.id().clone()],
+    )
+    .unwrap();
+    assert_eq!(accepted.distinct_approvers, 2);
 }

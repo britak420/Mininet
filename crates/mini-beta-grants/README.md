@@ -19,6 +19,14 @@ Given one exact campaign, policy, grant and immutable approval set, independent 
 
 The wrapper `SharedBetaLedger` calls `BetaMiniLedger::apply_grant` only after threshold acceptance succeeds, preserving the accounting core's separate supply, campaign-cap, wrong-epoch and one-contribution/one-award checks.
 
+## Policy-fork and outsider-noise boundary
+
+A campaign may have **exactly one valid policy** at this layer. If the campaign record authority publishes two independently valid policies, `resolve_unique_campaign_policy` fails closed with `PolicyConflict`; it never chooses by timestamp, object id, arrival order, repository state, or wealth.
+
+The uniqueness rule does not hand a denial-of-service veto to arbitrary publishers. Objects with the policy type are ignored as policy candidates when they are malformed, target a different campaign, are authored by somebody other than that campaign's record authority, or otherwise fail policy validation. A third party cannot stop legitimate Beta grant validation merely by publishing policy-shaped noise into the shared type index.
+
+This still is not distributed finality. A valid competing policy from the actual temporary campaign authority is intentionally a stop condition until #337/#338 provide canonical conflict resolution.
+
 ## Authenticity boundary
 
 `mini-store` is deliberately persistence, **not** the signature/provenance trust boundary. Remote policy, grant, contribution and approval objects must therefore enter a normal node through `mini-sync`'s strict verified-ingest path (KEL resolution, signature verification, delegation/revocation and capability checks) before this crate evaluates their semantic threshold rules.

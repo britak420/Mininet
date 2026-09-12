@@ -458,14 +458,33 @@ pub fn resolve_unique_campaign_policy<B: Backend>(
     store: &Store<B>,
     campaign_id: &ObjectId,
 ) -> Result<BetaGrantPolicy> {
+    let campaign = read_campaign(store, campaign_id)?;
     let ids = store.by_type(&ObjectType::Custom(BETA_GRANT_POLICY_TYPE.to_string()))?;
     let mut found: Option<BetaGrantPolicy> = None;
     for id in ids {
-        let candidate = parse_grant_policy_object(&store.get(&id)?)?;
-        if &candidate.campaign_id != campaign_id {
+        let object = store.get(&id)?;
+        let candidate = match parse_grant_policy_object(&object) {
+            Ok(candidate) => candidate,
+            // Any DID can publish an object with this custom type. Malformed
+            // third-party policy-shaped noise must not gain veto power merely
+            // by sharing the type index.
+            Err(_) => continue,
+        };
+        if &candidate.campaign_id != campaign_id
+            || candidate.record_author != campaign.record_author
+        {
             continue;
         }
-        let candidate = validate_policy(store, &id)?;
+        let candidate = match validate_policy(store, &id) {
+            Ok(candidate) => candidate,
+            // Only fully valid policies by the campaign record authority are
+            // candidates for the uniqueness rule. Invalid objects do not become
+            // a second policy and therefore cannot manufacture PolicyConflict.
+            Err(GrantAcceptanceError::InvalidPolicy)
+            | Err(GrantAcceptanceError::PolicyAuthorMismatch)
+            | Err(GrantAcceptanceError::InvalidObject) => continue,
+            Err(error) => return Err(error),
+        };
         if found.is_some() {
             return Err(GrantAcceptanceError::PolicyConflict);
         }
@@ -544,9 +563,9 @@ pub fn detect_authorizer_equivocations<B: Backend>(
         return Err(GrantAcceptanceError::EvidenceLimit);
     }
     let policy = validate_policy(store, policy_id)?;
-    let mut seen: HashMap<(Did, GrantScope), ObjectId> = HashMap::new();
-    let mut conflicts = Vec::new();
-    let mut conflict_keys = HashSet::<String>::new();
+    // All distinct grant ids seen per (authorizer, scope), not just the
+    // first one -- see the fix note below for why.
+    let mut seen: HashMap<(Did, GrantScope), Vec<ObjectId>> = HashMap::new();
 
     for approval_id in approval_ids {
         let approval = read_grant_approval(store, approval_id)?;
@@ -575,29 +594,39 @@ pub fn detect_authorizer_equivocations<B: Backend>(
             ),
         };
         let key = (approval.record_author.clone(), scope);
-        if let Some(existing) = seen.get(&key) {
-            if existing != &approval.grant_id {
-                let (first, second) = if existing.as_str() <= approval.grant_id.as_str() {
-                    (existing.clone(), approval.grant_id.clone())
-                } else {
-                    (approval.grant_id.clone(), existing.clone())
-                };
-                let fingerprint = format!(
-                    "{}|{}|{}",
-                    approval.record_author.as_str(),
-                    first.as_str(),
-                    second.as_str()
-                );
-                if conflict_keys.insert(fingerprint) {
-                    conflicts.push(AuthorizerEquivocation {
-                        authorizer: approval.record_author.clone(),
-                        first_grant_id: first,
-                        second_grant_id: second,
-                    });
-                }
+        let grant_ids = seen.entry(key).or_default();
+        if !grant_ids.contains(&approval.grant_id) {
+            grant_ids.push(approval.grant_id.clone());
+        }
+    }
+
+    // Emit every pairwise conflict among the distinct grant ids observed per
+    // key, rather than only pairs against whichever grant happened to be
+    // seen first. Recording only first-seen-vs-rest made the result depend
+    // on `approval_ids`' order: with three mutually conflicting approvals,
+    // processing them in a different order (e.g. because gossip delivered
+    // them to two honest nodes in different sequence) could report a
+    // different *set* of conflicting pairs, contradicting this function's
+    // own documented guarantee that the result is deterministic once the
+    // same immutable objects have replicated. Since every grant id in
+    // `grant_ids` is already known to be mutually distinct, and the whole
+    // point of equivocation evidence is "this authorizer signed more than
+    // one grant for the same scope," reporting all pairs is both the
+    // order-independent answer and the more complete evidence.
+    let mut conflicts = Vec::new();
+    for ((authorizer, _scope), mut grant_ids) in seen {
+        if grant_ids.len() < 2 {
+            continue;
+        }
+        grant_ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        for i in 0..grant_ids.len() {
+            for j in (i + 1)..grant_ids.len() {
+                conflicts.push(AuthorizerEquivocation {
+                    authorizer: authorizer.clone(),
+                    first_grant_id: grant_ids[i].clone(),
+                    second_grant_id: grant_ids[j].clone(),
+                });
             }
-        } else {
-            seen.insert(key, approval.grant_id.clone());
         }
     }
 
