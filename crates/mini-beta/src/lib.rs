@@ -38,11 +38,9 @@ pub const MICRO_BETA_MINI_PER_BETA_MINI: u64 = 1_000_000;
 /// Default maximum free testing grant per authorization.
 pub const DEFAULT_MAX_TESTING_GRANT: u64 = 10_000 * MICRO_BETA_MINI_PER_BETA_MINI;
 /// Default maximum participation grant per authorization.
-pub const DEFAULT_MAX_PARTICIPATION_GRANT: u64 =
-    100_000 * MICRO_BETA_MINI_PER_BETA_MINI;
+pub const DEFAULT_MAX_PARTICIPATION_GRANT: u64 = 100_000 * MICRO_BETA_MINI_PER_BETA_MINI;
 /// Default maximum total issued in one resettable beta epoch.
-pub const DEFAULT_MAX_EPOCH_SUPPLY: u64 =
-    1_000_000_000 * MICRO_BETA_MINI_PER_BETA_MINI;
+pub const DEFAULT_MAX_EPOCH_SUPPLY: u64 = 1_000_000_000 * MICRO_BETA_MINI_PER_BETA_MINI;
 
 const PAYLOAD_VERSION: u8 = 1;
 const MAX_ITEMS: usize = 64;
@@ -533,7 +531,7 @@ pub struct BetaGrantAuthorization {
     pub contribution_id: Option<ObjectId>,
     /// Resettable beta epoch.
     pub epoch: BetaEpochId,
-    /// Opaque Beta MINI account destination.
+    /// Opaque beta account destination.
     pub account: BetaAccountId,
     /// Testing or participation grant.
     pub class: GrantClass,
@@ -683,12 +681,13 @@ pub fn create_finding_disposition<B: Backend>(
     put_str(&mut payload, state.as_str());
     put_str(&mut payload, rationale);
 
-    let mut builder =
-        ObjectBuilder::new(ObjectType::Custom(BETA_FINDING_DISPOSITION_TYPE.to_string()))
-            .timestamp_ms(timestamp_ms)
-            .sequence(sequence)
-            .payload(Payload::Public(payload))
-            .link("finding", finding_id.clone());
+    let mut builder = ObjectBuilder::new(ObjectType::Custom(
+        BETA_FINDING_DISPOSITION_TYPE.to_string(),
+    ))
+    .timestamp_ms(timestamp_ms)
+    .sequence(sequence)
+    .payload(Payload::Public(payload))
+    .link("finding", finding_id.clone());
     if let Some(task) = task_id {
         builder = builder.link("task", task.clone());
     }
@@ -883,20 +882,11 @@ pub fn parse_finding_object(object: &Object) -> Result<BetaFinding> {
         return Err(BetaError::InvalidObject);
     }
     let submission_tag = SubmissionTag::new(take_32(bytes, &mut off)?)?;
-    let evidence_class = EvidenceClass::parse(&take_str(
-        bytes,
-        &mut off,
-        MAX_SHORT_TEXT_BYTES,
-        true,
-    )?)
-    .ok_or(BetaError::InvalidObject)?;
-    let severity = FindingSeverity::parse(&take_str(
-        bytes,
-        &mut off,
-        MAX_SHORT_TEXT_BYTES,
-        true,
-    )?)
-    .ok_or(BetaError::InvalidObject)?;
+    let evidence_class =
+        EvidenceClass::parse(&take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?)
+            .ok_or(BetaError::InvalidObject)?;
+    let severity = FindingSeverity::parse(&take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?)
+        .ok_or(BetaError::InvalidObject)?;
     let component = take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?;
     let summary = take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?;
     let environment = take_str(bytes, &mut off, MAX_TEXT_BYTES, true)?;
@@ -949,13 +939,8 @@ pub fn parse_finding_disposition_object(object: &Object) -> Result<FindingDispos
     if take_u8(bytes, &mut off)? != PAYLOAD_VERSION {
         return Err(BetaError::InvalidObject);
     }
-    let state = FindingState::parse(&take_str(
-        bytes,
-        &mut off,
-        MAX_SHORT_TEXT_BYTES,
-        true,
-    )?)
-    .ok_or(BetaError::InvalidObject)?;
+    let state = FindingState::parse(&take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?)
+        .ok_or(BetaError::InvalidObject)?;
     let rationale = take_str(bytes, &mut off, MAX_TEXT_BYTES, true)?;
     if off != bytes.len() || (state == FindingState::Fixed && resolved_in.is_none()) {
         return Err(BetaError::InvalidObject);
@@ -982,13 +967,8 @@ pub fn parse_contribution_object(object: &Object) -> Result<ContributionReceipt>
         return Err(BetaError::InvalidObject);
     }
     let claim_tag = ClaimTag::new(take_32(bytes, &mut off)?)?;
-    let kind = ContributionKind::parse(&take_str(
-        bytes,
-        &mut off,
-        MAX_SHORT_TEXT_BYTES,
-        true,
-    )?)
-    .ok_or(BetaError::InvalidObject)?;
+    let kind = ContributionKind::parse(&take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?)
+        .ok_or(BetaError::InvalidObject)?;
     let summary = take_str(bytes, &mut off, MAX_TEXT_BYTES, true)?;
     let evidence = take_list(bytes, &mut off, MAX_EVIDENCE_REF_BYTES, true)?;
     if off != bytes.len() {
@@ -1018,13 +998,8 @@ pub fn parse_grant_object(object: &Object) -> Result<BetaGrantAuthorization> {
     }
     let epoch = BetaEpochId::new(take_32(bytes, &mut off)?)?;
     let account = BetaAccountId::new(take_32(bytes, &mut off)?)?;
-    let class = GrantClass::parse(&take_str(
-        bytes,
-        &mut off,
-        MAX_SHORT_TEXT_BYTES,
-        true,
-    )?)
-    .ok_or(BetaError::InvalidObject)?;
+    let class = GrantClass::parse(&take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?)
+        .ok_or(BetaError::InvalidObject)?;
     let amount = take_u64(bytes, &mut off)?;
     let memo = take_str(bytes, &mut off, MAX_SHORT_TEXT_BYTES, true)?;
     let contribution_id = optional_link(object, "contribution")?;
@@ -1139,11 +1114,7 @@ impl BetaMiniLedger {
     /// contribution from the content-addressed store. This prevents a caller
     /// from bypassing campaign caps or contribution linkage by constructing a
     /// `BetaGrantAuthorization` struct directly instead of using the builder.
-    pub fn apply_grant<B: Backend>(
-        &mut self,
-        store: &Store<B>,
-        grant_id: &ObjectId,
-    ) -> Result<()> {
+    pub fn apply_grant<B: Backend>(&mut self, store: &Store<B>, grant_id: &ObjectId) -> Result<()> {
         let grant = parse_grant_object(&store.get(grant_id)?)?;
         if grant.epoch != self.epoch {
             return Err(BetaError::WrongEpoch);
@@ -1286,9 +1257,7 @@ fn take_u8(bytes: &[u8], off: &mut usize) -> Result<u8> {
 }
 
 fn take_u64(bytes: &[u8], off: &mut usize) -> Result<u64> {
-    let end = (*off)
-        .checked_add(8)
-        .ok_or(BetaError::InvalidObject)?;
+    let end = (*off).checked_add(8).ok_or(BetaError::InvalidObject)?;
     let raw = bytes.get(*off..end).ok_or(BetaError::InvalidObject)?;
     *off = end;
     Ok(u64::from_be_bytes(
@@ -1297,33 +1266,22 @@ fn take_u64(bytes: &[u8], off: &mut usize) -> Result<u64> {
 }
 
 fn take_32(bytes: &[u8], off: &mut usize) -> Result<[u8; 32]> {
-    let end = (*off)
-        .checked_add(32)
-        .ok_or(BetaError::InvalidObject)?;
+    let end = (*off).checked_add(32).ok_or(BetaError::InvalidObject)?;
     let raw = bytes.get(*off..end).ok_or(BetaError::InvalidObject)?;
     *off = end;
     raw.try_into().map_err(|_| BetaError::InvalidObject)
 }
 
 fn take_str(bytes: &[u8], off: &mut usize, max: usize, required: bool) -> Result<String> {
-    let len_end = (*off)
-        .checked_add(4)
-        .ok_or(BetaError::InvalidObject)?;
-    let len_bytes = bytes
-        .get(*off..len_end)
-        .ok_or(BetaError::InvalidObject)?;
-    let len = u32::from_be_bytes(
-        len_bytes
-            .try_into()
-            .map_err(|_| BetaError::InvalidObject)?,
-    ) as usize;
+    let len_end = (*off).checked_add(4).ok_or(BetaError::InvalidObject)?;
+    let len_bytes = bytes.get(*off..len_end).ok_or(BetaError::InvalidObject)?;
+    let len =
+        u32::from_be_bytes(len_bytes.try_into().map_err(|_| BetaError::InvalidObject)?) as usize;
     *off = len_end;
     if len > max || (required && len == 0) {
         return Err(BetaError::InvalidObject);
     }
-    let end = (*off)
-        .checked_add(len)
-        .ok_or(BetaError::InvalidObject)?;
+    let end = (*off).checked_add(len).ok_or(BetaError::InvalidObject)?;
     let value = bytes.get(*off..end).ok_or(BetaError::InvalidObject)?;
     *off = end;
     let value = String::from_utf8(value.to_vec()).map_err(|_| BetaError::InvalidObject)?;
@@ -1339,12 +1297,8 @@ fn take_list(
     max_item: usize,
     required: bool,
 ) -> Result<Vec<String>> {
-    let count_end = (*off)
-        .checked_add(4)
-        .ok_or(BetaError::InvalidObject)?;
-    let count_bytes = bytes
-        .get(*off..count_end)
-        .ok_or(BetaError::InvalidObject)?;
+    let count_end = (*off).checked_add(4).ok_or(BetaError::InvalidObject)?;
+    let count_bytes = bytes.get(*off..count_end).ok_or(BetaError::InvalidObject)?;
     let count = u32::from_be_bytes(
         count_bytes
             .try_into()
@@ -1517,11 +1471,20 @@ mod tests {
         let parsed_grant = read_grant_authorization(&store, grant.id()).unwrap();
 
         assert_eq!(parsed_campaign.epoch, epoch);
-        assert_eq!(parsed_finding.submission_tag, SubmissionTag::new([8; 32]).unwrap());
+        assert_eq!(
+            parsed_finding.submission_tag,
+            SubmissionTag::new([8; 32]).unwrap()
+        );
         assert_eq!(parsed_disposition.state, FindingState::Fixed);
-        assert_eq!(parsed_contribution.claim_tag, ClaimTag::new([9; 32]).unwrap());
+        assert_eq!(
+            parsed_contribution.claim_tag,
+            ClaimTag::new([9; 32]).unwrap()
+        );
         assert_eq!(parsed_grant.class, GrantClass::Participation);
-        assert_eq!(parsed_grant.contribution_id, Some(contribution.id().clone()));
+        assert_eq!(
+            parsed_grant.contribution_id,
+            Some(contribution.id().clone())
+        );
         assert_eq!(parsed_finding.record_author, record_signer.did());
     }
 
@@ -1573,18 +1536,10 @@ mod tests {
         ledger
             .transfer(&alice, &bob, 125 * MICRO_BETA_MINI_PER_BETA_MINI)
             .unwrap();
-        assert_eq!(
-            ledger.balance(&alice),
-            375 * MICRO_BETA_MINI_PER_BETA_MINI
-        );
-        assert_eq!(
-            ledger.balance(&bob),
-            125 * MICRO_BETA_MINI_PER_BETA_MINI
-        );
+        assert_eq!(ledger.balance(&alice), 375 * MICRO_BETA_MINI_PER_BETA_MINI);
+        assert_eq!(ledger.balance(&bob), 125 * MICRO_BETA_MINI_PER_BETA_MINI);
 
-        let next = ledger
-            .rollover(BetaEpochId::new([4; 32]).unwrap())
-            .unwrap();
+        let next = ledger.rollover(BetaEpochId::new([4; 32]).unwrap()).unwrap();
         assert_eq!(next.balance(&alice), 0);
         assert_eq!(next.balance(&bob), 0);
         assert_eq!(next.total_issued(), 0);
@@ -1684,7 +1639,10 @@ mod tests {
             SubmissionTag::new([0; 32]),
             Err(BetaError::InvalidObject)
         ));
-        assert!(matches!(ClaimTag::new([0; 32]), Err(BetaError::InvalidObject)));
+        assert!(matches!(
+            ClaimTag::new([0; 32]),
+            Err(BetaError::InvalidObject)
+        ));
         assert!(matches!(
             BetaAccountId::new([0; 32]),
             Err(BetaError::InvalidObject)
