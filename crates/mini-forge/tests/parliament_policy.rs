@@ -60,6 +60,19 @@ fn duplicate_seat_cannot_vote_twice() {
 }
 
 #[test]
+fn hostile_seat_capacity_is_rejected_before_allocation() {
+    assert_eq!(
+        tally_votes(u32::MAX, &[]),
+        Err(ParliamentPolicyError::SeatCapacityOutOfRange)
+    );
+    assert_eq!(
+        motion_passes(MotionClass::Ordinary, MAX_ACTIVE_SEATS + 1, &[]),
+        Err(ParliamentPolicyError::SeatCapacityOutOfRange)
+    );
+    assert_eq!(next_seat_capacity(MAX_ACTIVE_SEATS), None);
+}
+
+#[test]
 fn ordinary_majority_needs_two_thirds_participation() {
     let votes = yes_votes(4);
     assert!(!motion_passes(MotionClass::Ordinary, 7, &votes).unwrap());
