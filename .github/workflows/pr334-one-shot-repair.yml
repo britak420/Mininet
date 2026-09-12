@@ -1,0 +1,58 @@
+name: PR334 one-shot lock and lint repair
+
+on:
+  push:
+    branches:
+      - gpt/pr-334-beta-open-forge-transition
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: gpt/pr-334-beta-open-forge-transition
+          fetch-depth: 0
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Repair Clippy identity-op finding
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('crates/mini-beta/src/lib.rs')
+          s = p.read_text()
+          old = '1 * MICRO_BETA_MINI_PER_BETA_MINI,'
+          new = 'MICRO_BETA_MINI_PER_BETA_MINI,'
+          count = s.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one identity-op occurrence, found {count}')
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Update lock only through Cargo
+        run: |
+          cargo check -p mini-beta --all-targets --all-features
+          grep -q '^name = "mini-beta"$' Cargo.lock
+          read adds dels <<EOF
+          $(git diff --numstat -- Cargo.lock | awk '{print $1, $2}')
+          EOF
+          test -n "$adds"
+          test "$dels" = "0"
+          test "$adds" -le 10
+      - name: Format and verify focused crate
+        run: |
+          cargo fmt --all
+          cargo clippy -p mini-beta --all-targets --all-features -- -D warnings
+          cargo test -p mini-beta --all-features
+      - name: Remove one-shot workflow and commit repairs
+        run: |
+          rm .github/workflows/pr334-one-shot-repair.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Cargo.lock crates/mini-beta/src/lib.rs .github/workflows/pr334-one-shot-repair.yml
+          git diff --cached --check
+          git commit -m 'Repair beta lockfile and exact-head lint gate'
+          git push origin HEAD:gpt/pr-334-beta-open-forge-transition
