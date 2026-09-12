@@ -334,8 +334,7 @@ pub fn parse_transfer_object(object: &Object) -> Result<BetaTransfer> {
     }
     let mut outputs = Vec::with_capacity(output_count);
     for _ in 0..output_count {
-        let account =
-            BetaAccountId::new(take_32(bytes, &mut off)?).map_err(BetaExecError::Beta)?;
+        let account = BetaAccountId::new(take_32(bytes, &mut off)?).map_err(BetaExecError::Beta)?;
         let amount = take_u64(bytes, &mut off)?;
         outputs.push(BetaTransferOutput { account, amount });
     }
@@ -420,13 +419,7 @@ pub fn resolve_snapshot<B: Backend>(
     let mut visit = HashMap::<ObjectId, VisitState>::new();
     let ids: Vec<ObjectId> = transfers.keys().cloned().collect();
     for id in &ids {
-        let _ = economic_valid(
-            id,
-            &transfers,
-            &grant_outputs,
-            &registrations,
-            &mut visit,
-        );
+        let _ = economic_valid(id, &transfers, &grant_outputs, &registrations, &mut visit);
     }
     let base_valid: HashSet<ObjectId> = visit
         .iter()
@@ -558,7 +551,10 @@ pub fn resolve_snapshot<B: Backend>(
 fn resolve_registrations<B: Backend>(
     store: &Store<B>,
     epoch: BetaEpochId,
-) -> Result<(HashMap<BetaAccountId, BetaAccountRegistration>, Vec<BetaAccountId>)> {
+) -> Result<(
+    HashMap<BetaAccountId, BetaAccountRegistration>,
+    Vec<BetaAccountId>,
+)> {
     let ids = store.by_type(&ObjectType::Custom(BETA_ACCOUNT_TYPE.to_string()))?;
     let mut all: HashMap<BetaAccountId, Vec<BetaAccountRegistration>> = HashMap::new();
     for id in ids {
@@ -567,7 +563,9 @@ fn resolve_registrations<B: Backend>(
             continue;
         };
         if registration.epoch == epoch {
-            all.entry(registration.account).or_default().push(registration);
+            all.entry(registration.account)
+                .or_default()
+                .push(registration);
         }
     }
     let mut valid = HashMap::new();
@@ -588,7 +586,8 @@ fn resolve_grant_outputs<B: Backend>(
     limits: BetaMiniPolicy,
     registrations: &HashMap<BetaAccountId, BetaAccountRegistration>,
 ) -> Result<(HashMap<BetaOutputRef, OutputValue>, u64, bool)> {
-    let approval_objects = store.by_type(&ObjectType::Custom(BETA_GRANT_APPROVAL_TYPE.to_string()))?;
+    let approval_objects =
+        store.by_type(&ObjectType::Custom(BETA_GRANT_APPROVAL_TYPE.to_string()))?;
     let mut approvals = Vec::new();
     for id in approval_objects {
         let object = store.get(&id)?;
@@ -740,10 +739,13 @@ fn economic_valid(
             {
                 None
             } else {
-                producer.outputs.get(input.index as usize).map(|output| OutputValue {
-                    account: output.account,
-                    amount: output.amount,
-                })
+                producer
+                    .outputs
+                    .get(input.index as usize)
+                    .map(|output| OutputValue {
+                        account: output.account,
+                        amount: output.amount,
+                    })
             }
         } else {
             None
@@ -913,9 +915,8 @@ fn take_str(bytes: &[u8], off: &mut usize, max: usize) -> Result<String> {
 fn take_str_allow_empty(bytes: &[u8], off: &mut usize, max: usize) -> Result<String> {
     let end = off.checked_add(4).ok_or(BetaExecError::InvalidObject)?;
     let raw = bytes.get(*off..end).ok_or(BetaExecError::InvalidObject)?;
-    let len = u32::from_be_bytes(
-        raw.try_into().map_err(|_| BetaExecError::InvalidObject)?,
-    ) as usize;
+    let len =
+        u32::from_be_bytes(raw.try_into().map_err(|_| BetaExecError::InvalidObject)?) as usize;
     *off = end;
     if len > max {
         return Err(BetaExecError::InvalidObject);

@@ -4,8 +4,9 @@ use mini_beta::{
     GrantClass,
 };
 use mini_beta_exec::{
-    create_account_registration, create_transfer, derive_account_id, parse_account_registration_object,
-    resolve_snapshot, BetaExecError, BetaOutputRef, BetaTransferOutput,
+    create_account_registration, create_transfer, derive_account_id,
+    parse_account_registration_object, resolve_snapshot, BetaExecError, BetaOutputRef,
+    BetaTransferOutput,
 };
 use mini_beta_grants::{create_grant_approval, create_grant_policy};
 use mini_objects::{Object, ObjectBuilder, ObjectType, Payload};
@@ -33,7 +34,6 @@ struct Fixture {
     campaign: Object,
     alice: Controller,
     bob: Controller,
-    carol: Controller,
     alice_account: BetaAccountId,
     bob_account: BetaAccountId,
     carol_account: BetaAccountId,
@@ -99,40 +99,23 @@ impl Fixture {
         .unwrap();
         objects.push(policy.clone());
 
-        let alice_reg = create_account_registration(
-            &mut store,
-            &alice.did(),
-            &alice,
-            epoch,
-            [1; 32],
-            250,
-            1,
-        )
-        .unwrap();
-        let bob_reg = create_account_registration(
-            &mut store,
-            &bob.did(),
-            &bob,
-            epoch,
-            [2; 32],
-            251,
-            1,
-        )
-        .unwrap();
-        let carol_reg = create_account_registration(
-            &mut store,
-            &carol.did(),
-            &carol,
-            epoch,
-            [3; 32],
-            252,
-            1,
-        )
-        .unwrap();
+        let alice_reg =
+            create_account_registration(&mut store, &alice.did(), &alice, epoch, [1; 32], 250, 1)
+                .unwrap();
+        let bob_reg =
+            create_account_registration(&mut store, &bob.did(), &bob, epoch, [2; 32], 251, 1)
+                .unwrap();
+        let carol_reg =
+            create_account_registration(&mut store, &carol.did(), &carol, epoch, [3; 32], 252, 1)
+                .unwrap();
         objects.extend([alice_reg.clone(), bob_reg.clone(), carol_reg.clone()]);
-        let alice_account = parse_account_registration_object(&alice_reg).unwrap().account;
+        let alice_account = parse_account_registration_object(&alice_reg)
+            .unwrap()
+            .account;
         let bob_account = parse_account_registration_object(&bob_reg).unwrap().account;
-        let carol_account = parse_account_registration_object(&carol_reg).unwrap().account;
+        let carol_account = parse_account_registration_object(&carol_reg)
+            .unwrap()
+            .account;
 
         let grant = create_grant_authorization(
             &mut store,
@@ -174,7 +157,6 @@ impl Fixture {
             campaign,
             alice,
             bob,
-            carol,
             alice_account,
             bob_account,
             carol_account,
@@ -282,13 +264,14 @@ fn accepted_grant_is_one_durable_unspent_output() {
 #[test]
 fn signed_transfer_conserves_value_and_moves_only_owned_inputs() {
     let mut f = Fixture::new();
+    let grant_ref = f.grant_ref();
     let transfer = create_transfer(
         &mut f.store,
         &f.alice.did(),
         &f.alice,
         f.epoch,
         f.alice_account,
-        &[f.grant_ref()],
+        &[grant_ref],
         &[
             BetaTransferOutput {
                 account: f.bob_account,
@@ -320,13 +303,14 @@ fn signed_transfer_conserves_value_and_moves_only_owned_inputs() {
 #[test]
 fn non_owner_authored_transfer_is_invalid() {
     let mut f = Fixture::new();
+    let grant_ref = f.grant_ref();
     let transfer = create_transfer(
         &mut f.store,
         &f.bob.did(),
         &f.bob,
         f.epoch,
         f.alice_account,
-        &[f.grant_ref()],
+        &[grant_ref],
         &[BetaTransferOutput {
             account: f.bob_account,
             amount: 100,
@@ -345,13 +329,14 @@ fn non_owner_authored_transfer_is_invalid() {
 #[test]
 fn two_spends_of_one_output_invalidate_all_consumers_without_a_local_winner() {
     let mut f = Fixture::new();
+    let grant_ref = f.grant_ref();
     let first = create_transfer(
         &mut f.store,
         &f.alice.did(),
         &f.alice,
         f.epoch,
         f.alice_account,
-        &[f.grant_ref()],
+        std::slice::from_ref(&grant_ref),
         &[BetaTransferOutput {
             account: f.bob_account,
             amount: 100,
@@ -367,7 +352,7 @@ fn two_spends_of_one_output_invalidate_all_consumers_without_a_local_winner() {
         &f.alice,
         f.epoch,
         f.alice_account,
-        &[f.grant_ref()],
+        &[grant_ref],
         &[BetaTransferOutput {
             account: f.carol_account,
             amount: 100,
@@ -415,13 +400,14 @@ fn two_spends_of_one_output_invalidate_all_consumers_without_a_local_winner() {
 #[test]
 fn non_conserving_transfer_is_invalid_not_a_mint_or_burn() {
     let mut f = Fixture::new();
+    let grant_ref = f.grant_ref();
     let transfer = create_transfer(
         &mut f.store,
         &f.alice.did(),
         &f.alice,
         f.epoch,
         f.alice_account,
-        &[f.grant_ref()],
+        &[grant_ref],
         &[BetaTransferOutput {
             account: f.bob_account,
             amount: 101,
@@ -450,13 +436,14 @@ fn accepted_issuance_above_epoch_cap_fails_closed_instead_of_hash_ordering_winne
 #[test]
 fn identical_object_sets_converge_independent_of_insertion_order() {
     let mut f = Fixture::new();
+    let grant_ref = f.grant_ref();
     let transfer = create_transfer(
         &mut f.store,
         &f.alice.did(),
         &f.alice,
         f.epoch,
         f.alice_account,
-        &[f.grant_ref()],
+        &[grant_ref],
         &[
             BetaTransferOutput {
                 account: f.bob_account,
