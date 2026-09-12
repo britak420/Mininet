@@ -1,0 +1,16 @@
+[package]
+name = "mini-dtn"
+version = "0.0.1"
+description = "Deferred (store-carry-forward) transport scaffolding for disruption-tolerant operation (Gate #28, D-0513): priority/lifetime/admission model and a bounded local scheduler, ahead of a real RFC 9171 BPv7 wire codec and convergence layer."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+# Content-identity hashing only (Blake3, already reviewed) -- this crate
+# introduces no new cryptography and takes no position on signing/identity;
+# a DeferredParcel is opaque bytes plus scheduling metadata.
+mini-crypto = { path = "../mini-crypto" }

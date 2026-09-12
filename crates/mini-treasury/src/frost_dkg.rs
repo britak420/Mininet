@@ -1,10 +1,28 @@
 //! FROST Distributed Key Generation — Pedersen DKG with Feldman VSS and a
-//! complaint/rebuttal exclusion mechanism (RFC 9591 §4's construction).
-//! Produces the same [`crate::KeyPackage`]/[`crate::PublicKeyPackage`]
+//! complaint/rebuttal exclusion mechanism, following FROST KeyGen from the
+//! original FROST paper (Komlo & Goldberg, <https://eprint.iacr.org/2020/852.pdf>,
+//! Figure 1) — **not** RFC 9591, whose scope is threshold *signing*
+//! (`frost_sign`'s round 1/2) and which explicitly leaves key generation
+//! out of scope; earlier revisions of this doc misattributed the DKG
+//! construction to RFC 9591 §4, corrected as part of the Gate #93 audit
+//! remediation (D-0506/D-0507). Produces the same
+//! [`crate::KeyPackage`]/[`crate::PublicKeyPackage`]
 //! [`crate::frost_keygen::trusted_dealer_keygen`] does, so
 //! [`crate::frost_sign`] needs no changes at all to sign with a
 //! DKG-generated key — this module only changes *how* those types get
 //! made, not what they are.
+//!
+//! **Gate #93 status:** the external audit report that named this
+//! module's index-0 vulnerability (fixed below, D-0506) also recommended
+//! against maintaining a second, hand-rolled DKG/complaint implementation
+//! at all. `mini_custody` (crate) is the production remediation, wrapping
+//! `frost_ristretto255::keys::dkg`'s NCC-audited implementation of this
+//! same original-FROST-paper construction with a real ceremony state
+//! machine (manifest, consistent Round-1 broadcast, encrypted Round-2
+//! transport, abort-on-fault, unanimous completion). This module remains
+//! for now as `mini_treasury`'s own historical implementation and its
+//! existing test/example coverage; production custody DKG ceremonies
+//! should use `mini_custody`, not this module directly.
 //!
 //! ## Why this closes trusted-dealer keygen's P0 gap (D-0048)
 //!
@@ -64,7 +82,9 @@
 //! Round-2 shares are sent over a private channel, so if a dishonest
 //! recipient simply *lied* about what they received, an unrebuttable
 //! complaint would let anyone frame anyone. The fix (Pedersen 1991;
-//! Gennaro, Jarecki, Krawczyk & Rabin's complaint protocol; RFC 9591 §4.3):
+//! Gennaro, Jarecki, Krawczyk & Rabin's complaint protocol -- this is a
+//! DKG-specific mechanism, not part of RFC 9591, which does not define
+//! key generation at all):
 //! the accused gets to publicly re-disclose, in the clear, the exact share
 //! value they privately sent. Feldman's verification equation has exactly
 //! one satisfying value for a fixed public commitment vector, so an
@@ -210,6 +230,17 @@ pub(crate) fn verify_knowledge(
 /// share sum in [`dkg_finalize`].
 pub struct DkgRound1Secret {
     pub(crate) coefficients: Vec<Scalar>,
+    /// The exact set of recipient identifiers this session's real roster
+    /// permits, fixed at generation time. Recorded so
+    /// [`dkg_generate_round2_shares`] can bound which indices it will ever
+    /// evaluate at to this session's actual participants — see that
+    /// function's docs for why an unbounded recipient list is itself a
+    /// secret-recovery oracle, not just an index-0 problem. Not a bare
+    /// numeric range: [`crate::frost_reshare::reshare_round1`]'s new
+    /// committee identifiers are not required to be sequential from `1`,
+    /// so the allowed set has to be the roster's actual identifiers, not
+    /// `1..=n`.
+    pub(crate) allowed_recipients: BTreeSet<u16>,
 }
 
 impl core::fmt::Debug for DkgRound1Secret {
@@ -265,7 +296,10 @@ pub fn dkg_round1(
     let proof_of_knowledge = prove_knowledge(coefficients[0], commitments[0], index, context)?;
 
     Ok((
-        DkgRound1Secret { coefficients },
+        DkgRound1Secret {
+            coefficients,
+            allowed_recipients: (1..=n).collect(),
+        },
         DkgRound1Package {
             index,
             commitments,
@@ -306,14 +340,43 @@ pub fn verify_round1_package(
 /// a smaller set if some participants have already dropped out). Each
 /// entry must be sent **privately** to that one recipient — see the module
 /// docs' transport note.
+///
+/// Rejects a recipient index of `0`: in Shamir/Feldman sharing the constant
+/// term of the polynomial *is* `f(0)` — the participant's own DKG secret
+/// contribution, the exact value [`DkgRound1Secret`]'s own docs say must
+/// never be exposed outside [`dkg_finalize`]'s sum. `dkg_round1` already
+/// refuses index `0` for a polynomial's *owner*; this closes the matching
+/// gap on the *recipient* side, where nothing previously stopped a caller
+/// (or a malicious coordinator relaying `recipient_indices`) from asking
+/// for evaluation at `0` and receiving the raw secret back.
+///
+/// Also rejects any index outside `secret.allowed_recipients` (fixed at
+/// [`dkg_round1`]/[`crate::frost_reshare::reshare_round1`] time) and any
+/// index repeated within `recipient_indices`. Index `0` alone is not the
+/// whole vulnerability class: a degree-`(threshold - 1)` polynomial is
+/// recoverable at *any* point from `threshold` of its evaluations by
+/// Lagrange interpolation, including `f(0)`, so a coordinator able to ask
+/// this function to evaluate at arbitrarily many *nonzero* indices —
+/// "phantom" indices with no real participant behind them — is just as
+/// much a secret-recovery oracle as asking for `f(0)` directly, once it
+/// has collected `threshold` distinct answers. Bounding every recipient to
+/// this session's actual roster caps what any combination of calls can
+/// ever expose at the same real participants' shares the protocol already
+/// intentionally discloses to them.
 pub fn dkg_generate_round2_shares(
     secret: &DkgRound1Secret,
     recipient_indices: &[u16],
-) -> BTreeMap<u16, Scalar> {
-    recipient_indices
+) -> Result<BTreeMap<u16, Scalar>> {
+    let mut seen = BTreeSet::new();
+    for &j in recipient_indices {
+        if j == 0 || !secret.allowed_recipients.contains(&j) || !seen.insert(j) {
+            return Err(TreasuryError::InvalidFrostParticipant);
+        }
+    }
+    Ok(recipient_indices
         .iter()
         .map(|&j| (j, eval_polynomial(&secret.coefficients, index_scalar(j))))
-        .collect()
+        .collect())
 }
 
 /// Feldman-verify a share this participant received from `from_package`'s
@@ -393,6 +456,20 @@ pub fn dkg_resolve(
 ) -> Result<DkgResolution> {
     let mut resolution = DkgResolution::default();
     for complaint in complaints {
+        // `accuser` is deliberately not required to be a key in
+        // `round1_packages` (see this function's own docs: resharing
+        // legitimately draws accusers from a different roster than
+        // `round1_packages`), but it is still used directly as a Feldman
+        // evaluation index below, and index `0` is never a valid
+        // participant identifier in *any* roster this crate constructs
+        // (`dkg_round1` already refuses it) -- so a rebuttal answering an
+        // `accuser: 0` complaint would disclose `f(0)`, the accused's raw
+        // DKG secret contribution, not an ordinary non-revealing
+        // evaluation point. Reject it before any rebuttal is even looked
+        // up, regardless of which roster this call is resolving for.
+        if complaint.accuser == 0 {
+            return Err(TreasuryError::InvalidFrostParticipant);
+        }
         let Some(accused_package) = round1_packages.get(&complaint.accused) else {
             return Err(TreasuryError::InvalidFrostParticipant);
         };
@@ -535,7 +612,7 @@ mod tests {
             let recipients: Vec<u16> = all_indices.iter().copied().filter(|&j| j != i).collect();
             outboxes.insert(
                 i,
-                dkg_generate_round2_shares(&session.secrets[&i], &recipients),
+                dkg_generate_round2_shares(&session.secrets[&i], &recipients).unwrap(),
             );
         }
 
@@ -656,9 +733,80 @@ mod tests {
     }
 
     #[test]
+    fn requesting_a_round2_share_for_recipient_index_0_is_rejected() {
+        // Index 0 is the polynomial's constant term -- the participant's
+        // own raw DKG secret contribution, not an ordinary share. Nothing
+        // may ever be allowed to ask for it back out.
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        assert_eq!(
+            dkg_generate_round2_shares(&secret, &[2, 0, 3]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
+    fn a_recipient_index_beyond_the_session_roster_is_rejected() {
+        // n = 5: only indices 1..=5 are real participants. Anything past
+        // that is a "phantom" index with no real participant behind it --
+        // rejecting index 0 alone does not stop a coordinator from
+        // collecting `threshold` evaluations at made-up indices like
+        // 6, 7, 8 and interpolating f(0) from those instead.
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        assert_eq!(
+            dkg_generate_round2_shares(&secret, &[2, 6]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
+    fn a_repeated_recipient_index_in_one_call_is_rejected() {
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        assert_eq!(
+            dkg_generate_round2_shares(&secret, &[2, 3, 2]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
+    fn a_coordinator_cannot_collect_enough_phantom_evaluations_to_interpolate_the_secret() {
+        // End-to-end demonstration, not just a boundary check: even a
+        // coordinator who can call `dkg_generate_round2_shares` directly
+        // (bypassing any real per-recipient transport) can never gather
+        // `threshold` evaluations at indices this session didn't actually
+        // have, because every out-of-range index is refused individually
+        // -- there is no way to accumulate enough points to run Lagrange
+        // interpolation against f(0).
+        let (secret, _package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
+        // The only accessible indices are 1..=5; asking for any index in
+        // 6..=1000 always fails, so no amount of calling this function
+        // can ever produce `threshold` (3) evaluations outside the real
+        // roster.
+        for phantom in 6u16..=1000 {
+            assert!(dkg_generate_round2_shares(&secret, &[phantom]).is_err());
+        }
+    }
+
+    #[test]
+    fn a_complaint_accusing_index_0_is_rejected_before_any_rebuttal_lookup() {
+        // A rebuttal answering an `accuser: 0` complaint would disclose
+        // f(0) -- the accused's raw secret -- not an ordinary Feldman
+        // evaluation point. This must be refused outright, independent of
+        // whether a rebuttal is even supplied.
+        let session = run_round1(5, 3, b"ctx");
+        let complaints = vec![DkgComplaint {
+            accuser: 0,
+            accused: 1,
+        }];
+        assert_eq!(
+            dkg_resolve(&session.packages, &complaints, &[]).unwrap_err(),
+            TreasuryError::InvalidFrostParticipant
+        );
+    }
+
+    #[test]
     fn a_tampered_share_fails_feldman_verification() {
         let (secret, package) = dkg_round1(1, 5, 3, b"ctx", ack()).unwrap();
-        let mut share = dkg_generate_round2_shares(&secret, &[2])[&2];
+        let mut share = dkg_generate_round2_shares(&secret, &[2]).unwrap()[&2];
         share += Scalar::ONE;
         assert!(!dkg_verify_received_share(&package, 2, share));
     }
@@ -801,7 +949,8 @@ mod tests {
     #[test]
     fn an_equivocating_sender_is_caught_by_whichever_recipient_got_the_inconsistent_share() {
         let session = run_round1(5, 3, b"ctx");
-        let genuine_share_to_2 = dkg_generate_round2_shares(&session.secrets[&1], &[2])[&2];
+        let genuine_share_to_2 =
+            dkg_generate_round2_shares(&session.secrets[&1], &[2]).unwrap()[&2];
         let equivocated_share_to_3 = genuine_share_to_2 + Scalar::ONE; // deliberately different
 
         assert!(dkg_verify_received_share(

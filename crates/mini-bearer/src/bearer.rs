@@ -31,6 +31,44 @@ pub trait Bearer {
 
     /// Receive a frame if one is ready, otherwise `Ok(None)`.
     fn try_recv(&mut self) -> Result<Option<Vec<u8>>>;
+
+    /// Upper bound on a single frame this bearer can actually carry, if it
+    /// has one narrower than [`MAX_FRAME_BYTES`]. `None` (the default,
+    /// correct for [`crate::TcpBearer`]/[`crate::InProcessBearer`]) means no
+    /// bound beyond `MAX_FRAME_BYTES` itself. A chunked small-payload bearer
+    /// like [`crate::AndroidBleBearer`] overrides this: its negotiated MTU
+    /// limits how many chunks a `u16` chunk count can express
+    /// ([`crate::ble::chunk_frame`]'s own `TooManyChunks` bound), which is
+    /// typically far smaller than `MAX_FRAME_BYTES`. A caller that knows
+    /// this bound can reject an oversized payload before ever calling
+    /// [`Bearer::send`], instead of discovering the failure only after
+    /// something upstream (e.g. [`crate::Channel::seal`]) has already
+    /// committed state on the assumption the frame would actually go out.
+    fn max_frame_bytes(&self) -> Option<usize> {
+        None
+    }
+}
+
+/// Lets a caller hold a heterogeneous set of live links — some in-process
+/// (a test), some real BLE, some TCP — in one collection, e.g.
+/// `Vec<Box<dyn Bearer + Send>>`. Dispatches straight through to the boxed
+/// value; no behavior of its own.
+impl Bearer for Box<dyn Bearer + Send> {
+    fn send(&mut self, frame: &[u8]) -> Result<()> {
+        (**self).send(frame)
+    }
+
+    fn recv(&mut self) -> Result<Vec<u8>> {
+        (**self).recv()
+    }
+
+    fn try_recv(&mut self) -> Result<Option<Vec<u8>>> {
+        (**self).try_recv()
+    }
+
+    fn max_frame_bytes(&self) -> Option<usize> {
+        (**self).max_frame_bytes()
+    }
 }
 
 /// Encode a payload as a length-prefixed frame (`u32` big-endian length + bytes)

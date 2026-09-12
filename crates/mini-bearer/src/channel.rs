@@ -31,8 +31,12 @@ use crate::error::{BearerError, Result};
 /// Wire version of the channel handshake.
 pub const PROTOCOL_VERSION: u8 = 1;
 
-/// ChaCha20-Poly1305 appends a 16-byte tag.
-const AEAD_TAG_BYTES: usize = 16;
+/// ChaCha20-Poly1305 appends a 16-byte tag. `pub(crate)` so
+/// [`crate::encrypted_link`] can convert a bearer's
+/// [`crate::Bearer::max_frame_bytes`] (a ciphertext-space bound) back into
+/// the plaintext-space bound that actually matters to a caller deciding
+/// whether to seal a payload at all.
+pub(crate) const AEAD_TAG_BYTES: usize = 16;
 
 /// Hard cap on ciphertext accepted by the channel before AEAD allocation.
 pub const MAX_CHANNEL_CIPHERTEXT_BYTES: usize = MAX_FRAME_BYTES;

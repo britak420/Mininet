@@ -32,10 +32,12 @@ members = [
     "crates/mini-uniqueness",
     "crates/mini-spacetime",
     "crates/mini-treasury",
+    "crates/mini-custody",
     "crates/mini-value",
     "crates/mini-private-payment",
     "crates/mini-bounty",
     "crates/mini-settlement",
+    "crates/mini-dtn",
     "crates/mini-execution",
     "crates/mini-consensus",
     "crates/mini-porep",
@@ -83,6 +85,7 @@ members = [
     "crates/mini-search-federation-net",
     "crates/mini-storage-fraud",
     "crates/mini-shielded-verify",
+    "crates/mini-mesh",
 ]
 
 [workspace.package]

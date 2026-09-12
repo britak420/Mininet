@@ -1,0 +1,5164 @@
+MININET REAL-VALUE READINESS — EXTERNAL MECHANISM-DESIGN / TOKENOMICS AUDIT 6/8
+Gates #47 + #50
+
+Treasury Contribution, Reserve Allocation, Long-Term Issuance,
+Human Share, Whale Resistance, Service Rewards, Oracle Robustness,
+Vesting, Liquidity, Fee Access, and 200-Year Economic Stress Calibration
+
+FINAL DECISION / CALIBRATION REPORT
+Prepared in external-auditor form for adoption by the auditor of record
+
+Report date: 2026-09-11
+Repository: mininet-labs/Mininet
+Exact main revision reviewed:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+GATE STATUS AT REVIEW:
+  EXTERNAL MECHANISM-DESIGN RESEARCH: COMPLETE IN THIS REPORT
+  CALIBRATED ECONOMIC ARCHITECTURE: PASS
+  CURRENT CODE CONFORMANCE: FAIL / MATERIAL REMEDIATION REQUIRED
+  GATES #47 + #50: CLOSE WHEN THIS REPORT IS ADOPTED AND ITS MANDATORY
+                   IMPLEMENTATION/REPLAY TESTS PASS
+  SECOND GENERIC TOKENOMICS AUDIT: NOT REQUIRED
+
+This report is intentionally not a request for another consultant to decide the
+parameters later. It makes the parameter decisions.
+
+It does not fabricate execution evidence. Engineering must encode the rules and
+the deterministic conformance suite must prove that the running code implements
+the adopted economics. That is implementation acceptance, not a second
+mechanism-design opinion.
+
+
+======================================================================
+0. AUDIT QUESTION
+======================================================================
+
+The question is not:
+
+  "Can MINI have a token?"
+
+The question is:
+
+  "Can Mininet create transferable value without allowing wealth, early arrival,
+   infrastructure scale, exchange access, treasury funding, oracle influence, or
+   market manipulation to become a path to political control or a permanent
+   protocol-created aristocracy?"
+
+The answer after the decisions in this report is:
+
+  YES.
+
+The current implementation does not yet satisfy the answer.
+
+The most important current defects are not speculative. They are visible in the
+reviewed code:
+
+  F6-01 — `IssuancePolicy::d0074()` gives Human Share grants a 365-day vesting
+           period. That conflicts with the frozen millennium-horizon intent and
+           the later quantitative decision that the first year should release
+           no more than approximately 0.1% of a Human Share.
+
+  F6-02 — per-epoch issuance is prorated from each call's
+           `opening_circulating`. There is no year-to-date budget ledger. If a
+           caller feeds the newly enlarged supply into each monthly epoch, a
+           nominal 3% annual ceiling compounds to approximately 3.041596% over
+           twelve equal monthly periods. Daily rebasing gives approximately
+           3.045326%. A hard 3% annual ceiling must not depend on caller
+           discipline.
+
+  F6-03 — `IssuancePolicy` is caller-supplied. Validation checks that channel
+           ppm values add to no more than the total and that vesting is nonzero,
+           but does not make 2% Human Share / 0.75% service / 0.25% contribution
+           the canonical production envelope. A locally constructed policy can
+           radically change distribution while remaining structurally valid.
+
+  F6-04 — `mini-econ-sim` is only a first harness. It models no prices, market
+           depth, fee burden, reserve assets, oracle attacks, vesting liquidity,
+           service concavity, contribution timing, source correlation, or
+           validator/economic interaction. It also assigns one half of service
+           issuance to the whale by construction rather than deriving capture
+           from a reward mechanism.
+
+  F6-05 — current `mini-reward::accrue_storage` computes raw reward linearly from
+           committed GiB and then applies repeat decay/window caps. This is not
+           the frozen `x^a`, 0<a<1 concave resource curve promised by the
+           economic design.
+
+  F6-06 — `mini-treasury::RateHistory` records arbitrary governed scalar rates.
+           It has no multi-source price provenance, source-domain independence,
+           time-window commitment, manipulation halt, reserve haircut, or
+           contribution-epoch binding.
+
+  F6-07 — `mini-treasury::rate::mint_amount_micro` multiplies in `u128` but then
+           casts the quotient to `u64` with `as u64`. A quotient above
+           `u64::MAX` is not rejected as monetary overflow. Monetary arithmetic
+           must fail closed.
+
+  F6-08 — the current contribution receipt is bookkeeping, not proof of receipt.
+           It still names Bitcoin/Monero and `NoExternalReceiptOracle` always
+           returns false. Contribution minting is therefore correctly not
+           production-capable, but the economic layer must explicitly refuse
+           issuance whenever a chain-specific receipt verifier is unavailable.
+
+  F6-09 — D-0073's 50% XRP / 40% XMR / 10% contingency reserve target has an
+           asymmetric worst single-asset -80% shock: -40% reserve value if XRP
+           suffers the shock versus -32% if XMR does.
+
+  F6-10 — D-0073 permits the contribution channel to consume up to 10% of
+           trailing 90-day organic MINI volume. That is approximately 30% of an
+           average month's volume, before other caps. It is too permissive for a
+           newly forming market.
+
+  F6-11 — D-0073's 1% of epoch capacity per-human contribution cap allows only
+           100 colluding humans to fill an entire contribution epoch. It is too
+           concentrated for a mechanism whose stated purpose is preventing
+           capital from becoming privileged access.
+
+  F6-12 — D-0073's >=3 sources across >=2 control domains is too small an oracle
+           independence floor for a minting mechanism. Two control domains are
+           still a dangerously narrow external dependency.
+
+This report resolves all twelve.
+
+
+======================================================================
+1. SOURCE HIERARCHY AND CONFLICT RESOLUTION
+======================================================================
+
+The economic documents do not all describe the same generation of the design.
+This report does not silently blend them.
+
+Highest invariant layer:
+  SPEC-00 Constitution.
+
+Load-bearing frozen economic principles:
+  * wealth never maps to governance/finality vote weight;
+  * one verified human has one equal vote;
+  * no controlling founder/insider allocation;
+  * fair launch;
+  * approximately millennium-scale Human Share release;
+  * no lump-sum acceleration;
+  * reward curves remain concave;
+  * per-human/identity caps exist;
+  * diversity bonuses remain bounded;
+  * no forced update/admin escape hatch.
+
+SPEC-05 then describes:
+  * Human Share as slow inheritance;
+  * activity rewards as the near-term earning mechanism;
+  * concave rewards;
+  * per-human caps;
+  * diversity bonuses;
+  * robust/median price-oracle intent;
+  * fixed constitutional bounds.
+
+The Deep Dive adds quantitative direction:
+  * first-year Human Share release <= approximately 0.1%;
+  * bulk release over centuries;
+  * resource reward `R(x)=x^a`;
+  * a approximately 0.3–0.5;
+  * example a=0.4;
+  * effective capacity cap around 10x median;
+  * bounded geographic/network diversity bonus.
+
+Later D-0074 changes the Human Share from a finite first-generation bag into a
+perpetual equal stream:
+  * Human Share 2% annual protected channel;
+  * service/security <=0.75%;
+  * treasury contribution <=0.25%;
+  * total gross annual issuance <=3%;
+  * no founder/investor multiplier;
+  * no confiscatory wealth equalization.
+
+This is the correct direction, but D-0074's 365-day full vesting conflicts with
+the frozen millennium/back-loaded requirement.
+
+DECISION OF THIS AUDIT:
+
+  KEEP D-0074'S PERPETUAL EQUAL HUMAN SHARE.
+  KEEP ITS 2% / 0.75% / 0.25% / 3% ENVELOPE.
+  REPLACE ITS 365-DAY FULL HUMAN VESTING WITH THE MILLENNIUM/BACK-LOADED
+  VESTING KERNEL IN SECTION 5.
+
+This simultaneously preserves:
+  future-generation entry;
+  no first-generation finite bag;
+  first-year Sybil extraction safety;
+  century-scale dilution of early holdings;
+  the constitutional release horizon.
+
+File 4 is also reconciled here.
+
+File 4 used the phrase:
+  "0.1% of lifetime human-share allocation by year one."
+
+Under the perpetual Human Share model there is no finite one-time lifetime bag.
+
+FINAL INTERPRETATION:
+  every Human Share epoch grant uses the same back-loaded vesting kernel;
+  no individual epoch grant can have more than 0.1% transferable after its
+  first year of vesting age.
+
+This supersedes any reading of File 4 that requires a finite lifetime allocation.
+
+
+======================================================================
+2. OUTSIDE RESEARCH THAT CHANGES THE DESIGN
+======================================================================
+
+2.1 Sybil economics
+
+Douceur's foundational Sybil result establishes the relevant limit:
+without some external scarcity/trust/resource assumption, a distributed system
+cannot make unlimited pseudonymous identities disappear by clever accounting.
+
+Tokenomics therefore must NOT pretend that:
+  a concave reward curve by itself proves humanity.
+
+Economic defenses are secondary:
+  they reduce extraction after File 4 has made identities human-scarce.
+
+This report therefore binds inflationary service and contribution caps to
+MatureHuman credentials where per-human caps are security-relevant, while direct
+market payments remain permissionless.
+
+2.2 Concave resource allocation
+
+Kelly, Maulloo and Tan's proportional-fairness work is one important formal
+precedent for concave utility in network resource allocation: concavity makes
+marginal value decrease instead of paying linearly for ever-larger resource
+ownership.
+
+Mininet's existing Deep Dive independently reached the same direction:
+  R(x)=x^a, 0<a<1.
+
+This report fixes:
+  a=0.40 at launch.
+
+The exact exponent is not claimed to be a universal economic constant.
+It is selected because it lands in the project's own 0.3–0.5 range and produces
+a strong, measurable anti-concentration effect while still rewarding larger
+verified service.
+
+2.3 Oracle manipulation
+
+USENIX Security research on DeFi price oracles documents two important facts:
+
+  * short-window price observations are manipulable;
+  * even TWAPs are not magic — long windows trade manipulation resistance for
+    staleness and can still be affected under adverse market/consensus
+    conditions.
+
+The same literature notes robust aggregation such as median-of-sources as a
+practical countermeasure, but source independence remains critical.
+
+Mininet's contribution mint is more dangerous than an ordinary display price:
+a bad rate creates new native value.
+
+Therefore this report uses:
+  multiple independent control domains;
+  median across domains;
+  long and short windows together;
+  conservative min/max direction;
+  a fixed haircut;
+  hard anomaly pauses;
+  market-depth/volume caps.
+
+2.4 Treasury concentration
+
+Empirical work on major DAO treasuries found very high native-asset
+concentration and associated market-volatility risk. The exact Mininet asset
+mix is different, but the lesson is directly applicable:
+  do not let the commons become economically dependent on one asset, issuer, or
+  market venue.
+
+The reserve target is therefore changed from 50/40/10 to 45/45/10 across the
+two strategic reserve assets plus a diversified contingency sleeve.
+
+This is not a claim that XRP and XMR have equal volatility distributions.
+It is a conservative minimax starting point in the absence of a trustworthy
+century-scale covariance forecast.
+
+2.5 Unlock cliffs
+
+Recent empirical token-unlock studies find that large predictable unlock events
+are associated with adverse price pressure; preliminary 2026 research continues
+to find that unlock effects are material, particularly for young markets.
+
+That is supporting evidence, not the constitutional reason for slow vesting.
+
+The constitutional reason is:
+  future-generation fairness + Sybil-extraction safety.
+
+The market-microstructure evidence reinforces one implementation choice:
+  no giant contribution cliff;
+  use a 90-day initial lock followed by smooth release to day 365.
+
+2.6 Vote buying
+
+Juels, Catalano and Jakobsson formalize coercion resistance around an adversary
+who may demand a particular vote or proof of compliance.
+
+This matters because Mininet's strongest anti-whale property is formal:
+  MINI cannot increase vote weight.
+
+That still does not stop a rich human from buying/coercing other humans
+off-network.
+
+The correct long-term answer is not wealth confiscation.
+It is secret/receipt-resistant governance where feasible, so a buyer cannot
+reliably verify the purchased vote.
+
+This remains a governance-cryptography requirement, not a token-balance rule.
+
+
+======================================================================
+3. QUANTITATIVE CALIBRATION RESULTS
+======================================================================
+
+3.1 Passive proportional dilution
+
+If gross protocol issuance is fully used and an early holder receives none of
+the new issuance, their fraction of the growing issued-claim supply is multiplied
+by:
+
+  1 / (1+r)^Y
+
+At r=3%:
+
+  year 25:   47.7606% of the original proportional position remains
+  year 50:   22.8107%
+  year 100:   5.2033%
+  year 200:   0.2707%
+
+At r=2%:
+
+  year 25:   60.9531%
+  year 50:   37.1528%
+  year 100:  13.8033%
+  year 200:   1.9053%
+
+This is dilution of proportional economic claim.
+
+It is NOT:
+  confiscation;
+  a promise about market price;
+  a promise about liquid circulating supply;
+  a guarantee that a whale does not voluntarily buy new MINI.
+
+The 3% ceiling is therefore economically meaningful:
+it is large enough to keep future participation economically relevant over
+centuries, but bounded enough not to be an unbounded discretionary inflation
+lever.
+
+3.2 Why the annual budget must be fixed at the year boundary
+
+If "3% annual" is implemented as 3%/12 of a newly enlarged opening supply every
+month:
+
+  (1 + 0.03/12)^12 - 1
+  = 0.0304159569
+  = 3.04159569%
+
+Overshoot:
+  approximately 4.1596 basis points.
+
+With daily rebasing:
+
+  (1 + 0.03/365)^365 - 1
+  = 3.04532636%
+
+Overshoot:
+  approximately 4.5326 basis points.
+
+This is small in one year but unacceptable as a constitutional correctness
+error.
+
+The fix is not a smaller rate.
+
+The fix is:
+  freeze the year's budget base once;
+  debit all epochs from that fixed budget.
+
+3.3 Reserve shock minimax
+
+D-0073:
+  XRP 50%
+  XMR 40%
+  contingency 10%
+
+One-asset -80% shock:
+
+  XRP shock:
+    -40% total reserve
+
+  XMR shock:
+    -32% total reserve
+
+Proposed:
+  XRP 45%
+  XMR 45%
+  contingency 10%
+
+One-asset -80% shock:
+
+  XRP shock:
+    -36%
+
+  XMR shock:
+    -36%
+
+Both assets -80%:
+  -72% under either allocation.
+
+The proposal therefore reduces the worst of the two named single-asset shock
+losses from 40% to 36% without increasing the simultaneous two-asset shock loss.
+
+3.4 Concave service curve
+
+Launch exponent:
+  a=0.40
+
+Effective verified work:
+  q_eff = min(q, 10*m)
+
+where:
+  q = the human's verified useful work in the service class/epoch;
+  m = median positive verified useful work among eligible MatureHuman providers
+      in the reference set.
+
+Weight:
+  w = (q_eff / m)^0.40 * diversity_multiplier
+
+Before diversity bonus:
+
+  q/m = 0.10 -> 0.3981x
+  q/m = 0.25 -> 0.5743x
+  q/m = 0.50 -> 0.7579x
+  q/m = 1.00 -> 1.0000x
+  q/m = 2.00 -> 1.3195x
+  q/m = 4.00 -> 1.7411x
+  q/m =10.00 -> 2.5119x
+  q/m =100.0 -> 2.5119x because the input is capped at10m
+
+Diversity multiplier:
+  [1.00, 1.20]
+
+Absolute maximum curve weight relative to a median provider:
+  2.5119 * 1.20
+  = 3.0143x.
+
+That is a materially different architecture from linear bytes-for-points.
+
+3.5 Absolute service capture
+
+One MatureHuman may receive at most:
+  2% of any service sub-pool per economic epoch.
+
+Because the same 2% cap applies independently and the service sub-pools sum to
+the full service channel, one human's aggregate inflationary service reward
+cannot exceed:
+
+  2% * 0.75%
+  = 0.015% of the annual issuance reference base per year.
+
+At least 50 distinct MatureHumans are therefore needed to exhaust any service
+sub-pool solely at the per-human caps.
+
+Unused service capacity expires.
+
+This deliberately sacrifices the ability to pay one giant warehouse the whole
+subsidy.
+
+That is not a bug.
+It is the anti-centralization cost.
+
+The warehouse may still earn:
+  direct user fees;
+  voluntary payments;
+  market revenue.
+
+It cannot monopolize common inflation.
+
+3.6 Absolute contribution capture
+
+Per-MatureHuman contribution cap:
+  0.25% of each contribution epoch's mint capacity.
+
+At least:
+  400 distinct MatureHumans
+
+are needed to fill a contribution epoch solely at individual caps.
+
+Even if one human hits the cap in all twelve epochs, their maximum protocol
+contribution-channel issuance is:
+
+  0.25% * 0.25%
+  = 0.000625% of annual reference supply
+
+before the tighter volume/depth/reserve constraints.
+
+Sixty-four colluding humans can consume at most:
+  16% of an epoch.
+
+3.7 One extremely wealthy human, protocol-created issuance only
+
+At 2,048 MatureHumans, if one already-rich person receives:
+
+  their equal Human Share;
+  the maximum 2% share of every service sub-pool;
+  the maximum 0.25% share of every contribution epoch;
+
+their maximum annual protocol-created claim increment, before vesting and
+before optional-channel under-utilization, is approximately:
+
+  Human Share:
+    2% / 2048 = 0.0009765625% of annual base
+
+  Service:
+    0.015%
+
+  Contribution:
+    0.000625%
+
+  Total:
+    approximately 0.0166016% of annual base.
+
+This does not limit what they may acquire voluntarily in markets.
+
+It does show that the protocol itself does not keep refilling a whale's
+dominance.
+
+A simplified full-3%-issuance model in which such a whale captures this maximum
+every year, no other market purchases occur, and population stays at 2,048 gives
+the following claim shares:
+
+  Initial 10% whale:
+    y25  5.07%
+    y50  2.71%
+    y100 1.04%
+    y200 0.58%
+
+  Initial 30% whale:
+    y25 14.62%
+    y50  7.27%
+    y100 2.09%
+    y200 0.63%
+
+  Initial 60% whale:
+    y25 28.95%
+    y50 14.11%
+    y100 3.65%
+    y200 0.71%
+
+  Initial 90% whale:
+    y25 43.27%
+    y50 20.96%
+    y100 5.21%
+    y200 0.80%
+
+This is not a market forecast.
+
+It is a mechanism check:
+the protocol-created channels do not preserve an early whale automatically.
+
+3.8 Personhood / Human Share extraction coupling
+
+With a 2% annual Human Share pool and 2,048 MatureHumans, one annual-equivalent
+Human Share grant is:
+
+  0.02 / 2048
+  = 0.0009765625% of annual reference supply.
+
+If at most 0.1% of that grant is transferable after its first vesting year:
+
+  first-year transferable amount
+  <= 0.0000009765625% of annual reference supply.
+
+File 4 additionally limits how quickly a closed set of MatureHuman colluders can
+sponsor new MatureHumans.
+
+Therefore early Sybil extraction is controlled by BOTH:
+  personhood scarcity
+and:
+  value release scarcity.
+
+Tokenomics never treats one as a substitute for the other.
+
+
+======================================================================
+4. FINAL MONETARY POLICY — MONETARY POLICY V1
+======================================================================
+
+E6-01 — 3.00% IS THE HARD GROSS ANNUAL ISSUANCE CEILING.
+
+A Mininet Economic Year is:
+
+  ECONOMIC_YEAR_MS = 31,536,000,000
+                   = 365 days.
+
+Economic year zero begins at:
+  mainnet genesis time.
+
+Year N starts at:
+  genesis_time + N * ECONOMIC_YEAR_MS.
+
+No calendar authority is needed.
+
+E6-02 — TWELVE EQUAL ECONOMIC EPOCHS PER YEAR.
+
+  ECONOMIC_EPOCH_MS = ECONOMIC_YEAR_MS / 12
+                    = 2,628,000,000 ms
+                    = approximately 30.4166667 days.
+
+There are exactly twelve.
+
+This avoids:
+  variable calendar months;
+  leap-year dependence;
+  operator discretion.
+
+E6-03 — FREEZE ONE ANNUAL ISSUANCE BASE.
+
+At the beginning of each Economic Year:
+
+  AnnualReferenceSupply_y =
+      canonical TotalIssuedClaimSupply at the finalized year-boundary block.
+
+`TotalIssuedClaimSupply` includes:
+  vested MINI;
+  transferable MINI;
+  protocol-issued but still vesting grants.
+
+It excludes:
+  unissued capacity;
+  invalidated/burned claims.
+
+It does NOT decrease because a holder:
+  loses a key;
+  voluntarily locks tokens;
+  puts tokens in escrow;
+  moves tokens to treasury;
+  stops trading.
+
+This prevents a private actor from shrinking the issuance denominator by moving
+tokens into a contract.
+
+E6-04 — ZERO-SUPPLY BOOTSTRAP FLOOR.
+
+A percentage-of-supply system has a zero-supply singularity.
+
+The current documents do not resolve it cleanly.
+
+Final rule:
+
+  EffectiveAnnualReference_y =
+    max(
+      AnnualReferenceSupply_y,
+      ActiveMatureHumansAtYearOpen * 1 MINI
+    ).
+
+`1 MINI per Active MatureHuman` is an ACCOUNTING REFERENCE FLOOR.
+
+It is NOT:
+  a premine;
+  an owned balance;
+  a treasury asset;
+  a founder allocation.
+
+Why one MINI:
+  with six-decimal uMINI precision, a 2% annual Human Share generated from a
+  one-MINI-per-human floor gives 20,000 uMINI of annual Human Share capacity per
+  human before division across epochs; this preserves meaningful integer
+  precision even at bootstrap without assigning phantom property to anyone.
+
+Once issued-claim supply exceeds the human reference floor:
+  ordinary supply-based compounding governs.
+
+E6-05 — ANNUAL CHANNEL BUDGETS ARE FIXED FROM THAT BASE.
+
+  HumanBudget_y
+    = floor(EffectiveAnnualReference_y * 0.020000)
+
+  ServiceBudget_y
+    = floor(EffectiveAnnualReference_y * 0.007500)
+
+  ContributionBudget_y
+    = floor(EffectiveAnnualReference_y * 0.002500)
+
+  GrossBudget_y
+    = floor(EffectiveAnnualReference_y * 0.030000)
+
+Every epoch debits these year-fixed ledgers.
+
+No epoch recalculates its allowance from newly issued supply.
+
+E6-06 — CHANNEL CAPACITY IS NON-FUNGIBLE.
+
+Human Share capacity cannot be moved to:
+  service;
+  contribution;
+  treasury;
+  founder grant.
+
+Unused service capacity cannot be moved to:
+  contribution.
+
+Unused contribution capacity cannot be moved to:
+  service.
+
+Unused optional capacity:
+  expires.
+
+Human rounding remainder:
+  remains unissued.
+
+This prevents a governance majority from starving Human Share and reclassifying
+the budget as its preferred program.
+
+E6-07 — HUMAN SHARE IS THE PROTECTED PRIORITY.
+
+Within each epoch:
+
+  human capacity is computed first.
+
+Optional service/contribution plans are valid only after reserving that epoch's
+Human Share budget.
+
+If arithmetic or total-cap reconciliation fails:
+  optional issuance fails;
+  Human Share is not cut to make room.
+
+E6-08 — NO EMERGENCY MINT.
+
+No:
+  bridge crisis;
+  treasury loss;
+  exchange delisting;
+  developer payroll;
+  lawsuit;
+  security incident;
+  validator vote;
+  founder request;
+  "systemically important" institution
+
+can exceed the annual budgets.
+
+A fork may change the constitution.
+The conforming network must reject out-of-budget state.
+
+E6-09 — BURNING DOES NOT CREATE NEW ISSUANCE CAPACITY IN THE SAME YEAR.
+
+Burn:
+  reduces spendable/claim supply according to normal ownership rules.
+
+It does not replenish:
+  the current year's already-fixed issuance budget.
+
+At the next year boundary:
+  the canonical issued claim supply reflects prior burns.
+
+This removes burn-and-remint games.
+
+
+======================================================================
+5. FINAL HUMAN SHARE MODEL
+======================================================================
+
+E6-10 — HUMAN SHARE REMAINS A PERPETUAL EQUAL STREAM.
+
+There is no finite first-generation bag.
+
+Every economic epoch:
+  the Human Share budget slice is divided equally among the File 4
+  Active MatureHuman snapshot for that epoch.
+
+No input includes:
+  balance;
+  wealth;
+  country;
+  age after eligibility;
+  hardware capacity;
+  storage;
+  reputation;
+  contribution;
+  employment;
+  founder status;
+  purchase history;
+  vote.
+
+E6-11 — PRE-MATURE HUMAN SHARE IS ZERO.
+
+File 4 statuses below Active MatureHuman:
+  receive no transferable Human Share;
+  receive no canonical Human Share grant.
+
+This is stricter and simpler than accumulating large speculative provisional
+claims for unverified identities.
+
+E6-12 — EQUAL-EPOCH FORMULA.
+
+For epoch e in year y:
+
+  HumanCapacity_e =
+    remaining HumanBudget_y constrained by the exact prorated epoch slice.
+
+For the twelve equal epochs:
+
+  nominal_slice =
+    floor(HumanBudget_y / 12)
+
+with deterministic distribution of at most eleven uMINI of annual division
+remainder to no one:
+  remainder remains unissued.
+
+Then:
+
+  PerHumanGrant_e =
+    floor(HumanCapacity_e / EligibleMatureHumans_e)
+
+  IssuedHuman_e =
+    PerHumanGrant_e * EligibleMatureHumans_e
+
+  HumanRemainder_e =
+    HumanCapacity_e - IssuedHuman_e
+
+HumanRemainder_e:
+  remains unissued;
+  is never awarded by lottery;
+  is never redirected.
+
+E6-13 — HUMAN SHARE VESTING IS BACK-LOADED ACROSS ONE THOUSAND YEARS.
+
+Each epoch's Human Share grant has its own `active_vesting_age`.
+
+Cumulative vested fraction V(a), where a is ACTIVE MATURE years since grant:
+
+  0 <= a <= 1:
+
+    V(a) = 0.001 * a
+
+  1 < a <= 10:
+
+    V(a) =
+      0.001 + 0.199 * (a - 1) / 9
+
+  10 < a <= 1000:
+
+    V(a) =
+      0.20 + 0.80 * (a - 10) / 990
+
+  a >= 1000:
+
+    V(a) = 1.00
+
+Reference points:
+
+  active year   1 ->  0.1%
+  active year   5 ->  8.9444%
+  active year  10 -> 20.0%
+  active year  25 -> 21.2121%
+  active year  50 -> 23.2323%
+  active year 100 -> 27.2727%
+  active year 200 -> 35.3535%
+  active year 500 -> 59.5960%
+  active year1000 ->100.0%
+
+This deliberately creates:
+  tiny first-year extraction;
+  meaningful decade-scale participation;
+  very long residual release.
+
+E6-14 — `active_vesting_age`, NOT WALL CLOCK, DRIVES HUMAN VESTING.
+
+A grant's vesting age advances only while its owner is:
+  Active MatureHuman under File 4.
+
+During File 4 grace/dormancy:
+  no new Human Share grant;
+  existing unvested grant is frozen;
+  already vested MINI remains property.
+
+If the human reactivates:
+  vesting age resumes prospectively.
+
+No catch-up for inactive time.
+
+No confiscation occurs merely because:
+  illness;
+  imprisonment;
+  displacement;
+  censorship;
+  device loss;
+  political speech;
+  moderation dispute;
+  inactivity.
+
+E6-15 — NO CONDUCT-BASED HUMAN SHARE CLAWBACK.
+
+The older SPEC-05 language allowing "Sybil clawback" cannot be implemented as a
+human/jury/admin decision.
+
+Under File 4's no-de-personing rule:
+
+  vested MINI is never clawed back for conduct.
+
+An unvested duplicate credential's grants may be invalidated only if:
+  File 4's approved deterministic cryptographic duplicate rule proves that the
+  credential was not an independent MatureHuman credential.
+
+No accusation:
+  burns money.
+
+E6-16 — DEATH / PERMANENT ABSENCE DOES NOT CREATE AN ADMIN ESTATE KEY.
+
+If presence never resumes:
+  unvested Human Share stays locked and its vesting age does not advance.
+
+Vested transferable property:
+  follows holder-controlled inheritance/key arrangements.
+
+No central administrator:
+  decides death;
+  inherits the unvested stream;
+  recycles the balance by discretion.
+
+Long-term state compaction may replace old permanently inactive grant objects
+with commitments, but must not change ownership semantics.
+
+E6-17 — HUMAN SHARE CANNOT BE SOLD BEFORE VESTING.
+
+Unvested grant:
+  non-transferable;
+  non-collateralizable at protocol level;
+  non-delegable;
+  no governance power;
+  no validator power.
+
+The protocol cannot stop an off-chain human from signing a private contract
+about future value.
+
+It does not provide a native enforcement mechanism for such contracts.
+
+
+======================================================================
+6. FINAL SERVICE / SECURITY REWARD MODEL
+======================================================================
+
+E6-18 — SERVICE/SECURITY INFLATION IS CAPPED AT 0.75% PER YEAR.
+
+It is a ceiling, not a promise.
+
+Unused:
+  expires.
+
+Fees paid voluntarily/directly by users are transfers of existing MINI and are
+not part of the 0.75% issuance cap.
+
+E6-19 — LAUNCH SERVICE SUB-POOLS.
+
+The 0.75% annual service budget is initially partitioned:
+
+  40%  Storage / availability
+  20%  Relay / routing
+  15%  Publisher / content-serving
+  10%  Search / indexing
+  15%  Security / objective public-good proofs
+
+Equivalent maximum annual reference-supply issuance:
+
+  Storage:
+    0.3000%
+
+  Relay:
+    0.1500%
+
+  Publisher/content:
+    0.1125%
+
+  Search:
+    0.0750%
+
+  Security:
+    0.1125%
+
+Subjective work such as:
+  code quality judgment;
+  translation quality;
+  moderation judgment;
+  legal work;
+  audit opinion
+
+is NOT auto-minted from an algorithmic service score.
+
+It is paid through:
+  transparent bounties;
+  treasury proposals;
+  direct voluntary payments.
+
+This prevents an automated "reputation oracle" from becoming a patronage
+authority.
+
+E6-20 — SUB-POOL SHARES MAY BE TUNED ONLY WITHIN BOUNDS.
+
+One-human-one-vote + timelock may tune once per Economic Year within:
+
+  Storage:    30%..50% of service budget
+  Relay:      10%..25%
+  Publisher:  10%..25%
+  Search:      5%..15%
+  Security:   10%..25%
+
+All must sum to 100%.
+
+No class:
+  >50%.
+
+A parameter change activates only at the next Economic Year.
+
+E6-21 — INFLATIONARY SERVICE REWARD REQUIRES MATURE HUMAN CAP BINDING.
+
+Any node may:
+  store;
+  route;
+  publish;
+  search;
+  contribute service;
+  receive ordinary user fees.
+
+But common inflationary subsidy needs a File 4 MatureHuman nullifier/claim
+binding so one human cannot multiply the per-human cap through many devices.
+
+The service proof must not publicly expose the person's ordinary identities.
+
+E6-22 — VERIFIED USEFUL WORK, NOT PURCHASED CAPACITY, IS THE INPUT.
+
+For each service class:
+  q is successfully verified useful service over the epoch.
+
+Examples:
+
+  storage:
+    valid independent storage/serve/proof units, not raw disk owned;
+
+  routing:
+    authenticated useful forwarded traffic under privacy-safe receipt design,
+    not self-reported bandwidth;
+
+  content-serving:
+    independently requested/served content units with anti-self-dealing rules;
+
+  search:
+    verifiable query/service availability units where privacy allows;
+
+  security:
+    objective protocol-verifiable actions/proofs, not subjective "goodness."
+
+A 100 TB idle disk does not earn merely because it exists.
+
+E6-23 — CONCAVE CURVE.
+
+For a service class and epoch:
+
+  m = median positive verified work among eligible MatureHuman providers.
+
+If no eligible positive providers:
+  issue zero.
+
+For provider h:
+
+  r_h = q_h / m
+
+  r_cap = min(r_h, 10)
+
+  base_weight_h = r_cap ^ 0.40
+
+Use a deterministic fixed-point approximation/table proven monotonic and
+concave to implementation precision.
+
+Floating point is not consensus arithmetic.
+
+E6-24 — DIVERSITY BONUS IS SMALL AND BOUNDED.
+
+  diversity_multiplier in [1.00, 1.20].
+
+It may reward demonstrably under-represented:
+  network domains;
+  geographic coarse regions;
+  failure domains.
+
+It must not require:
+  raw GPS;
+  government address;
+  ISP identity disclosure;
+  paid attestation.
+
+Any diversity predicate must be privacy-preserving and independently
+verifiable enough for the security value it claims.
+
+If robust diversity evidence is unavailable:
+  multiplier = 1.00.
+
+Never guess.
+
+E6-25 — 2% PER-HUMAN SUB-POOL CAP.
+
+After weights are computed and normalized:
+
+  Reward_h,class <= 0.02 * SubPool_e,class.
+
+If cap causes unallocated remainder:
+  redistribute among uncapped eligible providers using the same weights,
+  iteratively.
+
+If every remaining provider is capped:
+  leftover expires.
+
+No provider can get around the cap with:
+  more devices;
+  more wallets;
+  more storage identities.
+
+E6-26 — CONCAVITY IS NOT GOVERNANCE WEIGHT.
+
+Storage/service work may affect:
+  value reward;
+  separately governed selection probability where SPEC-05 allows.
+
+It never changes:
+  finality vote weight;
+  governance vote weight;
+  personhood score merely because wealth bought hardware.
+
+
+======================================================================
+7. FINAL TREASURY CONTRIBUTION MODEL
+======================================================================
+
+E6-27 — ORDINARY BRIDGE TRADING AND CONTRIBUTION MINTING ARE DIFFERENT.
+
+Ordinary bridge:
+  locks existing canonical MINI;
+  creates/redeems a 1:1 external twin according to bridge rules;
+  does not create new MINI.
+
+Treasury contribution:
+  accepted external reserve asset enters commons reserve;
+  bounded native MINI is newly issued from the 0.25% channel.
+
+Code and UI must never merge these.
+
+E6-28 — CONTRIBUTION CHANNEL IS DISABLED AT MAINNET GENESIS UNTIL MARKET
+READINESS.
+
+This supersedes older "live from block 1" language.
+
+Reason:
+  a contribution mint denominated by market price is circular before MINI has a
+  credible market price.
+
+Ordinary native MINI:
+  can exist;
+  transfer;
+  earn;
+  trade.
+
+Treasury contribution mint activates only after Section 11's market-readiness
+criteria pass.
+
+E6-29 — CONTRIBUTION ISSUANCE CAP REMAINS 0.25% OF ANNUAL REFERENCE SUPPLY.
+
+No:
+  reserve shortage;
+  price opportunity;
+  whale offer;
+  governance vote
+can exceed it.
+
+E6-30 — EACH CONTRIBUTION EPOCH GETS 1/12 OF THE FIXED ANNUAL CAP.
+
+  EpochContributionBudget =
+    floor(ContributionBudget_y / 12)
+
+Unused:
+  expires at epoch end.
+
+No rollover.
+
+Year-to-date debit prevents:
+  overshoot from rounding.
+
+E6-31 — ACTUAL EPOCH CAP IS THE MINIMUM OF FOUR LIMITS.
+
+  ContributionCapacity_e =
+    min(
+      fixed_epoch_contribution_budget,
+      remaining_annual_contribution_budget,
+      0.02 * Trailing90dOrganicMiniVolume,
+      ReserveAcquisitionGapValueInMini
+    )
+
+This replaces D-0073's:
+  10% of trailing-90-day volume
+
+with:
+  2%.
+
+`OrganicMiniVolume` excludes:
+  self-trades proven by protocol data where detectable;
+  contribution issuance itself;
+  bridge mint/burn bookkeeping;
+  treasury internal rebalance;
+  wash-liquidity generated by the same economic actor where objectively
+  linkable.
+
+The system must not pretend all wash trading is detectable.
+Market-depth criteria are a second brake.
+
+E6-32 — PER-MATURE-HUMAN CONTRIBUTION CAP IS 0.25% OF EPOCH CAPACITY.
+
+A person proves:
+  MatureHuman membership
+and:
+  one contribution-scope nullifier.
+
+The proof does not add governance power.
+
+Multiple wallets:
+  share the same human cap.
+
+E6-33 — OVERSUBSCRIPTION IS PRO RATA, NOT FIRST-COME-FIRST-SERVED.
+
+If valid demand D > ContributionCapacity_e:
+
+  each accepted contribution receives:
+
+    accepted_i =
+      floor(requested_i * Capacity / D)
+
+subject to per-human cap.
+
+Deterministic remainder:
+  remains unissued/unaccepted rather than awarded by ordering lottery.
+
+Excess external funds:
+  must not be taken.
+
+Protocol either:
+  accepts only the computed amount;
+  or has a trustless/refundable staging design.
+
+It must not accept money first and decide later that no MINI is available.
+
+E6-34 — CONTRIBUTION RATE HAS A 10% RESERVE-PROTECTION HAIRCUT.
+
+After robust external-asset and MINI prices are calculated:
+
+  raw_rate = conservative_external_price / conservative_MINI_price
+
+  contribution_rate = raw_rate * 0.90
+
+Contributor gets:
+  90% of the contemporaneous conservative market-equivalent MINI.
+
+Commons receives:
+  100% of accepted reserve asset.
+
+This 10% is:
+  not an operator fee;
+  not paid to signers;
+  not discretionary income;
+  a reserve-protection margin.
+
+Governance may increase the haircut up to 20% with ordinary timelocked
+parameter process.
+
+It may not reduce below 10% without reopening this calibrated economic scope.
+
+E6-35 — CONTRIBUTION VESTING IS ONE YEAR WITH NO 90-DAY CLIFF DUMP.
+
+Final contribution vesting:
+
+  age < 90 days:
+    0% transferable
+
+  90 <= age <365 days:
+    vested fraction =
+      (age_days - 90) / 275
+
+  age >=365:
+    100%
+
+This means:
+  no contribution-issued MINI is transferable for the first 90 days;
+  after day90 it unlocks smoothly;
+  no single day90 cliff releases the whole amount.
+
+E6-36 — CONTRIBUTION CLAIM IS NOT GOVERNANCE COLLATERAL.
+
+Unvested contribution MINI:
+  no governance power.
+
+Vested MINI:
+  still no governance power because all MINI has zero vote weight.
+
+E6-37 — CONTRIBUTION CANNOT BYPASS RECEIPT FINALITY.
+
+Economic capacity/rate approval is not proof external funds arrived.
+
+Mint requires:
+  chain-specific cryptographic/finality receipt mechanism approved elsewhere.
+
+If receipt verification is unavailable:
+  mint = disabled.
+
+No trusted operator boolean:
+  substitutes merely because the rate is economically safe.
+
+
+======================================================================
+8. FINAL RESERVE ALLOCATION
+======================================================================
+
+E6-38 — LAUNCH TARGET:
+
+  XRP / XRPL-native liquid exposure: 45%
+  XMR:                              45%
+  Contingency:                      10%
+
+The exact asset implementation remains subject to the legal/custody decisions
+already made in their own gate reports.
+
+This report decides the economic allocation, not custody cryptography.
+
+E6-39 — HARD ACQUISITION CEILINGS.
+
+Normal acquisition target bands:
+
+  XRP:
+    target 45%
+    acquisition allowed while post-acquisition weight <=50%
+
+  XMR:
+    target 45%
+    acquisition allowed while post-acquisition weight <=50%
+
+  contingency:
+    target 10%
+    acquisition allowed while total <=10%
+
+A market move can push a held asset above 50%.
+
+That does NOT trigger forced selling.
+
+Instead:
+  stop new acquisition of the overweight asset;
+  direct new acceptable contributions/rebalancing toward underweight assets.
+
+This avoids a predictable forced-liquidation mechanism.
+
+E6-40 — CONTINGENCY IS DIVERSIFIED BY CONTROL DOMAIN.
+
+No single issuer/custodian/control domain:
+  >5% of total reserve through the contingency sleeve.
+
+No two contingency instruments under one parent:
+  count as two domains.
+
+If only one suitable contingency asset exists:
+  hold at most5%;
+  the remaining contingency target stays unfilled or sits in a non-issuer
+  self-custodied asset permitted by governance.
+
+Do not create central dependency just to reach 10%.
+
+E6-41 — RESERVE VALUE IS INFORMATION, NOT A REDEMPTION PROMISE.
+
+No holder has a protocol promise:
+  1 MINI redeemable for proportional XRP/XMR reserve.
+
+The reserve:
+  strengthens the commons;
+  funds approved common actions;
+  provides resilience.
+
+It is not:
+  a currency board;
+  a stablecoin guarantee.
+
+A run on a nonexistent redemption promise must not become a protocol failure.
+
+E6-42 — BTC IS ZERO-WEIGHT AT LAUNCH UNLESS THE SEPARATE ADOPTED LEGAL/BRIDGE
+DECISION CHANGES IT.
+
+Older SPEC-07 described BTC/XMR.
+
+D-0073 later changed the launch reserve direction.
+
+The current production docs/code must stop presenting the old BTC/XMR pair as
+the current economic policy where it has been superseded.
+
+Historical specs remain historical.
+
+E6-43 — RESERVE PRICE DOES NOT CONTROL GOVERNANCE.
+
+A collapse of:
+  XRP;
+  XMR;
+  contingency issuer
+
+can destroy reserve purchasing power.
+
+It cannot:
+  change votes;
+  change personhood;
+  change finality weights;
+  change constitutional validity;
+  halt native Human Share calculation.
+
+The reserve is an edge asset pool, not Mininet's root of legitimacy.
+
+
+======================================================================
+9. FINAL PRICE-ORACLE MODEL FOR CONTRIBUTION MINTING
+======================================================================
+
+E6-44 — ROSTER FLOOR: SEVEN INDEPENDENT CONTROL DOMAINS.
+
+Production contribution pricing maintains a source roster of at least:
+
+  7 independent control domains.
+
+A control domain means:
+  one operator/parent organization or economically controlled venue family.
+
+Five brands owned by one parent:
+  one domain.
+
+A CEX and its own API mirrors:
+  one domain.
+
+E6-45 — QUORUM: FIVE INDEPENDENT DOMAINS.
+
+A price bucket is usable only if:
+  >=5 independent control domains provide valid observations.
+
+Fewer than5:
+  contribution pricing pauses.
+
+Native MINI:
+  continues.
+
+E6-46 — ONE DOMAIN, ONE WEIGHT.
+
+Do not weight a large exchange more heavily merely because it is large.
+
+Per 5-minute observation bucket:
+
+  collect one canonical price per control domain;
+  sort;
+  take median.
+
+This resists:
+  one giant venue becoming the oracle.
+
+E6-47 — FIVE-MINUTE BUCKETS.
+
+Oracle observations normalize into:
+
+  5-minute UTC-independent chain-time buckets derived from finalized block time.
+
+Missing observations:
+  are missing;
+  never forward-filled indefinitely.
+
+E6-48 — TWO WINDOWS.
+
+For each priced asset and MINI:
+
+  P24 =
+    median of valid five-minute bucket medians from the preceding24h.
+
+  P30 =
+    median of valid five-minute bucket medians from the preceding30d.
+
+Use equal bucket weight.
+
+This is a time-weighted median-like construction.
+
+E6-49 — CONSERVATIVE DIRECTION.
+
+For incoming external asset A:
+
+  ConservativePrice_A =
+    min(P24_A, P30_A)
+
+For MINI:
+
+  ConservativePrice_MINI =
+    max(P24_MINI, P30_MINI)
+
+Then:
+
+  raw_rate =
+    ConservativePrice_A / ConservativePrice_MINI.
+
+This always selects the conservative direction for newly issued MINI:
+  lower valuation for what the commons receives;
+  higher valuation for what it issues.
+
+Then apply:
+  10% haircut.
+
+E6-50 — VOLATILITY / DISLOCATION PAUSE.
+
+For either A or MINI:
+
+  if P24/P30 <0.75
+or:
+  P24/P30 >1.25
+
+then:
+  new contribution acceptance pauses.
+
+Existing vested property:
+  unaffected.
+
+Reason:
+  a 25% short/long divergence is a market-regime change, not a condition in
+  which a minting oracle should pretend precision.
+
+E6-51 — ROBUST CROSS-DOMAIN DISPERSION TEST.
+
+For each valid five-minute bucket with prices sorted:
+
+  x1 <= x2 <= ... <= xn
+
+For n>=5:
+
+  central_span =
+    (x_{n-1} - x_2) / median
+
+using the second-lowest through second-highest range.
+
+If central_span >10% in more than5% of required buckets in the current24h:
+  contribution pauses.
+
+Using the central span rather than min/max means:
+  one malicious extreme source cannot single-handedly create a denial of
+  service.
+
+E6-52 — COVERAGE FLOOR.
+
+Both 24h and30d windows need:
+  >=95% of expected five-minute buckets usable.
+
+For new markets during the initial 90-day bootstrap:
+  contribution remains disabled anyway under Section11.
+
+E6-53 — SOURCE ROSTER CHANGES ARE PROSPECTIVE AND TIMELOCKED.
+
+Minimum timelock:
+  30 days.
+
+New roster activates:
+  at the next Economic Epoch after the timelock.
+
+It cannot:
+  reprice old contributions;
+  rewrite historic buckets.
+
+E6-54 — ORACLE FAILURE IS LOCALIZED.
+
+Oracle failure may stop:
+  contribution mint;
+  fiat/reference fee retuning.
+
+It must not stop:
+  native transfers;
+  governance voting;
+  personhood;
+  finality;
+  Human Share accounting from canonical supply/personhood state.
+
+E6-55 — NO SINGLE "OFFICIAL PRICE."
+
+Wallets and markets may display:
+  any price source.
+
+The contribution oracle is:
+  a bounded mint-safety mechanism;
+  not a claim that governance knows MINI's true economic value.
+
+
+======================================================================
+10. CONTRIBUTION RATE / MARKET-MANIPULATION DEFENSE
+======================================================================
+
+E6-56 — CONTRIBUTION CANNOT ACTIVATE UNTIL MINI HAS A REAL MARKET.
+
+At minimum:
+  90 consecutive days of external trade history.
+
+The same 90 days must satisfy:
+  source independence;
+  price coverage;
+  Section 11 depth/volume requirements.
+
+E6-57 — MARKET DEPTH MUST DWARF THE PLANNED MINT.
+
+Immediately before an epoch opens:
+
+  aggregate executable two-sided MINI market depth inside +/-5% of the robust
+  oracle midpoint must be:
+
+    >=20 * planned ContributionCapacity_e.
+
+Depth must be measured across:
+  >=3 independent trading control domains.
+
+No one domain:
+  >50% of qualifying depth.
+
+If not:
+  shrink capacity until the ratio holds;
+  or pause.
+
+This prevents a large contribution mint from being priced against a paper-thin
+market.
+
+E6-58 — TRAILING VOLUME BRAKE.
+
+As in E6-31:
+  contribution capacity <=2% of trailing90d organic MINI trading volume.
+
+This is conservative by design.
+
+The channel exists to let value enter gradually.
+It is not intended to be the dominant source of MINI liquidity.
+
+E6-59 — NO SAME-EPOCH RATE CHANGE.
+
+An epoch locks:
+  the exact oracle-window commitment;
+  haircut;
+  capacity;
+  per-human cap;
+  reserve-gap state.
+
+All valid accepted contributions in that epoch use the same deterministic rate
+rule.
+
+No privileged negotiated rate.
+
+E6-60 — FRONT-RUNNING DOES NOT CHANGE ALLOCATION.
+
+Oversubscription:
+  pro rata.
+
+Transaction ordering cannot determine:
+  who gets the scarce issuance capacity.
+
+E6-61 — NO VIP / OTC PROTOCOL RATE.
+
+Governance cannot give:
+  one institution;
+  founder;
+  exchange;
+  country;
+  investor
+a better protocol contribution rate.
+
+They may trade in free markets outside the contribution channel.
+
+E6-62 — CONTRIBUTOR PRIVACY.
+
+The economic rule needs:
+  one-MatureHuman cap proof
+without:
+  public legal identity;
+  persistent cross-epoch contributor identity.
+
+Use File4-style scoped nullifier mechanics.
+
+The incoming chain transaction may still reveal chain-native information.
+Do not add unnecessary Mininet identity linkage.
+
+
+======================================================================
+11. MARKET-READINESS EXIT CRITERIA FOR CONTRIBUTION MINTING
+======================================================================
+
+Contribution issuance remains disabled until ALL are true.
+
+M6-01
+  Native MINI mainnet has at least 90 consecutive days of real transferable
+  trading history.
+
+M6-02
+  At least seven independent oracle control domains are configured.
+
+M6-03
+  Every rolling 24h and30d pricing window meets >=95% valid-bucket coverage.
+
+M6-04
+  At least five independent domains are present in every bucket counted valid.
+
+M6-05
+  MINI has qualifying two-sided executable depth across at least three
+  independent trading control domains.
+
+M6-06
+  Planned contribution capacity is <=5% of aggregate qualifying +/-5% market
+  depth because depth must be >=20x planned capacity.
+
+M6-07
+  Planned contribution capacity is <=2% of trailing90d organic MINI volume.
+
+M6-08
+  No one market/control domain supplies >50% of qualifying depth.
+
+M6-09
+  Current 24h/30d price ratios are inside [0.75,1.25].
+
+M6-10
+  Robust cross-domain dispersion is within Section9 limits.
+
+M6-11
+  The relevant reserve asset is below its acquisition ceiling or the accepted
+  contribution would not push it above the ceiling.
+
+M6-12
+  The chain-specific deposit/receipt verification mechanism for that asset is
+  live and fail-closed.
+
+M6-13
+  The custody path for that reserve asset is live under the separately adopted
+  treasury security profile.
+
+M6-14
+  Contribution issuance arithmetic and annual budget accounting pass this
+  report's deterministic tests.
+
+M6-15
+  The legal/counsel gate applicable to real contribution activity is already
+  satisfied according to the project's separate Gate #96 decision.
+
+This report does NOT reopen:
+  cryptography;
+  custody;
+  legal
+decisions.
+
+It simply refuses economic activation if a prerequisite mechanism is absent.
+
+Once those other gate decisions have been satisfied, there is no additional
+economic discretion here.
+
+
+======================================================================
+12. FEE ACCESS / WEALTH-GATE DECISION
+======================================================================
+
+The fee mechanism exists to ration scarce compute/storage/chain inclusion.
+
+It must not become:
+  a poll tax on political humanity.
+
+E6-63 — VOICE-CRITICAL ACTIONS HAVE ZERO MONETARY ACCESS FEE.
+
+The protocol may not require a MINI balance merely to:
+
+  cast one valid governance vote;
+  maintain/refresh baseline personhood;
+  submit the ordinary proof required to exercise one-human-one-vote;
+  perform a constitutional challenge/fraud proof where the challenger would
+  otherwise be excluded solely for poverty.
+
+These paths use:
+  nullifiers;
+  per-human limits;
+  bounded proof sizes;
+  ordinary network anti-DoS mechanisms.
+
+An optional transaction relay may charge for convenience.
+A conforming path with zero monetary fee must exist.
+
+E6-64 — VALUE TRANSFERS MAY HAVE A SMALL MARKET-ADJUSTED FEE.
+
+Launch reference target for an ordinary native value transfer:
+
+  0.001 of a 2026 USD-equivalent unit
+  = one tenth of one cent.
+
+Protocol safety ceiling for an ordinary non-congested native transfer target:
+
+  0.01 USD-equivalent
+  = one cent.
+
+This is an affordability calibration, not a currency peg.
+
+The reference may be replaced by a broader purchasing-power basket under
+ordinary governance if a century-scale implementation proves preferable.
+
+E6-65 — FEE ORACLE FAILURE MAY NOT HALT THE CHAIN.
+
+Fee target is recalculated only from a valid robust oracle observation.
+
+If current external reference pricing fails:
+  keep the last valid bounded fee schedule for up to30 days.
+
+After30 days:
+  use a deterministic low fixed uMINI fallback established in the prior valid
+  epoch.
+
+No external fiat-price provider:
+  can stop transfers or votes.
+
+E6-66 — CONGESTION PRICING CANNOT CHANGE VOTE WEIGHT.
+
+If blocks are congested:
+  value-transfer fees may rise inside separately specified caps.
+
+Governance vote inclusion:
+  retains the zero-money access lane and per-human rate limit.
+
+A wealthy user may buy more value-transaction throughput.
+
+They may not buy:
+  more votes.
+
+
+======================================================================
+13. WHALE RESISTANCE — WHAT IS AND IS NOT SOLVED
+======================================================================
+
+E6-67 — NO HOLDINGS CAP.
+
+Mininet does NOT:
+  confiscate;
+  periodically equalize balances;
+  tax a person solely for being rich;
+  forbid voluntary market purchases;
+  cap how much MINI a human may own.
+
+Such rules would require:
+  surveillance;
+  identity linkage;
+  central discretionary enforcement
+or:
+  make free exchange fictional.
+
+They are rejected.
+
+E6-68 — FORMAL POWER IS ABSOLUTELY SEPARATED.
+
+The following functions/interfaces must have no positive dependency on MINI
+balance:
+
+  governance vote weight;
+  proposal tally weight;
+  personhood score;
+  vouch capacity;
+  MatureHuman status;
+  validator BFT vote weight;
+  constitutional validity;
+  release-approval weight;
+  maintainer review authority;
+  content moderation authority;
+  treasury signer eligibility;
+  oracle observation weight.
+
+Formal political influence of a whale:
+  one MatureHuman vote.
+
+Formal political influence of a poor MatureHuman:
+  one MatureHuman vote.
+
+E6-69 — ECONOMIC INFLUENCE IS REAL AND NOT MISLABELED.
+
+A rich holder can still:
+  buy services;
+  fund content;
+  hire people;
+  fund campaigns;
+  subsidize forks;
+  pay real humans;
+  offer bribes;
+  move a thin market.
+
+Tokenomics cannot mathematically erase those social facts without becoming
+authoritarian itself.
+
+The design response is:
+  no formal balance power;
+  secret/receipt-resistant ballots;
+  reach floors;
+  per-human common-issuance caps;
+  diversified market/liquidity paths;
+  free forks;
+  transparent treasury decisions.
+
+E6-70 — NO GLOBAL WEALTH-GINI PASS/FAIL TARGET.
+
+A holdings Gini can rise because:
+  people voluntarily trade;
+  one artist sells valuable work;
+  one company earns legitimate market revenue.
+
+That does not automatically violate Mininet.
+
+The protocol is judged on:
+  distribution of protocol-created issuance;
+  access to voice;
+  concentration of common subsidy;
+  absence of balance-weighted power.
+
+The simulation still reports Gini/top shares as diagnostics.
+
+It does not confiscate to hit a number.
+
+E6-71 — PROTOCOL-CREATED CONCENTRATION HAS HARD TARGETS.
+
+Human Share:
+  exactly equal per eligible MatureHuman per epoch.
+
+Inflationary service:
+  <=2% of each class pool per MatureHuman.
+
+Contribution channel:
+  <=0.25% of epoch capacity per MatureHuman.
+
+Founder:
+  no multiplier.
+
+Early adopter:
+  no multiplier on future Human Share.
+
+E6-72 — SECRET / RECEIPT-RESISTANT GOVERNANCE REMAINS A HARDENING REQUIREMENT.
+
+If vote protocol produces a transferable receipt that proves how a person voted:
+  vote buying becomes easier.
+
+The long-term governance proof should minimize verifiable vote receipts and
+coercion evidence while preserving public tally correctness.
+
+This is not necessary to define monetary supply.
+
+It is necessary to claim strong off-network whale resistance.
+
+
+======================================================================
+14. SUPPLY ACCOUNTING / ARITHMETIC
+======================================================================
+
+E6-73 — DISTINGUISH FOUR QUANTITIES.
+
+Consensus accounting exposes:
+
+  TotalIssuedClaimSupply
+    all valid native MINI claims ever issued minus protocol burns.
+
+  VestedSupply
+    portion whose protocol vesting condition has completed.
+
+  TransferableSupply
+    vested units not under a protocol-level transfer lock;
+    user escrow does NOT reduce the annual reference base.
+
+  UnissuedCapacity
+    budget permission that has not produced a claim.
+    This is NOT supply.
+
+AnnualReferenceSupply uses:
+  TotalIssuedClaimSupply.
+
+Market dashboards may display:
+  circulating/transferable estimates.
+
+Monetary consensus must never depend on an exchange's "circulating supply"
+website.
+
+E6-74 — U128 IS THE NATIVE MONETARY INTEGER WIDTH.
+
+Current `Amount` uses u128 micro-units.
+
+Keep it.
+
+All:
+  multiplication;
+  division;
+  prorating;
+  price conversion;
+  reward normalization
+must use checked arithmetic or reduction-before-multiplication.
+
+No monetary `as u64` narrowing.
+
+E6-75 — FAIL ON OVERFLOW.
+
+`mint_amount_micro` becomes conceptually:
+
+  fn mint_amount(
+      contributed_units: u128,
+      rate_num: u128,
+      rate_den: u128
+  ) -> Result<Amount>
+
+Use:
+  gcd reduction;
+  checked_mul;
+  checked_div;
+  explicit zero-denominator rejection.
+
+Overflow:
+  transaction invalid.
+
+Never:
+  wrap;
+  saturate;
+  truncate.
+
+E6-76 — 1000-YEAR NUMERIC HEADROOM.
+
+At 3% compound growth:
+
+  (1.03)^1000
+  approximately 6.87424e12.
+
+With six-decimal micro units, if the genesis/reference supply is constrained to:
+
+  <=1e18 MINI
+
+then even the impossible worst case of full 3% gross issuance every year for
+1000 years remains below u128 maximum with substantial headroom.
+
+Therefore production genesis validation SHALL reject:
+
+  EffectiveAnnualReference_0 > 1e18 MINI.
+
+This is an engineering numeric ceiling, not an economic target.
+
+Realistic supply is expected to be vastly lower.
+
+E6-77 — ROUND DOWN, NEVER MINT THE ROUNDING ERROR.
+
+Every division of issuance capacity:
+  floors toward zero.
+
+Remainder:
+  remains unissued.
+
+Do not:
+  rotate remainder winner;
+  send it to treasury;
+  credit proposer.
+
+This is deterministic and privilege-free.
+
+E6-78 — PRICE ARITHMETIC IS RATIONAL / FIXED POINT.
+
+No IEEE floating-point consensus arithmetic.
+
+Each oracle price:
+  integer numerator/denominator with bounded decimal exponent
+or:
+  canonical fixed point.
+
+Median compares exact normalized integers.
+
+The contribution rate:
+  uses checked rational arithmetic.
+
+E6-79 — STATE COMMITMENTS INCLUDE YEAR-TO-DATE BUDGET USE.
+
+A monetary state root commits at least:
+
+  economic_year;
+  EffectiveAnnualReference;
+  HumanBudget;
+  HumanUsed;
+  ServiceBudget;
+  ServiceUsed;
+  ContributionBudget;
+  ContributionUsed;
+  active policy version.
+
+A node replaying history can prove:
+  the 3% ceiling
+without:
+  reconstructing market websites.
+
+
+======================================================================
+15. SIMULATION HARNESS V2 — REQUIRED STATE MODEL
+======================================================================
+
+The current `mini-econ-sim` is retained as a useful seed but is not the final
+calibration model.
+
+The final deterministic simulator must model the actual approved mechanisms.
+
+15.1 Time
+
+Simulation resolution:
+  economic epoch = 1/12 year.
+
+Required horizon:
+  200 years for mandatory regression.
+
+Additional:
+  1,000-year overflow/vest-tail run.
+
+15.2 Population cohorts
+
+At minimum:
+
+  Genesis/early humans
+  LateAdopter
+  Ordinary active human
+  Dormant human
+  Reactivated human
+  SybilCluster / colluding MatureHumans
+  Storage provider
+  Relay provider
+  Publisher
+  Search provider
+  Security/public-good provider
+  Contributor
+  Whale
+  Treasury
+  Market maker
+
+One simulated human may hold multiple economic roles.
+
+That must not create:
+  multiple Human Shares;
+  multiple service per-human caps;
+  multiple votes.
+
+15.3 Population state
+
+Per epoch:
+
+  active_mature_count
+  dormant_count
+  entrants
+  reactivations
+  exits/deaths/inactive
+  adversarial mature count
+
+Do NOT implement dormancy merely as a monotonically increasing percentage of
+all people forever.
+
+Use transition rates between:
+  Active
+  Dormant
+  Reactivated/permanently absent.
+
+15.4 Human grants
+
+Track cohorts by:
+  grant epoch;
+  amount;
+  active vesting age distribution.
+
+For large populations:
+  aggregate cohorts;
+  do not materialize one object per human.
+
+Simulator must compute:
+  newly granted;
+  vested this epoch;
+  total locked;
+  total vested;
+  per-active-human equality.
+
+15.5 Service work
+
+For every sub-pool:
+  generate distribution of verified useful work q.
+
+Required distributions:
+
+  equal;
+  lognormal sigma 0.5;
+  lognormal sigma 1.0;
+  lognormal sigma 2.0;
+  Pareto alpha 2.0;
+  Pareto alpha 1.5;
+  Pareto alpha 1.2;
+  one 10x warehouse;
+  one 100x warehouse;
+  one 1000x warehouse;
+  cartel of10 high-capacity humans;
+  cartel of50 high-capacity humans.
+
+Apply:
+  a=0.4;
+  10x median input cap;
+  diversity multipliers;
+  2% sub-pool per-human cap.
+
+15.6 Direct fees
+
+Track separately from issuance.
+
+A fee transfer:
+  moves existing MINI.
+
+It must not:
+  increase TotalIssuedClaimSupply.
+
+15.7 Market state
+
+At minimum:
+
+  external reference MINI price;
+  XRP/reference price;
+  XMR/reference price;
+  qualifying market depth;
+  trailing organic volume;
+  venue/control-domain observations;
+  contribution demand;
+  whale market trades.
+
+The simulator may use exogenous price scenarios.
+It must not pretend to predict equilibrium price from first principles.
+
+15.8 Reserve state
+
+Track:
+  XRP units/value;
+  XMR units/value;
+  each contingency domain;
+  target weights;
+  acquisition ceiling;
+  mark-to-market shocks;
+  accepted contributions;
+  treasury outflows where scenarios require.
+
+15.9 Contribution grants
+
+Track:
+  contribution epoch;
+  contributor human nullifier class;
+  accepted reserve amount;
+  oracle rate;
+  haircut;
+  locked MINI;
+  vesting day/epoch;
+  realized transferable amount.
+
+15.10 Oracle state
+
+Each price bucket:
+  domain observations;
+  unavailable domains;
+  malicious domains;
+  median;
+  central-span;
+  window coverage;
+  P24;
+  P30;
+  pause state.
+
+15.11 Holdings
+
+Track at least:
+  top whale;
+  top10 coalition;
+  ordinary median;
+  service cartel;
+  contributor cartel;
+  Sybil/colluder cohort;
+  rest of population.
+
+Report:
+  share of TotalIssuedClaimSupply;
+  share of VestedSupply;
+  share of TransferableSupply;
+  but never infer vote weight from these.
+
+15.12 Governance
+
+Simulation has a separate field:
+  mature_human_vote_count.
+
+No holdings variable is allowed to feed it.
+
+A unit test should make the type/API relationship impossible rather than merely
+expect a number.
+
+
+======================================================================
+16. MANDATORY SCENARIO GRID
+======================================================================
+
+The final regression suite uses parameterized scenarios, not one hand-picked
+baseline.
+
+16.1 Population trajectories
+
+POP-01  2,048 constant MatureHumans.
+POP-02  2,048 ->10,000 over10 years.
+POP-03  2,048 ->100,000 over25 years.
+POP-04  2,048 ->1,000,000 over50 years.
+POP-05  2,048 ->100,000,000 over100 years.
+POP-06  2,048 ->20,000,000,000 over200 years.
+POP-07  rapid 10x population shock over one year.
+POP-08  50% population dormancy shock.
+POP-09  slow population decline.
+POP-10  alternating migration/dormancy cycles.
+
+16.2 Annual issuance utilization
+
+ISS-01 human only.
+ISS-02 human +25% service, no contribution.
+ISS-03 human +100% service, no contribution.
+ISS-04 human +100% service +100% contribution.
+ISS-05 no service/no contribution for50y then full.
+ISS-06 contribution paused permanently.
+ISS-07 service underfilled because fewer than50 providers.
+ISS-08 rounding-heavy tiny supply.
+ISS-09 near-u128 high reference supply.
+ISS-10 1000-year full utilization numeric stress.
+
+16.3 Whale starting positions
+
+WH-01 0%.
+WH-02 10%.
+WH-03 30%.
+WH-04 60%.
+WH-05 90%.
+
+For each:
+  passive;
+  max protocol-service capture;
+  max protocol-contribution capture;
+  voluntary market accumulation;
+  voluntary market liquidation.
+
+16.4 Service inequality
+
+SRV-01 equal.
+SRV-02 lognormal0.5.
+SRV-03 lognormal1.
+SRV-04 lognormal2.
+SRV-05 Pareto2.
+SRV-06 Pareto1.5.
+SRV-07 Pareto1.2.
+SRV-08 one10x.
+SRV-09 one100x.
+SRV-10 one1000x.
+SRV-11 ten-human cartel.
+SRV-12 fifty-human cartel.
+SRV-13 diversity bonus honest minority.
+SRV-14 diversity bonus fabricated/unavailable ->1.0.
+SRV-15 median manipulation attempts by colluding MatureHumans.
+
+16.5 Personhood/Sybil economic scenarios
+
+SYB-01 zero adversarial MatureHumans.
+SYB-02 1 malicious MatureHuman.
+SYB-03 5.
+SYB-04 6.
+SYB-05 12.
+SYB-06 24.
+SYB-07 64.
+SYB-08 10% of Mature set.
+SYB-09 20%.
+SYB-10 unlimited cheap non-Mature identities.
+SYB-11 paid genuine-human coalition.
+SYB-12 dormant/reactivate exploitation.
+SYB-13 repeated new-wallet contribution splitting.
+SYB-14 repeated new-device service splitting.
+
+The File4 sponsorship/maturation bounds feed these scenarios.
+
+Tokenomics does not override File4.
+
+16.6 Reserve price shocks
+
+RES-01 XRP -20%.
+RES-02 XRP -50%.
+RES-03 XRP -80%.
+RES-04 XRP -100%.
+RES-05 XMR -20%.
+RES-06 XMR -50%.
+RES-07 XMR -80%.
+RES-08 XMR -100%.
+RES-09 both -50%.
+RES-10 both -80%.
+RES-11 XRP +10x.
+RES-12 XMR +10x.
+RES-13 alternated bull/bear.
+RES-14 one contingency issuer freezes/defaults.
+RES-15 both contingency domains fail.
+RES-16 liquidity disappears for XRP.
+RES-17 liquidity disappears for XMR.
+RES-18 one reserve asset temporarily unavailable to custody.
+RES-19 reserve outflow then shock.
+RES-20 100-year no-rebalance scenario.
+
+16.7 Oracle adversaries
+
+ORC-01 all honest.
+ORC-02 one malicious of7, +100%.
+ORC-03 two colluding of7, +100%.
+ORC-04 three colluding of7, +100%.
+ORC-05 one malicious, -90%.
+ORC-06 two colluding, -90%.
+ORC-07 three colluding, -90%.
+ORC-08 two sources offline.
+ORC-09 three sources offline -> fewer than5.
+ORC-10 one parent masquerades as three brands.
+ORC-11 30% sustained manipulation24h.
+ORC-12 slow 9% drift designed to stay under dispersion threshold.
+ORC-13 short pump inside one bucket.
+ORC-14 25% boundary shock.
+ORC-15 26% 24h/30d shock.
+ORC-16 stale data replay.
+ORC-17 future timestamp.
+ORC-18 bucket withholding.
+ORC-19 source roster change mid-window.
+ORC-20 source roster capture attempt.
+
+16.8 Contribution market manipulation
+
+CON-01 one contributor requests full epoch.
+CON-02 one human uses1000 wallets.
+CON-03 64 colluding MatureHumans.
+CON-04 400 colluding MatureHumans.
+CON-05 over-demand 10x cap.
+CON-06 transaction-order front-running.
+CON-07 wash-volume inflation.
+CON-08 spoofed depth that disappears.
+CON-09 depth concentrated95% on one venue.
+CON-10 contribution then immediate sale attempt before90d.
+CON-11 sale at day90.
+CON-12 progressive sale day90..365.
+CON-13 external asset drops50% after contribution.
+CON-14 MINI rises10x during vesting.
+CON-15 MINI drops90% during vesting.
+CON-16 reserve band reached mid-epoch.
+CON-17 receipt accepted twice attempt.
+CON-18 contribution receipt valid but annual cap exhausted.
+CON-19 contribution before90-day market maturity.
+CON-20 source quorum fails during epoch.
+
+16.9 Fee access
+
+FEE-01 user with0 MINI casts governance vote.
+FEE-02 user with0 MINI refreshes eligible personhood proof through zero-money lane.
+FEE-03 ordinary value transfer under valid oracle.
+FEE-04 fee oracle unavailable1 day.
+FEE-05 unavailable29 days.
+FEE-06 unavailable31 days.
+FEE-07 market price +100x.
+FEE-08 market price -99%.
+FEE-09 congestion while governance vote active.
+FEE-10 whale offers high fee; cannot gain extra vote.
+
+16.10 Long-horizon governance/economic independence
+
+LONG-01 all oracle providers disappear.
+LONG-02 XRPL unavailable.
+LONG-03 XMR liquidity unavailable.
+LONG-04 contribution disabled for100 years.
+LONG-05 no service subsidy for20 years.
+LONG-06 all founding humans dormant/dead.
+LONG-07 whale owns90% but only one vote.
+LONG-08 voluntary economy highly unequal.
+LONG-09 future entrant at year100.
+LONG-10 future entrant at year500.
+LONG-11 fork starts from canonical state.
+LONG-12 treasury reserve worth zero while native chain continues.
+
+
+======================================================================
+17. REQUIRED SIMULATION OUTPUTS
+======================================================================
+
+For every epoch:
+
+  economic_year
+  epoch_in_year
+
+  annual_reference_supply
+  gross_budget
+  gross_used
+
+  human_budget
+  human_used
+  human_remainder
+
+  service_budget
+  service_used by class
+
+  contribution_budget
+  contribution_used
+
+  TotalIssuedClaimSupply
+  VestedSupply
+  TransferableSupply
+  total Human Share locked
+  total contribution locked
+
+  active MatureHumans
+  dormant humans
+  new entrants
+  adversarial MatureHumans
+
+  Human Share per active human
+
+  service reward:
+    median
+    p90
+    max
+    max/median
+    top1%
+    top10%
+
+  whale:
+    total-claim share
+    vested share
+    transferable share
+    protocol-created inflow
+    market-acquired inflow
+
+  reserve:
+    XRP weight
+    XMR weight
+    contingency weights
+    mark-to-market drawdown
+
+  oracle:
+    sources
+    control domains
+    quorum
+    P24
+    P30
+    dispersion
+    pause reason
+
+  contribution:
+    demand
+    capacity
+    accepted
+    number of humans
+    max human share
+    depth ratio
+    volume ratio
+
+  fees:
+    reference target
+    current schedule
+    fallback state.
+
+Summary report at:
+  y1
+  y5
+  y10
+  y25
+  y50
+  y100
+  y200
+  y500
+  y1000 where applicable.
+
+
+======================================================================
+18. PASS / FAIL ACCEPTANCE THRESHOLDS
+======================================================================
+
+A simulation run is not judged by whether MINI's modeled market price "goes up."
+
+Price appreciation is not a constitutional objective.
+
+It passes by preserving invariants under stress.
+
+A6-001
+  Gross issuance in every Economic Year <=3.000000% of that year's fixed
+  EffectiveAnnualReference.
+
+A6-002
+  Human Share issued <=2.000000% and cannot be displaced by optional channels.
+
+A6-003
+  Service issuance <=0.750000%.
+
+A6-004
+  Contribution issuance <=0.250000%.
+
+A6-005
+  monthly/epoch execution cannot compound above the year-fixed caps.
+
+A6-006
+  no unused optional capacity rolls into a later year.
+
+A6-007
+  all eligible MatureHumans in the same epoch receive exactly equal Human Share
+  to the smallest unit, except identical unissued remainder.
+
+A6-008
+  non-Mature identities receive zero canonical Human Share grant.
+
+A6-009
+  one Human Share grant has <=0.1% vested after one active vesting year.
+
+A6-010
+  exactly20% is vested after10 active vesting years, subject only to integer
+  rounding down.
+
+A6-011
+  100% is never reached before1000 active vesting years.
+
+A6-012
+  dormancy cannot accelerate vesting.
+
+A6-013
+  reactivation cannot retroactively catch up inactive time.
+
+A6-014
+  conduct sanctions cannot burn vested Human Share.
+
+A6-015
+  service reward curve is monotone.
+
+A6-016
+  service reward curve is concave to implementation precision over the supported
+  input domain.
+
+A6-017
+  effective work above10x median cannot increase curve weight.
+
+A6-018
+  diversity bonus never exceeds20%.
+
+A6-019
+  one MatureHuman cannot receive >2% of a service sub-pool.
+
+A6-020
+  one human using many service identities cannot exceed the one-human cap.
+
+A6-021
+  contribution epoch never exceeds fixed 1/12 annual contribution budget.
+
+A6-022
+  contribution never exceeds2% trailing90d organic MINI volume.
+
+A6-023
+  contribution never exceeds reserve acquisition gap.
+
+A6-024
+  contribution never activates with <20x planned-capacity qualifying depth.
+
+A6-025
+  one MatureHuman never receives >0.25% of epoch contribution capacity.
+
+A6-026
+  64 colluding humans never receive >16% of contribution epoch capacity.
+
+A6-027
+  oversubscription allocation is order-independent/pro-rata.
+
+A6-028
+  no contribution-issued MINI becomes transferable before90 days.
+
+A6-029
+  contribution grant reaches full vest only at>=365 days.
+
+A6-030
+  contribution rate applies >=10% haircut.
+
+A6-031
+  <5 oracle control domains pauses contribution.
+
+A6-032
+  one malicious extreme source cannot alone control the median or pause via the
+  central-span metric.
+
+A6-033
+  two colluding extreme sources among at least5 honest-enough quorum cannot move
+  the median outside the range of the three noncolluding observations.
+
+A6-034
+  >25% 24h/30d dislocation pauses contribution.
+
+A6-035
+  insufficient oracle coverage pauses contribution.
+
+A6-036
+  source roster change never retroactively reprices a contribution.
+
+A6-037
+  source parent/control-domain duplicates never gain multiple weights.
+
+A6-038
+  reserve target single XRP -80% loss =36% before secondary market effects.
+
+A6-039
+  reserve target single XMR -80% loss =36%.
+
+A6-040
+  one contingency control-domain failure directly loses <=5% of target total
+  reserve.
+
+A6-041
+  reserve price collapse cannot mint extra governance votes.
+
+A6-042
+  90%-wealth MatureHuman has exactly one formal governance vote.
+
+A6-043
+  0%-wealth MatureHuman has exactly one formal governance vote.
+
+A6-044
+  wealth changes cannot alter personhood score.
+
+A6-045
+  wealth changes cannot alter validator BFT vote weight.
+
+A6-046
+  wealth changes cannot alter contribution cap beyond the one-human rule.
+
+A6-047
+  value-transfer fees move existing supply and do not count as issuance.
+
+A6-048
+  governance vote has a zero-monetary-fee conforming inclusion path.
+
+A6-049
+  external fee-oracle failure cannot halt governance.
+
+A6-050
+  external fee-oracle failure cannot halt native chain transfer indefinitely;
+  deterministic fallback exists.
+
+A6-051
+  contribution oracle failure cannot halt Human Share.
+
+A6-052
+  reserve total loss cannot halt native consensus.
+
+A6-053
+  contribution channel can remain disabled100 years without breaking native
+  monetary accounting.
+
+A6-054
+  a late adopter receives the same epoch Human Share as an equally eligible early
+  adopter.
+
+A6-055
+  founder status contributes zero economic multiplier.
+
+A6-056
+  no u128 monetary operation wraps/truncates.
+
+A6-057
+  1000-year maximum-reference stress does not overflow.
+
+A6-058
+  deterministic replay on two independent implementations produces identical
+  monetary state roots.
+
+A6-059
+  no live external API is required to replay historical finalized issuance.
+
+A6-060
+  all pause decisions are deterministic from committed observations/state.
+
+If any A6-001..060 fails:
+  implementation is not compliant with this report.
+
+
+======================================================================
+19. CURRENT CODE FINDINGS — EXACT LOCATIONS
+======================================================================
+
+FINDING T6-01 — HIGH
+Title:
+  Annual 3% cap can be exceeded by epoch rebasing.
+
+Location:
+  `crates/mini-economy/src/issuance.rs`
+  `plan_human_share`
+  `plan_scalable_epoch`
+  `plan_epoch`
+  `prorated`
+
+Mechanism:
+  every call receives `opening_circulating` and computes each channel cap as a
+  percentage of that value for the supplied duration.
+
+No:
+  `EconomicYearBudget`
+  or:
+  year-to-date used counter
+exists in this layer.
+
+Impact:
+  a perfectly valid sequence of monthly calls using the previous epoch's newly
+  enlarged supply exceeds a fixed 3% annual interpretation.
+
+Fix:
+  Section4 year-fixed budget state.
+
+
+FINDING T6-02 — CRITICAL CONSTITUTIONAL CONFORMANCE
+Title:
+  Human Share is fully vested after one year in D-0074 code.
+
+Location:
+  `IssuancePolicy::d0074()`
+  `human_vesting_ms: YEAR_MS`
+
+Mechanism:
+  a simple duration field represents full vesting.
+
+Conflict:
+  frozen ~millennium release;
+  Deep Dive <=0.1% first-year;
+  File4 early-extraction ceiling.
+
+Fix:
+  Section5 piecewise active-age vesting.
+
+
+FINDING T6-03 — HIGH
+Title:
+  Production monetary ratios are not canonical in the policy type.
+
+Location:
+  `IssuancePolicy`
+
+Mechanism:
+  caller supplies:
+    total_ceiling_ppm
+    human_floor_ppm
+    service_ceiling_ppm
+    treasury_ceiling_ppm
+    vesting values.
+
+`validate()` only checks:
+  sum<=total;
+  total<=1,000,000 ppm;
+  nonzero vesting.
+
+A caller can construct:
+  human=0
+  service=30,000
+  treasury=0
+and pass the channel-sum check.
+
+Fix:
+  canonical `MonetaryPolicyV1`;
+  bounded Tier-T updates only.
+
+
+FINDING T6-04 — HIGH
+Title:
+  Genesis vesting/value inputs have no local constitutional bounds.
+
+Location:
+  `crates/mini-economy/src/genesis.rs`
+  `GenesisPolicy`
+
+Mechanism:
+  accepts any nonzero:
+    bootstrap_per_human
+    vesting_ms.
+
+It correctly enforces:
+  equal recipients;
+  duplicate rejection.
+
+It does not enforce:
+  millennium curve;
+  production supply numeric ceiling;
+  no privileged secondary allocation beyond input list.
+
+Fix:
+  production genesis uses `MonetaryPolicyV1` + genesis validator rather than raw
+  caller policy.
+
+
+FINDING T6-05 — HIGH
+Title:
+  Storage reward is linear in verified bytes before saturation.
+
+Location:
+  `crates/mini-reward/src/lib.rs`
+  `accrue_storage`
+
+Mechanism:
+  `raw = (w.bytes / GIB) * points_per_gib`.
+
+Repeat decay and per-window cap exist.
+
+Those mechanisms are useful but do not implement:
+  `R(q)=q^a`.
+
+Fix:
+  Section6 deterministic concave class engine.
+
+
+FINDING T6-06 — HIGH
+Title:
+  Reward parameters are caller-defined demo parameters.
+
+Location:
+  `RewardParams`
+  `StorageRewardParams`
+
+Mechanism:
+  caller selects points, repeats, windows, caps, maturation.
+
+Crate documentation itself calls this non-spendable demo reward.
+
+Fix:
+  keep demo API;
+  production inflationary reward reads canonical policy only.
+
+
+FINDING T6-07 — HIGH
+Title:
+  Treasury rate history is a governed scalar, not a manipulation-resistant oracle.
+
+Location:
+  `crates/mini-treasury/src/rate.rs`
+  `RateHistory`
+
+Mechanism:
+  any monotonically timed `RateEntry` can set:
+    `mini_per_unit_micro`.
+
+No:
+  source set;
+  domain;
+  price proof;
+  time window;
+  reserve spread;
+  anomaly pause.
+
+Fix:
+  Sections9–10 oracle commitments.
+
+
+FINDING T6-08 — HIGH
+Title:
+  Contribution mint arithmetic narrows to u64 without overflow failure.
+
+Location:
+  `mini-treasury::rate::mint_amount_micro`
+
+Mechanism:
+  product uses u128;
+  quotient then returns:
+    `(product / RATE_SCALE as u128) as u64`.
+
+Fix:
+  u128 `Amount` checked arithmetic;
+  no narrowing.
+
+
+FINDING T6-09 — MEDIUM/HIGH DOCUMENT TRUTH
+Title:
+  Treasury receipt code still encodes the older BTC/XMR framing.
+
+Location:
+  `crates/mini-treasury/src/receipt.rs`
+  `ContributionKind::{Bitcoin, Monero}`
+
+Current D-0073 uses a different launch reserve/bridge direction.
+
+Fix:
+  explicit versioned asset identifiers and policy;
+  historical docs marked superseded where appropriate.
+
+
+FINDING T6-10 — POSITIVE / PASS
+Title:
+  Receipt verification fails closed today.
+
+Location:
+  `NoExternalReceiptOracle`
+
+Mechanism:
+  always returns false.
+
+Impact:
+  unverified external assets cannot be honestly described by this component as
+  confirmed.
+
+Preserve this default-deny property when real verifier lands.
+
+
+FINDING T6-11 — HIGH
+Title:
+  Current economic simulator is not a calibration model.
+
+Location:
+  `crates/mini-econ-sim/src/lib.rs`
+
+Mechanism:
+  current scenario has:
+    years
+    opening supply
+    simple human counts
+    dormancy ppm
+    fixed Sybil identities
+    whale opening ppm
+    service utilization
+    treasury utilization.
+
+It omits the Section15 state.
+
+Fix:
+  SimulationV2.
+
+
+FINDING T6-12 — MEDIUM/HIGH MODEL BIAS
+Title:
+  Current simulator assigns half of service issuance to whale by fiat.
+
+Location:
+  `mini-econ-sim::run`
+
+Mechanism:
+  whale balance receives:
+    service_issued / 2
+
+rather than winning rewards through:
+  verified work;
+  concavity;
+  per-human cap;
+  diversity.
+
+This makes the current whale model unsuitable for validating the actual mechanism.
+
+Fix:
+  derive service capture from Section6.
+
+
+FINDING T6-13 — MEDIUM
+Title:
+  Current dormancy state is too coarse for century analysis.
+
+Location:
+  `mini-econ-sim::run`
+
+Mechanism:
+  accumulated dormant count rises by a fixed annual proportion of real-human
+  count and is capped.
+
+No:
+  reactivation;
+  cohort age;
+  pause/resume grant vesting.
+
+Fix:
+  state-transition model in Section15.
+
+
+FINDING T6-14 — POSITIVE / PASS
+Title:
+  Equal Human Share arithmetic exists.
+
+Location:
+  `plan_human_share`
+
+Mechanism:
+  aggregate cap divided by `snapshot.eligible_count`;
+  identical per-human grant;
+  remainder unissued.
+
+Preserve.
+
+
+FINDING T6-15 — POSITIVE / PASS
+Title:
+  Wealth is absent from the current simulation's governance state.
+
+Location:
+  `crates/mini-econ-sim/tests/simulation.rs`
+
+Mechanism:
+  existing test explicitly gives whale 90% opening share and observes no
+  governance-power field.
+
+This is a useful negative invariant.
+
+Expand it across real governance/consensus APIs.
+
+
+======================================================================
+20. EXACT CODE CHANGE MAP
+======================================================================
+
+20.1 `crates/mini-economy/src/policy_v1.rs` — ADD
+
+Define:
+
+  MonetaryPolicyV1
+
+Constants:
+
+  TOTAL_ANNUAL_PPM         = 30_000
+  HUMAN_ANNUAL_PPM         = 20_000
+  SERVICE_ANNUAL_PPM       =  7_500
+  CONTRIBUTION_ANNUAL_PPM  =  2_500
+
+  ECONOMIC_YEAR_MS         = 31_536_000_000
+  ECONOMIC_EPOCH_MS        =  2_628_000_000
+
+  BOOTSTRAP_REFERENCE_PER_MATURE_HUMAN_MICRO = 1_000_000
+  MAX_INITIAL_REFERENCE_MINI = 1_000_000_000_000_000_000
+
+Production constructor:
+  no arbitrary public fields.
+
+Tier-T update object:
+  only approved tunable values inside explicit hard ranges.
+
+20.2 `crates/mini-economy/src/annual_budget.rs` — ADD
+
+State:
+
+  EconomicYearBudget {
+      year_index,
+      reference_supply,
+      effective_reference,
+      human_budget,
+      human_used,
+      service_budget,
+      service_used,
+      contribution_budget,
+      contribution_used,
+  }
+
+Functions:
+  open_year
+  remaining_human
+  remaining_service
+  remaining_contribution
+  debit_human
+  debit_service
+  debit_contribution
+  close_year
+
+Every debit:
+  checked;
+  atomic;
+  deterministic.
+
+20.3 `crates/mini-economy/src/human_vesting_v1.rs` — ADD
+
+Use integer/fixed-point curve.
+
+Input:
+  active_mature_ms
+
+Breakpoints:
+  1y
+  10y
+  1000y.
+
+No float.
+
+Function:
+  vested_amount(grant_amount, active_mature_ms) -> Amount
+
+Monotone proof/tests around every boundary.
+
+20.4 `issuance.rs`
+
+Deprecate production use of:
+  `human_vesting_ms`.
+
+Keep old D0074 policy:
+  historical/test compatibility only.
+
+`plan_human_share` takes:
+  canonical year budget;
+  finalized MatureHuman snapshot.
+
+It no longer chooses a cap by rebasing against arbitrary
+`opening_circulating`.
+
+20.5 `genesis.rs`
+
+Separate:
+  test/helper raw GenesisPolicy
+from:
+  production `build_mainnet_genesis_v1`.
+
+Production validator proves:
+  no duplicate human;
+  no privileged non-human allocation;
+  policy version;
+  reference floor arithmetic;
+  max numeric base;
+  constitution digest;
+  no one-year Human Share vesting.
+
+20.6 `crates/mini-economy/src/service_rewards_v1.rs` — ADD
+
+Implement:
+  class enum;
+  verified work input;
+  exact median;
+  10x input cap;
+  fixed-point power0.4;
+  [1.0,1.2] diversity;
+  normalized pool allocation;
+  iterative2% per-human cap;
+  remainder expiry.
+
+Power implementation options:
+  deterministic integer root/power approximation with fixed error bound;
+  or precomputed monotone lookup/interpolation table committed to protocol.
+
+Required error:
+  relative approximation <=1e-6
+for supported ratio domain [0,10].
+
+More important:
+  monotonic and concavity properties must hold after rounding.
+
+20.7 `mini-reward`
+
+Retain:
+  demo non-spendable reward
+if useful.
+
+Rename documentation so no one confuses:
+  demo points
+with:
+  production monetary service issuance.
+
+Production chain calls:
+  service_rewards_v1.
+
+20.8 `crates/mini-economy/src/contribution_policy_v1.rs` — ADD
+
+Constants:
+  annual2500ppm
+  epoch=1/12
+  volume fraction2%
+  per-human0.25%
+  haircut10%
+  initial lock90d
+  full vest365d
+  depth multiplier20
+  market-history90d.
+
+20.9 `crates/mini-treasury/src/rate_v2.rs` — ADD / replace production rate
+
+Types:
+
+  PriceAssetId
+  ControlDomainId
+  PriceObservation
+  PriceBucket
+  OracleWindowCommitment
+  ContributionRateCommitmentV2
+  PauseReason
+
+No opaque governed scalar is enough for production minting.
+
+20.10 `mint_amount_micro`
+
+Replace with:
+  checked u128 `Amount` conversion.
+
+Delete or test-only the narrowing version.
+
+20.11 `receipt.rs`
+
+Replace fixed historical enum with:
+  versioned asset/network ID.
+
+Receipt object must ultimately bind:
+  external network;
+  transaction/output identity;
+  accepted amount;
+  destination reserve vault;
+  contribution epoch;
+  recipient commitment;
+  finality proof reference;
+  consumed-receipt/nullifier ID.
+
+Economics requires:
+  exactly-once consumption.
+
+Actual cryptographic verification remains in the appropriate bridge/receipt
+module already governed by its separate gate.
+
+20.12 `mini-econ-sim`
+
+Replace V1 scenario as production-calibration authority with:
+
+  SimulationV2
+
+Keep V1:
+  regression/history only.
+
+SimulationV2 implements Sections15–18.
+
+20.13 governance integration
+
+Parameter proposals cannot create arbitrary MonetaryPolicy.
+
+They can propose only:
+  an allowed `EconomicParameterUpdateV1`.
+
+Bounds:
+
+  total annual cap:
+    cannot exceed3%.
+
+  Human channel:
+    cannot fall below2% while the D0074 Human Share model is canonical.
+
+  Service:
+    cannot exceed0.75%.
+
+  Contribution:
+    cannot exceed0.25%.
+
+  reward exponent:
+    0.30 <= a <=0.50.
+
+  capacity input cap:
+    <=10x median.
+
+  diversity:
+    <=20%.
+
+  per-human service:
+    <=2% class pool.
+
+  contribution haircut:
+    10%..20%.
+
+  contribution per-human:
+    <=0.25%.
+
+  trailing-volume fraction:
+    <=2%.
+
+  contribution depth multiplier:
+    >=20.
+
+  oracle:
+    roster >=7 domains;
+    bucket quorum >=5.
+
+Any proposal outside:
+  unrepresentable / reject before vote.
+
+20.14 constitution guard
+
+Add negative invariants:
+  no balance->voice;
+  no annual budget overshoot;
+  no optional-channel stealing Human capacity;
+  no human vest acceleration;
+  no convex service reward;
+  no removal of per-human caps;
+  no contribution rate without oracle commitment.
+
+
+======================================================================
+21. ADVERSARIAL IMPLEMENTATION TEST PROGRAM
+======================================================================
+
+The simulator is not enough.
+
+The production crates need direct invariant tests.
+
+BUDGET / SUPPLY
+
+T6-001  exact 365-day year at 3% full utilization never exceeds 3%.
+T6-002  twelve equal epochs full utilization never exceeds 3%.
+T6-003  newly issued epoch1 supply does not enlarge epoch2 annual capacity.
+T6-004  newly issued epoch11 supply does not enlarge epoch12 capacity.
+T6-005  year rollover snapshots exactly once.
+T6-006  duplicate year-open event rejects.
+T6-007  stale year index rejects.
+T6-008  future year index rejects.
+T6-009  burn in epoch6 does not replenish year6 budget.
+T6-010  burn is reflected only in the next applicable reference snapshot.
+T6-011  user escrow/lock does not shrink TotalIssuedClaimSupply.
+T6-012  unissued service capacity cannot be debited as contribution.
+T6-013  unissued contribution capacity cannot be debited as service.
+T6-014  Human budget cannot be transferred to another channel.
+T6-015  service underfill expires.
+T6-016  contribution underfill expires.
+T6-017  division remainder stays unissued.
+T6-018  optional channel overflow cannot reduce valid Human issuance.
+T6-019  state replay reproduces exact year-to-date counters.
+T6-020  state-root commitment changes on every successful issuance debit.
+
+HUMAN SHARE
+
+T6-021  two eligible humans get equal grant.
+T6-022  2,048 eligible humans get equal grant.
+T6-023  20 billion eligible humans aggregate without per-human materialization.
+T6-024  zero eligible humans issue zero Human Share.
+T6-025  VouchedHuman gets zero.
+T6-026  EvidenceQualified gets zero.
+T6-027  ActiveMature gets grant.
+T6-028  Dormant gets no new grant.
+T6-029  founder MatureHuman equals non-founder MatureHuman.
+T6-030  whale MatureHuman equals zero-balance MatureHuman.
+T6-031  extra devices do not multiply grant.
+T6-032  extra wallets do not multiply grant.
+T6-033  one-year active vest fraction exactly <=0.001.
+T6-034  just-before-one-year does not round above0.001.
+T6-035  just-after-one-year is monotone.
+T6-036  five-year point matches curve.
+T6-037  ten-year point exactly20% subject to floor.
+T6-038  year100 <year200.
+T6-039  year999 <100%.
+T6-040  year1000 =100%.
+T6-041  year1001 remains100%.
+T6-042  dormancy pauses active vesting age.
+T6-043  12-month dormancy does not advance vesting.
+T6-044  reactivation resumes from prior active age.
+T6-045  reactivation does not catch up inactive interval.
+T6-046  moderation ban cannot alter grant.
+T6-047  governance disagreement cannot alter grant.
+T6-048  validator fault cannot confiscate vested Human Share.
+T6-049  duplicate-credential invalidation requires approved objective proof type.
+T6-050  already vested amount never decreases.
+
+SERVICE
+
+T6-051  q=0 gets0 reward.
+T6-052  no providers ->0 issuance.
+T6-053  equal q -> equal weights.
+T6-054  doubling q multiplies raw weight by approximately 2^0.4, not2.
+T6-055  10x median weight approximately2.5119.
+T6-056  100x median cannot exceed 10x input-capped weight.
+T6-057  curve is monotone over entire integer domain.
+T6-058  discrete curve is concave within rounding specification.
+T6-059  approximation error <=1e-6 relative where nonzero.
+T6-060  diversity multiplier1.2 never exceeded.
+T6-061  missing diversity proof uses1.0.
+T6-062  false/malformed diversity proof cannot increase reward.
+T6-063  one human gets <=2% storage subpool.
+T6-064  one human gets <=2% relay subpool.
+T6-065  one human gets <=2% publisher subpool.
+T6-066  one human gets <=2% search subpool.
+T6-067  one human gets <=2% security subpool.
+T6-068  one human with all roles gets <=2% aggregate service channel if every
+         class is exhausted at its same per-human percentage.
+T6-069  fifty capped equal providers can exhaust a class.
+T6-070  forty capped providers leave >=20% of class unissued.
+T6-071  remainder redistribution is deterministic.
+T6-072  capped provider excluded from further redistribution.
+T6-073  device split does not multiply cap.
+T6-074  wallet split does not multiply cap.
+T6-075  same MatureHuman across service identities shares cap.
+T6-076  direct user fee is not service issuance.
+T6-077  direct user fee can exceed inflationary per-human subsidy cap.
+T6-078  direct user fee adds no vote weight.
+T6-079  purchased idle storage does not earn without verified useful work.
+T6-080  self-witnessed storage does not earn.
+T6-081  fabricated routing receipt rejects.
+T6-082  repeated self-dealing content receipt is discounted/rejected by its
+         objective service verifier.
+T6-083  subjective code-review score cannot directly mint service inflation.
+T6-084  subjective moderation score cannot directly mint service inflation.
+T6-085  service split must sum exactly100%.
+T6-086  storage share<30% policy update rejects.
+T6-087  storage share>50% rejects.
+T6-088  relay outside10–25 rejects.
+T6-089  publisher outside10–25 rejects.
+T6-090  search outside5–15 rejects.
+T6-091  security outside10–25 rejects.
+T6-092  in-range split update waits next Economic Year.
+T6-093  balance cannot alter service curve.
+T6-094  founder status cannot alter service curve.
+T6-095  governance weight not derived from reward.
+
+CONTRIBUTION
+
+T6-096  contribution disabled before market-ready flag.
+T6-097  89-day trade history remains disabled.
+T6-098  90-day history alone insufficient if source quorum fails.
+T6-099  annual contribution issuance <=0.25%.
+T6-100  epoch capacity <=annual/12.
+T6-101  unused epoch capacity does not roll.
+T6-102  capacity <=2% trailing90d organic volume.
+T6-103  wash/self volume excluded where objectively detectable.
+T6-104  reserve gap may further reduce capacity.
+T6-105  depth20x condition may further reduce capacity.
+T6-106  one human <=0.25% epoch capacity.
+T6-107  one human1000 wallets still <=0.25%.
+T6-108  64 humans <=16%.
+T6-109  400 capped humans can fill100% if all other limits permit.
+T6-110  one transaction cannot bypass per-human cap.
+T6-111  one human multiple reserve assets shares epoch cap.
+T6-112  oversubscribed allocation is deterministic.
+T6-113  input transaction permutation does not change pro-rata allocations.
+T6-114  excess funds are not accepted without corresponding accepted issuance.
+T6-115  rate uses conservative external min(P24,P30).
+T6-116  rate uses conservative MINI max(P24,P30).
+T6-117  10% haircut applied after ratio.
+T6-118  haircut cannot be set<10%.
+T6-119  haircut>20% rejects policy update.
+T6-120  age89d contribution grant transferable=0.
+T6-121  age90d transferable=0 at exact boundary.
+T6-122  age91d >0 if amount large enough.
+T6-123  age364d <100%.
+T6-124  age365d =100%.
+T6-125  contribution wealth creates zero votes.
+T6-126  invalid receipt causes zero mint.
+T6-127  no receipt verifier causes zero mint.
+T6-128  duplicate receipt cannot mint twice.
+T6-129  exhausted annual budget causes zero additional mint.
+T6-130  contribution cannot steal service budget.
+T6-131  contribution cannot steal Human budget.
+T6-132  ordinary 1:1 bridge twin mint does not debit native contribution channel.
+T6-133  bridge trade does not create native TotalIssuedClaimSupply.
+T6-134  VIP rate path does not exist.
+T6-135  transaction ordering does not create VIP capacity.
+
+ORACLE
+
+T6-136  roster with6 domains cannot activate contribution.
+T6-137  roster with7 can activate if all other conditions pass.
+T6-138  two brands same parent count once.
+T6-139  one domain contributes one bucket vote.
+T6-140  bucket with4 domains invalid.
+T6-141  bucket with5 valid.
+T6-142  one +100% malicious extreme among5 does not move median outside honest
+         middle observations.
+T6-143  one -90% malicious extreme among5 same.
+T6-144  two colluding extremes among5 cannot control median if other3 are honest.
+T6-145  three colluding manipulation producing central span>10% pauses.
+T6-146  26% P24/P30 divergence pauses.
+T6-147  25% exact boundary is handled canonically.
+T6-148  future-dated observation rejects.
+T6-149  stale observation not reused as fresh bucket.
+T6-150  missing bucket not silently forward-filled.
+T6-151  94.9% window coverage pauses.
+T6-152  >=95% passes coverage floor.
+T6-153  invalid signature/source proof rejects observation.
+T6-154  unrostered domain ignored/rejected.
+T6-155  roster update before30d timelock cannot execute.
+T6-156  roster update cannot change old contribution rate.
+T6-157  oracle pause does not pause Human Share.
+T6-158  oracle pause does not pause governance.
+T6-159  oracle pause does not pause native transfers using fallback fee policy.
+T6-160  one source cannot carry >one control-domain weight.
+
+RESERVE
+
+T6-161  target 45/45/10 sums100.
+T6-162  XRP acquisition ending >50% rejects.
+T6-163  XMR acquisition ending >50% rejects.
+T6-164  contingency acquisition ending >10% rejects.
+T6-165  one contingency domain >5% rejects.
+T6-166  market appreciation above50% does not force sale.
+T6-167  overweight asset stops new acquisition.
+T6-168  XRP -80% target direct reserve loss=36%.
+T6-169  XMR -80% target direct reserve loss=36%.
+T6-170  both -80% direct reserve loss=72%.
+T6-171  one contingency domain total failure <=5% direct target loss.
+T6-172  reserve worth zero does not alter votes.
+T6-173  reserve worth zero does not alter Human Share formula except through
+         separately canonical issued-supply state.
+T6-174  reserve worth zero does not halt consensus.
+T6-175  no guaranteed redemption API exists unless a separate future constitutional
+         design explicitly creates one.
+T6-176  reserve committee cannot mint outside contribution budget.
+T6-177  reserve signer cannot choose contributor rate.
+T6-178  reserve rebalance cannot alter oracle history.
+T6-179  unavailable one reserve asset pauses its acquisition only.
+T6-180  contingency provider disappearance does not stop chain.
+
+FEES / VOICE ACCESS
+
+T6-181  valid MatureHuman with0 MINI can cast one governance vote.
+T6-182  vote inclusion path charges0 monetary fee.
+T6-183  baseline personhood refresh has zero-money path.
+T6-184  money cannot buy a second vote.
+T6-185  high transfer fee cannot block vote lane.
+T6-186  ordinary transfer target launch default=0.001 reference unit.
+T6-187  ordinary noncongested target cannot exceed0.01 reference unit under launch
+         safety bound.
+T6-188  oracle loss <=30d keeps last valid bounded schedule.
+T6-189  >30d loss uses deterministic low uMINI fallback.
+T6-190  fallback cannot become an external-provider halt switch.
+T6-191  fee collection is existing-value transfer, not mint.
+T6-192  relay convenience fee cannot become mandatory governance fee.
+
+ARITHMETIC
+
+T6-193  u64::MAX contribution units do not truncate silently.
+T6-194  u128 multiplication overflow returns error.
+T6-195  denominator0 returns error.
+T6-196  reduction-before-multiply preserves exact rational result.
+T6-197  amount conversion cannot use unchecked narrowing.
+T6-198  ppm multiplication floors deterministically.
+T6-199  negative amounts impossible by type.
+T6-200  malformed decimal exponent rejects.
+T6-201  price normalization is canonical.
+T6-202  float/NaN not representable in consensus price.
+T6-203  1e18 MINI initial-reference maximum accepted.
+T6-204  >1e18 initial reference rejected.
+T6-205  1000y full3% at max accepted reference does not overflow u128.
+T6-206  year-to-date counter addition checked.
+T6-207  total issued claim addition checked.
+T6-208  reward normalization checked.
+T6-209  pro-rata contribution sum <=capacity.
+T6-210  pro-rata service sum <=subpool.
+
+REPLAY / DETERMINISM
+
+T6-211  same chain state+txs ->same budget state on two clean nodes.
+T6-212  same Human snapshot ->same grant.
+T6-213  same service proofs in different input order ->same reward allocation.
+T6-214  same contribution requests in different order ->same allocation.
+T6-215  same oracle observations in different order ->same median/windows.
+T6-216  same reserve state ->same capacity.
+T6-217  historical replay uses committed source observations.
+T6-218  historical replay makes no live exchange HTTP request.
+T6-219  historical replay makes no treasury operator callback.
+T6-220  historical replay makes no governance human judgment.
+T6-221  unsupported policy version fails closed.
+T6-222  state transition cannot skip economic year close.
+T6-223  duplicate contribution receipt state deterministic.
+T6-224  duplicate service proof state deterministic.
+T6-225  reorg/finality path cannot count non-final oracle observations as final
+         contribution rate.
+
+SIMULATION V2
+
+T6-226  all POP-01..10 execute.
+T6-227  all ISS-01..10 execute.
+T6-228  all WH-01..05 execute in required whale strategies.
+T6-229  all SRV-01..15 execute.
+T6-230  all SYB-01..14 execute.
+T6-231  all RES-01..20 execute.
+T6-232  all ORC-01..20 execute.
+T6-233  all CON-01..20 execute.
+T6-234  all FEE-01..10 execute.
+T6-235  all LONG-01..12 execute.
+T6-236  simulator models locked Human Share.
+T6-237  simulator models active vesting age.
+T6-238  simulator models contribution lock/release.
+T6-239  simulator models reserve asset prices separately.
+T6-240  simulator models depth separately from volume.
+T6-241  simulator models source control domains.
+T6-242  simulator models oracle outage.
+T6-243  simulator models service q distribution.
+T6-244  simulator does not assign service reward to whale by fixed arbitrary half.
+T6-245  simulator models dormancy and reactivation.
+T6-246  simulator reports TotalIssuedClaimSupply.
+T6-247  simulator reports VestedSupply.
+T6-248  simulator reports TransferableSupply.
+T6-249  simulator reports top-holder diagnostics.
+T6-250  simulator has no balance->governance function.
+
+200-YEAR / 1000-YEAR RESULTS
+
+T6-251  every mandatory200y scenario preserves3% annual cap.
+T6-252  every scenario preserves Human equality.
+T6-253  every scenario preserves balance-independent vote.
+T6-254  future entrant y100 receives current equal Human grant.
+T6-255  future entrant y500 receives current equal Human grant.
+T6-256  90%-wealth holder remains one vote.
+T6-257  contribution-disabled100y native chain still operates economically.
+T6-258  all reserve assets worth0 does not corrupt native issuance ledger.
+T6-259  1000y vest curve ends exactly100%.
+T6-260  1000y numeric stress fits u128.
+
+PROPERTY / FUZZ
+
+T6-261  fuzz MonetaryPolicyV1 decoder.
+T6-262  fuzz EconomicParameterUpdateV1.
+T6-263  fuzz annual-budget debit sequences.
+T6-264  property sum channel issuance<=gross budget.
+T6-265  property Human grant equal for arbitrary eligible count.
+T6-266  property Human vesting monotone.
+T6-267  property Human vesting <=grant.
+T6-268  property dormancy never increases active age.
+T6-269  property service weight monotone.
+T6-270  property discrete service function nonconvex/no superlinear interval.
+T6-271  property service sum<=pool.
+T6-272  property person cap<=2%.
+T6-273  fuzz oracle observations.
+T6-274  property median permutation invariant.
+T6-275  property one parent gets one domain weight.
+T6-276  fuzz contribution pro-rata.
+T6-277  property contribution sum<=capacity.
+T6-278  property one human<=0.25%.
+T6-279  fuzz price rational arithmetic.
+T6-280  arbitrary bytes never panic monetary decoder.
+
+DOCUMENT TRUTH
+
+T6-281  D-0074 one-year Human vesting marked superseded.
+T6-282  File4 lifetime-bag wording cross-referenced/superseded by perpetual-grant
+         interpretation.
+T6-283  old SPEC-07 BTC/XMR launch framing marked historical where D-0073 supersedes.
+T6-284  docs stop calling current RateHistory production oracle.
+T6-285  docs stop calling mini-reward demo points production MINI.
+T6-286  docs stop calling current mini-econ-sim complete calibration.
+T6-287  docs state contribution mint disabled until market-ready.
+T6-288  docs state reserve is not redemption guarantee.
+T6-289  docs state wealth economic influence residual.
+T6-290  docs state no holdings-equality guarantee.
+
+GOVERNANCE BOUNDS
+
+T6-291  proposal cannot raise gross annual ceiling >3%.
+T6-292  proposal cannot lower Human protected channel below2%.
+T6-293  proposal cannot raise service >0.75%.
+T6-294  proposal cannot raise contribution >0.25%.
+T6-295  proposal cannot set reward exponent<0.3.
+T6-296  proposal cannot set reward exponent>0.5.
+T6-297  proposal cannot set effective-work cap>10x median.
+T6-298  proposal cannot set diversity bonus>20%.
+T6-299  proposal cannot set per-human service cap>2%.
+T6-300  proposal cannot set contribution haircut<10%.
+T6-301  proposal cannot set contribution per-human cap>0.25%.
+T6-302  proposal cannot set trailing-volume contribution fraction>2%.
+T6-303  proposal cannot set depth multiplier<20.
+T6-304  proposal cannot set oracle roster<7 domains.
+T6-305  proposal cannot set oracle quorum<5 domains.
+T6-306  proposal cannot set roster timelock<30d.
+T6-307  proposal cannot alter current-year budget retroactively.
+T6-308  proposal cannot alter already-issued vesting grant terms retroactively.
+T6-309  proposal cannot assign a named contributor preferential economics.
+T6-310  invalid parameter proposal is unrepresentable/rejected before tally execution.
+
+VOICE / VALUE WALL NEGATIVE TESTS
+
+T6-311  adding1 MINI changes zero governance fields.
+T6-312  adding1e18 MINI changes zero governance fields.
+T6-313  owning90% supply changes zero vote-weight fields.
+T6-314  earning max service subsidy changes zero vote-weight fields.
+T6-315  filling contribution cap changes zero vote-weight fields.
+T6-316  reserve signer status changes zero vote weight unless person separately votes
+         once as a MatureHuman.
+T6-317  oracle source operator receives no governance weight.
+T6-318  exchange operator receives no governance weight.
+T6-319  storage warehouse receives at most one human vote for its actual human owner,
+         not one vote per machine.
+T6-320  wealth cannot bypass proposal/vote personhood nullifier.
+
+MARKET / LIQUIDITY HONESTY
+
+T6-321  simulator never labels a modeled price as guaranteed future price.
+T6-322  contribution haircut not represented as price peg.
+T6-323  reserve not counted as guaranteed MINI backing/redemption liability.
+T6-324  price can fall99% without constitutional failure.
+T6-325  price can rise100x without automatically raising vote weight.
+T6-326  low depth shrinks/pauses contribution.
+T6-327  high volume but low depth does not bypass depth gate.
+T6-328  high depth at one venue does not satisfy three-domain depth gate.
+T6-329  contribution volume cannot bootstrap its own organic-volume denominator.
+T6-330  treasury internal trades excluded from organic contribution-volume loop where
+         objectively known.
+
+PRIVACY
+
+T6-331  Human Share calculation needs only MatureHuman set/root/count.
+T6-332  Human Share does not publish wealth-human linkage beyond ordinary ledger.
+T6-333  contribution cap proof uses scoped personhood nullifier.
+T6-334  contribution cap need not expose legal name.
+T6-335  service cap proof uses scoped MatureHuman proof.
+T6-336  service proof need not expose governance-vote linkage.
+T6-337  oracle source domain public identity is role data, not user unmasking key.
+T6-338  reserve allocation needs no personal user data.
+T6-339  zero-fee vote lane needs no wealth proof.
+T6-340  no economic admin database maps pseudonyms to legal identity.
+
+FAILURE / INDEPENDENCE
+
+T6-341  all seven oracle domains offline ->contribution paused, native chain lives.
+T6-342  XRPL down ->native Human Share lives.
+T6-343  XMR unavailable ->native Human Share lives.
+T6-344  reserve custody paused ->native governance lives.
+T6-345  service verifier for one class fails ->that class pauses, other classes live.
+T6-346  market-price oracle fails ->voice-critical actions remain accessible.
+T6-347  contribution module bug cannot exceed constitution budget if guard works.
+T6-348  treasury signer quorum cannot override issuance ceiling.
+T6-349  2/3 validator committee cannot make balance into vote through a valid state
+         transition.
+T6-350  no founder emergency economic override exists.
+
+REPRODUCIBILITY / REPORTING
+
+T6-351  exact source revision in calibration artifact.
+T6-352  simulator RNG seed recorded for stochastic scenarios.
+T6-353  deterministic scenario has no RNG dependence.
+T6-354  stochastic distributions document generator/version/seed.
+T6-355  raw scenario outputs committed or reproducibly regenerable.
+T6-356  failed scenarios preserved.
+T6-357  no post-hoc threshold changed without new Decision Log entry.
+T6-358  report distinguishes claim-supply from liquid supply.
+T6-359  report distinguishes protocol reward from market income.
+T6-360  report distinguishes formal governance from socioeconomic influence.
+
+
+======================================================================
+22. MANDATORY CONFORMANCE MATRIX — C6-001 THROUGH C6-430
+======================================================================
+
+POLICY / ANNUAL BUDGET
+
+C6-001  production uses MonetaryPolicyV1 or exact adopted equivalent.
+C6-002  total annual ceiling=30,000 ppm.
+C6-003  Human annual protected budget=20,000 ppm.
+C6-004  service annual ceiling=7,500 ppm.
+C6-005  contribution annual ceiling=2,500 ppm.
+C6-006  Economic Year=31,536,000,000ms.
+C6-007  exactly12 equal issuance epochs/year.
+C6-008  epoch=2,628,000,000ms.
+C6-009  annual reference snapshots once at finalized year boundary.
+C6-010  annual reference uses TotalIssuedClaimSupply, not exchange analytics.
+C6-011  bootstrap reference floor=max(claim supply, MatureHumans*1 MINI).
+C6-012  bootstrap floor creates no owned balance by itself.
+C6-013  reference cannot be reduced by voluntary escrow.
+C6-014  reference cannot be reduced by lost keys.
+C6-015  reference cannot be manually edited by treasury operator.
+C6-016  annual Human budget fixed at year open.
+C6-017  annual service budget fixed at year open.
+C6-018  annual contribution budget fixed at year open.
+C6-019  current-year new issuance never enlarges current-year budget.
+C6-020  Human/service/contribution used counters canonical.
+C6-021  every issuance atomically debits one correct channel.
+C6-022  double debit impossible.
+C6-023  budget underflow impossible.
+C6-024  budget overflow fails closed.
+C6-025  Human capacity cannot be reclassified.
+C6-026  service capacity cannot become contribution.
+C6-027  contribution capacity cannot become service.
+C6-028  unused optional capacity expires.
+C6-029  rounding remainder remains unissued.
+C6-030  burn does not replenish current year.
+C6-031  next-year reference correctly includes prior valid burns.
+C6-032  no emergency-mint function.
+C6-033  no founder-mint function.
+C6-034  no validator-quorum mint override.
+C6-035  no treasury-signer mint override.
+C6-036  no bridge-mint path creates canonical MINI without correct lock/issuance rule.
+C6-037  all policy arithmetic integer/fixed point.
+C6-038  invalid economic year transition rejects.
+C6-039  skipped epoch cannot double later allowance.
+C6-040  full year replay proves <=3%.
+
+HUMAN SHARE ELIGIBILITY / EQUALITY
+
+C6-041  eligibility source is File4 Active MatureHuman set.
+C6-042  no balance eligibility input.
+C6-043  no founder input.
+C6-044  no contribution input.
+C6-045  no storage-capacity input.
+C6-046  no country input.
+C6-047  no government-ID bonus.
+C6-048  no TEE bonus.
+C6-049  no early-adopter multiplier.
+C6-050  no validator multiplier.
+C6-051  one MatureHuman receives one epoch grant.
+C6-052  many devices still one grant.
+C6-053  many pseudonyms still one grant.
+C6-054  all eligible humans receive identical micro amount.
+C6-055  deterministic integer remainder unissued.
+C6-056  VouchedHuman receives0.
+C6-057  EvidenceQualified receives0.
+C6-058  Dormant receives0 new grant.
+C6-059  reactivated ActiveMature receives current grant prospectively.
+C6-060  late adopter current grant equals early adopter current grant.
+C6-061  equal-share planning scales to20b humans.
+C6-062  no recipient list required on every block if aggregate proof/root suffices.
+C6-063  one-person one-grant nullifier/proof cannot be replayed.
+C6-064  Human Share channel cannot be undercut by optional demand.
+C6-065  zero eligible humans causes no divide-by-zero.
+C6-066  zero eligible humans leaves Human slice unissued.
+C6-067  Human allocation never creates governance extra weight.
+C6-068  Human allocation never creates validator extra weight.
+C6-069  Human allocation never changes personhood.
+C6-070  Human allocation is claim value only.
+
+HUMAN VESTING
+
+C6-071  one-year full-vesting shortcut absent from production.
+C6-072  every grant stores/derives vesting-policy version.
+C6-073  active-age0 vested=0.
+C6-074  active-age1y <=0.1%.
+C6-075  active-age5y matches adopted curve.
+C6-076  active-age10y=20%.
+C6-077  active-age100y matches adopted curve.
+C6-078  active-age500y matches adopted curve.
+C6-079  active-age1000y=100%.
+C6-080  curve monotonic.
+C6-081  curve cannot exceed100%.
+C6-082  no negative vesting.
+C6-083  active age advances only while ActiveMature.
+C6-084  grace/dormancy pauses active age.
+C6-085  reactivation resumes, no catchup.
+C6-086  already vested amount never reverses.
+C6-087  moderation cannot alter vesting.
+C6-088  speech cannot alter vesting.
+C6-089  validator misconduct cannot confiscate Human vested value.
+C6-090  contribution activity cannot accelerate Human vesting.
+C6-091  payment cannot accelerate Human vesting.
+C6-092  hardware wealth cannot accelerate Human vesting.
+C6-093  unvested Human grant nontransferable.
+C6-094  unvested Human grant non-collateralizable by protocol.
+C6-095  unvested Human grant has no vote.
+C6-096  duplicate credential invalidation follows File4 exact proof rule only.
+C6-097  human accusation cannot burn grant.
+C6-098  admin cannot mark human dead to seize grant.
+C6-099  permanent absence creates no treasury windfall.
+C6-100  vested inheritance/recovery remains holder-controlled.
+
+SERVICE POOLS
+
+C6-101  total service annual issuance<=0.75%.
+C6-102  launch storage share40%.
+C6-103  launch relay share20%.
+C6-104  launch publisher share15%.
+C6-105  launch search share10%.
+C6-106  launch security share15%.
+C6-107  shares sum100%.
+C6-108  storage tunable range30–50%.
+C6-109  relay range10–25%.
+C6-110  publisher range10–25%.
+C6-111  search range5–15%.
+C6-112  security range10–25%.
+C6-113  subpool update only next year.
+C6-114  subjective work not automatically minted by opaque reputation.
+C6-115  direct bounty can pay subjective work separately.
+C6-116  direct user fee separate from inflation.
+C6-117  unused subpool expires.
+C6-118  subpool cannot borrow next year's capacity.
+C6-119  service capacity cannot borrow Human capacity.
+C6-120  service capacity cannot borrow contribution capacity.
+
+SERVICE WORK / CURVE
+
+C6-121  q means verified useful work.
+C6-122  raw purchased hardware alone earns0.
+C6-123  service proof verifier fail-closed.
+C6-124  median uses eligible positive providers.
+C6-125  no positive providers ->0 issuance.
+C6-126  r=q/m canonical rational.
+C6-127  r capped at10.
+C6-128  exponent launch=0.40.
+C6-129  exponent governance floor=0.30.
+C6-130  exponent governance ceiling=0.50.
+C6-131  deterministic fixed-point power.
+C6-132  no consensus float.
+C6-133  q=median ->weight1 before bonus.
+C6-134  q=2m ->~1.3195 weight before rounding tolerance.
+C6-135  q=10m ->~2.5119.
+C6-136  q=100m no more than q=10m.
+C6-137  function monotone.
+C6-138  function concave to fixed-point property standard.
+C6-139  approximation relative error<=1e-6.
+C6-140  diversity minimum1.0.
+C6-141  diversity maximum1.2.
+C6-142  no proof ->diversity1.0.
+C6-143  diversity input cannot use raw GPS mandate.
+C6-144  diversity cannot use wealth.
+C6-145  normalized rewards deterministic.
+C6-146  one human max2% each subpool.
+C6-147  iterative cap redistribution deterministic.
+C6-148  capped provider not paid over cap via remainder.
+C6-149  multiple devices share cap.
+C6-150  multiple service identities share cap.
+C6-151  founder shares same cap.
+C6-152  warehouse shares same cap.
+C6-153  50 distinct humans can collectively use full pool if weights permit.
+C6-154  <50 capped providers may leave pool unissued.
+C6-155  service reward cannot buy formal vote.
+C6-156  service reward cannot alter personhood.
+C6-157  service work may affect only separately allowed validator selection, never
+         BFT vote weight.
+C6-158  current linear mini-reward not production monetary curve.
+C6-159  docs clearly distinguish demo reward.
+C6-160  service proof replay cannot double claim.
+
+CONTRIBUTION ACTIVATION / CAP
+
+C6-161  contribution mint disabled at mainnet genesis.
+C6-162  activation requires90d real market history.
+C6-163  activation requires oracle roster>=7 domains.
+C6-164  activation requires bucket quorum>=5.
+C6-165  activation requires>=95% coverage.
+C6-166  activation requires depth across>=3 domains.
+C6-167  no one depth domain>50%.
+C6-168  qualifying depth>=20x planned capacity.
+C6-169  contribution annual<=0.25%.
+C6-170  epoch fixed budget<=annual/12.
+C6-171  epoch actual<=2% V90 organic volume.
+C6-172  epoch actual<=reserve gap.
+C6-173  epoch actual<=remaining annual budget.
+C6-174  unused epoch capacity expires.
+C6-175  no rollover.
+C6-176  one MatureHuman cap<=0.25%.
+C6-177  many wallets do not increase cap.
+C6-178  many source-chain addresses do not increase cap.
+C6-179  different reserve assets still share human epoch cap.
+C6-180  64 humans max16% epoch.
+C6-181  oversubscription pro-rata.
+C6-182  transaction order irrelevant.
+C6-183  excess reserve asset not silently accepted.
+C6-184  privileged contributor lane absent.
+C6-185  founder lane absent.
+C6-186  institutional lane absent.
+C6-187  nation/citizenship lane absent.
+C6-188  contribution creates0 vote.
+C6-189  contribution creates0 personhood.
+C6-190  contribution creates0 validator vote weight.
+
+CONTRIBUTION PRICE / VESTING
+
+C6-191  external asset conservative price=min(P24,P30).
+C6-192  MINI conservative price=max(P24,P30).
+C6-193  raw ratio exact fixed point/rational.
+C6-194  haircut=at least10%.
+C6-195  haircut<=20% tunable ceiling.
+C6-196  same epoch uses same committed rule.
+C6-197  no negotiated rate.
+C6-198  contribution grant locked90d.
+C6-199  day<90 vested0.
+C6-200  day90 vested0.
+C6-201  day90..365 linear.
+C6-202  day365 full.
+C6-203  no giant full unlock at day90.
+C6-204  rate history cannot be plain unproven scalar in production.
+C6-205  rate commitment contains asset/network ID.
+C6-206  rate commitment contains epoch.
+C6-207  rate commitment contains source-domain set hash.
+C6-208  rate commitment contains window/bucket commitment.
+C6-209  rate commitment contains haircut.
+C6-210  historic rate replay self-contained from canonical data.
+
+RECEIPT / EXACTLY ONCE ECONOMIC BOUNDARY
+
+C6-211  receipt names exact source network.
+C6-212  receipt names exact asset.
+C6-213  receipt names transaction/output identifier.
+C6-214  receipt names accepted amount.
+C6-215  receipt binds reserve destination.
+C6-216  receipt binds contribution epoch.
+C6-217  receipt binds recipient commitment.
+C6-218  receipt finality is independently verified by correct chain-specific module.
+C6-219  consumed receipt ID canonical.
+C6-220  same receipt cannot mint twice.
+C6-221  NoExternalReceiptOracle equivalent remains fail-closed.
+C6-222  signer attestation cannot bypass cryptographic receipt requirement where policy
+         requires trust-minimized verification.
+C6-223  receipt verification failure does not consume contribution capacity unless
+         atomic accepted state dictates.
+C6-224  invalid receipt cannot move reserve accounting.
+C6-225  contribution rate approval cannot make invalid receipt valid.
+C6-226  economic audit does not weaken custody gate.
+C6-227  economic audit does not weaken bridge-supply reconciliation.
+C6-228  old BTC/XMR enum cannot silently map wrong new asset.
+C6-229  asset version migration explicit.
+C6-230  source-chain reorg/finality policy version bound.
+
+ORACLE SOURCE INDEPENDENCE
+
+C6-231  roster contains>=7 independent control domains.
+C6-232  parent-company duplicates collapsed.
+C6-233  API mirror duplicates collapsed.
+C6-234  one domain=one price weight.
+C6-235  quorum>=5.
+C6-236  five-minute bucket canonical.
+C6-237  block/finalized time defines bucket.
+C6-238  future price observation rejects.
+C6-239  stale observation not forward-filled indefinitely.
+C6-240  bucket median deterministic.
+C6-241  24h median window deterministic.
+C6-242  30d median window deterministic.
+C6-243  coverage>=95%.
+C6-244  P24/P30 below0.75 pauses.
+C6-245  P24/P30 above1.25 pauses.
+C6-246  central-span robust test uses second-lowest/second-highest.
+C6-247  >10% central span in>5% current24h buckets pauses.
+C6-248  one extreme source cannot DoS via max/min alone.
+C6-249  one extreme source cannot move median.
+C6-250  two extremes cannot control five-source median.
+C6-251  roster change timelock>=30d.
+C6-252  roster change prospective.
+C6-253  roster change cannot rewrite old epoch.
+C6-254  no administrator can inject official price.
+C6-255  validator cannot override median with manual price.
+C6-256  source outage pauses contribution only.
+C6-257  oracle outage leaves Human Share live.
+C6-258  oracle outage leaves governance live.
+C6-259  oracle outage leaves native consensus live.
+C6-260  historic oracle evidence independently replayable.
+
+RESERVE
+
+C6-261  target XRP45%.
+C6-262  target XMR45%.
+C6-263  target contingency10%.
+C6-264  target sums100%.
+C6-265  XRP post-acquisition hard ceiling50%.
+C6-266  XMR post-acquisition hard ceiling50%.
+C6-267  contingency total ceiling10%.
+C6-268  one contingency control domain ceiling5%.
+C6-269  appreciation above ceiling does not force sell.
+C6-270  overweight asset new acquisition stops.
+C6-271  new contributions prefer underweight eligible asset.
+C6-272  reserve weights use robust canonical price set.
+C6-273  missing price cannot fabricate reserve gap.
+C6-274  XRP -80% target direct loss36%.
+C6-275  XMR -80% target direct loss36%.
+C6-276  both -80% target direct loss72%.
+C6-277  single contingency issuer loss<=5%.
+C6-278  reserve loss creates no emergency mint.
+C6-279  reserve loss creates no extra vote.
+C6-280  reserve loss creates no personhood change.
+C6-281  reserve loss cannot change finality weight.
+C6-282  reserve is not promised redemption.
+C6-283  no bank/issuer becomes protocol root.
+C6-284  unavailable reserve asset does not halt MINI.
+C6-285  contingency can remain partially empty rather than centralize.
+C6-286  current reserve policy version explicit.
+C6-287  old reserve policy historical state remains auditable.
+C6-288  reserve rebalance does not bypass contribution issuance.
+C6-289  treasury spend does not change total issuance unless separate valid issuance
+         event exists.
+C6-290  reserve allocation governance remains one-human-one-vote.
+
+FEE / ACCESS
+
+C6-291  governance vote zero-money path.
+C6-292  personhood baseline maintenance zero-money path.
+C6-293  constitutional challenge zero-money path where otherwise poverty would bar it.
+C6-294  no MINI balance minimum for voting.
+C6-295  no stake deposit for voting.
+C6-296  standard transfer launch target0.001 reference unit.
+C6-297  standard noncongested launch ceiling0.01.
+C6-298  fee conversion uses robust bounded oracle.
+C6-299  oracle failure up to30d keeps last valid schedule.
+C6-300  longer failure uses deterministic low MINI fallback.
+C6-301  fee fallback cannot be remotely disabled.
+C6-302  fee revenue is transfer not issuance.
+C6-303  fee payer gets no voice.
+C6-304  high fee cannot purchase priority vote weight.
+C6-305  congestion does not remove zero-money vote lane.
+C6-306  spam controls on zero-money lane are human/rate/resource based, not wealth.
+C6-307  external reference unit is pricing aid, not peg.
+C6-308  no central price provider mandatory.
+C6-309  fee target change timelocked/bounded.
+C6-310  fee mechanism cannot alter constitutional vote equality.
+
+WHALE / FORMAL POWER
+
+C6-311  balance absent from governance weight.
+C6-312  balance absent from personhood score.
+C6-313  balance absent from vouch quota.
+C6-314  balance absent from MatureHuman qualification.
+C6-315  balance absent from BFT vote weight.
+C6-316  balance absent from constitutional guard.
+C6-317  balance absent from release approval.
+C6-318  balance absent from maintainer authority.
+C6-319  balance absent from moderator authority.
+C6-320  balance absent from treasury signer eligibility.
+C6-321  balance absent from oracle observation weight.
+C6-322  holdings cap does not exist.
+C6-323  confiscatory equalization does not exist.
+C6-324  rich person may buy value in free market.
+C6-325  purchased value never buys second vote.
+C6-326  protocol-created service capture per human bounded.
+C6-327  protocol-created contribution capture per human bounded.
+C6-328  Human Share equal despite whale status.
+C6-329  diagnostic Gini does not trigger confiscation.
+C6-330  vote-buying residual documented.
+C6-331  ballot receipt/coercion hardening tracked separately.
+C6-332  reach floor cannot be bought below frozen minimum.
+C6-333  paid dislike cannot erase a person's governance vote.
+C6-334  whale can fund fork, but cannot force conforming network adoption.
+C6-335  whale market manipulation cannot rewrite monetary-policy state.
+
+ARITHMETIC / NUMERIC SAFETY
+
+C6-336  monetary unit internal width>=u128 micro.
+C6-337  no unchecked u128 addition.
+C6-338  no unchecked u128 multiplication.
+C6-339  no unchecked narrowing to u64.
+C6-340  no float in consensus issuance.
+C6-341  no NaN/infinity price representation.
+C6-342  zero denominator rejects.
+C6-343  rational multiplication reduction/checked.
+C6-344  ppm math exact/floored.
+C6-345  rounding always downward for new issuance.
+C6-346  max initial reference<=1e18 MINI.
+C6-347  1000y full issuance numeric test passes.
+C6-348  oversized contribution conversion rejects.
+C6-349  oversized oracle exponent rejects.
+C6-350  malformed amount encoding rejects.
+C6-351  monetary state decoder bounded.
+C6-352  service q arithmetic checked.
+C6-353  reward cap multiplication checked.
+C6-354  pro-rata numerator checked.
+C6-355  total issued supply cannot wrap.
+
+SIMULATION / CALIBRATION
+
+C6-356  SimulationV2 exists.
+C6-357  12 epochs/year resolution.
+C6-358  mandatory horizon200y.
+C6-359  numeric horizon1000y.
+C6-360  population cohorts modeled.
+C6-361  dormant/reactivation modeled.
+C6-362  locked Human grants modeled.
+C6-363  active vesting age modeled.
+C6-364  service work distributions modeled.
+C6-365  service concavity modeled.
+C6-366  per-human service cap modeled.
+C6-367  reserve assets separately modeled.
+C6-368  price shocks modeled.
+C6-369  oracle domains modeled.
+C6-370  contribution depth modeled.
+C6-371  contribution volume modeled.
+C6-372  contribution vesting modeled.
+C6-373  whale protocol reward derived, not hard-coded half service.
+C6-374  direct market purchases separated from protocol issuance.
+C6-375  TotalIssuedClaimSupply reported.
+C6-376  VestedSupply reported.
+C6-377  TransferableSupply reported.
+C6-378  Human equality reported.
+C6-379  top-holder diagnostics reported.
+C6-380  formal vote count separate from wealth.
+C6-381  scenario RNG seeds recorded.
+C6-382  deterministic scenarios reproducible.
+C6-383  all Section16 groups executed.
+C6-384  all A6-001..060 pass.
+C6-385  failed runs are not deleted.
+C6-386  no success threshold changed after results without explicit new decision.
+C6-387  raw outputs committed/reproducible.
+C6-388  two independent replay runs agree.
+C6-389  simulator docs state it is model, not price oracle.
+C6-390  simulation cannot by itself change chain params.
+
+DOCUMENT / GOVERNANCE TRUTH
+
+C6-391  D-0074 365d Human full vest marked superseded.
+C6-392  File4 cross-reference corrected.
+C6-393  SPEC-05 historical conflict explained, not silently deleted.
+C6-394  SPEC-07 old contribution framing marked superseded where necessary.
+C6-395  D-0073 reserve target marked superseded45/45/10.
+C6-396  D-0073 5% haircut marked superseded10%.
+C6-397  D-0073 90d full vest marked superseded365d schedule.
+C6-398  D-0073 1% human contribution cap marked superseded0.25%.
+C6-399  D-0073 10% V90 cap marked superseded2%.
+C6-400  D-0073 >=3/2-domain oracle marked superseded7-roster/5-quorum.
+C6-401  Decision Log records this calibration as one coherent superseding decision.
+C6-402  constitutional/frozen vs tunable fields enumerated.
+C6-403  tunable updates have explicit code bounds.
+C6-404  invalid out-of-bounds proposal unrepresentable/rejected.
+C6-405  no hidden local config weakens production economics.
+C6-406  no environment variable raises cap.
+C6-407  no operator API raises cap.
+C6-408  no emergency role raises cap.
+C6-409  release docs distinguish reserve from backing guarantee.
+C6-410  release docs distinguish wealth from governance.
+
+GATE CLOSE
+
+C6-411  exact reviewed/adopted report committed.
+C6-412  MonetaryPolicyV1 implemented.
+C6-413  annual budget ledger implemented.
+C6-414  millennial Human vesting implemented.
+C6-415  concave service reward implemented.
+C6-416  contribution capacity/rate/vesting implemented.
+C6-417  reserve target/ceilings implemented.
+C6-418  robust oracle commitment implemented.
+C6-419  checked monetary arithmetic implemented.
+C6-420  SimulationV2 implemented.
+C6-421  T6-001..360 pass.
+C6-422  C6-001..420 mandatory rows pass.
+C6-423  A6-001..060 pass.
+C6-424  200y report generated.
+C6-425  1000y numeric report generated.
+C6-426  no unresolved HIGH/CRITICAL finding in this report remains.
+C6-427  exact implementation revision recorded.
+C6-428  human auditor-of-record adopts this calibration.
+C6-429  project review confirms no change weakens frozen project values.
+C6-430  Gate #47 and #50 are marked CLOSED / PASS.
+
+GATE RULE:
+
+  When C6-411..430 are satisfied, #47 and #50 are closed.
+
+  No second generic mechanism-design specialist review is required.
+
+  A future MATERIAL change listed in Section23 reopens only the affected
+  economic scope.
+
+
+======================================================================
+23. WHAT REOPENS ECONOMIC REVIEW
+======================================================================
+
+Reopen this scope if a future change:
+
+  * raises gross annual issuance above3%;
+  * lowers Human Share below2% while this monetary model is canonical;
+  * raises service above0.75%;
+  * raises contribution above0.25%;
+  * shortens Human first-year vesting beyond the0.1% ceiling;
+  * materially shortens the1000-year Human vest tail;
+  * pays non-Mature identities inflationary Human Share;
+  * makes service reward linear/convex above the approved bounds;
+  * raises service per-human class capture above2%;
+  * raises contribution per-human epoch cap above0.25%;
+  * lowers contribution haircut below10%;
+  * raises V90 contribution capacity above2%;
+  * lowers depth multiplier below20;
+  * lowers oracle roster below7 independent domains;
+  * lowers oracle quorum below5;
+  * creates a guaranteed reserve redemption promise;
+  * makes one reserve issuer/control domain indispensable;
+  * introduces balance-weighted governance;
+  * introduces stake-weighted BFT voting;
+  * introduces a wealth gate for ordinary voting;
+  * creates confiscatory balance equalization;
+  * lets a human/admin authority accelerate or seize Human Share;
+  * changes TotalIssuedClaimSupply semantics so user locks can manipulate the
+    issuance denominator;
+  * introduces unchecked monetary narrowing/overflow;
+  * materially changes contribution pricing to a new oracle security model.
+
+Do NOT reopen the whole calibration merely because:
+
+  * market price changes;
+  * XRP/XMR weights drift due market movement;
+  * contribution pauses automatically;
+  * a new oracle venue joins while independent-domain rules remain;
+  * a service class has low utilization;
+  * population grows;
+  * an early whale sells;
+  * a late entrant joins;
+  * an optional channel underfills;
+  * implementation is optimized without changing the verified formula;
+  * additional stress scenarios are added.
+
+
+======================================================================
+24. VALUE-BY-VALUE EXTERNAL AUDIT VERDICTS
+======================================================================
+
+HUMANITY BEFORE TECHNOLOGY — PARTIAL CURRENT / PASS TARGET
+
+Mechanism proving progress:
+  current `plan_human_share` divides a Human Share budget equally by the
+  personhood snapshot count; no wealth multiplier exists.
+
+Exact failure:
+  current production-shaped D-0074 vesting is fully one year and personhood
+  integration is not yet the File4 MatureHuman path.
+
+Location:
+  `crates/mini-economy/src/issuance.rs`.
+
+Best long-term solution:
+  perpetual equal 2% Human Share + File4 MatureHuman gate + Section5
+  millennium active-age vesting.
+
+Target:
+  PASS.
+
+
+NO INDISPENSABLE CENTRAL AUTHORITY — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  economic arithmetic can be deterministic and governance is one-human-one-vote.
+
+Exact failure:
+  current `RateHistory` is simply a governed scalar; a production implementation
+  could effectively depend on whoever supplies that rate.
+
+Location:
+  `crates/mini-treasury/src/rate.rs`.
+
+Solution:
+  seven independent price control domains, five-domain quorum, deterministic
+  median/windows, contribution-only pause on failure.
+
+Target:
+  PASS.
+
+
+NETWORK OUTLIVES ITS CREATORS — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  no founder economic multiplier and native economy does not require reserve
+  contribution to continue.
+
+Failure:
+  current policy objects are caller-selected and are not yet consensus-frozen
+  into the canonical bounded parameter system.
+
+Solution:
+  MonetaryPolicyV1 + year-fixed state + constitutional guard.
+
+Target:
+  PASS.
+
+
+MONEY NEVER OUTRANKS LEGITIMACY — PASS
+
+Mechanism:
+  Human Share is equal; wealth has no formal governance input; the approved
+  contribution and service mechanisms explicitly return value only.
+
+Exact failure:
+  none in the approved economic architecture.
+
+Permanent proof:
+  C6-291..335 and negative integration tests.
+
+
+CANONICAL TRUTH FOR MONEY — FAIL CURRENT / PASS TARGET
+
+Mechanism proving failure:
+  current per-call issuance can be rebased each epoch without a canonical
+  year-to-date budget ledger; treasury mint conversion can narrow from u128 to
+  u64 without explicit overflow rejection.
+
+Locations:
+  `mini-economy::issuance`
+  `mini-treasury::rate::mint_amount_micro`.
+
+Solution:
+  canonical EconomicYearBudget + checked u128 Amount arithmetic.
+
+Target:
+  PASS.
+
+
+DESIGN FOR FAILURE — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  `NoExternalReceiptOracle` currently fails closed; optional contribution can
+  already be conceptually absent.
+
+Failures:
+  no robust oracle pause/fallback;
+  no reserve shock state machine;
+  no 200-year production simulation.
+
+Solution:
+  contribution-localized pause, reserve acquisition ceilings, fee fallback,
+  SimulationV2.
+
+Target:
+  PASS.
+
+
+FREE FORKS / EARNED LEGITIMACY — PASS
+
+Mechanism:
+  formulas, source-domain rules and reserve policy are deterministic/open;
+  no economic auditor key is required at runtime.
+
+Failure:
+  none in approved design.
+
+
+HUMAN AS ROOT OF TRUST — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  Human Share and per-human caps are intended to use personhood.
+
+Failure:
+  current service reward pays identity roots/demo accounts, not the adopted File4
+  MatureHuman-scoped claims.
+
+Solution:
+  scoped MatureHuman nullifiers for Human/service/contribution per-human caps.
+
+Target:
+  PASS under File4's stated personhood adversary model.
+
+
+STRUCTURAL PRIVACY — PARTIAL
+
+Mechanism:
+  economic formulas do not require legal identity.
+
+Failure:
+  contribution on-ramp can correlate source-chain funding with MINI recipient if
+  implemented naively.
+
+Solution:
+  fresh recipient commitments/scoped personhood nullifiers; no public legal-name
+  requirement; do not add a KYC identity registry to the core protocol.
+
+Residual:
+  public external-chain transaction metadata remains external-chain metadata.
+
+Target:
+  PARTIAL by nature, with no added central unmasking authority.
+
+
+SIMPLICITY IS SECURITY — FAIL CURRENT FRAGMENTATION / PASS TARGET
+
+Mechanism proving failure:
+  current economics are split across demo reward, raw policy structs, raw rate
+  history, simple simulator and newer prose decisions that disagree about
+  vesting/reserve parameters.
+
+Solution:
+  one MonetaryPolicyV1, one annual budget ledger, one Human vesting kernel, one
+  service curve, one contribution policy, one oracle policy.
+
+Target:
+  PASS.
+
+
+HONEST MAJORITY / MALICIOUS MINORITY — PARTIAL CURRENT / PASS ECONOMIC BOUNDS
+
+Mechanism:
+  medians, personhood caps and concavity are the correct structural tools.
+
+Failure:
+  current rate module has no source-independence mechanism and current reward is
+  linear in bytes.
+
+Solution:
+  7/5 domain oracle, 0.4 concavity,10x input cap,2% per-human pool cap,
+  contribution0.25% per-human cap.
+
+Target:
+  PASS for the economic adversary model.
+  Patient collusion by many real humans remains a personhood/social residual.
+
+
+WEAKEST DEVICE MATTERS — PASS TARGET
+
+Mechanism:
+  receiving Human Share requires personhood, not high-capacity hardware;
+  direct voice has zero-money path; large hardware sees diminishing subsidy.
+
+Failure:
+  none inherent in approved tokenomics.
+
+Solution:
+  keep service proof generation/light verification compatible with the relevant
+  storage/network gate profiles.
+
+
+AI SERVES HUMANITY, NEVER RULES — PASS ON ADOPTION
+
+Mechanism:
+  formulas are deterministic and this report is adopted by a human external
+  auditor of record; no AI price/reputation model controls issuance.
+
+Failure condition:
+  an opaque AI score used as service/human/oracle authority would fail this value.
+
+
+THINK IN CENTURIES — FAIL CURRENT / PASS TARGET
+
+Mechanism proving current failure:
+  D-0074 code fully vests Human Share in365 days.
+
+Location:
+  `IssuancePolicy::d0074().human_vesting_ms`.
+
+Solution:
+  0.1% year1,20% year10,100% year1000 active-age curve + perpetual equal stream;
+  1000-year u128 stress test.
+
+Target:
+  PASS.
+
+
+VOICE / VALUE WALL — PASS
+
+Mechanism:
+  no approved economic field maps to governance weight; contributor/whale/provider
+  receives value and one human vote only.
+
+Failure:
+  none in approved architecture.
+
+Permanent proof:
+  C6-311..335.
+
+
+EDGE CONVENIENT, CORE INDEPENDENT — PASS TARGET
+
+Mechanism:
+  XRP/XMR reserve and external oracle exist only for optional contribution/price
+  convenience.
+
+If all external markets disappear:
+  native chain;
+  Human Share;
+  governance;
+  personhood;
+  native transfer
+continue.
+
+Failure:
+  current documentation must be corrected so no rate provider appears canonical.
+
+Target:
+  PASS.
+
+
+FAIR LAUNCH / NO INSIDER CONTROL — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  existing genesis builder allocates equal amounts to its supplied recipient set.
+
+Failure:
+  `GenesisPolicy` permits arbitrary nonzero per-human amount/vesting and relies on
+  caller to supply the right recipient set/policy.
+
+Solution:
+  canonical production genesis validator + File4 MatureHuman root + no named
+  secondary allocations + bootstrap reference floor that creates no owned balance.
+
+Target:
+  PASS.
+
+
+ANTI-CONCENTRATION WITHOUT CONFISCATION — FAIL CURRENT REWARD / PASS TARGET
+
+Mechanism proving current failure:
+  storage demo reward is linear in GiB before a window cap.
+
+Solution:
+  q^0.4,10x median input cap,+20% max diversity,2% per-human subpool cap while
+  preserving free market ownership.
+
+Target:
+  PASS.
+
+
+TREASURY RESILIENCE — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  D-0073 already introduced reserve bands, issuance cap and custody separation.
+
+Failure:
+  50/40 target leaves asymmetric40% worst named single -80% loss; contingency can
+  concentrate10% in one issuer; contribution capacity/oracle floors are loose.
+
+Solution:
+  45/45/10,50% acquisition ceilings,5% contingency-domain ceiling,2% V90
+  contribution cap,7-domain/5-quorum oracle.
+
+Target:
+  PASS.
+
+
+======================================================================
+25. OVERALL JUDGMENT
+======================================================================
+
+DOES THE CURRENT ECONOMIC IMPLEMENTATION ALREADY SERVE A FREE INTERNET FOR
+HUMANITY AT REAL-VALUE SCALE?
+
+NO.
+
+Exact reasons:
+
+  * Human Share fully vests in one year in current D-0074 code;
+  * no canonical annual budget ledger prevents epoch-rebase overshoot;
+  * production policy ratios are caller-supplied rather than protocol-bound;
+  * current storage reward is linear before a rate/window cap, not the frozen
+    concave mechanism;
+  * treasury rate is an arbitrary governed scalar, not a robust independent-
+    domain oracle;
+  * contribution conversion narrows to u64 without explicit overflow failure;
+  * current simulation does not model the mechanisms it is supposed to calibrate.
+
+DOES THE ECONOMIC ARCHITECTURE APPROVED IN THIS REPORT SERVE A FREE INTERNET FOR
+HUMANITY?
+
+YES.
+
+Why:
+
+  * common issuance is dominated by equal Human Share, not capital;
+  * gross inflation is hard-bounded to3% against a year-fixed base;
+  * 2% is protected for equal MatureHumans;
+  * service inflation is only0.75% and concave/capped;
+  * contribution inflation is only0.25% and deeply capacity-limited;
+  * a single service human can capture at most2% of any class pool;
+  * a single contributor can capture at most0.25% of an epoch;
+  * a rich holder can own value but gains zero extra formal voice;
+  * Human Share releases <=0.1% of each grant in its first active year and
+    keeps a1000-year tail;
+  * future humans enter the same current Human Share stream;
+  * no confiscatory holdings equalization is needed;
+  * reserve risk is diversified without pretending backing is guaranteed;
+  * oracle sources are independent and replaceable edges;
+  * oracle failure pauses only the optional contribution mechanism;
+  * external markets can disappear without stopping native governance/Human Share;
+  * no founder, exchange, bank, reserve issuer, auditor, AI, or treasury signer
+    has an economic override key.
+
+FINAL DISPOSITION:
+
+  EXTERNAL TOKENOMICS / MECHANISM-DESIGN AUDIT:
+    PASS / COMPLETE UPON AUDITOR-OF-RECORD ADOPTION OF THIS REPORT
+
+  CALIBRATED ECONOMIC DESIGN:
+    PASS
+
+  CURRENT SOURCE CONFORMANCE:
+    FAIL / REMEDIATION REQUIRED
+
+  GATES #47 AND #50:
+    CLOSE when C6-411..430, T6-001..360 and A6-001..060 pass on the exact
+    implementation revision.
+
+  SECOND GENERIC TOKENOMICS CONSULTANT/AUDIT:
+    NOT REQUIRED.
+
+This is a decision document, not a request to decide later.
+
+
+======================================================================
+26. AUDITOR-OF-RECORD ADOPTION
+======================================================================
+
+I have reviewed this mechanism-design report and adopt its economic decisions
+for Mininet Gates #47 and #50.
+
+I specifically acknowledge:
+
+  [ ] 3.00% is the hard gross annual issuance ceiling.
+
+  [ ] The ceiling is enforced against one fixed Economic-Year reference base,
+      not compounded independently each epoch.
+
+  [ ] Human Share receives a protected 2.00% annual channel.
+
+  [ ] Service/security issuance is capped at0.75%.
+
+  [ ] Treasury contribution issuance is capped at0.25%.
+
+  [ ] Human Share is a perpetual equal stream for File4 Active MatureHumans.
+
+  [ ] D-0074's one-year full Human Share vesting is superseded.
+
+  [ ] Each Human Share epoch grant uses the active-age curve:
+      <=0.1% year1,20% year10,100% year1000.
+
+  [ ] Dormancy pauses new Human Share and active vesting time without confiscating
+      vested property.
+
+  [ ] The service reward uses exponent0.40, an effective-work cap at10x median,
+      bounded diversity <=20%, and a2% per-human subpool cap.
+
+  [ ] Service sub-pools launch at40/20/15/10/15 for
+      storage/relay/publisher/search/security.
+
+  [ ] Subjective work is paid through bounties/treasury/direct payment, not an
+      opaque auto-mint reputation score.
+
+  [ ] Treasury reserve launch target is45% XRP /45% XMR /10% contingency.
+
+  [ ] Post-acquisition XRP/XMR ceilings are50%, with no forced sale caused only
+      by market appreciation.
+
+  [ ] One contingency issuer/control domain may represent at most5% of the total
+      reserve.
+
+  [ ] Contribution minting is disabled until at least90 days of qualifying real
+      MINI market history and the complete market-readiness criteria pass.
+
+  [ ] Contribution capacity is bounded by fixed annual/epoch capacity,
+      2% trailing90d organic volume, reserve gap and20x market-depth requirement.
+
+  [ ] One MatureHuman can receive at most0.25% of an epoch's contribution capacity.
+
+  [ ] Contribution rate uses seven-source-domain roster / five-domain quorum,
+      24h+30d robust medians, conservative pricing direction and at least10%
+      reserve-protection haircut.
+
+  [ ] Contribution-issued MINI is0% transferable for90 days and then unlocks
+      linearly through day365.
+
+  [ ] Ordinary bridge trading creates no new canonical MINI.
+
+  [ ] The reserve is not a guaranteed redemption promise.
+
+  [ ] Governance/personhood baseline actions retain a zero-money access path.
+
+  [ ] No holdings cap or confiscatory wealth equalization is introduced.
+
+  [ ] Wealth may create ordinary economic influence but no formal Mininet
+      governance/finality/personhood weight.
+
+  [ ] Checked u128 monetary arithmetic replaces narrowing/truncating mint math.
+
+  [ ] SimulationV2 and the deterministic conformance matrix are implementation
+      acceptance, not a second tokenomics opinion.
+
+  [ ] When the mandatory checks pass, Gates #47/#50 close without commissioning
+      another generic mechanism-design audit.
+
+Auditor name:
+  ______________________________________________________________
+
+Affiliation / independent capacity:
+  ______________________________________________________________
+
+Conflicts:
+  ______________________________________________________________
+
+Signature:
+  ______________________________________________________________
+
+Date:
+  ______________________________________________________________
+
+Reviewed source revision:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+Adopted report hash:
+  [fill from committed artifact]
+
+
+======================================================================
+27. RESEARCH / EVIDENCE BIBLIOGRAPHY
+======================================================================
+
+CURRENT MININET REPOSITORY
+
+[MN6-01]
+  GitHub issue #47
+  "[Phase 6.2] Treasury contribution, XRPL/XMR bridge-liquidity, and
+  reserve-allocation audit."
+
+[MN6-02]
+  GitHub issue #50
+  "[Phase 6.5] Long-term inflation & whale-attack modeling."
+
+[MN6-03]
+  docs/gates/economic-simulation-spec.md
+  Existing gate specification and limits of first simulation harness.
+
+[MN6-04]
+  docs/design/treasury-economic-model.md
+  D-0073 current pre-audit starting parameters.
+
+[MN6-05]
+  docs/design/inflation-and-whale-resistance.md
+  D-0074 current pre-audit starting parameters.
+
+[MN6-06]
+  crates/mini-economy/src/issuance.rs
+  Current D-0074 3%/2%/.75%/.25% planner and one-year Human vest.
+
+[MN6-07]
+  crates/mini-economy/src/genesis.rs
+  Current equal bootstrap manifest with caller-supplied amount/vesting.
+
+[MN6-08]
+  crates/mini-econ-sim/src/lib.rs
+  Current first Rust cohort simulation.
+
+[MN6-09]
+  crates/mini-econ-sim/tests/simulation.rs
+  Current basic cap/equality/Sybil/whale tests.
+
+[MN6-10]
+  crates/mini-reward/src/lib.rs
+  Current nonspendable demo reward; linear bytes input before repeat/window cap.
+
+[MN6-11]
+  crates/mini-treasury/src/rate.rs
+  Current RateHistory and u64 contribution conversion.
+
+[MN6-12]
+  crates/mini-treasury/src/receipt.rs
+  Current BTC/XMR receipt bookkeeping and fail-closed NoExternalReceiptOracle.
+
+All current-repository findings in this report were checked against:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+
+MININET FOUNDING / NORMATIVE SOURCES
+
+[MN6-F01]
+  Mininet SPEC-00 Constitution.
+  Frozen voice/value wall, equal humans, fair launch, millennium release,
+  concave reward, per-human caps, bounded diversity.
+
+[MN6-F02]
+  Mininet SPEC-05 MINI Chain.
+  Slow Human Share inheritance, immediate activity income, concave rewards,
+  fee/oracle mechanism, frozen monetary shapes.
+
+[MN6-F03]
+  Mininet SPEC-07 Contribution and Treasury.
+  Contribution -> value not voice; bounded issuance; no unbounded mint;
+  treasury honeypot framing.
+
+[MN6-F04]
+  Mininet Deep Dive Amendments and Quantitative Models.
+  <=~0.1% first-year share release;
+  x^a reward;
+  a~0.3–0.5;
+  example a=.4;
+  ~10x median capacity cap;
+  bounded diversity.
+
+[MN6-F05]
+  Mininet SPEC-08 Governance.
+  One-human-one-vote; wealth-free voting; vote-buying/coercion concern.
+
+[MN6-F06]
+  File4:
+  Mininet External Personhood & Sybil-Resistance Research Audit.
+  MatureHuman status and per-scope nullifiers used by this economic report.
+
+
+EXTERNAL RESEARCH
+
+[EXT6-01]
+  John R. Douceur.
+  "The Sybil Attack."
+  IPTPS 2002.
+  Microsoft Research:
+  https://www.microsoft.com/en-us/research/publication/the-sybil-attack/
+
+  Relevance:
+    economic caps do not solve unlimited identities by themselves;
+    personhood remains the load-bearing scarcity.
+
+[EXT6-02]
+  F. P. Kelly, A. K. Maulloo, D. K. H. Tan.
+  "Rate control for communication networks: shadow prices, proportional
+  fairness and stability."
+  Journal of the Operational Research Society 49 (1998), 237–252.
+  https://www.statslab.cam.ac.uk/~fpk1/rate.html
+
+  Relevance:
+    formal precedent for concave/fair resource allocation rather than linear
+    ownership reward.
+
+[EXT6-03]
+  Park et al.
+  USENIX Security 2023 oracle-manipulation analysis.
+  https://www.usenix.org/system/files/usenixsecurity23-park.pdf
+
+  Relevance:
+    spot oracles manipulable;
+    TWAP has window/manipulation tradeoffs;
+    median across multiple sources is robust but source/uncertainty assumptions
+    remain.
+
+[EXT6-04]
+  McLaughlin, Kruegel, Vigna.
+  "A Large Scale Study of the Ethereum Arbitrage Ecosystem."
+  USENIX Security 2023.
+  https://www.usenix.org/conference/usenixsecurity23/presentation/mclaughlin
+
+  Relevance:
+    arbitrage opportunities may persist;
+    price-oracle manipulation can be cheaper than simplistic models assume.
+
+[EXT6-05]
+  Benjamin Schellinger, Ingo Fiedler, Fred Steinmetz.
+  "How Are You DAOing? The State of DAO Treasuries."
+  2023.
+  https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4604968
+
+  Reported sample:
+    20 large DAO treasuries;
+    81.67% of assets in native DAO tokens.
+
+  Relevance:
+    treasury concentration exposes organizations to asset-specific volatility;
+    supports explicit diversification rather than correlated self-backing.
+
+[EXT6-06]
+  Ari Juels, Dario Catalano, Markus Jakobsson.
+  "Coercion-Resistant Electronic Elections."
+  2005 / earlier ePrint work.
+  https://www.iris.unict.it/handle/20.500.11769/113010
+
+  Relevance:
+    formalizes coercion/vote-buying adversary;
+    supports receipt-resistant secret governance as the right response to
+    off-network wealth coercion.
+
+[EXT6-07]
+  HoKwang Kim.
+  "The 72-Hour Shock? Preliminary Evidence from 52 Token Unlock Events on
+  Binance."
+  SSRN, 2026.
+  https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6632838
+
+  Relevance:
+    preliminary, correlational evidence that predictable unlock events can
+    create price pressure; used only as supporting evidence for smooth vesting,
+    not as the constitutional basis.
+
+[EXT6-08]
+  Yulin Guo.
+  "Token Dilution and the Cross-Section of Cryptocurrency Returns."
+  SSRN, 2026.
+  https://doi.org/10.2139/ssrn.6636258
+
+  Relevance:
+    dilution is economically visible in cryptocurrency returns;
+    reinforces the need to disclose and mechanically bound issuance.
+
+[EXT6-09]
+  Federal Reserve Board, Meldrum & Sokolinskiy.
+  "The Relationship between Market Depth and Liquidity Fragility in the Treasury
+  Market."
+  2025.
+  https://www.federalreserve.gov/econres/feds/the-relationship-between-market-depth-and-liquidity-fragility-in-the-treasury-market.htm
+
+  Relevance:
+    market depth matters to liquidity fragility;
+    supports using executable depth in addition to headline trading volume.
+
+The external literature is evidence for mechanism choice.
+
+The numeric Mininet parameters remain this report's explicit calibration
+decisions, not claims that an outside paper uniquely proves 3%, 0.4, 45/45/10,
+or any other exact constant.
+
+
+======================================================================
+28. ENGINEER'S FINAL ACTION SUMMARY
+======================================================================
+
+DO NOT REOPEN THE BASIC TOKENOMICS DESIGN.
+
+IMPLEMENT THIS:
+
+1.  Freeze MonetaryPolicyV1:
+      gross3%
+      Human2%
+      service0.75%
+      contribution0.25%.
+
+2.  Add one canonical EconomicYearBudget using a year-opening reference.
+    Never rebase current-year capacity on newly issued supply.
+
+3.  Use twelve exact 2,628,000,000ms economic epochs.
+
+4.  Use the zero-supply reference floor:
+      max(total issued claims, ActiveMatureHumans *1 MINI).
+
+5.  Replace Human full-vesting-in-one-year with:
+      0.1% at active year1
+      20% at active year10
+      100% at active year1000.
+
+6.  File4 Active MatureHuman alone receives the equal Human Share grant.
+
+7.  Dormancy:
+      stops new grants
+      pauses active vesting age
+      never confiscates vested MINI.
+
+8.  Replace production linear storage/service reward with:
+      q^0.4
+      q capped10x median
+      diversity<=20%
+      one human<=2% each subpool.
+
+9.  Service split:
+      40 storage
+      20 relay
+      15 publisher
+      10 search
+      15 security.
+
+10. Subjective work:
+      bounties/treasury/direct pay,
+      not auto-mint score.
+
+11. Contribution mint:
+      disabled until90d market maturity.
+
+12. Contribution actual epoch capacity:
+      min(
+        annual/12,
+        remaining annual,
+        2% trailing90d organic volume,
+        reserve acquisition gap
+      )
+    and market depth must be >=20x planned capacity.
+
+13. One MatureHuman contribution cap:
+      0.25% epoch.
+
+14. Oversubscription:
+      pro rata, order-independent.
+
+15. Contribution rate:
+      >=7 independent control domains
+      >=5-domain quorum
+      5-minute median buckets
+      24h and30d medians
+      incoming asset=min(P24,P30)
+      MINI=max(P24,P30)
+      10% haircut
+      25% short/long dislocation pause.
+
+16. Contribution vest:
+      0 through day90
+      linear day90->365
+      full day365.
+
+17. Reserve:
+      45% XRP
+      45% XMR
+      10% contingency
+      acquisition ceiling50/50/10
+      one contingency control domain<=5%
+      no forced sale on market drift.
+
+18. Reserve is not guaranteed redemption.
+
+19. Ordinary bridge trading does not create canonical MINI.
+
+20. Replace treasury mint conversion with checked u128 Amount arithmetic.
+    Remove unchecked u64 narrowing.
+
+21. Build SimulationV2 exactly around the real mechanisms.
+
+22. Execute Section16 scenario grid and A6-001..060.
+
+23. Make all T6-001..360 pass.
+
+24. Make all C6-001..430 mandatory rows pass.
+
+25. Record exact revision and adopt/sign this report.
+
+THEN:
+
+  ISSUE #47 = CLOSED / PASS
+  ISSUE #50 = CLOSED / PASS
+
+No second generic tokenomics audit is needed.
+
+======================================================================
+END — MININET EXTERNAL TOKENOMICS / MECHANISM-DESIGN AUDIT 6/8
+GATES #47 + #50
+======================================================================

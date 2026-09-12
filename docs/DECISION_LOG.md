@@ -22085,3 +22085,2130 @@ variable name `trusted_head` itself was classified by the secret-name heuristic
 The callback is renamed `signed_sequence_floor` to state that meaning; no rule
 or finding was suppressed. Identity-capture removal alone was insufficient.
 The audit matrix records the new scan result when available.
+
+### D-0502 — Kotlin-side BLE GATT implementation of `BleRadio` (issue #201, Android beta slice 5)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** issue #201, D-0374, D-0375.
+
+**Decision:** Add `BlePeripheralRadio` (GATT server/advertiser) and
+`BleCentralRadio` (GATT client/scanner) under `app/android/app/src/main/
+java/org/mininet/app/`, both implementing the UniFFI-generated
+`org.mininet.core.BleRadio` callback interface directly against real
+Android `BluetoothGattServer`/`BluetoothGattCallback`/`BluetoothGatt`
+APIs, plus the manifest permissions (`BLUETOOTH_SCAN`/`ADVERTISE`/
+`CONNECT`, legacy `BLUETOOTH`/`BLUETOOTH_ADMIN`/`ACCESS_FINE_LOCATION`
+capped at API 30, `neverForLocation` on the scan permission since this
+app never derives location from scan results) and the `bluetooth_le`
+required feature declaration those classes need.
+
+**Reason:** D-0374/D-0375 built the entire chain up to the Kotlin
+boundary — `mini_bearer::android_ble::AndroidBleBearer` (a full, tested
+`impl Bearer` generic over any radio), and `mini_ffi::ble`'s UniFFI
+`callback interface BleRadio`/`BleBearerHandle` letting Kotlin drive it —
+and named the real Kotlin GATT implementation as the one piece neither
+closed. `docs/BETA_STATUS.md` item 1 and `docs/ROADMAP_TO_RELEASE.md`'s
+R10 both still named it as outstanding. This closes that specific gap:
+one MTU-bounded write characteristic (central → peripheral) and one
+notify characteristic (peripheral → central), a standard CCCD descriptor
+for enabling notifications, both roles draining/feeding a
+`LinkedBlockingQueue<ByteArray>` to satisfy `BleRadio.read_chunk`'s
+blocking contract and `try_read_chunk`'s non-blocking one, and a
+`CountDownLatch`-based synchronous wait over each async GATT
+write/notify callback so `write_chunk`'s synchronous UniFFI contract
+(Rust calls it and blocks on the result) is honored correctly despite
+Android's BLE APIs being callback-driven rather than blocking.
+
+**Constitutional impact:** none. No new cryptography — this is transport
+plumbing, not a security boundary; presence/identity verification
+(`mini-presence`, `did-mini`) still runs entirely on top of whatever
+bearer carries it, unchanged by which bearer that is. No voice/value
+edge: `mini-bearer`/`mini-ffi` gain no new crate dependency, and this PR
+adds no Cargo dependency at all — only new Kotlin files and a manifest
+permission block.
+
+**Implementation status:** prototype, unverified. New:
+`app/android/app/src/main/java/org/mininet/app/BleGattProfile.kt`
+(shared service/characteristic/CCCD UUID constants),
+`BlePeripheralRadio.kt`, `BleCentralRadio.kt`;
+`app/android/app/src/main/AndroidManifest.xml` gains the BLE permission
+block above. Doc comments in `crates/mini-bearer/src/android_ble.rs` and
+`crates/mini-ffi/src/ble.rs` updated to point at this decision instead of
+describing the Kotlin gap as still fully open. **Written without a
+JDK/Android SDK available in this environment — this has never actually
+been compiled.** Android CI's `assembleDebug` is the first real compile
+check either class will ever have had. Neither class is wired into
+`MiniViewModel`'s pairing flow or `mini-keystone::run_demo` yet, and no
+real BLE hardware exists in this environment to test against — a real
+two-device connection remains the only thing that can prove this
+protocol implementation is actually correct end to end, not merely
+structurally plausible against the documented GATT API surface, exactly
+the same honest limit D-0374/D-0375 already stated for the layers below
+this one.
+
+**Failure point:** if the UniFFI Kotlin codegen for a fieldless
+`[Error] enum` variant (`BleRadioError::Failed`) does not generate a
+single-string-argument constructor on `BleRadioException.Failed` the way
+it does for the structurally identical `StorageCipherError`/
+`StorageCipherException` pair this code's calling convention was copied
+from (D-0338, already compiling in CI), this fails to build — the first
+real signal will be Android CI's `assembleDebug`, not this environment.
+Beyond that: any subtle mismatch against the real `BluetoothGattServer`/
+`BluetoothGattCallback` contract (a wrong callback signature, a missed
+`sendResponse`, an MTU assumption that doesn't hold on a real radio)
+cannot be caught by compilation alone and will only surface in the real
+two-device test this decision explicitly does not claim to have run.
+
+**Required follow-up:** wire `BlePeripheralRadio`/`BleCentralRadio` into
+`MiniViewModel`'s pairing flow (a UI path for choosing/advertising a BLE
+role is separate, later work) and into `mini-keystone::run_demo` so the
+keystone demo can run over a real bearer instead of only the in-process
+one; then the real two-device test itself (roadmap R10/R11, hardware
+gate #97, `docs/gates/hardware-test-protocol.md`). None of that follow-up
+is code-only.
+
+**Supersedes / superseded by:** extends D-0374/D-0375; supersedes
+nothing.
+
+### D-0503 — Transport-generic dedup-flood mesh relay: `mini_bearer::EncryptedLink` + new crate `mini-mesh` (`docs/design/ble-mesh-relay.md`)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** `docs/design/ble-mesh-relay.md`, D-0205, D-0472, D-0473, roadmap R10/R11, issue #97.
+
+**Decision:** Add `mini_bearer::EncryptedLink<B: Bearer>` (any `Bearer` plus
+an already-established `Channel` handshake, dial/accept matching the
+existing initiator/responder asymmetry) and a new crate `mini-mesh`
+(`MeshNode`: a dynamic set of `EncryptedLink`s plus `mini_net::GossipRouter`
+for dedup, exposing `broadcast`/`poll` with the dedup-flood re-gossip
+already happening inside `poll`). Also add `impl Bearer for
+Box<dyn Bearer + Send>` to `mini-bearer` so a caller can hold a
+heterogeneous set of live links (test doubles and real bearers alike) in
+one collection.
+
+**Reason:** The founder's 2026-09-11 direction: devices should be able to
+find each other and form a real network over BLE, not just pair
+one-to-one, so a group of nearby phones stays reachable to each other even
+if the internet itself is down. The relay *algorithm* this needs already
+exists, twice — `mini_net::GossipRouter`'s dedup and
+`mini_consensus::net::TcpMesh`/`run_to_height`'s real-socket, real-proven
+"any **connected** graph is live" relay (D-0205's four-node line-topology
+TCP test) — so per this repo's own "do not re-propose what already exists"
+rule, this closes the actual gap instead: a transport-generic version of
+that shape, off raw `TcpStream` and onto any `mini_bearer::Bearer`, so the
+identical algorithm drives BLE without a second implementation.
+
+**Constitutional impact:** none. No new cryptography — `EncryptedLink`
+composes the exact established `Channel`/`Initiator`/`Responder`
+construction `mini-sync`/`mini-cli`/`mini-consensus` already use, unchanged.
+No voice/value edge: `mini-mesh` depends only on `mini-bearer`, `mini-net`,
+and `mini-crypto` (for the content-addressed message-id hash), none of
+which touch governance or value crates.
+
+**Implementation status:** shipped, hardware-free proven. New:
+`crates/mini-bearer/src/encrypted_link.rs` (4 tests), `crates/mini-mesh/`
+(`MeshNode`, 6 in-process unit tests including a four-node A—B—C—D
+line-topology test with no direct A↔C/A↔D/B↔D edge — the same multi-hop
+proof D-0205 established for TCP consensus, generalized here — plus
+`tests/tcp_relay.rs`, the same line-topology proof over **real loopback
+TCP sockets and threads**, not just in-process channels, so the relay is
+proven over genuine OS I/O without needing any BLE hardware). `mini-bearer`
+gains the `Box<dyn Bearer + Send>` blanket impl. 116 tests pass across
+`mini-bearer`/`mini-mesh`/`mini-ffi` combined; `cargo fmt`/`clippy -D
+warnings` clean; full `cargo check --workspace --all-features` clean.
+
+**Failure point:** `EncryptedLink::dial`/`accept` each block on the
+bearer's `recv()` until the other side's hello/response arrives — correct
+for two genuinely separate devices/processes, but calling both
+sequentially on one thread (as a naive test would) deadlocks; every test
+here spawns the accepter on its own thread, documented explicitly in each
+test so the pattern doesn't get silently miscopied elsewhere. `MeshNode`
+floods to *every* link including the one a message arrived from (relying
+on the sender's own dedup to drop the echo, matching `TcpMesh::broadcast`'s
+exact behavior) — simple and proven correct here, but means a link's
+effective traffic is never less than one echo per relayed message.
+
+**Required follow-up:** wiring into `mini-ffi` (D-0504) and the Android app
+(D-0505); the real multi-device BLE acceptance test (roadmap R10/R11,
+hardware gate #97) remains the only thing that can prove any of this over
+an actual radio, not just proven-correct algorithm and real (but wired)
+TCP sockets.
+
+**Supersedes / superseded by:** extends D-0205's relay proof and D-0374/
+D-0375's BLE/UniFFI chain off TCP-only/single-link; supersedes nothing.
+
+### D-0504 — `mini-ffi::mesh`: UniFFI boundary over `mini_mesh::MeshNode` (`MeshHandle`)  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** D-0503, D-0338, D-0375.
+
+**Decision:** Add `mini_ffi::mesh::MeshHandle` (constructor, `add_dialed_link`/
+`add_accepted_link` taking the existing `BleRadio` callback interface plus
+an MTU, `link_count`, `broadcast`, `poll`) and the matching `.udl`
+declarations (`interface MeshHandle`, `dictionary MeshMessage`,
+`[Error] enum MeshError`). `mini-ffi::ble` gains `pub(crate)
+android_bearer`/`pub(crate) RadioAdapter` so `mesh.rs` can build the same
+`AndroidBleBearer<RadioAdapter>` `BleBearerHandle` already wraps, without a
+second radio-adapter implementation.
+
+**Reason:** D-0503's `MeshNode` needs a way for Kotlin to actually hand it
+real BLE connections as they form. Mirrors the existing `StorageCipher`/
+`BleRadio` callback-interface pattern (D-0338/D-0375) exactly rather than
+inventing a new FFI shape.
+
+**Constitutional impact:** none. Same composition as D-0503; no new
+cryptography, no voice/value edge (`mini-ffi` already depended on
+`mini-bearer`; the only new dependency is `mini-mesh` itself).
+
+**Implementation status:** shipped, hardware-free proven.
+`crates/mini-ffi/src/mesh.rs`, one test linking two `MeshHandle`s over
+mock `BleRadio` implementations (the same mock-radio pattern
+`crates/mini-ffi/src/ble.rs`'s own tests already use) and exchanging a
+broadcast. Included in D-0503's 116-test/clippy/workspace-check run.
+
+**Failure point:** `add_dialed_link`/`add_accepted_link` block for the
+handshake round trip, same as `EncryptedLink::dial`/`accept` directly —
+callers must run them off Kotlin's main thread, same discipline
+`RootCore::begin_pairing_offer`/`finish_pairing_offer` already require and
+document.
+
+**Required follow-up:** D-0505 (Android wiring); no `.udl`/Kotlin binding
+generation has been exercised in this environment (no JDK/Android SDK) —
+Android CI's `assembleDebug` is the first real check that the generated
+Kotlin bindings for `MeshHandle`/`MeshMessage`/`MeshError` actually compile
+and match `BleMeshService`'s usage.
+
+**Supersedes / superseded by:** extends D-0374/D-0375's `BleBearerHandle`
+UniFFI pattern to `MeshHandle`; supersedes nothing.
+
+### D-0505 — Android: multi-central `BlePeripheralServer`, split `BleCentralRadio`, and `BleMeshService` orchestration  ·  *Proposed*
+**Date:** 2026-09-11 · **Refs:** D-0502, D-0503, D-0504.
+
+**Decision:** Replace D-0502's single-connection `BlePeripheralRadio` with
+`BlePeripheralServer` — one `BluetoothGattServer` tracking many
+simultaneously connected centrals (keyed by device address), handing the
+caller a fresh per-central `BleRadio` the moment each enables
+notifications, serialized per-send via a `Semaphore` (not a `synchronized`
+monitor — see the failure point below) since every central shares one
+GATT characteristic object. Split `BleCentralRadio`'s scan-then-connect
+into `connectAndAwaitReady(device, timeoutMs)` (new) plus
+`scanConnectAndAwaitReady` (existing, now a convenience wrapper), so a
+caller that already discovered a device via its own scan does not start a
+second, redundant one. Add `BleMeshService`, which runs both roles at
+once — advertises/serves centrals *and* continuously scans for and
+connects to other advertising devices — feeding every resulting link into
+one shared `mini_ffi::MeshHandle`.
+
+**Reason:** D-0502 shipped a real Kotlin `BleRadio` implementation, but
+strictly one point-to-point connection — insufficient for a *network*
+(the founder's 2026-09-11 direction): a device needs to hold many
+simultaneous BLE links at once for D-0503's mesh relay to have more than
+one edge to flood across.
+
+**Constitutional impact:** none. Transport/UI plumbing only; no
+cryptographic or governance-relevant change. Manifest permissions
+unchanged from D-0502 (already covers `BLUETOOTH_SCAN`/`ADVERTISE`/
+`CONNECT`).
+
+**Implementation status:** prototype, unverified — same honest limit as
+D-0502, sharpened: written without a JDK/Android SDK or BLE hardware in
+this environment, so none of `BlePeripheralServer`/`BleCentralRadio`'s
+split/`BleMeshService` has ever compiled. Android CI's `assembleDebug` is
+the first real check. Not wired into `MiniViewModel`'s pairing UI or
+`mini-keystone`'s demo — `BleMeshService` is a standalone orchestrator a
+later UI layer would instantiate and observe (`mesh.broadcast`/`poll`),
+named as separate follow-up rather than forced into this batch.
+
+**Failure point, found and fixed during this same batch, stated for the
+record:** the first draft of `BlePeripheralServer.writeChunk` held one
+`synchronized` monitor across both the notify send *and* the blocking wait
+for `onNotificationSent`'s acknowledgment — but that callback fires on a
+different (Binder) thread and needs the *same* monitor, briefly, to
+signal the waiting latch, which self-deadlocks the two threads against
+each other. Fixed by separating concerns: a `Semaphore` serializes the
+whole send round trip across every connected central (preventing the
+real, documented Android hazard of two sends racing on one shared
+characteristic value), while a separate plain lock (`ackLock`), held only
+briefly and never across the wait, guards the pending-ack bookkeeping
+`onNotificationSent` touches. No test in this environment could have
+caught this (no JDK/Android SDK); it was found by re-reading the
+concurrency reasoning by hand before committing, which is exactly why
+that reasoning is written into the class's own doc comment rather than
+left implicit.
+
+**Required follow-up:** wiring `BleMeshService` into the app's actual UI
+(a "join the local mesh" surface, observing `mesh.poll()`); a real
+multi-device (3+) mesh acceptance test — the only thing that can prove
+any of D-0503/D-0504/D-0505 correct against an actual radio (roadmap
+R10/R11, hardware gate #97, `docs/gates/hardware-test-protocol.md`);
+tuning `BleMeshService`'s fixed conservative MTU to each link's actually
+negotiated one; a connection-count cap once real battery/radio limits are
+measured rather than guessed at.
+
+**Supersedes / superseded by:** supersedes D-0502's single-connection
+`BlePeripheralRadio` (deleted, replaced by `BlePeripheralServer`); does
+not change D-0502's `BleCentralRadio`/manifest-permission work, only
+extends it.
+### D-0506 — `mini_treasury::frost_dkg`: reject FROST index/accuser `0` in Round-2 share generation and complaint resolution  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+External FROST DKG & Custody Audit Report", Gate #93 scope, reviewed
+revision `bc7da80f8817f856a96bcb3772232b080eef531d`), findings F93-01/
+F93-02; `crates/mini-treasury/src/frost_dkg.rs`,
+`crates/mini-treasury/src/frost_reshare.rs`.
+
+**Decision:** the report's two critical findings were independently
+verified against the real code before any change was made, per this
+tree's standing rule that founder/user assurance a document has been
+"triaged and verified" is not itself verification (see D-0507 below for
+why the report as a whole still does not close Gate #93). Both were
+confirmed accurate:
+
+1. `dkg_generate_round2_shares(secret, recipient_indices)` evaluated
+   `secret`'s Feldman/Shamir polynomial at every caller-supplied `u16` in
+   `recipient_indices` with no check. Index `0` is that polynomial's
+   constant term — the participant's actual DKG secret contribution —
+   so a caller (or a compromised/malicious peer able to influence the
+   recipient list) requesting index `0` received the raw secret in the
+   clear, not a share of it.
+2. `dkg_resolve`'s complaint-processing loop used `DkgComplaint.accuser`
+   directly as the Feldman evaluation index for the accused's public
+   rebuttal, with no check that it was nonzero. A complaint carrying
+   `accuser = 0` would, on rebuttal, disclose the accused's own secret
+   the same way.
+
+`dkg_round1` already rejected index `0` for a polynomial's *owner*; both
+gaps were on the *recipient*/*accuser* side of the same primitive.
+Fixed with a minimal boundary check at each call site (return
+`Err(TreasuryError::InvalidFrostParticipant)` for index/accuser `0`)
+rather than a broader rewrite — `accuser` is deliberately **not**
+required to already be a roster member (this module supports
+cross-roster resharing, where an accuser may not appear in the sharing
+roster), so the fix is exactly "reject zero," not "reject unknown."
+Two regression tests added:
+`requesting_a_round2_share_for_recipient_index_0_is_rejected` and
+`a_complaint_accusing_index_0_is_rejected_before_any_rebuttal_lookup`.
+
+**Reason:** in Shamir/Feldman secret sharing, the shared secret is the
+polynomial's value at `x = 0` (`f(0)`); every other evaluation point is,
+by construction, safe to disclose without revealing it (subject to the
+usual "fewer than `threshold` points" bound this module's own docs
+already state). An unchecked index/accuser of `0` is therefore not a
+generic input-validation gap but the exact, specific failure mode this
+class of cryptography is defined around — closing it is the minimal
+correct fix, not a design choice with tradeoffs to weigh.
+
+**Constitutional impact:** Invariant M2 (private key material must never
+be derivable by fewer than the declared threshold of participants) —
+this fix keeps that invariant from being violated by a single
+zero-index share request or complaint, in the module that produces
+`mini_treasury`'s FROST custody keys. Directive 14 (simplicity is
+security): the fix is a two-line boundary check per call site, not a new
+abstraction.
+
+**Implementation status:** shipped, `crates/mini-treasury/src/
+frost_dkg.rs` and `frost_reshare.rs`. All 71 `mini-treasury` tests pass
+(including the two new regression tests), `cargo clippy --all-targets
+--all-features -p mini-treasury -- -D warnings` clean. This is a narrow,
+verified boundary-check fix, not a claim that Gate #93 is closed, and not
+a claim that `frost_dkg.rs`'s design as a whole (the hand-rolled
+complaint/rebuttal mechanism itself) is the right long-term shape — see
+D-0507.
+
+**Failure point:** this fix closes the specific disclosure path the two
+findings named. It does not audit the rest of `frost_dkg.rs` line by
+line, and does not itself establish that no other input-validation gap
+exists in the same module — only that these two, independently
+confirmed against the real code, are closed.
+
+**Required follow-up:** D-0507 (below) is the follow-up: rather than
+continue hardening a second, hand-rolled DKG/complaint implementation
+finding by finding, `mini_custody` wraps the NCC-audited
+`frost_ristretto255::keys::dkg` for new production ceremonies. Gating
+`frost_dkg.rs`'s own production reachability (vs. keeping it for its
+existing test/example/cross-roster-resharing coverage) is separate,
+not-yet-done follow-up work.
+
+**Supersedes / superseded by:** none.
+
+### D-0507 — `mini-custody`: production threshold-custody DKG ceremony over `frost_ristretto255::keys::dkg`, engineering remediation for Gate #93 (not gate closure)  ·  *Shipped, unaudited*
+
+**Date:** 2026-09-11 · **Refs:** the same anonymous Gate #93 report as
+D-0506 above; `crates/mini-custody/` (new crate: `manifest.rs`,
+`session.rs`, `transport.rs`, `abort.rs`, `domains.rs`, `rotation.rs`,
+`share_store.rs`, `wire.rs`, `error.rs`, `lib.rs`,
+`tests/full_ceremony.rs`); a companion anonymous "Gate #72" report
+covering `mini-value`/`mini-bounty`/`mini-settlement` crypto is separate,
+unimplemented follow-on scope, tracked but not part of this entry.
+
+**Decision:** the report's central engineering recommendation — stop
+extending a second, bespoke Pedersen/Feldman DKG implementation
+finding-by-finding (D-0506 is exactly that pattern) and instead build the
+production custody ceremony on an independently audited DKG library — is
+adopted. New crate `mini-custody` wraps
+`frost_ristretto255::keys::dkg`'s `part1`/`part2`/`part3` (pinned
+`frost-ristretto255 = "=3.0.0"`; NCC-Group-audited; implements FROST
+KeyGen from the *original FROST paper* [Komlo & Goldberg, Figure 1], a
+Pedersen DKG variant — **not** RFC 9591, which is scoped to threshold
+*signing* and explicitly excludes key generation; `mini_treasury::
+frost_dkg`'s old module docs misattributed the construction to RFC 9591
+§4 and are corrected in the same commit as D-0506). Everything
+`frost_ristretto255::keys::dkg` does *not* provide, this crate adds:
+
+- `manifest::DkgSessionManifestV1` — one immutable, signed session
+  identity (network, custody domain, epoch, 11-member roster in
+  canonical DID order, threshold, authorization object, prior key) every
+  ceremony message binds to via its `session_id` hash.
+- `session` — the Phase A-G ceremony state machine: manifest acceptance
+  (11-of-11), DKG Round 1, a **consistent-broadcast barrier** (every
+  participant signs a Round-1 root hash and Round 2 must not start until
+  all 11 match — the exact hazard the ZF FROST Book's own docs warn a
+  naive point-to-point DKG implementation can miss), DKG Round 2/3, and
+  unanimous (11-of-11) completion attestation before a key is ever
+  treated as active.
+- `transport` — binds `mini_bearer::Channel` (the same anonymous,
+  forward-secret encrypted channel construction the BLE mesh relay work,
+  PR #333, already exercised over both in-process and real TCP sockets)
+  to a specific session/sender/receiver identity via a signed
+  channel-binding assertion and AAD-bound sealed envelopes, since
+  `Channel`'s own docs state it provides no endpoint authentication by
+  itself.
+- `abort` — the ceremony's only failure path: any invalid/missing/
+  mismatched input at any phase aborts and restarts the whole ceremony
+  with fresh randomness. Deliberately **no** complaint/rebuttal
+  exclusion mechanism (unlike `frost_dkg.rs`) — the report's own
+  reasoning (R93-05) is that for an infrequent, known-roster ceremony,
+  keeping the secret-handling surface minimal is worth more than the
+  liveness a rebuttal path buys, and D-0506's own findings lived
+  precisely in that mechanism's `accuser` field.
+- `share_store` — per-signer encrypted `KeyPackage` persistence
+  (Argon2id-stretched wrapping key over `mini_crypto`'s ChaCha20-
+  Poly1305 AEAD, `session_id` bound as associated data).
+- `domains`/`rotation` — the four named production custody domains
+  (BTC/XMR/XRPL/bounty-payout) as independent key-state chains, and the
+  fresh-key-per-rotation rule: same-key resharing is rejected outright
+  (`CustodyKeyTransitionV1::validate`), because a departing signer's old
+  share remains a mathematically valid share of the *same* secret for as
+  long as that secret exists — only a fresh key actually revokes it.
+
+Policy numbers (11 signers, 7-of-11 threshold, 180-day nominal rotation
+interval, four named domains) are adopted from the report's Section 5 as
+given, per explicit founder/user instruction to adopt the report's
+policy numbers unless told otherwise.
+
+**Reason:** Directive 14 (simplicity is security) and this tree's
+composition-not-invention cryptography rule both point the same
+direction here: `frost_ristretto255` is real, already-reviewed prior art
+implementing a real, published construction: composing it — and adding
+only the ceremony/transport/storage/rotation scaffolding no DKG library
+provides on its own — is the correct shape, not writing a third custom
+DKG (after `frost_dkg.rs` itself and, implicitly, whatever a from-scratch
+rewrite would have been). `crates/mini-custody/tests/full_ceremony.rs`
+proves this is not just well-typed plumbing: it drives phases A-G across
+all 11 synthetic participants and then uses the resulting `KeyPackage`s
+to produce and verify a real 7-of-11 FROST Schnorr signature against the
+ceremony's own group public key.
+
+**Constitutional impact:** Invariant M2 as in D-0506. No dependency edge
+between `mini-custody` and any governance/review crate — `mini-custody`
+depends only on `frost-ristretto255`, `mini-bearer`, `mini-crypto`,
+`did-mini`, `blake3`, `argon2`, `rand_core`, `zeroize` — so the P1 voice/
+value wall (Directive 16) is not implicated either direction. No
+generic `sign(bytes)`/`finalize(state)`: every signed ceremony message
+(`ManifestAcceptanceV1`, `Round1ViewAckV1`, `CompletionAttestationV1`,
+`AbortNoticeV1`, `TransportBindingV1`) has its own dedicated canonical
+byte-encoding function.
+
+**Implementation status:** shipped, new crate `mini-custody` (added to
+the workspace `Cargo.toml` members list). 30 unit tests plus one 11-party
+end-to-end integration test (`tests/full_ceremony.rs`) pass; `cargo fmt
+--all -- --check` and `cargo clippy --all-targets --all-features
+--workspace -- -D warnings` clean across the whole workspace as of this
+commit. **What this entry does NOT claim:**
+
+- **Gate #93 is not closed.** D-0047 states plainly that founder review
+  is not audit and neither is sufficient on its own; an anonymous,
+  unattributed report — however technically accurate its findings proved
+  on independent verification (D-0506) — is not a real, accountable
+  external audit and cannot substitute for one. This crate is
+  engineering remediation in response to that report's findings, not a
+  claim that the gate itself is satisfied.
+- **Not wired up.** `mini_treasury::frost_dkg` is not gated dev-only and
+  remains reachable in production call paths; nothing in `mini-treasury`
+  or elsewhere yet calls into `mini-custody`. That wiring, and actually
+  gating the old module, is separate follow-up work (tracked, not done
+  here).
+- **No network transport, no external chain integration**, stated
+  explicitly in the crate's own top-level docs — `transport`'s
+  `Channel`-binding logic is proven over in-process/real-TCP channels the
+  same way `mini-mesh` proved its own relay logic, but an actual
+  multi-machine 11-node ceremony, and any BTC/XMR/XRPL chain-specific
+  sweep/reconciliation/signing-authority-rotation integration, is
+  unstarted.
+- **Not externally audited.** Composing an already-audited library is
+  not the same as this new ceremony/transport/storage/rotation layer
+  itself having been reviewed by anyone outside this project.
+
+**Failure point:** the DKG math itself is `frost_ristretto255`'s, already
+independently audited; the risk surface this entry actually adds is the
+ceremony/transport/storage/rotation logic wrapped around it, none of
+which has external review yet. `full_ceremony.rs` proves the happy path
+produces a working key and a verifying signature; it does not exercise
+adversarial/Byzantine-participant scenarios (a lying Round-1 broadcaster,
+a malformed Round-2 package, a transport-layer replay) beyond the unit
+tests already covering each phase function's own input validation in
+isolation.
+
+**Required follow-up:** wire `mini-custody` into `mini-treasury` and gate
+`frost_dkg.rs`'s production reachability; a real multi-machine ceremony
+integration test over `mini_bearer::TcpBearer`; the Gate #72 report's
+separate `mini-value`/`mini-bounty`/`mini-settlement` recommendations
+(canonical scalar/point decoding, `frost_ristretto255` for signing math,
+vendored `bulletproofs`, `PrivatePaymentV3` wire format, calibrated decoy
+distribution) remain entirely unimplemented as of this entry; and, as
+always, a real external cryptography audit — engaging one remains
+founder action per `docs/gates/crypto-audit-scope.md`, not something any
+amount of engineering remediation on this side can substitute for.
+
+**Supersedes / superseded by:** none.
+
+### D-0508 — `mini_treasury`: `frost_dkg`/`frost_reshare`'s hand-rolled DKG API moved off the crate's default public surface, behind `legacy-hand-rolled-dkg`  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** D-0506/D-0507 above (same Gate #93
+report); `crates/mini-treasury/Cargo.toml`,
+`crates/mini-treasury/src/lib.rs`.
+
+**Decision:** D-0507's own "required follow-up" named this explicitly:
+gate `frost_dkg.rs`'s production reachability now that `mini-custody`
+exists as the recommended production DKG path. Concretely: `dkg_round1`,
+`dkg_generate_round2_shares`, `dkg_verify_received_share`, `dkg_resolve`,
+`dkg_finalize`, `verify_round1_package`, `AcknowledgedUnauditedDkg`,
+`DkgComplaint`, `DkgRebuttal`, `DkgResolution`, `DkgRound1Package`,
+`DkgRound1Secret` (from `frost_dkg`), and `reshare_round1`,
+`reshare_finalize`, `verify_reshare_round1_package` (from
+`frost_reshare`) are no longer re-exported from `mini_treasury`'s crate
+root by default; they require the new `legacy-hand-rolled-dkg` Cargo
+feature (default: off). `mod frost_dkg;`/`mod frost_reshare;` themselves
+stay unconditional, so each module's own `#[cfg(test)]` coverage keeps
+compiling and running exactly as before regardless of the feature —
+only the *downstream-visible* public API moved. A quick repo-wide check
+before making this change confirmed no real caller exists yet outside
+`mini-treasury` itself: `mini-airdrop`/`mini-airdrop-treasury` only
+*mention* `frost_sign`/`frost_dkg` in their own doc comments ("does not
+touch..."), they do not call into either module — so this is not a
+breaking change to any real consumer today, only a default-visibility
+change for future ones. `trusted_dealer_keygen`/`AcknowledgedPrototypeOnly`
+(`frost_keygen`) and `frost_sign`'s signing API are unaffected — signing
+and the trusted-dealer prototype path are unrelated to the DKG-specific
+findings this gates against.
+
+**Reason:** a Cargo feature flag, not a hard module removal, because
+`frost_dkg.rs`/`frost_reshare.rs` remain this crate's own historical
+implementation with real test coverage worth keeping buildable (and
+useful for comparison/regression work), and because removing them
+outright would be a larger, riskier, unreviewed change than this
+session's remaining budget should spend on a module that, per D-0506,
+has already been independently verified safe at its actual boundary
+condition. Default-off is what makes this a real gate rather than a
+cosmetic one: any new crate adding `mini-treasury` as a dependency will
+not see the hand-rolled DKG functions in its public API unless it
+explicitly opts in, which is the concrete "not reachable by accident"
+property D-0507 was missing.
+
+**Constitutional impact:** Directive 14 (simplicity is security) —
+reduces the crate's default attack/misuse surface without removing
+tested code outright. No invariant changes: `AcknowledgedUnauditedDkg`'s
+own typed-acknowledgment gate (existing, unchanged) still applies to
+every call site that *does* enable the feature.
+
+**Implementation status:** shipped. `cargo check -p mini-treasury`
+(default features) is warning-free (the two modules are marked
+`#[cfg_attr(not(feature = "legacy-hand-rolled-dkg"), allow(dead_code))]`
+so their still-unconditionally-compiled internal items don't trip
+`dead_code` when the public re-export is off). `cargo test -p
+mini-treasury` and `cargo test -p mini-treasury --all-features` both
+pass all 71 unit tests plus 3 doc-tests identically — the feature only
+changes what is publicly re-exported, not what compiles or runs.
+`cargo check --workspace` (default features) and `cargo clippy
+--all-targets --all-features --workspace -- -D warnings` are both clean.
+
+**Failure point:** this is a default-visibility change, not a runtime
+enforcement mechanism — a crate that deliberately opts into
+`legacy-hand-rolled-dkg` can still reach the old DKG path exactly as
+before (with `AcknowledgedUnauditedDkg` still required at the call
+site). That is intentional: the goal is "not reachable by accident,"
+not "impossible to reach," matching D-0507's own framing of this module
+as kept for test/historical coverage rather than deleted.
+
+**Required follow-up:** the harder half of D-0507's own follow-up list
+is still open — no code here yet actually constructs a `frost_dkg::
+KeyPackage`/`PublicKeyPackage` from a completed `mini-custody` ceremony,
+because `mini_treasury`'s signing stack (`frost_keygen`/`frost_sign`)
+uses its own hand-rolled `KeyPackage`/`PublicKeyPackage` types over
+`curve25519-dalek` directly rather than `frost_ristretto255`'s — exactly
+the Gate #72 finding (F72-14/F72-17: replace bespoke FROST signing math
+with `frost_ristretto255`) this entry's own scope did not attempt. Real
+interop between `mini-custody`'s DKG output and `mini_treasury`'s
+signing requires that migration first; attempting it without dedicated
+review time for a 1300+ line rewrite of security-critical signing math
+was judged too large and too risky to rush within this same pass.
+
+**Supersedes / superseded by:** none.
+
+### D-0509 — `mini-value`: canonical scalar/point decoding and semantic non-identity checks at every signature/proof verification boundary (Gate #72, F72-01/F72-04)  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+External Cryptography Audit Report", Gate #72 scope, reviewed revision
+`bc7da80f8817f856a96bcb3772232b080eef531d`), findings F72-01 and F72-04;
+new module `crates/mini-value/src/canonical.rs`;
+`crates/mini-value/src/{mlsag,ring_impl,stealth_impl,confidential_impl,
+bp_range,bp_ipa,curve}.rs`; `crates/mini-private-payment/src/{claim,scan}.rs`
+and `tests/support/mod.rs`.
+
+**Decision:** F72-01's core claim was independently verified against the
+real code before any change was made, per this tree's standing rule that
+"triaged and verified" from the report's own author is not itself
+verification (see D-0507's identical discipline for the Gate #93 report).
+It was accurate: `mlsag.rs`, `ring_impl.rs`, `stealth_impl.rs`,
+`confidential_impl.rs`, `bp_range.rs`, and `bp_ipa.rs` all decoded
+wire-supplied scalar fields (ring-signature challenge/responses, key
+images treated as scalars, Bulletproof folded scalars `t_hat`/`tau_x`/
+`mu`/IPA `a`/`b`, blinding factors) via `Scalar::from_bytes_mod_order`,
+which silently reduces *any* 32-byte input mod the group order `l ≈
+2^252.4` rather than rejecting the ~1-in-16 inputs that are not that
+value's unique canonical encoding. `curve25519-dalek`'s own scalar type
+provides the correct parser, `Scalar::from_canonical_bytes`, already used
+correctly at exactly one call site in the tree
+(`stealth_impl::view_public_from_secret`) before this fix — the pattern
+existed, it just was not applied everywhere the audit's Section 5.3 says
+it must be.
+
+New shared module `mini_value::canonical` centralizes the fix:
+`canonical_scalar`/`canonical_nonzero_scalar` wrap
+`Scalar::from_canonical_bytes`; `canonical_point`/
+`canonical_nonidentity_point` wrap `CompressedRistretto::decompress`
+(already a canonical decoder — verified directly against
+`curve25519-dalek`'s own `decompress()` implementation, which checks
+`s_encoding_is_canonical` before anything else — so F72-01's "canonical
+Ristretto decoding must succeed" requirement was already satisfied for
+points; the module exists mainly to collect four duplicated
+hand-rolled `decompress_point` helpers into one, and to add the
+non-identity variant). Every module above now imports `canonical_point`/
+`canonical_scalar` (aliased as `decompress_point`/`decompress_scalar` at
+each call site to keep the diff minimal) in place of its own
+hand-rolled, non-canonical helper. `mlsag.rs` and `ring_impl.rs`
+specifically import the *non-identity* point variant, since every point
+role they decode (one-time output keys, output/pseudo commitments, key
+images) is on the audit's Section 5.3 list of fields that must never be
+the identity element (F72-04) — an identity key image, for instance,
+would be indistinguishable across every degenerate spend that produced
+one, defeating the double-spend detection key images exist for.
+
+Fixing the decode side exposed a real, separate issue in the
+*generation* side: `mini-private-payment`'s blinding-factor generation
+(`claim.rs`'s two output/pseudo-commitment blinding sites, `scan.rs`'s
+and `tests/support/mod.rs`'s test fixtures) called
+`mini_crypto::random_32()` directly and used the raw uniform 32 bytes as
+a scalar encoding without ever reducing them — correct in the old,
+permissive decoder, but about 1-in-16 such values are not a canonical
+scalar encoding at all, so canonicalizing the decoder alone would have
+made genuine, honestly-generated blinding factors spuriously fail ~6% of
+the time. The audit's own permitted list ("modulo/wide reduction is
+restricted to... freshly generated random wide bytes") says the fix
+belongs at generation, not at the decoder: new `mini_value::
+random_scalar_bytes()` (`curve.rs`) does the same double-`random_32`-
+plus-wide-reduction `random_scalar()` already used elsewhere, returning
+its canonical byte encoding, and every blinding-factor-generation call
+site now uses it instead of raw `random_32()`.
+
+**Reason:** in Shamir/Feldman-adjacent elliptic-curve cryptography, a
+type whose encoding is wider than its value space (32 bytes for a
+~252.4-bit field) has multiple valid byte strings per logical value
+unless the decoder actively rejects the non-canonical ones. Accepting
+them anyway is a textbook malleability bug: the same signature, key
+image, or proof now has multiple valid wire encodings, breaking any
+assumption that encode/decode/encode is byte-identical and undermining
+exactly the "one canonical identity per object" property `claim_id`-style
+hashing (Gate #72 Section 10.3, not yet implemented — see D-0507/D-0508's
+own open-items list) depends on. Rejecting the identity element at
+specific semantic point roles (F72-04) closes the parallel degenerate-
+value class: a key image, output key, or commitment that is
+group-theoretically valid but semantically meaningless.
+
+**Constitutional impact:** none beyond what D-0036/D-0037 already state
+(`mini-value` is a founder-overridden, AI-authored prototype pending
+external audit — this fix does not change that status, only removes one
+concrete, independently-verified defect from it). No dependency-edge
+change: `mini-value`/`mini-private-payment` still have no edge to any
+governance/review crate.
+
+**Implementation status:** shipped. New tests added specifically
+demonstrating the fix, not just its absence of regression:
+`mlsag::tests::a_non_canonically_encoded_response_is_rejected_not_
+silently_reduced` constructs a genuine non-canonical re-encoding (raw
+little-endian byte addition of the group order, not `Scalar` arithmetic,
+which always renormalizes) of a valid response scalar and confirms it
+now fails verification where the old `from_bytes_mod_order` path would
+have accepted it identically to the original; `mlsag::tests::
+an_identity_key_image_is_rejected` and `ring_impl::tests::
+an_identity_key_image_is_rejected` cover F72-04. All 108 `mini-value`
+unit tests, all `mini-private-payment`/`mini-shielded-verify`/
+`mini-settlement`/`mini-bounty`/`mini-execution` tests, `cargo fmt --all
+-- --check`, and `cargo clippy --all-targets --all-features --workspace
+-- -D warnings` are clean. `cargo test --workspace --all-features`
+passes everywhere except the same pre-existing, unrelated
+`mini-build-runner-wasmtime` adversarial suite failure D-0507/D-0508
+already recorded (missing `wasm32` rustc target in this sandbox).
+
+**Failure point:** this closes F72-01 and F72-04 specifically. It does
+not touch F72-02 (bespoke Bulletproofs/IPA implementation itself, only
+its wire decoding), F72-03 (transcript/domain-separation framing
+consistency), F72-05 through F72-18 (canonical claim evidence in
+consensus, the transparent payment path, the duplicate bounty ring
+signature, uncalibrated decoy distribution, bespoke FROST signing math,
+optional proof verification, resource ceilings, untyped treasury
+signing, crypto-migration admin-switch risk) — all of those remain
+entirely unimplemented, as does the full `PrivatePaymentV3` wire format
+and three-digest scheme Section 9-10 describes. Composing an
+already-canonical `CompressedRistretto::decompress` and a correct
+`Scalar::from_canonical_bytes` is not itself new cryptography and carries
+low risk on its own terms, but the module composition around it
+(`mini-value`/`mini-private-payment` as a whole) remains unaudited.
+
+**Required follow-up:** the remaining Gate #72 findings, in the
+project's own working order: F72-14/F72-17 (replace bespoke FROST
+signing math with `frost_ristretto255`, also required before
+`mini-custody`'s DKG output can actually sign for `mini-treasury`, per
+D-0508), F72-02 (vendored `bulletproofs`/`curve25519-dalek` pinned
+per Section 5), the `PrivatePaymentV3` wire format and three-digest
+scheme (Section 9-10, F72-11/12/13), canonical claim bytes and derived
+key images in consensus (F72-05/06/15/16), removing the transparent
+`PaymentClaim` path and the duplicate bounty ring signature (F72-08/09),
+and the calibrated OSPEAD log-GB2 decoy distribution (F72-10) are all
+unstarted. As always, a real external cryptography audit — engaging one
+remains founder action per `docs/gates/crypto-audit-scope.md` — is not
+something engineering remediation on this side can substitute for.
+
+**Supersedes / superseded by:** none.
+
+### D-0510 — `mini-presence`: `RangingEvidenceV2`/`PresencePolicyV2`/`verify_presence_v2`, a hardware-classification architecture for Gate #97 (engineering remediation, not gate closure)  ·  *Shipped, unaudited, no physical validation*
+
+**Date:** 2026-09-11 · **Refs:** an anonymous external report ("Mininet
+Hardware Validation 05 — Gate #97 BLE/UWB/Presence"), its own Sections
+27-28 and 33 (device certification data model, hardware classification
+algorithm, exact code change map); new module
+`crates/mini-presence/src/evidence_v2.rs`;
+`crates/mini-presence/src/{error,verify,lib}.rs`; new integration tests
+`crates/mini-presence/tests/presence_v2.rs`.
+
+**Decision:** unlike the Gate #72/#93 reports (D-0506-D-0509), this
+report does not ask for gate closure — it states its own result plainly
+as "GATE #97: FAIL / BLOCKED UNTIL THE REAL-DEVICE EVIDENCE IN THIS
+DOCUMENT PASSES" and "NO PHYSICAL RESULT IS CLAIMED BY THIS DOCUMENT,"
+deferring closure to real hardware testers this sandboxed environment
+cannot be. That removes the tension present in the other three uploaded
+reports (this tree does not treat an anonymous, unsigned document as a
+verified audit — see D-0506/D-0507/D-0509 and the founder-chat exchanges
+recorded around them): there is no gate-closure request here to decline,
+only an architecture to implement and verify against the real crate
+before writing any code, per this tree's standing "verify claims before
+implementing" discipline.
+
+Verified against real code first: `crates/mini-presence/src/{ranging,
+attestation,verify}.rs` were read in full and the report's claims were
+accurate — `ranging::RangingSource` ships no real implementation
+(`NoUwb` always returns `Ok(None)`); `attestation::UwbRanging` is a bare
+`{distance_cm, sample_count}` pair whose own doc comment already admits
+`sample_count` is "not independently checked" by this crate;
+`TransportKind::InProcess` is treated as a proximity transport by
+`is_proximity()` (correct for this crate's own CI, but the report's
+concern that a canonical/production path must not inherit that is
+legitimate); `verify::verify_presence`'s UWB check is optional and
+purely additive to the software RTT bound, never required.
+
+Implemented, per Section 33.2's exact instruction ("ADD: canonical
+`PresencePolicyV2`. ADD: verifier path: `verify_presence_v2`. It must:
+derive assurance; validate sample/distance/security bounds; reject
+production InProcess; preserve existing KEL/signature/nonces/replay/
+software RTT."):
+
+- `RangingTechnologyV2` (Uwb / BleChannelSounding / SoftwareRtt),
+  `RangingSecurityProfileV2` (SecureSts / Unauthenticated),
+  `MeasurementSidedness` (OneSided / TwoSided), `AttackIndicatorV2` (a
+  `u8` NADM-scale attack-detection signal), `PresenceAssuranceV2`
+  (Unusable < WeakSoftware < CertifiedMedium < CertifiedSecure, `Ord`-
+  derived so a caller can express a minimum threshold).
+- `RangingEvidenceV2`: raw, independently-checkable measurement fields
+  only (technology, security profile, sidedness, a registry capability-
+  class id, an OOB-config digest, a session-binding digest, sample
+  count, duration, min/p10/median/p90/max distance in mm, attack
+  indicator, opaque platform quality flags). Deliberately **no**
+  "claimed assurance" field: per the report's "derived not caller-set"
+  requirement, nothing on the wire type lets a caller assert its own
+  trust level.
+- `HardwareCapabilityRegistryV1`: a versioned, source-controlled,
+  in-code registry of generic capability *classes* ("UWB w/ FiRa-profile
+  secure ranging," "Bluetooth Channel Sounding," "software RTT") rather
+  than a per-device allowlist, matching the report's stated preference
+  and its "no online service" requirement — a new class ships as a
+  reviewed code change, nothing is fetched at runtime.
+- `classify_ranging_evidence`: the Section 28 hardware classification
+  algorithm, implemented as a pure, total function over evidence +
+  registry. Hardware (UWB/BLE-CS) evidence must cite a registry-
+  recognized, secure-ranging-certified class, report `SecureSts`, stay
+  within the NADM/sample-count/window/distance (median *and* p90 tail)
+  bounds `PresencePolicyV2`'s associated constants fix, and is capped at
+  `CertifiedMedium` unless both sides cross-checked
+  (`MeasurementSidedness::TwoSided`, which alone reaches
+  `CertifiedSecure`). Any failure — including an unrecognized capability
+  class, regardless of how good the claimed numbers look — is
+  `Unusable`, never silently downgraded to a lower-but-still-accepted
+  level.
+- `verify::verify_presence_v2`: calls the existing, unmodified
+  `verify_presence` first (so every KEL/delegation/signature/nonce/
+  replay/software-RTT check it already performs still applies
+  unchanged), then unconditionally rejects `TransportKind::InProcess`
+  (stricter than V1's `is_proximity()`, which allows it for CI),
+  requires — when evidence is supplied — that
+  `RangingEvidenceV2::session_binding_digest` equal
+  `blake3(attestation_transcript)` (evidence from one session can never
+  back a different one), and always **recomputes**
+  `classify_ranging_evidence` itself rather than trusting anything the
+  caller supplied, checking the result against a caller-specified
+  minimum. No evidence still succeeds at `WeakSoftware` (the base
+  checks already enforce the software RTT bound), so devices without
+  ranging hardware are unaffected exactly as the report requires.
+
+**Reason:** the same reasoning D-0509 applied to scalar/point decoding
+applies here to trust levels: a field a caller can set to whatever it
+likes is not evidence, it's a claim. `RangingEvidenceV2` has no
+assurance field for a caller to lie into, and `verify_presence_v2`
+always derives the real value from raw, checkable numbers plus a
+registry the caller cannot edit at the call site. This is exactly the
+project's "typed domains, never generic `sign(bytes)`" instinct applied
+to a classification instead of a signature: the set of assurance levels
+achievable is fixed by the algorithm, not by whatever the wire message
+says about itself.
+
+**Constitutional impact:** none. No dependency-edge change (mini-
+presence has no edge to any voice/value crate either direction, and none
+was added). This is new architecture in an already-owner-adopted,
+unaudited crate — it does not touch, weaken, or invoke the unfreezing
+process for any Tier-F invariant, and does not claim gate closure. It
+composes only already-reviewed primitives (`mini_crypto::HashAlgorithm::
+Blake3`) plus ordinary Rust — no new cryptographic construction.
+
+**Implementation status:** shipped as architecture only. 20 new unit
+tests in `evidence_v2.rs` (classification boundary conditions: two-sided
+vs. one-sided caps, unrecognized capability class, a device claiming
+secure ranging for the software-only class, attack-indicator threshold,
+sample-count/window/distance bounds including the p90-tail case a tight
+median alone can't hide, self-inconsistent distance ordering, both
+hardware technologies) and 7 new integration tests in
+`tests/presence_v2.rs` (InProcess rejection, no-evidence path at/under
+its ceiling, evidence-session-binding mismatch, unusable evidence,
+insufficient assurance for both the no-evidence and one-sided-evidence
+cases, a full real end-to-end `CertifiedSecure` verification using real
+delegation/KEL/channel-handshake/signature fixtures matching the
+existing `tests/presence.rs` fixture shape). `cargo fmt --all`, `cargo
+clippy --all-targets --all-features --workspace -- -D warnings`, and
+`cargo test -p mini-presence` are clean; full-workspace `cargo test
+--workspace --all-features` re-run pending as part of this same batch.
+
+**Failure point:** this is architecture, not a closed gate — the report
+itself says so. Nothing here talks to real UWB or BLE Channel Sounding
+hardware; `HardwareCapabilityRegistryV1::builtin`'s three classes are
+generic and unvalidated against any specific real device's actual
+behavior; no platform shell (Android/iOS) in this tree produces a
+`RangingEvidenceV2` yet — Section 33's Kotlin-side module map is
+unimplemented; `platform_quality_flags` is carried but not interpreted
+by any check yet; `oob_config_digest` is carried and required to be
+present but this crate cannot independently witness the out-of-band
+exchange it claims to summarize, so a compromised platform could still
+lie about it. Real hardware validation remains gated on the same
+condition the report itself names: physical devices and testers this
+sandboxed environment does not have.
+
+**Required follow-up:** a real platform integration (Android/iOS UWB and
+Bluetooth Channel Sounding stacks) that actually produces
+`RangingEvidenceV2` from hardware, real-device data collection to
+validate or correct `HardwareCapabilityRegistryV1`'s three built-in
+classes and `PresencePolicyV2`'s bound constants against real ranging
+noise, and — as always — closing Gate #97 itself is founder/hardware-
+tester action this repository cannot substitute for.
+
+**Supersedes / superseded by:** none.
+
+### D-0511 — PR #333 CI/CodeQL/Codex remediation batch: `dependency-deny` advisory, hard-coded-salt static-analysis fix, FROST DKG phantom-index oracle, stealth-address identity-key rejection, `mini-custody` session-binding/key-reuse/domain/rollback fixes, BLE disconnect propagation  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** GitHub CI (`dependency-deny`, CodeQL) and
+Codex automated review on PR #333, commits `696f28a`/`32df4ad`; touches
+`deny.toml`; `crates/mini-custody/src/{share_store,session,manifest,
+domains}.rs`, `crates/mini-custody/tests/{full_ceremony,session_binding}
+.rs`; `crates/mini-treasury/src/{frost_dkg,frost_reshare}.rs`;
+`crates/mini-value/src/{confidential_impl,stealth_impl}.rs`;
+`crates/mini-ffi/src/{ble,mesh,mini_ffi.udl}`; `app/android/app/src/main/
+java/org/mininet/app/{BleCentralRadio,BlePeripheralServer}.kt`;
+`README.md`.
+
+**Decision:** every finding below was independently verified against the
+real code before being fixed, per this tree's standing discipline (D-0506/
+D-0507/D-0509/D-0510's identical practice) — none was taken on the
+reviewing tool's word alone.
+
+1. **`dependency-deny` CI failure.** `frost-ristretto255` (D-0507, pinned
+   to the Gate #93 audit report's normative version) pulls
+   `postcard`'s `heapless-cas` feature (needed for
+   `PublicKeyPackage::serialize`, used in `mini_custody::session`) →
+   `heapless` 0.7 → `atomic-polyfill` 1.0.3, flagged unmaintained
+   (RUSTSEC-2023-0089). No safe upgrade exists: `heapless` 0.8+ dropped
+   atomic-polyfill for `portable-atomic`, but `postcard` 1.1.3 (latest)
+   still pins `heapless` 0.7. Added a specific, reasoned `deny.toml`
+   ignore entry (the same pattern the file's existing RUSTSEC-2026-0192
+   entry already uses) rather than loosening the policy generally.
+2. **CodeQL critical: hard-coded cryptographic value used as a salt**
+   (`mini-custody::share_store::seal_key_package`). Not actually a
+   hard-coded salt — a fresh salt was already drawn from
+   `mini_crypto::random_32()` on every call — but the `[0u8; SALT_LEN]`-
+   then-`copy_from_slice` idiom used to build it reads to CodeQL's
+   dataflow analysis as a literal flowing to a salt sink. Rewritten to
+   build the array directly from a slice of the random bytes via
+   `try_into()`, with no zeroed intermediate for a static analyzer (or a
+   future human reader) to misread.
+3. **FROST DKG phantom-index oracle** (`mini_treasury::frost_dkg::
+   dkg_generate_round2_shares`, D-0506's own index-0 fix). Rejecting only
+   recipient index `0` left the function as an evaluation oracle for
+   arbitrary *nonzero* indices: a coordinator able to call it with
+   `threshold` distinct made-up ("phantom") indices could Lagrange-
+   interpolate `f(0)` — the raw DKG secret — exactly as directly as
+   requesting index `0` itself, without needing any real participant's
+   cooperation. Fixed by recording the session's actual permitted
+   recipient set on `DkgRound1Secret` at generation time
+   (`allowed_recipients: BTreeSet<u16>`, not a numeric range — verified
+   against `frost_reshare::reshare_round1`'s own test fixtures, which
+   deliberately use non-sequential new-committee identifiers like
+   `[10,11,12,13]`, so a bare `1..=n` range check would have rejected a
+   legitimate resharing roster) and rejecting any `dkg_generate_round2_
+   shares` call for an index outside it, or a duplicate index within one
+   call. `frost_reshare::reshare_round1`'s signature changed from a bare
+   `new_n: u16` to `new_committee: &[u16]` so the real roster, not just
+   its size, is available to bind.
+4. **Stealth-address identity-key acceptance** (`mini_value::
+   stealth_impl`). Every decode site (`recipient_spend_public`/
+   `recipient_view_public`, `own_spend_public`, `output.tx_public_key`)
+   used the plain `canonical_point` decoder (D-0509), which accepts the
+   identity element as a structurally valid Ristretto point. A recipient
+   publishing the identity point as `view_public` makes the Diffie-Hellman
+   shared point `r*B` always equal the identity regardless of the
+   sender's `r`, making the derived shared secret — and so the memo key
+   and the one-time address's unlinkability — predictable to any
+   observer. Every one of those roles is a published account/transaction
+   key, never a role where identity is meaningful, so the whole module's
+   import switched to `canonical_nonidentity_point` (already used
+   elsewhere for exactly this reason, e.g. `mlsag`/`ring_impl`'s key
+   images, per D-0509).
+5. **`mini-custody` session binding** (`session::round1_view_confirmed`/
+   `verify_round1_view_ack`, `session::completion_confirmed`). Both took
+   the expected session id as a bare parameter rather than reading
+   `manifest.session_id()` directly, so a complete, internally-consistent,
+   validly-signed set of Round-1 acks or completion attestations from a
+   *different* ceremony attempt (same roster, retried with a new
+   `attempt`, hence a different `session_id`) could satisfy the barrier
+   for a manifest it was never signed for if a caller (by bug, or a
+   malicious coordinator orchestrating a retry) supplied the wrong
+   "expected" value. Both now compare directly against `manifest.
+   session_id()`; `round1_view_confirmed`'s redundant `expected_session_id`
+   parameter was removed entirely rather than left as a now-unchecked
+   trap for a future caller.
+6. **Key reuse across custody protocol roles**
+   (`manifest::DkgSessionManifestV1::validate`). Device and transport keys
+   were checked for uniqueness in two separate sets, so participant A's
+   transport key could be reused as participant B's device key (or vice
+   versa, or even one participant's own key reused across both their own
+   roles) without being caught, handing whoever holds that key
+   ceremony-signing authority under an identity that isn't theirs.
+   Uniqueness is now checked across the union of both roles in one set.
+7. **Undeclared custody domains accepted**
+   (`manifest::DkgSessionManifestV1::validate`). `CustodyDomain(pub u16)`
+   is a public tuple struct — nothing stopped a manifest from naming any
+   `u16`, not just the four production domains `domains.rs` declares
+   (BTC/XMR/XRPL/bounty-payout). Added `domains::is_known_domain` (a
+   closed, in-code list) and a `validate` check against it.
+8. **Completed epochs could roll the registry back**
+   (`domains::CustodyDomainRegistry::record_completion`). An unconditional
+   `states.insert` let a delayed, out-of-order delivery of an older
+   (but individually valid-when-checked) ceremony completion silently
+   overwrite a newer one. `record_completion` now takes the completed
+   ceremony's own manifest (not a bare `(domain, epoch, key)` tuple) and
+   re-runs `validate_chain` against the registry's *current* state
+   immediately before inserting, so only the exact successor of what is
+   stored right now is ever accepted.
+9. **Canonical-scalar decoding vs. pre-existing note compatibility**
+   (`mini_value::confidential_impl::pedersen_commitment`, flagged as a
+   consequence of D-0509). Correct as a general engineering concern —
+   switching a blinding-factor *opening* path from
+   `Scalar::from_bytes_mod_order` to the canonical decoder makes roughly
+   15/16 of blinding factors generated the old way (raw
+   `mini_crypto::random_32()` bytes, no wide reduction) fail to reopen —
+   but not applicable to this specific codebase today: there is no
+   production deployment or persisted note corpus predating D-0509, which
+   shipped the canonical-decode fix and the companion generation-side fix
+   (`mini_value::random_scalar_bytes`) together in the same unreleased
+   branch. Documented explicitly on `pedersen_commitment` as a
+   compatibility boundary future persistence work must account for,
+   rather than built out as unneeded migration machinery today (nothing
+   to migrate yet).
+10. **BLE link pruning never told the platform to disconnect**
+    (`mini_mesh::MeshNode`/`mini-ffi`/Android). When `MeshNode::poll`
+    prunes a link after a terminal `try_recv`/`send` failure, dropping the
+    Rust-side `EncryptedLink` had no operation that reached the platform
+    radio: the Android GATT connection stayed open, and on the peripheral
+    side `BlePeripheralServer`'s `LinkState`/`BleMeshService`'s
+    `centralLinks` entry stayed live, suppressing rediscovery of the same
+    peer. Fixed at the ownership boundary rather than by threading a
+    callback through `MeshNode`'s specific pruning call sites: added
+    `BleRadio::disconnect()` (UDL callback interface, Rust trait, and both
+    Kotlin implementations — `BleCentralRadio.disconnect` reuses its
+    existing `close()`; `BlePeripheralServer.PeripheralLinkRadio.
+    disconnect` reuses the same `cancelConnection` the existing
+    handshake-failure `disconnect` closure already calls) and an
+    `impl Drop for RadioAdapter` that calls it. Since `RadioAdapter` is
+    owned (by value, through `AndroidBleBearer`/`EncryptedLink`) by every
+    link `MeshNode` holds, this fires on *any* path a link's bearer is
+    dropped — mesh pruning, a failed handshake, an explicit close — not
+    only the two specific call sites the finding named.
+11. Also fixed, as **P2**: an unguarded `BluetoothDevice.connectGatt`/
+    `BluetoothLeScanner.startScan` in `BleCentralRadio.
+    {connectAndAwaitReady,scanConnectAndAwaitReady}` could throw
+    `SecurityException` on Android 12+ without runtime Bluetooth grants
+    (the same class `BleMeshService.startScanning` already guards);
+    wrapped both in `try`/`catch`, returning the clean `false` this
+    class's own contract already promises for "not ready" rather than
+    crashing. `README.md`'s decision-log summary range updated through
+    this entry.
+
+**Reason:** every fix above is the same category of error this tree's own
+review discipline exists to catch before merge — a real gap between what a
+check claims to enforce and what it actually enforces (session binding,
+domain closure, key-role separation, registry monotonicity), a real
+secret-recovery oracle one boundary check short of complete (the DKG
+phantom-index case, structurally identical to D-0506's own index-0 fix),
+a real predictability gap at a cryptographic boundary (stealth identity
+keys, structurally identical to D-0509's non-identity fixes), a real
+platform-resource leak at an ownership boundary (BLE disconnect), and two
+static-analysis/supply-chain findings that needed a specific, documented
+response rather than a blanket suppression.
+
+**Constitutional impact:** none. No dependency-edge change. All affected
+crates (`mini-custody`, `mini-treasury`, `mini-value`, `mini-ffi`, the
+Android app) remain founder-overridden, AI-authored, unaudited prototypes
+per D-0036/D-0037/D-0047 — this closes concrete defects in them without
+changing that status or claiming any gate closure.
+
+**Implementation status:** shipped. New/changed tests: `mini-custody`
+gains `manifest::tests::{an_undeclared_custody_domain_is_rejected,
+every_declared_production_domain_validates,
+reusing_one_participants_transport_key_as_anothers_device_key_is_rejected}`,
+`domains::tests::an_out_of_order_stale_completion_cannot_roll_the_
+registry_back`, and a new integration test file
+`tests/session_binding.rs` (two tests proving a retried ceremony attempt's
+acks/attestations don't satisfy a different manifest); `mini-treasury`
+gains `frost_dkg::tests::{a_recipient_index_beyond_the_session_roster_is_
+rejected, a_repeated_recipient_index_in_one_call_is_rejected,
+a_coordinator_cannot_collect_enough_phantom_evaluations_to_interpolate_
+the_secret}`; `mini-value` gains `stealth_impl::tests::{a_published_
+identity_view_key_is_rejected_not_silently_accepted,
+a_published_identity_spend_key_is_rejected_not_silently_accepted,
+an_identity_transaction_key_is_rejected_by_recognizes_and_recover_shared_
+secret}`; `mini-ffi` gains `mesh::tests::
+a_link_pruned_after_its_peer_disappears_tells_the_platform_radio_to_
+disconnect`, a real end-to-end proof (not just a unit check) that dropping
+a mesh-pruned link's bearer reaches a mock platform radio's `disconnect()`.
+`cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features
+--workspace -- -D warnings`, and `cargo deny check` are all clean;
+`cargo test --workspace --all-features` passes everywhere except the same
+pre-existing, sandbox-only `mini-build-runner-wasmtime` adversarial-suite
+failure D-0509/D-0510 already recorded (missing `wasm32` rustc target).
+The two Kotlin changes (`BleCentralRadio`/`BlePeripheralServer.kt`)
+compile by inspection only — no JDK/Android SDK in this environment, the
+same honest limit every Android-side decision in this log already states.
+
+**Failure point:** this closes the specific findings above; it is not a
+general audit of `mini-custody`/`mini-treasury`/`mini-value`/the BLE mesh
+stack, and none of those crates' broader unaudited status changes. The
+canonical-scalar/pre-existing-note compatibility note (item 9) is a
+documentation-only fix — if this scheme is ever used to persist real,
+spendable notes before a real migration step is added, the concern it
+documents becomes live.
+
+**Required follow-up:** none blocking; the same Gate #72/#93/#97 follow-up
+items D-0506–D-0510 already name remain open. Real Android CI
+(`assembleDebug`) and a real two-device test remain the only gates that
+actually exercise the Kotlin changes in this entry, as every prior
+Android-side entry in this log already states.
+
+**Supersedes / superseded by:** none.
+
+### D-0512 — Second CI/CodeQL/Codex remediation batch on PR #333 head `c1de9af`: `SignedRangingEvidenceV2` device authentication for Gate #97, NADM/ordering/OOB-digest hardening, `mini-mesh` poll/flush split, `mini-custody` roster/rollback fixes, bounded BLE worker pool  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** GitHub CI and Codex automated review on
+PR #333, commit `c1de9af` (D-0511's own push, itself triggering a fresh
+review round); touches `crates/mini-presence/src/{evidence_v2,verify,
+error,lib}.rs`, `crates/mini-presence/tests/presence_v2.rs`;
+`crates/mini-mesh/src/lib.rs`, `crates/mini-mesh/tests/tcp_relay.rs`;
+`crates/mini-ffi/src/{mesh,mini_ffi.udl}`; `crates/mini-custody/src/
+{manifest,share_store}.rs`; `app/android/app/src/main/java/org/mininet/
+app/{BleMeshService,BlePeripheralServer}.kt`.
+
+**Decision:** every finding below was independently verified against the
+real code before being fixed, per this tree's standing discipline
+(D-0506/D-0507/D-0509/D-0510/D-0511's identical practice) — none was taken
+on the reviewing tool's word alone. The most significant finding was in
+code this same author had just shipped in D-0510: a genuine
+authentication bypass, not a cosmetic gap.
+
+1. **P1 — Gate #97 `RangingEvidenceV2` was not authenticated.**
+   D-0510's `session_binding_digest` was a hash of public transcript
+   bytes, not a signature — any party (including an outsider, not just
+   the two session participants) could fabricate ranging evidence that
+   `verify_presence_v2` would certify as hardware-backed, because nothing
+   tied the evidence to a specific signing device. Added
+   `SignedRangingEvidenceV2 { evidence, signer_device: Did, signature }`
+   over a new domain-separated `canonical_bytes()`/`EVIDENCE_SIGNATURE_
+   DOMAIN` construction (composing `did_mini`'s existing Ed25519 KEL
+   signing — no new cryptography), and rewrote `verify_presence_v2` to
+   require the signer be one of the two session parties
+   (`f.initiator.device`/`f.responder.device`) and for the signature to
+   verify against that party's KEL before the evidence is classified at
+   all. New `PresenceError::{EvidenceSignerNotAParty,
+   EvidenceSignatureInvalid}` variants.
+2. **P2 — `SECURE_NADM_MAX` accepted NADM=2 ("attack likely").** The
+   0-3 NADM scale (0=no attack, 1=possible, 2=likely, 3=unevaluated) had
+   the ceiling set to `0x02`, so evidence UWB/BLE hardware itself flagged
+   as a likely relay/spoofing attack could still certify as secure.
+   Corrected to `0x01`.
+3. **P2 — missing `p90_distance_mm <= max_distance_mm` check.**
+   `distances_are_ordered()` checked the low end of the ordering but not
+   the high end, so a `p90` reported above `max` (internally
+   inconsistent, physically meaningless) passed as usable.
+4. **P2 — zero `oob_config_digest` accepted for UWB/BLE Channel
+   Sounding.** An all-zero out-of-band configuration digest (the
+   uninitialized/never-set case) classified identically to a real one;
+   added an explicit rejection inside the `Uwb | BleChannelSounding`
+   branch of `classify_ranging_evidence`.
+5. **P2 — `verify_presence_v2` burned replay nonces on a rejected
+   attempt.** The base `verify_presence` call (which durably records
+   replay nonces) ran first, before the V2-specific evidence/assurance
+   checks; an attempt that failed a V2-only check (bad evidence,
+   insufficient assurance) had already consumed the session's nonce,
+   so a legitimate retry with corrected evidence would then fail replay
+   detection. Reordered so `verify_presence` runs last, after every V2
+   check that can reject independently of it. Also: the software-RTT
+   fallback path (`evidence: None`) was checking a caller-suppliable
+   `ctx` policy instead of the fixed `PresencePolicyV2::{MIN_SOFTWARE_
+   RTT_SAMPLES, MAX_SOFTWARE_RTT_MS}` floor, letting a loose `ctx` waive
+   the V2 policy entirely for the unauthenticated fallback path.
+6. **P1 — `mini-mesh::MeshNode::poll()` could block for the life of a
+   slow BLE peer**, violating poll's own documented non-blocking
+   contract: reflood sends happened inline inside `poll()`, and a GATT
+   write to an unresponsive peer has no bounded timeout at this layer.
+   Split into `poll()` (stages reflood payloads into a new bounded
+   `pending_reflood: VecDeque<Vec<u8>>`, `MAX_PENDING_REFLOOD = 4_096`,
+   drop-oldest on overflow) and a separate `flush_reflood()` that
+   performs the actual sends; added `poll_and_flush()` for callers that
+   want the old combined behavior. Propagated through `mini-ffi::mesh`
+   (`MeshHandle::{flush_reflood, poll_and_flush}`, `mini_ffi.udl`) and
+   into `BleMeshService.kt` via a dedicated single-thread
+   `refloodExecutor` running `flushReflood()` independently of the
+   non-blocking poll loop.
+7. **P2 — `mini-custody` manifest roster-size check ran after
+   allocation/parsing began**, not before, so an attacker-declared
+   `roster_len` could drive resource consumption proportional to a
+   value not yet checked against the fixed `SIGNER_COUNT`. Moved the
+   check immediately after reading the length prefix. Also added an
+   Ed25519-suite-only check on every roster participant's
+   `device_verifying_key`/`transport_identity_key` in `validate()`,
+   closing a key-suite-confusion gap the same review pass found.
+8. **P2 — `mini-custody::share_store::open_key_package` trusted the
+   `session_id` embedded in the sealed record.** AEAD associated data
+   protects a field from tampering in isolation, but not from an
+   attacker replacing the *entire* signed/encrypted record with an
+   older, still-internally-consistent one — silently rolling a signer
+   back to an obsolete share. Added a caller-supplied
+   `expected_session_id: &[u8; 32]` parameter, checked before any
+   decryption is attempted.
+9. **P2 — unbounded `BleMeshService.worker` thread pool.** A cached
+   thread pool let concurrent BLE connection attempts grow without
+   bound under a hostile/noisy radio environment. Replaced with a
+   bounded `ThreadPoolExecutor` (2-8 threads, 32-deep queue,
+   `CallerRunsPolicy` — chosen over `DiscardPolicy` because every
+   submitted task performs its own map cleanup on completion, so a
+   silently dropped task would leak that cleanup). Also fixed: a
+   `start()` double-invocation race (added `AtomicBoolean` guard), two
+   `centralLinks.remove(key)` call sites that could evict a newer entry
+   racing in for the same device address (changed to value-checked
+   `remove(key, value)`), and `BlePeripheralServer.PeripheralLinkRadio.
+   writeChunk`'s stale-radio check (was a null check on the map lookup,
+   changed to an identity check `links[address] !== state`) which could
+   let a stale radio's ciphertext write into a since-reconnected
+   central's new channel.
+
+**Reason:** same category as D-0511 — real gaps between what a check
+claims to enforce and what it actually enforces, found by the same CI/
+CodeQL/Codex review discipline this tree runs on every push, this time
+including a critical authentication gap in the author's own immediately
+preceding work (item 1). Finding and fixing that promptly, with the same
+rigor applied to every other finding, is the discipline this project asks
+for — not evidence the discipline failed.
+
+**Constitutional impact:** none. No dependency-edge change; `did_mini`
+already exposes the Ed25519 KEL signing composed here, no new
+cryptographic primitive or construction was added. All affected crates
+(`mini-presence`, `mini-mesh`, `mini-custody`, `mini-ffi`, the Android
+app) remain founder-overridden, AI-authored, unaudited prototypes per
+D-0036/D-0037/D-0047/D-0510 — this closes concrete defects without
+changing that status or claiming any gate closure. Gate #97 remains
+*shipped, unaudited, no physical validation* exactly as D-0510 stated;
+authenticating the evidence format is necessary, not sufficient, for that
+status to change.
+
+**Implementation status:** shipped. New/changed tests: `mini-presence`
+gains `evidence_v2::tests::{nadm_attack_likely_is_never_certified,
+nadm_attack_possible_can_still_certify,
+a_reported_max_below_p90_is_unusable,
+a_zero_oob_config_digest_is_unusable_for_hardware_ranging,
+signed_evidence_verifies_against_the_signer_and_rejects_tampering}` and a
+rewritten `tests/presence_v2.rs` (adds
+`no_evidence_below_the_fixed_v2_rtt_sample_floor_is_rejected_even_with_a_
+loose_ctx_policy`,
+`a_rejected_v2_attempt_never_burns_replay_nonces_for_a_legitimate_retry`,
+`evidence_signed_by_the_responder_is_also_accepted`,
+`evidence_with_a_forged_signature_is_rejected_even_with_a_correct_
+binding`,
+`evidence_signed_by_someone_who_is_not_a_party_to_this_session_is_
+rejected`); `mini-mesh` gains
+`poll_stages_a_relay_but_never_sends_it_until_flush_reflood_is_called` and
+`pending_reflood_drops_the_oldest_past_capacity_rather_than_growing_
+unbounded`; `mini-custody` gains
+`manifest::tests::{an_oversized_declared_roster_len_is_rejected_before_
+parsing_any_entry, a_non_ed25519_roster_key_is_rejected}` and
+`share_store::tests::a_whole_record_swapped_in_from_an_earlier_session_
+is_rejected`. `cargo fmt --all -- --check`, `cargo clippy --all-targets
+--all-features --workspace -- -D warnings`, and `cargo test --workspace
+--all-features` are all clean except the same pre-existing, sandbox-only
+`mini-build-runner-wasmtime` adversarial-suite failure D-0509/D-0510/
+D-0511 already recorded (missing `wasm32` rustc target, confirmed again
+this pass: `rustup target list --installed` shows only
+`x86_64-unknown-linux-gnu`). GitHub CI on PR #333 head `c1de9af` is fully
+green, including CodeQL, confirming the critical alert this batch closes
+(item 1) does not reproduce on the fixed code. The two Kotlin changes
+(`BleMeshService`/`BlePeripheralServer.kt`) compile by inspection only —
+no JDK/Android SDK in this environment, the same honest limit every prior
+Android-side decision in this log states.
+
+**Failure point:** this closes the specific findings above; it is not a
+general audit of `mini-presence`/`mini-mesh`/`mini-custody`/the BLE mesh
+stack. Gate #97 in particular still has zero physical hardware
+validation — an authenticated evidence format proves the *signer*
+produced the ranging numbers, not that the numbers came from real UWB/BLE
+Channel Sounding hardware rather than a compromised device lying about
+its own sensor readings; that gap is unrelated to this batch and remains
+open per D-0510.
+
+**Required follow-up:** none blocking; the same Gate #72/#93/#97
+follow-up items D-0506–D-0511 already name remain open. Real Android CI
+(`assembleDebug`) and a real two-device test remain the only gates that
+actually exercise the Kotlin changes in this entry.
+
+**Supersedes / superseded by:** none.
+
+### D-0513 — Gate #28 (extreme-environment/DTN/satellite): adoption of an external DTN/satellite design report's architecture, `mini-dtn` crate scaffold, `PaymentClaimV2` height-anchored settlement  ·  *Architecture adopted; implementation is an early scaffold, unaudited, no interop evidence*
+
+**Date:** 2026-09-11 · **Refs:** roadmap #28; uploaded document
+`Mininet_External_DTN_Satellite_Audit_07_Gate_28_Extreme_Environment_FINAL.txt`
+(claimed exact main revision reviewed: `bc7da80f8817f856a96bcb3772232b080eef531d`);
+supersedes `docs/gates/dtn-design-constraints.md`'s founder-action-required
+framing; touches new crate `crates/mini-dtn/` (`Cargo.toml`, `src/{lib,model,
+transport,memory}.rs`); `crates/mini-settlement/src/{claim_v2,ledger,
+reconcile,lib}.rs` (new); `crates/mini-execution/src/{snapshot,state}.rs`;
+`Cargo.toml` (workspace members).
+
+**Decision:** the uploaded document is an unsigned, anonymously-delivered
+report, not a canonical Constitution/Decision/Invariant document and not
+itself "the auditor/domain-expert of record" the report's own closure
+rule (G28-01) requires to identify themselves before issue #28 can
+close. Per this tree's standing D-0047/D-0083 discipline (chat/uploaded-
+document instruction cannot substitute for the exact process a gate's own
+closure rule names), **issue #28 is NOT closed by this entry.** What *is*
+adopted here, on engineering merit, independently verified against real
+code, is the report's actual architecture: four operating regimes
+(R0 ordinary/R1 disaster-opportunistic/R2 scheduled-satellite/R3
+deep-space), RFC 9171 BPv7 as the deferred-transport interoperability
+baseline (not a bespoke "MINI Bundle Protocol"), a `mini-dtn` crate
+separate from the live `mini-bearer::Bearer`/`Channel` (D28-09: live and
+deferred transport are different semantics, never conflated), custody
+transfer as optional/experimental rather than mandatory (D28-06/D28-12/
+Gate #93's audit already established the general principle that no
+correctness property may depend on a relay's promise), the "no
+same-global-MINI local finality" rule (a partitioned region may
+communicate, queue, and locally accept risk, but never finalize canonical
+money/governance on its own — `mini-settlement`'s existing M1/M2/M3
+already enforce exactly this and needed no change), and bounded
+priority/lifetime/admission semantics (four DRR-weighted priority classes,
+bounded lifetime classes, bounded payload sizes, expiry-before-scheduling,
+cheap-before-expensive validation ordering).
+
+One specific claim in the uploaded report was checked against real code
+and found not to correspond to anything in this repository: the report's
+`PaymentClaimV2::valid_through_economic_epoch` design anchors to "Gate
+#6's twelve deterministic Economic Epochs per Economic Year." No roadmap
+issue #6, no canonical economic-epoch concept, and no such calendar-epoch
+mechanism exists anywhere in this tree — `mini-execution` has monetary
+*issuance* epochs (`ScalableEpochPlan`), a different, unrelated concept.
+Rather than invent a new canonical economic-time primitive unilaterally
+on an unverified external document's say-so (precisely the "verify
+claims against real code before implementing" discipline this session
+has applied to every prior audit in this batch), `PaymentClaimV2` anchors
+to canonical chain **height** instead — a primitive `mini-settlement`
+already models via `CanonicalLedgerView`. The report's actual underlying
+engineering point (replace wall-clock `valid_until_ms` expiry with a
+canonical, chain-anchored boundary, bounded so no claim is an
+indefinitely reusable spend authorization) is fully implemented; only the
+specific "economic epoch" vocabulary is not, because it does not
+correspond to anything real. See `crates/mini-settlement/src/claim_v2.rs`'s
+own module docs for the full explanation, written into the code itself so
+this does not need rediscovering later.
+
+Shipped in this batch:
+
+1. **`mini-settlement::claim_v2`** — `ChainAnchorV2 { height, block_id }`,
+   `PaymentClaimV2` (network id, payer, payee, amount, sequence, anchor,
+   `valid_through_height`, opaque `claim_context`, signature),
+   `sign_claim_v2`/`sign_claim_v2_for_network` (rejecting a window at or
+   before the anchor height, and a window wider than a caller-supplied
+   `max_validity_height_span` — this crate takes no position on the right
+   number of blocks, since that depends on real block cadence it stays
+   decoupled from), `verify_claim_v2_signature`, `claim_v2_digest`, and a
+   bounded wire codec (`to_wire_bytes`/`from_wire_bytes`, allocation
+   bounds checked before parsing, the same discipline `PaymentClaim`'s V1
+   codec already uses).
+2. **`mini-settlement::ledger`** — `CanonicalLedgerView` gained
+   `current_height()` (default `0`) and `is_recognized_anchor()` (default
+   `false`, fail-closed) so a V1-only implementor is unaffected;
+   `CanonicalRejection` gained `UnrecognizedAnchor`; `InMemoryLedgerView`
+   gained `set_height`/`recognize_anchor` test setters.
+3. **`mini-settlement::reconcile`** — `evaluate_local_acceptance_v2`/
+   `reconcile_v2`, the V2 analogues of the existing V1 functions:
+   `reconcile_v2` checks the anchor is a recognized ancestor before
+   anything else, and expires against `ledger.current_height()` instead
+   of a caller-supplied wall clock — otherwise identical M1/M2/M3
+   semantics (a claim that already won or lost reports that truth
+   regardless of height; only `Finalized` ever comes from
+   `CanonicalLedgerView`).
+4. **New crate `mini-dtn`** — the design report's own `mini-dtn::queue`/
+   `mini-dtn::route` engineering pieces, explicitly *not* its `bpv7`/`cla`
+   pieces (see "what this closes" below): `DeferredTransport` trait
+   (`enqueue`/`poll_delivered`/`status`/`cancel_local`, each taking an
+   explicit `now_ms` rather than reading a system clock, since this crate
+   assumes no node has a trustworthy wall clock — D28-29's Bundle-Age
+   reasoning, generalized); `DeferredParcel`/`DeferredId`/
+   `DeliveredParcel`/`DeferredStatus`; `Priority` (P0-P3, D28-32's four
+   classes, `drr_weight()` giving the report's 4/3/2/1 nominal shares);
+   `LifetimeClass` (Ephemeral/Short/Standard/Archival/DeepSpace, D28-27's
+   bounded retention windows); `BundleAge`/`HopCount` (RFC 9171 concepts,
+   generated hop limits capped at 64 per D28-03); `EndpointId` (an opaque,
+   bounded route capability, never a `did:mini` root, per D28-51/52); and
+   `InMemoryDeferredTransport`, a bounded single-process loopback
+   scheduler implementing real deficit round robin across the four
+   priority classes (weight-proportional service, verified by test that
+   bulk traffic is never starved forever once higher classes drain),
+   admission bounds (per-priority entry cap, total-byte cap, a P0/P1
+   control-class payload cap of 64 KiB and a general 1 MiB cap per
+   D28-20/21), and content/semantic-id deduplication (D28-15/41).
+
+**Reason:** the report's core engineering insight — separate live from
+deferred transport, use an existing standards protocol rather than invent
+one, keep canonical monetary/governance finality single-region no matter
+how store-and-forward delivery is — is sound and consistent with this
+tree's existing `mini-settlement` M1/M2/M3 invariants without requiring
+any change to them. Building the scaffold now, on real reviewed code with
+real tests, follows this project's standing "verify claims against real
+code, then implement conservatively" discipline exactly as every prior
+Gate #72/#93/#97 batch in this PR did — including finding and correcting
+the one place the source document's claim didn't hold up (the fabricated
+"Gate #6" economic-epoch reference).
+
+**Constitutional impact:** none. No dependency-edge change (`mini-dtn`
+depends only on `mini-crypto` for content-identity hashing; `mini-
+settlement` remains decoupled from `mini-execution`/`mini-chain` through
+the existing `CanonicalLedgerView` seam). No new cryptographic primitive.
+M1 (no CRDT-merge of money), M2 (signed-pending-claim, never final until
+canonical inclusion), and M3 (canonical ordering alone resolves conflicts)
+are unchanged and unweakened by `PaymentClaimV2`/`reconcile_v2` — they are
+the same rules applied to a height-anchored claim instead of a wall-clock
+one. `mini-dtn` introduces no monetary or governance authority of its own
+(D28-13/76: a deferred-transport agent may drop, delay, duplicate, or
+reorder a parcel; it can never forge, finalize, or authorize one).
+
+**Implementation status:** early scaffold, shipped and tested, explicitly
+**not** claiming what it does not do. New tests: `mini-settlement` gains
+`claim_v2::tests::*` (9 tests: signing bounds, tampering, wire round-trip,
+truncation, oversized-length-before-allocation, digest distinctness) and
+`reconcile::tests::*` (7 new V2 tests: pending/recognized-anchor,
+unrecognized-anchor rejection, exact-boundary/past-boundary expiry,
+finality survives transport-window expiry, conflicting claims never both
+finalize, local-acceptance accept/conflict paths); `mini-dtn` gains 22
+tests across `model`/`memory` (hop-count/bundle-age/transport-id
+correctness, admission bounds, dedup by transport id and by semantic id,
+lifetime expiry, cancel-local, DRR priority ordering and no-starvation).
+`cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features
+--workspace -- -D warnings`, and `cargo build --workspace --all-features`
+are all clean; `cargo test --workspace --all-features --no-fail-fast`
+passes everywhere except the same pre-existing, sandbox-only
+`wasm32-wasip2`-target-missing failures already recorded in D-0509/D-0510/
+D-0511/D-0512 (`mini-build-runner-wasmtime`'s adversarial suite, and three
+`mini-cli` tests that invoke the same wasmtime runner subprocess —
+`cli_spine_commands`, `network_build_workers`,
+`self_hosted_spine_e2e` — all failing on the identical missing-target
+cause, confirmed via their own `error[E0463]`/`wasm32-wasip2` output, not
+a new or different defect). `CanonicalRejection::UnrecognizedAnchor`
+required adding a fifth wire tag (`4`) to `mini-execution`'s two existing
+append-only `rejection_tag`/`decode_rejection` functions
+(`snapshot.rs`/`state.rs`) — additive only, tags 0-3 unchanged, so no
+existing persisted snapshot's meaning changes.
+
+**What this closes and what it explicitly does not:** adopted and closed
+as an *architecture* question: the four-regime scope, RFC 9171 as the
+interoperability baseline, TCPCLv4 as the first native IP convergence-
+layer target, BPSec/application-security separation, optional custody
+transfer, the no-same-global-MINI-finality rule, and bounded priority/
+lifetime/resource semantics — all independently sound, all consistent
+with existing invariants, all implementable without waiting for anyone.
+**Not closed, and not claimed:** issue #28 itself (no identified human
+auditor of record has signed G28-01..10, per the report's own closure
+rule — an anonymous uploaded document is not that signature); any RFC
+9171 wire-format/CBOR compliance claim (`mini-dtn::model::DeferredParcel`
+is a Mininet-internal admission record, not a BPv7 bundle — see the
+crate's own module docs for why an unverified from-scratch BPv7 codec
+would repeat the exact mistake `mini_bearer::discovery` was careful never
+to make about mDNS); TCPCLv4 or any other convergence layer; durable
+(`mini-durable`-backed) queue persistence — `InMemoryDeferredTransport` is
+RAM-only and never reports a "durably stored" status; BPSec; contact-plan/
+SABR routing; or any application-crate wiring (`mini-objects`/
+`mini-messaging`/`mini-forge`/governance dispatch). The design report's
+own P28-02..25 implementation roadmap remains exactly that — a roadmap,
+not a blocker to this entry or to terrestrial real-value launch, which the
+report itself states explicitly (D28-08).
+
+**Failure point:** if `mini-dtn` is ever wired to a real network path
+before TCPCLv4/BPSec/interop evidence exists, or if any caller starts
+trusting `InMemoryDeferredTransport`'s in-RAM state as durable, this
+entry's own "not closed" list is the thing to re-read first. If a future
+change gives any DTN-carried object elevated trust merely for having
+arrived over this path (a "DTN-verified" flag influencing personhood,
+presence, or finality), that is a regression of D28-13/76 the same way a
+Gate #97/#98 network-context personhood leak would be.
+
+**Required follow-up:** the design report's own P28-02..25 sequence
+(bounded BPv7 wire codec with real interop evidence against at least two
+independent BPv7 implementations before any standards-compliance claim;
+`mini-durable`-backed durable queue; TCPCLv4; BPSec; contact-plan/SABR
+routing; application-crate dispatch) remains open, unscheduled, and is a
+priority call for the founder alongside D-0066 Batch 6/Branches A-D per
+`CLAUDE.md`'s standing "widening is the founder's call" rule — this entry
+does not schedule it. Issue #28 itself stays open pending an identified
+human auditor of record's actual sign-off per G28-01..10.
+
+**Supersedes / superseded by:** none (adopts, but does not supersede,
+`docs/gates/dtn-design-constraints.md`'s founder-action-required framing
+— that file is updated to point here, not deleted, since its own
+"engineering's own reasoning pending the expert" section remains an
+accurate historical record).
+
+### D-0514 — Gate #98 (local Wi-Fi bearer): adoption of an external Wi-Fi bearer design report's architecture, zero network-context personhood/presence/continuity weight, `LocalServiceRecord`/`LocalRouteHint` closed types, legacy-labeled `discovery.rs`  ·  *Architecture adopted; Android production wiring remains FAIL/LAB-ONLY, unchanged by this entry*
+
+**Date:** 2026-09-11 · **Refs:** roadmap #98; uploaded document
+`Mininet_External_WiFi_Bearer_Audit_08_Gate_98_FINAL.txt` (claimed exact
+main revision reviewed: `bc7da80f8817f856a96bcb3772232b080eef531d`);
+touches `docs/gates/wifi-bearer-test-protocol.md`; `crates/mini-bearer/
+src/{discovery,local_route,error,lib}.rs` (new module).
+
+**Decision:** same posture as D-0513: the uploaded document is an
+unsigned, anonymously-delivered report. Its own final verdicts are
+unambiguous and are taken at face value because they cost this project
+nothing to accept — **"CURRENT SHIPPING WI-FI CAPABILITY: FAIL / LAB-
+ONLY"** and **"ISSUE #98: KEEP OPEN UNTIL PHYSICAL EVIDENCE"** are not
+gate-closure claims this session would need to independently certify;
+they are the report's own honest self-assessment, and this entry changes
+nothing about that status. What this entry *does* adopt, on engineering
+merit: the architecture question is answered (production infrastructure
+discovery should be real RFC 6762/6763 DNS-SD via platform APIs, not the
+existing hand-rolled `MININET1` multicast prototype; Wi-Fi Direct/Aware
+are optional; TCP is the V1 local data plane; QUIC is additive later) —
+and, more importantly, a specific, load-bearing correction to this
+repository's own prior documentation: `docs/gates/wifi-bearer-test-
+protocol.md` previously implied Wi-Fi network co-membership could feed
+the "device/home continuity" signal at up to 15/100 weight
+(`docs/design/human-continuity-proof.md`'s scoring). The report's
+security argument for why that must be exactly zero, not merely
+"lower-weight," is sound and independently checked against this
+repository's own threat reasoning: VPNs extend private subnets, mDNS
+reflectors cross network boundaries, a single hotspot can host a Sybil
+farm, public Wi-Fi joins unrelated strangers, enterprise WLANs span large
+areas, and MAC/SSID/BSSID all randomize or spoof at will — so any nonzero
+weight assigned to network co-membership is a standing invitation to
+manufacture it. `docs/design/human-continuity-proof.md` itself already
+excluded "Wi-Fi name" from continuity evidence (§7) and needed no
+correction; only `wifi-bearer-test-protocol.md`'s own scoring language
+was stale.
+
+Shipped in this batch:
+
+1. **`docs/gates/wifi-bearer-test-protocol.md`** — the 15/100 network-
+   context weight language is superseded (kept verbatim in a collapsed
+   historical section, per this log's own append-only-history discipline
+   applied to *other* documents) by an explicit zero-weight statement:
+   Wi-Fi network context contributes zero personhood, zero
+   physical-presence, and zero human-continuity network-context score,
+   full stop; only a protected device-key challenge-response transported
+   over Wi-Fi is continuity evidence, never the network path itself.
+2. **`crates/mini-bearer/src/local_route.rs`** (new) — `LocalServiceRecord`
+   (protocol version, a bounded capability bitset, a dynamic port) and
+   `LocalRouteHint` (candidate addresses, port), the platform-neutral
+   local-discovery types a future production `NsdManager`/Bonjour adapter
+   would build advertisements from. Both types are *closed*: there is no
+   field for a DID, display name, balance, governance weight, or router
+   fingerprint on either struct, structurally, not by convention — a
+   future change adding one is a Gate #98/personhood-boundary regression
+   to flag in review the same way a voice/value dependency edge is.
+   `LocalServiceRecord` gained a bounded (1024-byte, D98-023) TXT-record
+   codec with allocation-bounds-checked-before-parsing decode, the same
+   discipline every wire format in this tree already uses.
+3. **`crates/mini-bearer/src/discovery.rs`** — module docs strengthened
+   (F98-05/D98-010): the existing `MININET1` custom multicast prototype
+   was already documented as "not full mDNS," but now states explicitly
+   that it is legacy/development/test discovery, not the production path,
+   names what production discovery actually requires (real platform
+   RFC 6762/6763 DNS-SD, which needs an Android/iOS SDK this environment
+   does not have), and points at the new zero-weight rule and the types
+   that enforce it.
+
+**Reason:** correcting a stale weighted-trust claim in this repository's
+own gate documentation is exactly the kind of finding this tree's review
+discipline exists to catch, the same category as this PR's other
+"real gap between what a document claims and what the code/threat model
+actually supports" fixes. Closing the *types* to make the zero-weight
+rule structural, not just documented, follows Directive 14 (simplicity is
+security) the same way a typed-domain signing function is preferred over
+`sign(bytes)`: a compile-time-fixed field list is a stronger guarantee
+than a comment asking future authors not to add a DID field.
+
+**Constitutional impact:** none. No dependency-edge change; no new
+cryptography (the TXT codec is a plain bounded byte format, structurally
+identical to every other wire codec in this crate). `mini-bearer`'s
+existing anonymity/no-identity-in-discovery posture is unchanged and
+reinforced. The Wi-Fi-network-context-is-personhood-relevant idea this
+entry retires was never load-bearing in code — no crate in this
+repository reads SSID/BSSID/router-fingerprint data into any personhood
+or presence calculation today — so this is a documentation and future-
+proofing correction, not a behavior change to any shipped scoring logic.
+
+**Implementation status:** shipped and tested. New tests:
+`local_route::tests::*` (6 tests: TXT round-trip, truncation rejected at
+every cut point, trailing-bytes rejected, wrong-magic rejected, an
+oversized declared input rejected before any field is read, a route hint
+builds candidates for both IPv4 and IPv6). `cargo fmt --all -- --check`,
+`cargo clippy --all-targets --all-features --workspace -- -D warnings`,
+and `cargo build --workspace --all-features` are all clean; `cargo test
+--workspace --all-features --no-fail-fast` passes for `mini-bearer` (57
+tests) and everywhere else except the same pre-existing, sandbox-only
+`wasm32-wasip2`-target-missing failures D-0513 already records (unrelated
+to this entry). `BearerError` gained one new `#[non_exhaustive]` variant
+(`MalformedLocalServiceRecord`) — additive only, no existing match arm
+required updating since every consumer of `BearerError` in this workspace
+already matches non-exhaustively or via `Display`/`Error`.
+
+**What this closes and what it explicitly does not:** adopted as
+*architecture*: production discovery should be real DNS-SD, not
+`MININET1`; the zero network-context weight rule, now structural via
+`LocalServiceRecord`/`LocalRouteHint`'s closed field lists. **Not closed,
+and not claimed:** issue #98 itself remains FAIL/LAB-ONLY exactly as the
+report's own final verdict states — no Android `NsdManager`/Wi-Fi Direct/
+Wi-Fi Aware production wiring exists, the Android manifest still declares
+only `INTERNET` for networking, `MainActivity.kt` still selects the first
+site-local IPv4 rather than a platform-scoped route, and zero physical
+phone/router/hotspot/VPN/public-Wi-Fi hardware evidence exists in this
+repository. None of that was attempted in this batch: it requires a real
+Android/iOS SDK and physical hardware this environment does not have, and
+attempting Kotlin `NsdManager`/`WifiP2pManager`/`WifiAwareManager`
+adapters without the ability to compile or run them would produce
+unverified code exactly contrary to this project's "verify before
+shipping" discipline — the same reasoning every prior Android-only
+limitation in this log already states.
+
+**Failure point:** this closes the specific documentation/type-boundary
+gap above; it is not a general audit of `mini-bearer` or the Android app.
+If a future Android/iOS discovery adapter is ever built, it must be built
+against `LocalServiceRecord`/`LocalRouteHint` (or types with the same
+closed-field discipline) and must not reintroduce any personhood/presence
+input from network context — the exact regression this entry's zero-
+weight rule and closed types exist to make structurally hard.
+
+**Required follow-up:** real Android `NsdManager` wiring, real local-
+network permission/lifecycle handling, removal of `MainActivity.kt`'s
+first-site-local-IPv4 selection, and the full physical hardware test
+matrix (W98-001..120 in the uploaded report) remain open, unscheduled,
+and require hardware/SDK access this environment does not have — the same
+class of follow-up every prior Android/hardware-gated entry in this log
+already names. Issue #98 stays open per the report's own G98-01..24
+closure rule until that physical evidence exists and a human tester/
+reviewer signs it.
+
+**Supersedes / superseded by:** none (supersedes stale *language* inside
+`docs/gates/wifi-bearer-test-protocol.md`, kept as a collapsed historical
+section per this log's own precedent for correcting other documents
+without deleting their history).
+
+### D-0515 — Governance doc numbering fix: `docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md` renumbered to `52`, registered in the governance index; this decision-log entry is that document's first canonical-registry record  ·  *Administrative fix; the document's own substantive claims are not endorsed or re-evaluated by this entry*
+
+**Date:** 2026-09-11 · **Refs:** Codex review finding on PR #333 (`docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md:5`, P2); touches
+`docs/governance/{40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md -> 52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md,00_GOVERNANCE_INDEX.md}`.
+
+**Decision:** `docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md` (added to
+this PR by an earlier commit, `755ff33`, before this session's own work)
+collided with the already-existing document 40
+(`40_GOVERNANCE_SIMULATION_AND_STRESS_TESTING.md`), and — separately —
+had never been listed in `docs/governance/00_GOVERNANCE_INDEX.md` or
+recorded anywhere in this decision log, despite the document's own text
+describing itself as an active "Founder bootstrap decision" that
+"supersedes conflicting bootstrap governance procedure" (its own Section
+8). Per the reviewing tool's finding: readers and tooling consulting the
+canonical governance index would have no way to discover this document
+or know it claims to override active policy. Fixed by renumbering to
+`52` (the next unused slot after the highest currently registered,
+`51_BOOTSTRAP_WORK_CLAIMS.md`) and adding it to
+`00_GOVERNANCE_INDEX.md` under a new "Bootstrap operating decisions"
+heading. No change to the document's own content or wording.
+
+**This entry is the document's first appearance in `docs/DECISION_LOG.md`
+at all** — closing the "decision registry" half of the same finding. Per
+this project's own workflow ritual, every operating decision should carry
+a D-number; this document previously had none.
+
+**A tension this entry deliberately does not resolve:** the document's
+own Section 5 ("Anonymous evidence can close a gate") and its "A1 /
+external cryptography audit gate" subsection state that a fully anonymous
+cryptography audit report may close the external crypto audit gate during
+the Pre-Go-Live period, and that D-0083's limits are superseded "to the
+extent D-0083 says the temporary Founder bootstrap exception may not
+affect governance-process gates, external-audit gate procedure." This is
+in direct tension with this same session's own standing, repeatedly
+applied discipline this whole PR — D-0047 (external cryptography audit
+gate; AI-authored/founder-reviewed work is explicitly not audit-
+equivalent) and D-0083 (the bootstrap exception explicitly does **not**
+lower crypto-audit gates or Tier-F invariants) — under which every
+anonymous audit-style document received in this session (the Gate #72/
+#93/#97/#28/#98 reports) was treated as engineering input to verify and
+implement conservatively, never as something that could itself close
+D-0047/#72 or unfreeze a Tier-F row. This entry registers the document's
+existence and fixes its numbering/discoverability only. It does not
+adopt, ratify, apply, or independently re-authorize the document's claim
+that an anonymous report can close the external cryptography audit gate,
+and it does not treat any anonymous document received in this session as
+having closed that gate under this document's Section 5. Per this
+project's own standing rule ("when uncertain whether something is
+decided or open: DECISION_LOG first, then FAILURE_BOOK, then ask — never
+guess a policy into existence"), whether Section 5's specific override of
+D-0047/D-0083 is actually in effect is a question for the founder to
+confirm explicitly, not something this fix decides either way.
+
+**Constitutional impact:** none from this entry itself (a renumbering and
+registry fix carries no substantive policy content). The tension named
+above, if left unresolved, is a real open question about which document
+governs gate closure during the bootstrap period — flagged here rather
+than silently adjudicated.
+
+**Implementation status:** shipped (file rename via `git mv`, preserving
+history; index entry added). No code, test, or build-tooling change.
+
+**Failure point:** if this renumbering is ever mistaken for a substantive
+review or endorsement of the document's content, that would misrepresent
+this entry's actual (administrative-only) scope.
+
+**Required follow-up:** the founder should explicitly confirm whether
+`52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md`'s Section 5/A1 override of D-0047/
+D-0083 is intended to actually take effect, and if so, record that
+confirmation as its own decision-log entry rather than relying on the
+governance document's own self-activation clause ("Effective when this
+exact document becomes canonical on `main`") to have silently done so
+already. Document 51 (`51_BOOTSTRAP_WORK_CLAIMS.md`) is also not yet
+listed in `00_GOVERNANCE_INDEX.md` — outside this entry's scope (the
+Codex finding named only document 40's collision) but worth the same
+fix in a future pass.
+
+**Supersedes / superseded by:** none.
+
+### D-0516 — Third CI/Codex remediation batch on PR #333 head `ca3c7c6`: DKG Round-1 barrier made structural, two-sided ranging evidence requires real corroboration, `mini-mesh` per-link locking, governance-doc numbering/registry fix, two Android BLE races  ·  *Shipped*
+
+**Date:** 2026-09-11 · **Refs:** Codex automated review on PR #333, commit
+`ca3c7c6` (the D-0513/D-0514 push, itself triggering this review round);
+touches `crates/mini-custody/src/session.rs`,
+`crates/mini-custody/tests/{full_ceremony,session_binding}.rs`;
+`crates/mini-presence/src/verify.rs`,
+`crates/mini-presence/tests/presence_v2.rs`; `crates/mini-mesh/src/lib.rs`,
+`crates/mini-mesh/tests/tcp_relay.rs`; `crates/mini-ffi/src/mesh.rs`;
+`docs/governance/{40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md ->
+52_PRE_GO_LIVE_GOVERNANCE_PAUSE.md,00_GOVERNANCE_INDEX.md}`;
+`app/android/app/src/main/java/org/mininet/app/{BleMeshService,
+BlePeripheralServer}.kt`.
+
+**Decision:** every finding below was independently verified against the
+real code before being fixed, per this tree's standing discipline
+(D-0506/D-0507/D-0509/D-0510/D-0511/D-0512's identical practice) — none
+was taken on the reviewing tool's word alone.
+
+1. **P1 — `mini-custody::session::dkg_part2` did not require the Round-1
+   consistent-broadcast barrier it is supposed to wait behind.** This
+   crate's own docs present the 11-of-11 `round1_view_confirmed` check as
+   an enforced ceremony property, but `dkg_part2` was a bare wrapper
+   around `frost_ristretto255::keys::dkg::part2` — nothing stopped a
+   caller from invoking it without ever checking `round1_view_confirmed`
+   first, letting a participant driver be induced to run Round 2 on an
+   equivocated or unconfirmed package view. Fixed with a typed witness,
+   `Round1ViewConfirmation`, constructible only via a new
+   `confirm_round1_view` function that performs the full check;
+   `dkg_part2` now requires one and additionally checks it is bound to the
+   exact manifest passed in (`CustodyError::Round1ViewMismatch` otherwise)
+   — the barrier is now a type-level requirement, not a caller convention.
+2. **P1 — two-sided ranging evidence (`MeasurementSidedness::TwoSided`)
+   accepted a single device's self-report.** `sidedness` lives inside the
+   `RangingEvidenceV2` record a single device signs, so nothing previously
+   stopped one compromised endpoint from setting `TwoSided`, signing
+   alone, and being classified `CertifiedSecure` — the assurance level
+   documented as requiring both devices to independently measure and
+   cross-check. `verify_presence_v2` gained a `counterpart_evidence`
+   parameter: a `TwoSided` classification is now honored only when a
+   second, independently signed evidence record from the *other* attested
+   party is supplied, itself session-bound and verifiable, and agreeing
+   with the primary evidence on which physical session/technology/OOB
+   configuration it describes; otherwise the assurance silently downgrades
+   to `CertifiedMedium` rather than rejecting the (still genuinely signed,
+   just weaker) attestation outright.
+3. **P1 — `mini-ffi::MeshHandle`'s single lock coupled `poll()` to
+   `flush_reflood()`'s worst-case send latency.** `MeshHandle` wrapped the
+   entire `mini_mesh::MeshNode` in one `Mutex`, so a slow platform GATT
+   write inside `flush_reflood()` held that lock for the whole send,
+   preventing `poll()` (running on a separate executor specifically so
+   this could never happen) from making any receive progress on *any*
+   link, healthy or not, until the slow send finished. Fixed at the root:
+   `MeshNode` is now internally synchronized per link
+   (`Arc<Mutex<EncryptedLink<...>>>` entries, plus separate `Mutex`es for
+   the link list, dedup cache, and reflood queue, all recovering from
+   poisoning rather than propagating one panicking caller's failure to
+   every future call), so `poll`/`flush_reflood`/`broadcast` all take
+   `&self` and can run concurrently from separate threads. `poll()` uses
+   `try_lock` per link — a link currently mid-send is simply skipped that
+   round (tried again next `poll()`) rather than stalling every other
+   link's receive progress behind it. `MeshHandle` no longer needs (or
+   has) a wrapper lock of its own.
+4. **P1 — `pending_reflood` bounded only by entry count, not bytes.**
+   `MAX_PENDING_REFLOOD` (4,096 entries) bounded how many payloads could
+   queue, but each can be nearly `MAX_CHANNEL_PLAINTEXT_BYTES` (16 MiB) on
+   its own — a high-capacity peer could in principle leave tens of
+   gigabytes queued before the count cap ever engaged. Added
+   `MAX_PENDING_REFLOOD_BYTES` (64 MiB) tracked alongside the existing
+   count via a small `PendingReflood { queue, bytes }` wrapper that evicts
+   the oldest entry first whenever either bound is exceeded, keeping the
+   byte total and the queue's real contents consistent under one lock.
+5. **P2 — `docs/governance/40_PRE_GO_LIVE_GOVERNANCE_PAUSE.md` collided
+   with the existing document 40** (`40_GOVERNANCE_SIMULATION_AND_
+   STRESS_TESTING.md`) and was listed in neither
+   `00_GOVERNANCE_INDEX.md` nor this decision log, despite describing
+   itself as an active Founder bootstrap decision that supersedes
+   conflicting bootstrap procedure. Renumbered to `52` (the next unused
+   slot after `51_BOOTSTRAP_WORK_CLAIMS.md`) via `git mv`, no content
+   change, and registered in the index under a new "Bootstrap operating
+   decisions" heading. This is the document's first appearance in this
+   decision log; see the immediately preceding entry (D-0515) for the
+   full administrative-only scope of that fix and the tension it
+   deliberately leaves for the founder to resolve (that document's
+   Section 5 claims an anonymous audit may close the external
+   cryptography gate — in direct tension with this same PR's own D-0047/
+   D-0083 discipline — which this fix neither adopts nor resolves).
+6. **P2 — `BleMeshService.start()`'s `onStarted` callback could silently
+   never fire.** `runOnWorker`'s two internal `close()`-race checks (the
+   pre-submission check and the queued task's own recheck once it starts)
+   could both decline to run the passed block with no way for a caller
+   relying on "exactly one completion callback" to know — a `close()`
+   landing in either gap left `start()`'s caller waiting on `onStarted`
+   forever. `runOnWorker` gained an `onDeclined` parameter (default no-op,
+   so its three other fire-and-forget call sites are unaffected) invoked
+   from every path that skips `block`; `start()` now passes
+   `onDeclined = { onStarted(false) }`, guaranteeing exactly one call to
+   `onStarted` on every path.
+7. **P2 — dropping a stale `PeripheralLinkRadio` could disconnect a
+   reconnected central's new link.** `disconnect()` called
+   `gattServer.cancelConnection(state.device)` unconditionally; since
+   `cancelConnection` addresses the `BluetoothDevice`, not a specific
+   `LinkState`, a stale radio's drop (e.g. `mini_mesh::MeshNode` pruning
+   an old link after the same central already reconnected with a new
+   `LinkState` at the same address) would tear down the *replacement*
+   connection instead of doing nothing to an already-gone stale one.
+   Fixed with the same identity check (`links[state.device.address] !==
+   state`) `writeChunk` already uses for the identical reconnect race.
+
+**Reason:** same category as D-0511/D-0512/D-0513/D-0514 — real gaps
+between what a check or doc comment claims to enforce and what the code
+actually enforced, found by the same CI/Codex review discipline this tree
+runs on every push. Item 1 in particular closes a real secret-recovery-
+adjacent process gap in the author's own D-0507 ceremony design, the same
+"verify claims and fix real bugs in recently-shipped work, not just
+others'" discipline this session has applied consistently across Gate
+#93/#97 findings.
+
+**Constitutional impact:** none. No dependency-edge change; no new
+cryptographic primitive (item 2 composes the same `did_mini` Ed25519 KEL
+signing D-0512 already introduced; item 1 adds a typed witness over
+existing `frost_ristretto255` calls). All affected crates
+(`mini-custody`, `mini-presence`, `mini-mesh`, `mini-ffi`, the Android
+app) remain founder-overridden, AI-authored, unaudited prototypes per
+D-0036/D-0037/D-0047 — this closes concrete defects without changing that
+status or claiming any gate closure. Item 5's governance-document
+renumbering is purely administrative — see D-0515 for its own explicit
+non-adoption of that document's substantive claims.
+
+**Implementation status:** shipped. New/changed tests: `mini-custody`
+gains `session_binding::tests::
+a_round1_confirmation_from_a_different_manifest_is_rejected_by_dkg_part2`;
+`mini-presence`'s `tests/presence_v2.rs` is substantially revised (single-
+signer evidence now asserts `CertifiedMedium`, not `CertifiedSecure`) and
+gains
+`well_formed_corroborated_hardware_evidence_reaches_certified_secure`,
+`a_lone_signer_claiming_two_sided_evidence_is_capped_at_certified_medium`,
+`a_counterpart_signed_by_the_same_device_as_the_primary_does_not_
+corroborate`, `a_counterpart_describing_a_different_technology_does_not_
+corroborate`; `mini-mesh` gains
+`pending_reflood_drops_the_oldest_once_the_byte_budget_is_exceeded_well_
+under_the_count_cap` and
+`poll_on_a_healthy_link_makes_progress_while_flush_reflood_is_blocked_
+sending_on_another` (a real multi-threaded proof using a gated test
+`Bearer` whose `send` blocks until released, confirming `poll()` on a
+healthy link keeps working while `flush_reflood` is genuinely stuck
+sending on a different, slow link). `cargo fmt --all -- --check`,
+`cargo clippy --all-targets --all-features --workspace -- -D warnings`,
+and `cargo test --workspace --all-features --no-fail-fast` are all clean
+except the same pre-existing, sandbox-only `wasm32-wasip2`-target-missing
+failures D-0513 already records (unrelated to this entry). The two
+Kotlin changes compile by inspection only — no JDK/Android SDK in this
+environment, the same honest limit every prior Android-side decision in
+this log states.
+
+**Failure point:** this closes the specific findings above; it is not a
+general audit of `mini-custody`/`mini-presence`/`mini-mesh`/the BLE mesh
+stack. Item 2's corroboration check is a structural requirement, not a
+cryptographic proof that two *physically distinct* devices measured
+anything real — it only proves two *different signing keys* each
+independently signed matching evidence; Gate #97's underlying physical-
+hardware-validation gap (no real UWB/BLE Channel Sounding hardware
+exercised anywhere in this repository) is unrelated to this batch and
+remains exactly as open as D-0510/D-0512 already state.
+
+**Required follow-up:** none blocking; the same Gate #72/#93/#97/#28/#98
+follow-up items already named across D-0506–D-0515 remain open. Real
+Android CI (`assembleDebug`) and a real two-device test remain the only
+gates that actually exercise the Kotlin changes in this entry.
+
+**Supersedes / superseded by:** none.
+
+### D-0517 — Gate #72 (privacy/value layer) remediation, part 1: `mini_custody::signing` replaces `mini_treasury::frost_sign`'s hand-rolled two-round FROST signing math with `frost_ristretto255::round1`/`round2`/`aggregate`; old signing gated behind `legacy-hand-rolled-signing`  ·  *Shipped*
+
+**Decision:** An anonymous external audit report ("Mininet External
+Privacy & Value Layer Audit Report", Gate #72, 2026-09-11) found
+`mini_treasury::frost_sign` re-derives the entire two-round FROST signing
+protocol (binding factors, Lagrange interpolation, the Schnorr challenge)
+from raw `curve25519-dalek` scalar/point arithmetic — the same "bespoke
+re-implementation of an already-solved, already-audited problem" pattern
+D-0507/D-0508 already remediated for this crate's DKG half
+(`frost_dkg`). Verified directly against the real code before acting
+(this session's standing discipline for every audit claim, anonymous or
+otherwise): `frost_sign.rs` is 1366 lines of hand-derived signing math,
+confirmed to have no real external caller anywhere in this tree (the same
+situation `frost_dkg` was in pre-D-0507), so the same remediation shape
+applies — add a new module composing the already-integrated, pinned
+`frost-ristretto255 = "=3.0.0"` dependency's own real signing API, then
+gate the old implementation behind a feature flag rather than rewrite it
+in place.
+
+`mini_custody::signing` (new module, `crates/mini-custody/src/signing.rs`)
+provides: `round1_commit`/`build_signing_package`/`round2_sign`/
+`aggregate_signature`, thin wrappers over `frost_ristretto255::round1::
+commit`, `SigningPackage::new`, `round2::sign`, and `aggregate`
+respectively; and `DurableCustodySigner`/`DurableSigningNonces`, a
+crash-safe on-disk nonce-commitment journal carrying forward
+`mini_treasury::frost_sign::DurableFrostSigner`'s exact durability
+property (durably record a round-1 commitment *before* returning it;
+force-burn any not-yet-completed reservation on reopen, since its secret
+nonce died with the old process) re-implemented over
+`frost_ristretto255`'s own types instead of the hand-rolled ones. Only the
+public commitment is ever written to disk — never the secret nonce
+scalars, matching what the old implementation actually did despite
+storing compressed points directly rather than through the library's own
+serialization. `mini-custody` gained a new `mini-durable` dependency (the
+same atomic-replace/exclusive-lock filesystem primitives
+`mini_treasury::frost_sign` already used) to build this.
+
+`mini_treasury::frost_sign`'s public API (`round1_commit`, `round2_sign`,
+`aggregate`, `verify`, `verify_signature_share`, `DurableFrostSigner`,
+`DurableSigningNonces`, `NonceCommitment`, `Signature`, `SigningNonces`,
+`SigningPackage`) moved behind a new `legacy-hand-rolled-signing` feature,
+off by default — mirroring `legacy-hand-rolled-dkg`'s exact shape
+(D-0507). `mod frost_sign;` itself stays compiled unconditionally so its
+own 20+ tests keep running regardless of the feature; only the
+`pub use` re-export is gated. The crate's one example,
+`frost_live_demo.rs`, exercises that hand-rolled API directly, so it
+gained a `required-features = ["legacy-hand-rolled-signing"]` entry in
+`Cargo.toml` (it was previously unconditionally built by `cargo test`'s
+default example-compilation pass) and an updated run command in its own
+doc comment.
+
+**Reason:** same audit-remediation discipline as D-0507/D-0508/D-0513/
+D-0514: verify an external claim against real code, and where it holds,
+compose an already-integrated audited library instead of maintaining a
+second bespoke implementation of the same solved problem — never treat
+the audit document itself as authoritative without that check (the same
+posture already applied earlier in this effort to reject a fabricated
+"Gate #6 economic epoch" concept and an anonymous document's D-0047-
+conflicting closure claim).
+
+**Constitutional impact:** none. No dependency-edge change (voice/value
+wall unaffected — `mini-custody` and `mini-treasury` are both value-
+adjacent custody crates, neither touches `mini-forge`/governance voting).
+No new cryptographic primitive: `frost_ristretto255` was already a pinned
+dependency of `mini-custody` for the DKG half (D-0507); this entry only
+adds a second, separate real API surface (`round1`/`round2`/`aggregate`)
+from the same already-integrated, already-audited library. Both the old
+and new signing paths remain founder-overridden, AI-authored, unaudited
+prototypes per D-0036/D-0037/D-0047 — this closes a "second bespoke
+implementation" defect without claiming Gate #72 closed or changing
+D-0047's external-audit requirement.
+
+**Implementation status:** shipped. New tests in
+`mini-custody::signing::tests`:
+`a_full_signing_round_produces_a_signature_the_group_key_verifies`,
+`a_durable_signer_produces_a_verifiable_signature`,
+`reopening_a_durable_signer_burns_any_uncompleted_reservation`,
+`a_durable_signer_rejects_a_journal_opened_for_a_different_key`. Full
+workspace `cargo fmt --all`, `cargo clippy --all-targets --all-features
+--workspace -- -D warnings`, and `cargo test --workspace --all-features`
+(run both with and without `--features legacy-hand-rolled-dkg,
+legacy-hand-rolled-signing` on `mini-treasury` specifically) are all
+clean except the same pre-existing, sandbox-only `wasm32-wasip2`/
+`wasm32-wasip1`-target-missing failures every prior entry in this log
+since D-0071 already records (`mini-build-runner-wasmtime`'s and
+`mini-cli`'s adversarial guest-compilation tests; no Rust wasm target is
+installed in this environment) — unrelated to this entry, confirmed by
+`rustup target list --installed` showing only `x86_64-unknown-linux-gnu`.
+
+**Failure point:** this closes the signing-half duplication only. It does
+not touch `mini_treasury::frost_keygen` (trusted-dealer keygen, already
+prototype-acknowledged, out of this batch's scope) or Gate #72's larger
+remaining items — Bulletproofs/IPA (`mini-value::bp_range`/`bp_ipa`),
+`PrivatePaymentV3`'s wire format, canonical claim bytes in consensus, and
+calibrated decoy distribution all remain open, tracked below.
+
+**Required follow-up:** the rest of the Gate #72 remediation set:
+replace `mini-value`'s hand-rolled Bulletproofs/IPA range proofs with the
+vendored `bulletproofs` crate (unlike this entry's signing swap, this one
+has real, wide external callers across `mini-private-payment`,
+`mini-bounty`, and `mini-shielded-verify` — a different Pedersen
+commitment basis is a breaking wire-format change across all of them,
+not an isolated swap, and needs its own dedicated decision — see D-0518,
+shipped immediately after this entry, for how that constraint was
+resolved); a `PrivatePaymentV3` wire format with a three-digest scheme
+and memo; canonical claim bytes wired into consensus plus derived key
+images; unifying the separate key-image/double-spend ledgers between the
+transparent and bounty ring-signature paths; and a calibrated (or
+honestly-labeled-as-uncalibrated) decoy distribution.
+
+**Supersedes / superseded by:** none.
+
+### D-0518 — Gate #72 remediation, part 2: `mini_value::bp_range_v2` adds a real Bulletproofs range-proof/Pedersen-commitment implementation over the vendored `bulletproofs` crate, additive alongside (not replacing) `bp_range`'s existing hand-rolled one  ·  *Shipped*
+
+**Decision:** D-0517's own "Required follow-up" flagged the obvious next
+Gate #72 item — `mini-value::bp_range`/`bp_ipa` hand-derive the entire
+Bulletproofs range-proof protocol (binding constraints, polynomial
+folding, the inner-product argument) from raw `curve25519-dalek`
+arithmetic, the same "bespoke re-implementation of an already-solved
+problem" pattern D-0517 just fixed for FROST signing — but also flagged
+why it cannot be fixed the same way: unlike `frost_sign`, `bp_range`'s
+Pedersen commitment basis (`bp_generators::{blinding_generator,
+value_generator, g_vec, h_vec}`) is real, load-bearing wire format for
+wide existing callers (`mini-private-payment`'s claim/amount/scan
+modules, `mini-bounty`, `mini-shielded-verify`), each with golden wire
+vectors whose own docs (`mini-private-payment/tests/vectors.rs`) say a
+wire-format change there "is a version bump and a decision entry, not a
+test update." The vendored `bulletproofs` crate's own `PedersenGens`/
+`BulletproofGens` are a *different* generator basis — commitments made
+under the two bases are not homomorphically comparable, so an in-place
+swap would silently break every existing balance check across those
+three crates rather than just changing which library proves the range.
+
+Resolution: `mini_value::bp_range_v2` (new module) is a complete,
+independent, real range-proof/commitment implementation over the vendored
+`bulletproofs = "=5.0.0"` crate (Bünz et al.'s original construction, MIT-
+licensed, widely deployed in Monero/Grin-adjacent tooling) and its own
+Merlin transcript, added *alongside* `bp_range` rather than replacing it.
+It provides the same shape of API `bp_range`/`confidential_impl` already
+established (`prove_range_v2`/`verify_range_v2`, `RangeProofV2` with
+`to_bytes`/`from_bytes`, `pedersen_commitment_v2` for a bare unproven
+commitment, `public_amount_commitment_v2` for a publicly-known amount
+such as a fee, `verify_balance_v2` for the additive-homomorphism balance
+check) but is not wired into `ConfidentialAmountScheme` or any existing
+consensus path — it is groundwork for a future `PrivatePaymentV3` wire
+format (this same Gate #72 batch's next item), not a migration of the
+current one. `mini-value` gained `bulletproofs = "=5.0.0"`, `merlin =
+"3"`, and `rand_core` (with `getrandom`, matching this tree's `OsRng`
+convention rather than the vendored crate's own `rand::thread_rng()`
+convenience default) as new dependencies; all three resolve to the
+existing workspace `curve25519-dalek` "4" line with no version conflict.
+
+**Reason:** the same audit-remediation discipline as D-0507/D-0508/
+D-0517: compose an already-published, already-audited construction
+instead of extending a second bespoke implementation of the same solved
+problem — but applied honestly to a case where the "just swap it" shape
+of D-0517 does not hold, by making the new implementation additive
+rather than forcing an unreviewed breaking migration onto three
+downstream crates' wire formats and golden test vectors in the same
+batch that introduces the new dependency.
+
+**Constitutional impact:** none. No dependency-edge change (`mini-value`
+is a value-layer crate; this adds a library dependency, not a crate
+dependency, and touches no governance/voting code). No new cryptographic
+primitive: `bulletproofs` is a real, published, peer-reviewed, widely-
+deployed construction (Directive 14, "simplicity is security" — the
+smaller, well-trodden library over a bespoke one) composed here exactly
+as the house rule permits, the same way `frost-ristretto255` was composed
+for D-0507/D-0517. Both `bp_range` and `bp_range_v2` remain founder-
+overridden, AI-authored, unaudited prototypes per D-0036/D-0037/D-0047 —
+this adds a second real option without claiming Gate #72 closed or
+changing either implementation's unaudited status.
+
+**Implementation status:** shipped. New tests in `mini-value::
+bp_range_v2::tests` (13): range-proof prove/verify round-trip, tampered-
+commitment and cross-value-proof rejection, encode/decode round-trip and
+truncation rejection, bare-commitment/proving-path equivalence, malformed-
+blinding rejection, balanced/unbalanced/empty/malformed-input balance
+checks, a fee-commitment balance case, and an explicit
+`v1_and_v2_commitments_to_the_same_value_and_blinding_do_not_match` test
+proving the two bases are genuinely incompatible (the entire reason this
+is a new module). Full workspace `cargo fmt --all`, `cargo clippy
+--all-targets --all-features --workspace -- -D warnings`, and `cargo test
+--workspace --all-features` are clean except the same pre-existing,
+sandbox-only `wasm32-wasip1`/`wasm32-wasip2`-target-missing failures every
+entry since D-0071 already records. `mini-value`'s downstream callers
+(`mini-private-payment`, `mini-bounty`, `mini-shielded-verify`) were
+re-run directly and are unaffected (124/124 `mini-value` tests pass, up
+from 111; all three downstream crates' existing suites pass unchanged).
+
+**Failure point:** this closes the "second bespoke Bulletproofs
+implementation exists" defect only for *new* code — it does not migrate,
+deprecate, or even mark `bp_range` legacy, because doing so honestly
+requires the wire-format decision this entry explicitly declines to make
+unilaterally. Nothing in this entry is reachable from any consensus-
+checked or currently-shipping payment path.
+
+**Required follow-up:** design and adopt `PrivatePaymentV3` (Gate #72's
+next item) as the real consumer of `bp_range_v2`, at which point
+`bp_range`/`bp_range_v2`'s coexistence period and `bp_range`'s eventual
+legacy-feature-gating (mirroring `legacy-hand-rolled-signing`/
+`legacy-hand-rolled-dkg`) should be decided explicitly rather than left
+implicit. The remaining Gate #72 items D-0517 already named (canonical
+claim bytes in consensus, unifying the transparent/bounty key-image
+ledgers, calibrated decoy distribution) are untouched by this entry.
+
+**Supersedes / superseded by:** none.
+
+### D-0519 — PR #333: sixth Codex remediation batch (fixed WeakSoftware RTT bound, cross-destination semantic dedup, terminal-payload retention, DRR cursor starvation, Gate #93 Argon2 parameters, canonical claim-v2 validity ceiling)  ·  *Shipped*
+
+**Date:** 2026-09-12 · **Refs:** Codex automated review on PR #333 at head
+`146ab55a338bcda1d9d20d8e6d438679c17a6729`; `crates/mini-presence/src/
+verify.rs`; `crates/mini-dtn/src/memory.rs`; `crates/mini-mesh/src/
+lib.rs`; `crates/mini-custody/src/share_store.rs`; `crates/mini-
+settlement/src/claim_v2.rs`.
+
+**Decision:** fix all six P2 findings from this Codex review pass; none
+required a design change, only closing gaps the D-0509/D-0513/D-0517-era
+implementations left open.
+
+1. `mini_presence::verify_presence_v2` applied its fixed, non-caller-
+   configurable `MIN_SOFTWARE_RTT_SAMPLES`/`MAX_SOFTWARE_RTT_MS` bounds
+   only when no hardware evidence was supplied at all. Signed evidence
+   whose `technology` was `SoftwareRtt` classified to `WeakSoftware`
+   through `classify_ranging_evidence`'s own (looser, hardware-window-
+   sized) duration check instead, so a signer could reach `WeakSoftware`
+   with an RTT far past the canonical 50 ms ceiling. The fixed check now
+   runs whenever the *final* derived assurance is `WeakSoftware`,
+   regardless of which branch produced it.
+2. `mini_dtn::InMemoryDeferredTransport`'s semantic-dedup index was keyed
+   by `semantic_id` alone, so the same application object addressed to a
+   second destination silently reused the first destination's delivery id
+   instead of being queued — fixed by keying on `(destination,
+   semantic_id)`.
+3. The same transport left a delivered/expired/cancelled parcel's full
+   payload bytes alive in `entries` forever after decrementing
+   `total_bytes`, so admission saw reclaimed capacity while the actual
+   heap allocation never shrank. `poll_delivered` now moves the payload
+   out via `mem::take` instead of cloning it, and `reap_expired`/
+   `cancel_local` replace it with an empty `Vec` once an entry is
+   terminal.
+4. The same transport's deficit-round-robin scan always restarted at P0
+   every `poll_delivered` call, so a caller polling with a small `limit`
+   (the natural `limit = 1` case) let continuous P0 traffic starve every
+   lower class forever despite DRR's weighting. A persisted `drr_cursor`
+   now resumes the scan where the previous call left off.
+5. `mini_mesh::MeshNode::poll` bounded each *link's* contribution
+   (`MAX_MESSAGES_PER_LINK_PER_POLL`) but not the aggregate batch
+   returned by one call across every link, so an unbounded number of
+   links could make one `poll()` call retain an arbitrarily large batch.
+   New `MAX_NEW_MESSAGES_PER_POLL`/`_BYTES` constants (set equal to the
+   existing `MAX_PENDING_REFLOOD`/`_BYTES` the same accumulation already
+   respects) cap it; once hit, remaining links are simply left for the
+   next `poll()` call, the same stance already taken for one busy link.
+6. `mini_custody::share_store`'s Argon2id wrapping-key derivation used
+   `Argon2::default()` (19,456 KiB, 2 iterations — the `argon2` crate's
+   own defaults), not the Gate #93 audit's Section 10 portable-backup
+   profile (256 MiB, 3 iterations, 1 lane) that this module's own doc
+   comment already claimed to implement. Fixed with an explicit
+   `Params::new` construction.
+7. `mini_settlement::claim_v2`'s `max_validity_height_span` only bounded
+   one particular helper's (`sign_claim_v2_for_network`) own call — a
+   payer could pass `u64::MAX`, or construct and sign the wire message
+   directly (the span is not itself part of the signed bytes), producing
+   a claim `verify_claim_v2_signature`/`reconcile_v2` could not
+   distinguish from a properly bounded one. New `MAX_VALIDITY_HEIGHT_SPAN`
+   is a canonical, non-negotiable ceiling `verify_claim_v2_signature`
+   itself now enforces (so `reconcile_v2`, which calls it first, is
+   covered too); the signing helper now also respects it as a floor on
+   top of the caller's own span. This crate still deliberately takes no
+   position on real block cadence (see the module's own docs) — the
+   constant is documented as a generous, provisional placeholder ("finite,
+   not effectively permanent"), not a calibrated economic-time bound.
+
+**Constitutional impact:** none beyond what D-0507-D-0518 already state
+for these five crates — no dependency-edge change, no weakened invariant.
+Item 7's placeholder ceiling is explicitly not an economic-calibration
+claim.
+
+**Implementation status:** shipped. New regression tests:
+`mini_dtn::memory::tests::a_small_poll_limit_does_not_reset_the_drr_scan_
+to_the_highest_class_every_call` and `::the_same_semantic_id_to_two_
+different_destinations_is_not_deduplicated`. Full workspace `cargo fmt
+--all`, `cargo clippy --all-targets --all-features --workspace -- -D
+warnings`, and the five touched crates' test suites (`mini-presence`,
+`mini-dtn`, `mini-mesh`, `mini-custody`, `mini-settlement`) are clean.
+Item 5's aggregate cap is not covered by a dedicated stress test —
+reaching it requires dozens of real `EncryptedLink` handshakes given the
+64-message per-link cap, and the accumulation logic it reuses
+(`MAX_PENDING_REFLOOD`/`_BYTES`) is already exercised by existing tests.
+
+**Failure point:** these are all engineering defects in already-adopted
+designs, not new design gaps; none reopens Gate #72/#93/#28's own
+external-audit scope per their own reopening criteria.
+
+**Required follow-up:** none specific to this batch. Gate #72's remaining
+items (D-0517/D-0518's own follow-up lists) are untouched.
+
+**Supersedes / superseded by:** none.

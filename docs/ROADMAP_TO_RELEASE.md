@@ -306,6 +306,20 @@ calls, not engineering choices this phase can make for them.
 Needs real phone hardware and Kotlin radio wiring. The BLE-first bootstrap
 story is central to the "works without infrastructure" claim and is currently
 unproven on any physical device.
+**Progress (D-0502/D-0503/D-0504/D-0505):** the Kotlin radio wiring named
+above is now real code — `BlePeripheralServer`/`BleCentralRadio` (real
+`BluetoothGattServer`/`BluetoothGattCallback`/`BluetoothGatt` APIs, multiple
+simultaneous connections) and `BleMeshService` (advertises-and-serves
+*and* scans-and-connects at once, feeding a shared `mini-mesh` relay so
+messages hop across devices that aren't directly in range of each other,
+not just pairwise). **What this does not close:** none of it has run on
+real phone hardware in this development environment (no JDK/Android SDK,
+no radios) — Android CI's `assembleDebug` is the first real compile
+check, and the actual gap this row names (proof on physical devices)
+stays exactly as open as before. The multi-hop relay *algorithm*
+underneath it is separately, fully proven hardware-free (real loopback
+TCP sockets, `mini-mesh`'s own tests) — that de-risks the logic, not the
+radio.
 **Closed by:** the T1–T6 matrix in `docs/gates/hardware-test-protocol.md` run
 on real hardware (#97).
 

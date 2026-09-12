@@ -252,6 +252,27 @@ given time.
   always a clean rejection, never a crash. A 64 MiB file-size cap now
   guards the eager read `open` performs. See `docs/DECISION_LOG.md`
   D-0487.
+  **Hardware classification architecture, engineering remediation only
+  (D-0510):** new `mini_presence::evidence_v2` module — `RangingEvidenceV2`
+  (technology/security-profile/sidedness/registry-class/session-binding/
+  distance-percentile/attack-indicator fields, with deliberately no
+  self-reported assurance field), `HardwareCapabilityRegistryV1` (a
+  versioned, in-code, capability-class registry, not a device allowlist,
+  no online lookup), `PresencePolicyV2` (fixed, non-caller-configurable
+  bound constants), and `classify_ranging_evidence` (a pure, deterministic
+  function deriving a `PresenceAssuranceV2` level from raw evidence plus
+  the registry — never from a caller's own claim). `verify::
+  verify_presence_v2` layers on top of the existing, unmodified
+  `verify_presence` (every KEL/signature/nonce/replay/software-RTT check
+  still applies), additionally rejecting `TransportKind::InProcess`
+  unconditionally (stricter than V1's `is_proximity()`, which allows it
+  for CI), requiring evidence to be cryptographically bound to the
+  specific attestation session, and always recomputing assurance itself.
+  This is architecture only, not gate closure or hardware validation —
+  see `docs/DECISION_LOG.md` D-0510 for the full honest-limits list
+  (no real UWB/Channel-Sounding stack wired in, registry classes
+  unvalidated against real devices, no platform shell produces
+  `RangingEvidenceV2` yet).
 - **doc-only** — `docs/design/credential-taxonomy.md` (D-0089, founder
   review's `credential-separation` finding) names and separates
   `ParticipantCredential`/`HumanEvidence`/`RoleCredential`/
@@ -589,6 +610,26 @@ given time.
   returning the stealth shared point the derivation already computes and
   discarded, and a fail-closed `MininetRingSignature::verifier()` so
   verifying no longer requires inventing a secret key.
+  **Canonical wire decoding (D-0509, Gate #72 F72-01/F72-04):** an
+  anonymous external report found that every signature/proof verification
+  boundary (`mlsag.rs`, `ring_impl.rs`, `stealth_impl.rs`,
+  `confidential_impl.rs`, `bp_range.rs`, `bp_ipa.rs`) decoded wire-supplied
+  scalars via `Scalar::from_bytes_mod_order`, which silently accepts any
+  of the ~1-in-16 non-canonical byte encodings of a given field element
+  instead of rejecting them — real malleability, independently confirmed
+  against the code. New shared module `mini_value::canonical` fixes it
+  (`Scalar::from_canonical_bytes` at every such site) and additionally
+  rejects the identity point at every semantic point role the audit names
+  (one-time output keys, key images, commitments). Fixing the decoder
+  exposed that `mini-private-payment`'s blinding-factor generation used
+  raw `mini_crypto::random_32()` bytes directly as scalar encodings
+  (correct only under the old, lenient decoder) — new
+  `mini_value::random_scalar_bytes()` does the missing reduction at
+  generation time instead. 108 `mini-value` unit tests (2 new, proving
+  the fix concretely: a hand-constructed non-canonical re-encoding that
+  the old decoder accepted and the new one rejects, plus an identity key
+  image rejection), all downstream crate tests, `cargo fmt`/`clippy`
+  clean.
 - **prototype, not integrated (D-0447)** — `mini-private-payment`: the
   shielded settlement path, and the composition that was missing.
   `mini-value` had all three privacy primitives; **nothing composed them
@@ -865,6 +906,52 @@ given time.
   two different byte strings could decode to the same signature. Fixes
   API-level hazards only — the crate's overall D-0047/#72 gate and the
   trusted-dealer-only prototype status are unchanged.
+  **Index-0 DKG vulnerability fixed (D-0506):** an anonymous external
+  Gate #93 report identified that `dkg_generate_round2_shares` and
+  `dkg_resolve`'s complaint resolution both evaluated a Feldman/Shamir
+  polynomial at a caller-supplied index/`accuser` with no check that it
+  was nonzero — index `0` is the polynomial's constant term, the actual
+  secret. Independently verified against the real code (accurate), then
+  fixed with a boundary check at each call site plus two regression
+  tests; all 71 `mini-treasury` tests and clippy stay clean.
+  **New crate `mini-custody` (D-0507, unaudited):** rather than keep
+  hardening `frost_dkg.rs`'s hand-rolled complaint/rebuttal mechanism
+  finding by finding, `mini-custody` wraps `frost_ristretto255::keys::dkg`
+  (NCC-Group-audited; pinned `=3.0.0`) with the ceremony scaffolding no
+  DKG library provides on its own: a signed immutable session manifest,
+  an 11-of-11 manifest-acceptance barrier, a Round-1 consistent-broadcast
+  root every participant must acknowledge identically before Round 2
+  starts, `mini_bearer::Channel`-bound encrypted Round-2 transport with
+  signed channel-binding assertions, abort-and-restart-only failure
+  handling (deliberately no complaint/rebuttal path), Argon2id-wrapped
+  share storage, and a fresh-key-per-rotation rule (same-key resharing is
+  rejected — old shares stay mathematically valid under it). 30 unit
+  tests plus an 11-party end-to-end integration test that drives all
+  seven DKG phases and then produces and verifies a real 7-of-11 FROST
+  signature over the resulting group key.
+  **`frost_dkg`/`frost_reshare` gated off `mini_treasury`'s default
+  public API (D-0508):** the hand-rolled DKG functions
+  (`dkg_round1`/`dkg_generate_round2_shares`/`dkg_resolve`/
+  `dkg_finalize`/`AcknowledgedUnauditedDkg`/…, `reshare_round1`/
+  `reshare_finalize`/…) now require the `legacy-hand-rolled-dkg` Cargo
+  feature (default: off) to be visible from outside the crate; their own
+  internal test coverage keeps building/running unconditionally either
+  way. No real external caller existed to break (checked directly:
+  `mini-airdrop`/`mini-airdrop-treasury` only mention `frost_sign`/
+  `frost_dkg` in doc comments, never call them). **Still not wired up:**
+  nothing yet constructs `mini_treasury`'s own `KeyPackage`/
+  `PublicKeyPackage` from a completed `mini-custody` ceremony — those
+  types are `mini_treasury`'s own hand-rolled ones over
+  `curve25519-dalek`, not `frost_ristretto255`'s, so real interop needs
+  the Gate #72 signing-math migration (F72-14/17, unstarted) first; and
+  **not externally audited** — an anonymous, unattributed report does
+  not establish that, and does not close Gate #93 either way (D-0047).
+  See D-0506/D-0507/D-0508 for the full, explicit list of what remains
+  undone, and the companion "Gate #72" report's
+  `mini-value`/`mini-bounty`/`mini-settlement` recommendations
+  (canonical scalar/point decoding, `frost_ristretto255` signing,
+  vendored `bulletproofs`, `PrivatePaymentV3` wire format, calibrated
+  decoy distribution), which remain entirely unimplemented.
 - **policy kernel implemented; integration and external review open
   (proposed D-0413)** — the treasury economic model (D-0073,
   `docs/design/treasury-economic-model.md`: XRPL/XMR bridge split,
@@ -1558,8 +1645,34 @@ given time.
   selection, not an unpredictable one. Bucket refresh by liveness ping
   remains open, as does wiring either fanout variant into a real running
   mesh.
-- **not started** — BLE radio adapter (needs real phone hardware,
-  [#22](../../issues/22)); NAT traversal; local mesh routing.
+- **partial (D-0503/D-0504/D-0505)** — local multi-hop mesh relay
+  (`docs/design/ble-mesh-relay.md`), the founder's 2026-09-11 direction
+  that nearby devices form a real network over BLE, not just pair
+  one-to-one. `mini_bearer::EncryptedLink` (any `Bearer` plus an
+  already-established `Channel` handshake) and new crate `mini-mesh`
+  (`MeshNode`: a dynamic set of `EncryptedLink`s plus `mini_net::GossipRouter`
+  for dedup) generalize `mini_consensus::net::TcpMesh`/`run_to_height`'s
+  already-proven relay shape — dedup-flood re-gossip live over any
+  **connected** graph, not just a full mesh — off raw `TcpStream` and onto
+  any `Bearer`. Proven multi-hop over a real four-node line topology
+  (A—B—C—D, no direct A↔C/A↔D/B↔D edge) two ways: in-process
+  (`InProcessBearer`) and over **real loopback TCP sockets and threads**
+  (`crates/mini-mesh/tests/tcp_relay.rs`), so the relay algorithm itself is
+  proven over genuine OS I/O without needing any BLE hardware.
+  `mini-ffi::mesh::MeshHandle` exposes it to Kotlin (D-0504). On Android
+  (D-0505), `BlePeripheralServer` (replacing D-0502's single-connection
+  `BlePeripheralRadio`) now tracks many simultaneous connected centrals;
+  `BleCentralRadio` splits scan-from-connect so a caller with its own
+  scanner never starts a redundant second one; `BleMeshService`
+  orchestrates both roles at once (advertise-and-serve *and*
+  scan-and-connect) into one shared mesh. **What remains "not started" or
+  unverified:** the real BLE radio adapter chain (D-0374/D-0375/D-0502/
+  D-0505) has never run on real phone hardware in this environment (needs
+  real phone hardware, [#22](../../issues/22)); `BleMeshService` is not
+  yet wired into any UI; NAT traversal for a non-local mesh is untouched;
+  there is no routing (only flooding — fine at small mesh scale, not
+  evaluated at internet scale) and no peer-discovery change beyond BLE's
+  own advertise/scan.
 
 ## 9. AI & audit gates
 

@@ -1,0 +1,2125 @@
+MININET EXTERNAL CRYPTOGRAPHY AUDIT REPORT
+Gate #72 — Private Value, Confidential Transactions, Stealth Addressing,
+Ring Signatures, Bulletproofs Integration, Settlement Composition, Bounty
+Composition, and FROST Signing
+
+Report date: 2026-09-11
+Repository: mininet-labs/Mininet
+Reviewed revision: main @ bc7da80f8817f856a96bcb3772232b080eef531d
+Audit status: COMPLETE
+Gate #72 external-audit obligation: PASS
+Production implementation conformity at reviewed revision: PARTIAL
+Further external audit required: NO, provided the mandatory remediations in
+this report are implemented exactly and no security-relevant deviation is
+introduced. Any material deviation listed in Section 14 reopens the affected
+scope.
+
+Auditor: ______________________________________
+Organization / affiliation: ___________________
+Professional qualification / experience: ______
+Conflict-of-interest statement: _______________
+Signature / attestation date: __________________
+
+
+======================================================================
+1. EXECUTIVE AUDIT OPINION
+======================================================================
+
+I reviewed Mininet's current value-bearing cryptographic design and the
+implementation surfaces that Gate #72 covers, including:
+
+  * ristretto255 point/scalar handling;
+  * stealth-address construction;
+  * linkable ring-signature code;
+  * the two-column MLSAG construction used by private payments;
+  * confidential amount commitments;
+  * range proofs;
+  * private-payment transaction composition;
+  * payment memo encryption;
+  * decoy selection;
+  * canonical encoding and transaction identity;
+  * key-image/nullifier handling;
+  * consensus/execution integration;
+  * settlement composition;
+  * bounty composition;
+  * FROST threshold signing;
+  * nonce generation, durability and secret handling.
+
+I also compared the design against relevant public cryptographic prior art and
+standards, including ristretto255, FROST RFC 9591, deployed RingCT/MLSAG/CLSAG
+practice, the Rust dalek/Bulletproofs ecosystem, prior independent audits of
+related code, and published decoy-selection research.
+
+AUDIT CONCLUSION
+
+Gate #72's external cryptography review is COMPLETE.
+
+The current source revision is not the final production implementation of the
+audited design. Several material findings require engineering changes.
+However, those changes are fully specified in this report. They are
+remediation conditions, not a requirement for another independent audit.
+
+My audit opinion is:
+
+  1. The Mininet private-value architecture is acceptable for production
+     once the mandatory remediations in this report are implemented.
+
+  2. The current design correctly aims to keep value authorization local,
+     cryptographic and independent of any bank, server, operator, validator
+     whitelist, administrator key or trusted attestation service.
+
+  3. The present code has unnecessary bespoke cryptographic surface and a
+     consensus data-availability weakness around shielded claim evidence.
+     Those are the principal issues to fix.
+
+  4. The production candidate should retain ristretto255 and the existing
+     two-column MLSAG relation, but replace Mininet's bespoke Bulletproof
+     prover/verifier and bespoke FROST signing math with pinned, vendored,
+     publicly reviewed implementations.
+
+  5. The production network must contain exactly one shielded monetary path.
+     The transparent PaymentClaim path and the separate single-column bounty
+     ring-signature path should not be production-valid.
+
+  6. Full private claim bytes and proofs must be canonical consensus data.
+     A validator must derive key images and state effects from verified claim
+     bytes, not from proposer assertions or a non-canonical local evidence
+     cache.
+
+  7. Ring size is fixed at 16 for V3. Decoy selection remains probabilistic
+     privacy, not absolute anonymity. The current hand-written AGE_WEIGHTS
+     should not be frozen into real value.
+
+  8. Treasury signing should use the RFC 9591 ristretto255/SHA-512 FROST
+     ciphersuite through frost-ristretto255, while Mininet retains its own
+     durable nonce journal, typed action authorization and policy layer.
+
+  9. No further external cryptographic audit is required to close Gate #72
+     if engineering implements this report exactly and provides the objective
+     conformance evidence in Section 13. If a listed security-relevant design,
+     primitive or dependency changes, the affected portion must be reviewed
+     again.
+
+EXTERNAL-AUDIT VERDICT: PASS
+
+PRODUCTION IMPLEMENTATION CONFORMITY: PARTIAL
+
+Reason for PARTIAL:
+the reviewed revision still contains the pre-remediation implementation.
+
+This is not a second-audit dependency. Engineering can close the remaining
+PARTIAL items by implementing the exact controls and passing the acceptance
+evidence defined here.
+
+
+======================================================================
+2. SCOPE, METHOD, AND EVIDENCE
+======================================================================
+
+2.1 Repository material reviewed
+
+The review covered the current repository design and source areas including:
+
+  docs/gates/crypto-audit-scope.md
+  docs/ROADMAP_TO_RELEASE.md
+  docs/audits/EXTERNAL_AUDIT_MASTER_REPORT.md
+  docs/audits/PR332_REMEDIATION_STATUS.md
+  docs/design/private-payment-path.md
+
+  crates/mini-value/src/curve.rs
+  crates/mini-value/src/ring_impl.rs
+  crates/mini-value/src/mlsag.rs
+  crates/mini-value/src/confidential.rs
+  crates/mini-value/src/confidential_impl.rs
+  crates/mini-value/src/bp_range.rs
+  crates/mini-value/src/bp_ipa.rs
+  crates/mini-value/src/bp_generators.rs
+  crates/mini-value/src/stealth_impl.rs
+
+  crates/mini-private-payment/src/claim.rs
+  crates/mini-private-payment/src/codec.rs
+  crates/mini-private-payment/src/memo.rs
+  crates/mini-private-payment/src/decoy.rs
+
+  crates/mini-shielded-verify/src/lib.rs
+
+  crates/mini-execution/src/body.rs
+  crates/mini-execution/src/nullifier.rs
+  crates/mini-execution/src/shielded.rs
+  crates/mini-execution/src/state.rs
+
+  crates/mini-settlement/src/claim.rs
+  crates/mini-bounty/src/claim.rs
+
+  crates/mini-treasury/src/frost_sign.rs
+  crates/mini-treasury/src/lib.rs
+
+  crates/mini-crypto/src/random.rs
+  crates/mini-crypto/src/aead.rs
+
+2.2 External material compared
+
+The audit used public prior art to evaluate design choices, not to claim that
+another project's audit automatically covers Mininet.
+
+Relevant material included:
+
+  * RFC 9496 — ristretto255 / decaf448.
+  * RFC 9591 — FROST.
+  * bulletproofs 5.0.0 Rust implementation/documentation.
+  * curve25519-dalek / dalek audit history.
+  * Quarkslab review of Bulletproofs and MLSAG implementations.
+  * Monero RingCT / MLSAG / CLSAG design and audit history.
+  * published Monero decoy-selection failures/post-mortems.
+  * OSPEAD spend-age / decoy-selection research.
+  * Zcash Foundation frost-ristretto255 implementation and audit history.
+
+2.3 Audit method
+
+The method was adversarial:
+
+  * do not accept a security claim merely because code comments say it;
+  * treat every trusted coordinator, remote oracle, admin switch, hidden
+    override and single-party control point as a defect unless required and
+    tightly bounded;
+  * distinguish cryptographic validity from availability and governance;
+  * distinguish canonical chain truth from local caches;
+  * treat parser ambiguity and non-canonical representations as security
+    issues;
+  * reduce duplicated custom cryptography where existing reviewed
+    implementations fit Mininet's independence requirements;
+  * require deterministic consensus validation;
+  * preserve Mininet's voice/value separation;
+  * assume a proposer, peer, wallet, bridge, signer coordinator and minority
+    of validators may be malicious.
+
+2.4 Important limitation of this written audit
+
+This report records the external auditor's design/code review opinion and the
+mandatory engineering conformance requirements.
+
+It does not fabricate test execution that has not yet occurred.
+
+Where Section 13 says a test or reproducibility result is required, the
+maintainers must produce that machine evidence. Producing that evidence does
+not require another cryptographic design audit unless the implementation
+deviates from this report.
+
+
+======================================================================
+3. FINDING SUMMARY
+======================================================================
+
+F72-01  HIGH     Non-canonical scalar decoding in custom crypto
+F72-02  HIGH     Bespoke Bulletproof/IPA implementation
+F72-03  MEDIUM   Generic transcript/hash framing is too permissive
+F72-04  MEDIUM   Stealth-address degenerate-key validation incomplete
+F72-05  HIGH     Shielded validity depends on non-canonical local evidence
+F72-06  HIGH     Canonical block contains nullifier facts instead of complete
+                 proof-bearing private claims
+F72-07  MEDIUM   Claim transcript digest excludes signatures and is used as
+                 local evidence key
+F72-08  HIGH     Transparent payment path remains production-shaped
+F72-09  MEDIUM   Second custom single-column bounty ring-signature path
+F72-10  HIGH     Current decoy distribution is explicitly uncalibrated
+F72-11  MEDIUM   Caller-selected ring size/entropy increases fingerprint risk
+F72-12  MEDIUM   Device-clock expiry / opaque chain hint are not appropriate
+                 consensus-value identity fields
+F72-13  MEDIUM   User-selected public fee amount is a privacy fingerprint
+F72-14  HIGH     Bespoke FROST signing math increases custody audit surface
+F72-15  HIGH     Production proof verifier must not be optional
+F72-16  MEDIUM   Consensus resource limits need fixed shielded-cost ceilings
+F72-17  MEDIUM   Typed treasury signing domain must replace arbitrary messages
+F72-18  MEDIUM   Crypto-suite migration must not introduce an administrator
+                 switch
+
+The findings above are resolved by the normative decisions in Sections 5–12.
+
+
+======================================================================
+4. FINDINGS IN DETAIL
+======================================================================
+
+----------------------------------------------------------------------
+F72-01 — NON-CANONICAL WIRE SCALAR DECODING
+Severity: HIGH
+Status at reviewed revision: FAIL
+Remediation status under this report: DEFINED
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+current custom ring/range code uses modular scalar reduction at some
+untrusted byte boundaries.
+
+Exact failure:
+Scalar::from_bytes_mod_order accepts more than one byte encoding for the same
+field element. That is acceptable for reducing a hash to a scalar; it is not
+the correct parser for a canonical signed/proved wire object.
+
+Security consequence:
+malleable encodings, inconsistent object identity, parser ambiguity and
+unnecessary complexity in replay/cache reasoning.
+
+Required fix:
+all external 32-byte scalar fields MUST parse with canonical scalar decoding.
+Modulo/wide reduction is restricted to:
+  * hash-to-scalar output;
+  * freshly generated random wide bytes.
+
+Release disposition:
+BLOCKING until implemented.
+
+No second external audit is required if the change follows Section 5.3
+exactly.
+
+----------------------------------------------------------------------
+F72-02 — BESPOKE BULLETPROOF / INNER-PRODUCT PROOF
+Severity: HIGH
+Status at reviewed revision: FAIL
+Remediation status under this report: REPLACE
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+mini-value contains its own Bulletproof range proof and IPA arithmetic.
+
+Exact failure:
+range-proof soundness is an all-or-nothing property, and Mininet gains no
+constitutional independence from maintaining this proof arithmetic itself.
+The custom implementation materially expands the amount of novel
+security-critical code that must be trusted.
+
+Required fix:
+production V3 uses:
+  bulletproofs = 5.0.0
+  curve25519-dalek = 4.1.3
+  64-bit single-value proof
+  aggregation size 1
+  Mininet-selected deterministic Pedersen bases
+  Mininet transcript context
+  "yoloproofs" disabled
+
+The source is pinned and vendored so no package registry or upstream
+maintainer becomes runtime authority.
+
+Release disposition:
+BLOCKING until replacement is complete.
+
+----------------------------------------------------------------------
+F72-03 — TRANSCRIPT FRAMING / DOMAIN SEPARATION
+Severity: MEDIUM
+Status at reviewed revision: PARTIAL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+Mininet uses domain strings in several places, which is good, but generic
+helpers can concatenate caller-provided parts without enforcing a universal
+typed framing rule.
+
+Exact failure:
+security-critical transcript integrity depends on every caller remembering
+field boundaries and appropriate domain/version context.
+
+Required fix:
+create one protocol-domain module and dedicated per-operation context strings.
+Every variable field is length framed. Every signing/proof transcript includes
+suite and network where replay separation matters.
+
+Release disposition:
+BLOCKING for V3.
+
+----------------------------------------------------------------------
+F72-04 — STEALTH ADDRESS DEGENERATE KEYS
+Severity: MEDIUM
+Status at reviewed revision: PARTIAL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+current code checks Ristretto decodability and spend/view key distinction.
+
+Exact failure:
+production address validation does not uniformly enforce non-identity public
+keys and nonzero private scalars at every semantic boundary.
+
+Required fix:
+Section 6 defines the exact V3 address and derivation. Identity A/B/R/P and
+zero private scalars fail closed.
+
+----------------------------------------------------------------------
+F72-05 — LOCAL CLAIM-EVIDENCE POOL AS CONSENSUS VALIDITY DEPENDENCY
+Severity: HIGH
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+mini-shielded-verify stores full claim bytes in ClaimEvidencePool and obtains
+the claim from that non-canonical local store when validating the
+corresponding canonical nullifier group.
+
+The source itself states:
+  * no claim-evidence gossip protocol;
+  * no pruning/eviction policy;
+  * evidence is local/non-canonical.
+
+Exact failure:
+a canonical block is not self-sufficient for cryptographic replay of shielded
+validity. A recovering full validator may have chain state but not the
+off-chain proof object needed to verify how the state was obtained.
+
+Required fix:
+full canonical PrivatePaymentV3 bytes become block-body data. The local pool
+may remain only as mempool/cache optimization.
+
+This is one of the most important findings in the report.
+
+----------------------------------------------------------------------
+F72-06 — PROPOSER-SHAPED NULLIFIER FACTS
+Severity: HIGH
+Status at reviewed revision: PARTIAL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+current execution separates shielded nullifier facts from the private claim
+proof object.
+
+Exact failure:
+the value state-transition object should be derived from the proof-bearing
+transaction. A proposer should never have an independent namespace for saying
+"this key image belongs to this claim."
+
+Required fix:
+validator receives the complete claim, verifies it, and derives:
+  key images,
+  ring membership pairs,
+  outputs,
+  fee effect,
+  canonical claim ID.
+
+No separately authoritative proposer nullifier list exists in V3.
+
+----------------------------------------------------------------------
+F72-07 — CLAIM CACHE ID DOES NOT INCLUDE SIGNATURES
+Severity: MEDIUM
+Status at reviewed revision: PARTIAL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+current transcript_digest commits to the unsigned/private-payment transcript,
+while encode() appends ring signatures later. ClaimEvidencePool is keyed by
+that transcript digest.
+
+Exact failure:
+the complete canonical transaction and the authorization transcript are
+different objects but currently share a practical identity role.
+
+Required fix:
+V3 defines three separate digests:
+  memo_context_digest,
+  signing_digest,
+  claim_id.
+
+claim_id hashes the ENTIRE canonical claim including signatures.
+Caches, mempools and blocks identify the complete transaction by claim_id.
+
+----------------------------------------------------------------------
+F72-08 — TRANSPARENT PAYMENT PATH REMAINS
+Severity: HIGH
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+mini-settlement::PaymentClaim exposes payer, payee, amount and sequence;
+mini-execution still has a transparent claims vector.
+
+Exact failure:
+privacy is optional if a public-format transaction remains a normal
+production path. Format choice itself becomes metadata.
+
+Required fix:
+production V3 consensus does not accept transparent PaymentClaim.
+No old prototype value history exists that justifies carrying this privacy
+downgrade into genesis.
+
+Archive/dev readers may exist, but production execution rejects the type.
+
+----------------------------------------------------------------------
+F72-09 — DUPLICATE SINGLE-COLUMN BOUNTY RING SIGNATURE
+Severity: MEDIUM
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+mini-bounty has its own BountyClaim, RingSignature and key-image ledger.
+
+Exact failure:
+real-value security would depend on both the two-column private-payment MLSAG
+and a second custom single-column linkable ring scheme.
+
+Required fix:
+a bounty grant becomes an ordinary shielded output.
+Claiming/spending it is an ordinary PrivatePaymentV3 spend.
+Canonical value key-image state prevents replay.
+
+Result:
+one monetary ring-signature construction instead of two.
+
+----------------------------------------------------------------------
+F72-10 — UNCALIBRATED DECOY DISTRIBUTION
+Severity: HIGH
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+current AGE_WEIGHTS are explicitly described in source as a starting shape,
+not a distribution fitted to Mininet traffic.
+
+Exact failure:
+ring cryptography can be correct while the real input is statistically much
+easier to identify than 1/16.
+
+External research:
+published Monero decoy failures show this is a real implementation risk.
+OSPEAD provides a better researched bootstrap model but does not prove
+Mininet's eventual traffic distribution.
+
+Required fix:
+V3 uses one deterministic integer CDF derived from the published OSPEAD
+best-fit log-GB2 model:
+
+  scale  = 20.62
+  shape1 = 4.462
+  shape2 = 0.5553
+  shape3 = 7.957
+
+The mathematical distribution is independently implemented. Do not copy
+incompatible licensed code.
+
+The resulting runtime sampler is deterministic integer arithmetic after a
+fresh local CSPRNG seed.
+
+Security language:
+sender privacy is probabilistic.
+Do not claim "1 in 16" as an anonymity guarantee.
+
+----------------------------------------------------------------------
+F72-11 — CALLER-SELECTED RING SIZE / DECOY ENTROPY
+Severity: MEDIUM
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+current PaymentRequest exposes ring_size and decoy_entropy.
+
+Exact failure:
+different wallet behavior can fingerprint wallet implementations and users.
+
+Required fix:
+ring size is exactly 16.
+Production caller does not supply ring size.
+Production caller does not supply decoy entropy.
+Wallet obtains entropy internally from OS CSPRNG.
+Deterministic seed injection is cfg(test)-only.
+
+----------------------------------------------------------------------
+F72-12 — DEVICE CLOCK / OPAQUE LAST-KNOWN-CHAIN FIELD
+Severity: MEDIUM
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+PrivatePaymentClaim contains valid_until_ms and last_known_chain.
+
+Exact failure:
+device wall-clock expiry is not a trustworthy shared chain validity anchor,
+and opaque last_known_chain bytes do not themselves prove a canonical state
+relationship.
+
+Required fix:
+remove both from PrivatePaymentV3.
+Offline payments remain pending until canonical finality.
+
+----------------------------------------------------------------------
+F72-13 — USER-SELECTED PUBLIC FEE FINGERPRINT
+Severity: MEDIUM
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+current private claim exposes fee_micro directly.
+
+Exact failure:
+unusual public fees narrow the candidate set for a payment and create a
+wallet behavior fingerprint.
+
+Required fix:
+V3 signs fee_policy_id.
+The fee amount is derived deterministically from canonical policy and the
+transaction shape.
+No priority auction in V3.
+
+The economic coefficient values are outside this cryptography audit, but the
+cryptographic binding is fixed here.
+
+----------------------------------------------------------------------
+F72-14 — BESPOKE FROST SIGNING MATH
+Severity: HIGH
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+mini-treasury implements FROST-style signing math itself.
+
+Positive evidence:
+the durable signer work already has good design properties:
+  nonce reservation before publication,
+  durable burn,
+  restart handling,
+  redaction,
+  process locking.
+
+Exact failure:
+Mininet gains no useful sovereignty from maintaining a separate FROST
+ciphersuite implementation when an RFC-defined Ristretto implementation
+exists.
+
+Required fix:
+production signing uses:
+  frost-ristretto255 = 3.0.0
+  RFC 9591 FROST(ristretto255, SHA-512)
+
+Mininet retains:
+  durable signer journal,
+  typed action authorization,
+  local policy,
+  transport,
+  participant controls.
+
+DKG/resharing is reviewed separately under Gate #93.
+
+----------------------------------------------------------------------
+F72-15 — OPTIONAL PROOF VERIFIER
+Severity: HIGH
+Status at reviewed revision: FAIL
+----------------------------------------------------------------------
+
+Evidence/mechanism:
+the present architecture includes an optional/injected claim verifier.
+
+Exact failure:
+a production node must not be configurable into a mode that accepts shielded
+value while declining to verify the cryptography.
+
+Required fix:
+production V3 node construction requires a verifier.
+A dev node without one rejects all shielded transactions.
+No CLI/env/config bypass.
+
+----------------------------------------------------------------------
+F72-16 — SHIELDED RESOURCE CEILINGS
+Severity: MEDIUM
+Status at reviewed revision: PARTIAL
+----------------------------------------------------------------------
+
+Exact failure:
+proof/ring validation costs need explicit worst-case consensus limits.
+
+Required V3 ceilings:
+
+  MAX_PRIVATE_CLAIM_BYTES        = 65,536
+  MAX_SHIELDED_BODY_BYTES        = 524,288
+  MAX_SHIELDED_CLAIMS_PER_BLOCK  = 64
+  MAX_SHIELDED_INPUTS_PER_BLOCK  = 64
+  MAX_SHIELDED_OUTPUTS_PER_BLOCK = 64
+  INPUTS_PER_CLAIM               = 1..16
+  OUTPUTS_PER_CLAIM              = 1..16
+  RING_SIZE                      = 16
+
+All cheap limits are checked before expensive proof work.
+
+The final hardware benchmark may reduce block limits; it must never weaken
+proof validity.
+
+----------------------------------------------------------------------
+F72-17 — UNTYPED TREASURY MESSAGE SIGNING
+Severity: MEDIUM
+Status at reviewed revision: PARTIAL
+----------------------------------------------------------------------
+
+Exact failure:
+custody signing must authorize a specific monetary action, not "bytes."
+
+Required fix:
+TreasuryActionV1 in Section 11.
+Each signer validates action semantics before releasing its commitment.
+
+The coordinator remains untrusted and has no special authority.
+
+----------------------------------------------------------------------
+F72-18 — CRYPTO MIGRATION / ADMIN SWITCH
+Severity: MEDIUM
+Status at reviewed revision: PARTIAL
+----------------------------------------------------------------------
+
+Exact failure:
+long-term crypto agility can accidentally create a privileged emergency
+upgrade key.
+
+Required fix:
+suite IDs are part of canonical objects.
+A new suite requires a new version and ordinary governed activation.
+There is no maintainer/admin cryptographic override.
+
+Existing ownership cannot be seized by migration.
+
+
+======================================================================
+5. NORMATIVE PRODUCTION CRYPTO PROFILE
+======================================================================
+
+This section is the audit-approved production profile for Gate #72.
+
+5.1 Suite
+
+Name:
+  MININET_VALUE_V3_RISTRETTO
+
+Suite ID:
+  0x0003
+
+Components:
+  ristretto255 / curve25519-dalek 4.1.3
+  BLAKE3 derive-key mode for Mininet domains
+  Mininet two-column MLSAG V3
+  bulletproofs 5.0.0
+  Merlin transcripts
+  ChaCha20-Poly1305
+  HKDF-SHA256
+  OS CSPRNG/getrandom
+  frost-ristretto255 3.0.0 for threshold signing
+
+No operator-selectable alternate suite is production-valid inside V3.
+
+5.2 Legacy compatibility
+
+Production genesis starts with V3.
+
+Production consensus rejects:
+  PrivatePayment V1/V2
+  transparent PaymentClaim
+  legacy single-column bounty monetary claim
+  prototype custom FROST signature authorization
+
+No unsafe compatibility layer is needed because no legitimate production
+value history exists yet.
+
+5.3 Canonical Ristretto / scalar parsing
+
+Every externally encoded point:
+  exactly 32 bytes
+  canonical Ristretto decoding must succeed
+
+Semantic non-identity requirement applies to:
+  spend public key
+  view public key
+  transaction public key
+  one-time output key
+  key image
+  output commitment
+  pseudo commitment
+
+Every externally encoded scalar:
+  exactly 32 bytes
+  Scalar::from_canonical_bytes must succeed
+
+Forbidden as a wire parser:
+  Scalar::from_bytes_mod_order
+
+Permitted:
+  wide hash/random reduction through from_bytes_mod_order_wide
+
+Secret/random scalars that must be nonzero are resampled if zero.
+
+5.4 Domain hashing
+
+Security-critical hashing uses dedicated contexts, at minimum:
+
+  mininet/value/stealth-offset/v3
+  mininet/value/key-image-point/v3
+  mininet/value/mlsag-challenge/v3
+  mininet/value/pedersen/blinding-generator/v3
+  mininet/value/pedersen/value-generator/v3
+  mininet/private-payment/memo-context/v3
+  mininet/private-payment/signing/v3
+  mininet/private-payment/claim-id/v3
+  mininet/private-payment/decoy-seed/v3
+  mininet/treasury/action/v1
+
+Variable fields are length framed.
+Integers use canonical big-endian encoding in Mininet objects.
+Collection counts are encoded once and checked against fixed maxima.
+
+Hash-to-scalar:
+  BLAKE3 derive-key XOF(context, canonical message)
+  -> 64 bytes
+  -> Scalar::from_bytes_mod_order_wide
+
+Hash-to-Ristretto:
+  BLAKE3 derive-key XOF(context, canonical message)
+  -> 64 bytes
+  -> RistrettoPoint::from_uniform_bytes
+
+If the semantic result must be non-identity, repeat with an explicit counter
+if identity is obtained.
+
+
+======================================================================
+6. STEALTH ADDRESS V3
+======================================================================
+
+Recipient secrets:
+
+  a = nonzero spend scalar
+  b = nonzero view scalar
+
+Recipient public address:
+
+  A = aG
+  B = bG
+
+Address validation:
+
+  A canonical, non-identity
+  B canonical, non-identity
+  A != B
+  address binds:
+    suite_id
+    network_id
+    A
+    B
+
+Sender:
+
+  1. sample fresh nonzero r from OS CSPRNG
+  2. R = rG
+  3. shared = rB
+  4. compute:
+
+       s = Hs(
+         "mininet/value/stealth-offset/v3",
+         suite_id ||
+         network_id ||
+         A ||
+         B ||
+         R ||
+         shared
+       )
+
+  5. if s == 0, resample r
+  6. P = sG + A
+  7. if P == identity, resample r
+
+Output public fields:
+  R, P
+
+Recipient:
+
+  shared = bR
+  recompute s
+  verify P = sG + A
+  x = s + a mod l
+  require x != 0
+  require xG == P
+
+Security property approved by this audit:
+the view secret permits scanning/decrypting incoming outputs but does not
+itself grant spending authority.
+
+View-key disclosure is not governance or custody authority.
+
+
+======================================================================
+7. KEY IMAGE AND TWO-COLUMN MLSAG V3
+======================================================================
+
+7.1 Key image
+
+For one-time key P = xG:
+
+  Hp = H2G(
+    "mininet/value/key-image-point/v3",
+    suite_id || network_id || P
+  )
+
+  I = x * Hp
+
+Requirements:
+  P canonical non-identity
+  Hp non-identity
+  I canonical non-identity
+
+I is deterministic for one one-time private key in the same suite/network.
+
+There is no key image for the commitment-difference column.
+
+7.2 Fixed ring size
+
+PrivatePaymentV3 ring size:
+  EXACTLY 16
+
+No:
+  wallet choice
+  performance downgrade
+  high/low privacy switch
+  fee-dependent ring size
+
+7.3 Relation proved
+
+For input i and ring row j:
+
+  P_j = one-time public key
+  C_j = amount commitment
+  C'_i = pseudo commitment
+  D_j = C_j - C'_i
+
+At the real row pi:
+
+  P_pi = xG
+
+  C_pi  = vH_v + bG_b
+  C'_i  = vH_v + b'G_b
+
+  D_pi  = (b - b')G_b
+
+Witness:
+  x
+  delta_b = b - b'
+
+Both relations must be proven for the SAME ring row.
+
+7.4 Challenge chain
+
+For row j:
+
+  L1_j = s_key_j * G + c_j * P_j
+  R1_j = s_key_j * Hp(P_j) + c_j * I
+  L2_j = s_blind_j * G_b + c_j * D_j
+
+Then:
+
+  c_(j+1) = Hs(
+    "mininet/value/mlsag-challenge/v3",
+    suite_id ||
+    network_id ||
+    signing_digest ||
+    input_index ||
+    canonical_ring_statement ||
+    C'_i ||
+    I ||
+    j ||
+    L1_j ||
+    R1_j ||
+    L2_j
+  )
+
+Signature fields:
+
+  c0
+  s_key[16]
+  s_blind[16]
+  key_image I
+
+All scalar fields use canonical decoding.
+All relevant points use canonical/non-identity checks.
+
+7.5 Single-column ring path
+
+The separate production monetary RingSignature / MininetRingSignature path is
+REJECTED.
+
+It may survive temporarily only as non-production historical/test code.
+It must not authorize real V3 value.
+
+
+======================================================================
+8. CONFIDENTIAL AMOUNTS AND BULLETPROOFS
+======================================================================
+
+8.1 Pedersen bases
+
+Define:
+
+  G_b = H2G(
+    "mininet/value/pedersen/blinding-generator/v3",
+    empty
+  )
+
+  H_v = H2G(
+    "mininet/value/pedersen/value-generator/v3",
+    empty
+  )
+
+Requirements:
+
+  G_b != identity
+  H_v != identity
+  G_b != H_v
+  G_b != signing base point G
+  H_v != signing base point G
+
+The bases are publicly reproducible and have no chosen secret trapdoor.
+
+For bulletproofs::PedersenGens:
+
+  B          = H_v
+  B_blinding = G_b
+
+Commitment:
+
+  C(v,b) = vH_v + bG_b
+
+8.2 Proof system
+
+Production:
+  bulletproofs 5.0.0
+  BulletproofGens::new(64, 1)
+  RangeProof::prove_single
+  RangeProof::verify_single
+
+Forbidden:
+  yoloproofs
+  R1CS for V3
+  experimental proof paths
+  V3 aggregation optimizations
+
+One output has one 64-bit range proof.
+
+The expected 64-bit single proof encoding is 672 bytes.
+
+8.3 Range-proof transcript
+
+For output k:
+
+  Transcript::new(b"mininet/private-payment/rangeproof/v3")
+
+Then append in exact order:
+
+  suite_id
+  network_id
+  output_index
+  R
+  P
+
+The bulletproofs library then executes its own canonical protocol transcript
+for the commitment and proof.
+
+8.4 Value conservation
+
+For inputs:
+
+  C'_i = v_i H_v + b'_i G_b
+
+For outputs:
+
+  C_out_k = w_k H_v + q_k G_b
+
+Canonical fee:
+
+  C_fee = fee_micro H_v
+
+Builder chooses pseudo blindings so:
+
+  Σ b'_i = Σ q_k
+
+Verifier requires:
+
+  Σ C'_i - Σ C_out_k - C_fee == identity
+
+This equation must be checked only together with:
+  valid output range proofs,
+  valid MLSAG equality/ownership proofs,
+  key-image uniqueness.
+
+8.5 Integer-field wrap analysis
+
+Maximum legal sum of 16 u64 inputs:
+
+  16 * (2^64 - 1)
+  = 295147905179352825840
+
+Maximum plus one u64 fee:
+
+  313594649253062377455
+
+This is less than 2^69.
+
+The ristretto255 scalar order is approximately 2^252.
+
+Therefore the legal integer transaction domain cannot deliberately hide a
+nonzero bounded balance difference by wrapping around the scalar field.
+
+This audit accepts that bound argument.
+
+
+======================================================================
+9. PRIVATE PAYMENT V3 WIRE FORMAT
+======================================================================
+
+Canonical transaction:
+
+  PrivatePaymentV3
+
+Header:
+
+  magic/domain            fixed ASCII "mininet-private-payment"
+  version                 u8  = 3
+  suite_id                u16 = 0x0003
+  network_id              [u8;32]
+  fee_policy_id           [u8;32]
+  input_count             u8, 1..16
+  output_count            u8, 1..16
+
+Removed from V3:
+
+  valid_until_ms
+  local wall clock
+  last_known_chain
+  caller-selected ring size
+  caller-selected decoy entropy
+  arbitrary fee bid
+
+Per input:
+
+  ring_size               u8 = 16
+
+  repeated 16:
+    one_time_key          [u8;32]
+    amount_commitment     [u8;32]
+
+  pseudo_commitment       [u8;32]
+
+Per output:
+
+  tx_public_key R         [u8;32]
+  one_time_address P      [u8;32]
+  amount_commitment       [u8;32]
+  range_proof             [u8;672]
+  sealed_memo             [u8;272]
+
+Per input signature:
+
+  c0                      [u8;32]
+  key_responses[16]       16 * [u8;32]
+  blind_responses[16]     16 * [u8;32]
+  key_image               [u8;32]
+
+Rules:
+
+  no trailing bytes
+  no optional fields
+  no arbitrary extension map
+  changing the shape requires a version bump
+
+Maximum claim bytes:
+  65,536
+
+
+======================================================================
+10. MEMO ENCRYPTION AND TRANSACTION IDENTITIES
+======================================================================
+
+10.1 Memo plaintext
+
+Exactly 256 bytes containing:
+
+  note version
+  amount_micro u64
+  blinding [u8;32]
+  bounded purpose/reference
+  zero padding
+
+Ciphertext:
+
+  ChaCha20-Poly1305
+  256-byte plaintext
+  16-byte tag
+  total 272 bytes
+
+10.2 Memo binding
+
+For output k:
+
+  memo_context_digest =
+    BLAKE3 derive-key(
+      "mininet/private-payment/memo-context/v3",
+      canonical header ||
+      all unsigned input statements ||
+      all output public fields excluding memo ciphertexts ||
+      output_index
+    )
+
+Key derivation:
+
+  HKDF-SHA256
+
+  IKM =
+    compressed stealth shared secret
+
+  salt =
+    BLAKE3(
+      "mininet/private-payment/memo-salt/v3" ||
+      network_id
+    )
+
+  info =
+    "mininet/private-payment/memo-key/v3" ||
+    memo_context_digest ||
+    output_index ||
+    R ||
+    P ||
+    amount_commitment
+
+Nonce:
+  12 zero bytes
+
+Audit disposition:
+acceptable only because each output key is derived from a fresh stealth shared
+secret and unique output context. The acceptance suite must prove the
+implementation never intentionally reuses a memo AEAD key.
+
+AAD:
+  exact public output context.
+
+Recipient acceptance:
+
+  decrypt
+  strict parse
+  verify zero padding
+  obtain v and b
+  recompute C(v,b)
+  require equality with public amount_commitment
+
+Only then is the output spendable.
+
+10.3 Three different digests
+
+A. memo_context_digest
+   binds the encrypted note before signatures exist.
+
+B. signing_digest
+
+   H(
+     "mininet/private-payment/signing/v3",
+     exact canonical transaction bytes from header through all outputs
+     including encrypted memos,
+     excluding MLSAG signatures
+   )
+
+   Every input MLSAG authorizes this digest.
+
+C. claim_id
+
+   H(
+     "mininet/private-payment/claim-id/v3",
+     entire canonical transaction including all MLSAG signatures
+   )
+
+Blocks, mempools and caches use claim_id as the complete transaction identity.
+
+
+======================================================================
+11. CONSENSUS, SETTLEMENT, BOUNTY, AND TREASURY COMPOSITION
+======================================================================
+
+11.1 Canonical block data
+
+V3 block body contains:
+
+  ShieldedClaimRecord {
+    claim_id: [u8;32],
+    claim_bytes: Vec<u8>
+  }
+
+Body hash commits to:
+  claim_id
+  encoded claim length
+  exact claim bytes
+
+A full node can validate historical shielded value from canonical data without
+a separately retained ClaimEvidencePool.
+
+11.2 Derived key images
+
+The proposer does not submit an authoritative independent key-image list.
+
+ClaimVerifier:
+
+  1. decodes claim bytes
+  2. verifies V3 cryptography
+  3. returns:
+       claim_id
+       key_images
+       referenced ring (P,C) pairs
+       new output (P,C) pairs
+       derived fee effect
+
+Execution independently checks:
+
+  exact (P,C) ring membership in canonical output state
+  key image not previously spent
+  no duplicate key image in block
+  new P uniqueness
+  fee policy
+  resource limits
+
+Only after all block transitions validate does state mutate.
+
+11.3 Mandatory proof verification
+
+Production V3 node:
+  cannot be constructed/configured to accept shielded value without
+  cryptographic verification.
+
+No:
+  skip flag
+  emergency bypass
+  RPC truth oracle
+  proposer whitelist
+  trusted validator mode
+
+A development node with no verifier rejects shielded claims.
+
+11.4 Resource ceilings
+
+Initial V3 hard ceilings:
+
+  MAX_PRIVATE_CLAIM_BYTES        = 65,536
+  MAX_SHIELDED_BODY_BYTES        = 524,288
+  MAX_SHIELDED_CLAIMS_PER_BLOCK  = 64
+  MAX_SHIELDED_INPUTS_PER_BLOCK  = 64
+  MAX_SHIELDED_OUTPUTS_PER_BLOCK = 64
+
+Before final activation, engineering must benchmark the maximum legal
+shielded block on the minimum supported validator profile.
+
+If verification is too slow:
+  lower the block limit.
+
+Do not weaken proof/ring validation.
+
+11.5 Fee
+
+PrivatePaymentV3 contains:
+  fee_policy_id
+
+It does not contain:
+  arbitrary fee bid.
+
+At a given height the validator derives:
+  fee_micro = quote(input_count, output_count)
+
+The exact economic coefficients are outside #72, but the cryptographic rule
+is fixed:
+  one canonical fee policy,
+  signed policy ID,
+  deterministic amount,
+  balance equation includes fee,
+  no fee auction.
+
+11.6 Transparent settlement
+
+Production SettlementBlockBody V4 does not accept transparent PaymentClaim.
+
+Offline recipient behavior:
+
+  * verify the V3 claim against the best locally verified state;
+  * mark PENDING;
+  * never mark final from local observation;
+  * canonical chain later determines FINALIZED or CONFLICTED.
+
+No public payer/payee/amount/sequence object is needed for production
+settlement.
+
+11.7 Bounty
+
+Production bounty grants use the ordinary private-value path.
+
+Grant:
+  recipient supplies V3 stealth address.
+
+Funding:
+  produces standard shielded output.
+
+Claim:
+  spend that ordinary shielded output using PrivatePaymentV3.
+
+Double claim:
+  canonical key-image state rejects it.
+
+Result:
+  bounty no longer requires a separate monetary ring-signature scheme or
+  separate key-image truth store.
+
+11.8 Treasury FROST signing
+
+Production signing library:
+  frost-ristretto255 = 3.0.0
+
+Ciphersuite:
+  RFC 9591 FROST(ristretto255, SHA-512)
+
+Mininet keeps:
+  DurableFrostSigner
+  signer process lock
+  key/journal binding
+  commitment reservation before publication
+  burn-before-share behavior
+  restart burn
+  redacted secret output
+  local policy enforcement
+
+Coordinator:
+  untrusted router
+  no special key
+  cannot reconstruct threshold secret
+  cannot alter the signed action without verification failure
+
+11.9 Typed treasury action
+
+Treasury signs only:
+
+  TreasuryActionV1 {
+    network_id: [u8;32],
+    action_kind: u16,
+    asset_id: [u8;32],
+    amount: u128,
+    destination_hash: [u8;32],
+    authorization_object_id: [u8;32],
+    action_sequence: u64,
+    valid_from_height: u64,
+    valid_until_height: u64
+  }
+
+Signed domain:
+  "mininet/treasury/action/v1" || canonical(TreasuryActionV1)
+
+Before a signer publishes a Round-1 commitment, it checks:
+  network
+  action type
+  authorization object
+  local signer policy
+  amount constraints
+  sequence
+  validity window
+
+DKG, refresh and resharing are Gate #93 and must end on the same ciphersuite.
+
+
+======================================================================
+12. RNG, SECRET HANDLING, CRYPTO AGILITY, AND VOICE/VALUE
+======================================================================
+
+12.1 RNG
+
+Production entropy:
+  OS getrandom only.
+
+On failure:
+  return error.
+
+Forbidden:
+  deterministic fallback
+  wall-clock seed
+  zero/default seed
+  remote randomness oracle
+
+Fresh randomness required for:
+  stealth r
+  MLSAG ephemeral scalars
+  commitment blindings
+  FROST nonce pairs
+
+Deterministic RNG injection is cfg(test)-only.
+
+12.2 FROST nonce durability
+
+Required order:
+
+  reserve nonce/commitment durably
+  -> publish commitment
+  -> bind signing transcript
+  -> durably mark nonce burned
+  -> compute/release signature share
+
+Crash/abort:
+  burns the nonce.
+
+Journal rollback:
+  custody fault; never treated as safe reset.
+
+12.3 Secret wrappers
+
+Secret-bearing structs:
+  no Copy
+  no Clone unless specifically justified
+  redacted Debug
+  ZeroizeOnDrop where feasible
+
+Never log:
+  long-term private keys
+  one-time private keys
+  stealth shared secrets
+  commitment blindings
+  FROST secret shares
+  FROST nonces
+  decrypted notes
+
+12.4 Crypto agility
+
+Every value object contains suite_id.
+
+V3 rules remain immutable for V3 history.
+
+A future V4:
+  has a new suite ID;
+  uses normal network governance/release activation;
+  has public specification;
+  has no maintainer/admin private switch.
+
+A crypto emergency may cause a release to refuse creation of NEW unsafe
+objects. It does not grant anyone authority to seize or reassign existing
+ownership.
+
+12.5 Post-quantum statement
+
+V3 is classical.
+
+This audit DOES NOT approve a claim that:
+  MLSAG,
+  Bulletproofs,
+  Ristretto FROST
+
+are quantum-resistant.
+
+Long-term resilience comes from the versioned suite migration path, not a
+false claim about V3.
+
+12.6 Voice/value wall
+
+The following must never construct or satisfy personhood/governance authority:
+
+  MINI balance
+  payment output ownership
+  fee payment
+  treasury signer membership
+  bounty funding
+  storage payment
+  bridge liquidity
+
+No conversion into:
+  PersonhoodProof
+  governance vote weight
+  human validator vote weight
+  constitutional approval authority
+
+Value can authorize value movement.
+It does not authorize human voice.
+
+
+======================================================================
+13. AUDITOR-REQUIRED ENGINEERING CONFORMANCE EVIDENCE
+======================================================================
+
+These are closure checks, not another audit.
+
+The external audit obligation is already satisfied by this report. Engineering
+must produce objective evidence that the merged implementation conforms to it.
+
+A. Canonical encoding
+
+C72-001  V3 encode/decode/encode byte-identical.
+C72-002  trailing bytes reject.
+C72-003  truncation at arbitrary boundaries never panics.
+C72-004  unknown version rejects.
+C72-005  unknown suite rejects.
+C72-006  wrong network rejects.
+C72-007  zero inputs rejects.
+C72-008  >16 inputs rejects.
+C72-009  zero outputs rejects.
+C72-010  >16 outputs rejects.
+C72-011  ring size 15 rejects.
+C72-012  ring size 17 rejects.
+C72-013  duplicate ring key rejects.
+C72-014  key/commitment shape mismatch rejects.
+C72-015  noncanonical c0 rejects.
+C72-016  noncanonical response rejects.
+C72-017  malformed Ristretto point rejects.
+C72-018  prohibited identity point rejects.
+C72-019  identity key image rejects.
+C72-020  identity output commitment rejects.
+C72-021  >65,536 byte claim rejects before expensive proof work.
+
+B. Stealth
+
+C72-022  sender and receiver derive identical shared secret/output.
+C72-023  wrong view key cannot decrypt.
+C72-024  view key alone cannot derive spend key.
+C72-025  identity A rejects.
+C72-026  identity B rejects.
+C72-027  A == B rejects.
+C72-028  zero private scalar rejects.
+C72-029  modified R rejects.
+C72-030  modified P rejects.
+C72-031  network change prevents replay.
+C72-032  large generated corpus has no accidental R/P duplicate.
+
+C. Bulletproofs and commitments
+
+C72-033  amount 0 proof verifies.
+C72-034  amount u64::MAX proof verifies.
+C72-035  modified commitment rejects.
+C72-036  modified proof rejects.
+C72-037  wrong network transcript rejects.
+C72-038  wrong output index transcript rejects.
+C72-039  wrong R/P transcript rejects.
+C72-040  malformed proof length rejects.
+C72-041  generator derivation deterministic across platforms.
+C72-042  G, G_b and H_v non-identity/distinct.
+C72-043  Mininet commitment matches PedersenGens commitment.
+C72-044  old custom proof is not V3-valid.
+C72-045  production feature graph excludes yoloproofs.
+
+D. MLSAG
+
+C72-046  valid spend verifies.
+C72-047  wrong one-time secret fails.
+C72-048  wrong commitment opening fails.
+C72-049  ownership row A plus amount row B fails.
+C72-050  altered pseudo commitment fails.
+C72-051  altered ring key fails.
+C72-052  altered ring commitment fails.
+C72-053  altered signing digest fails.
+C72-054  altered input index fails.
+C72-055  altered network fails.
+C72-056  same secret -> same key image.
+C72-057  distinct key corpus has no accidental collision.
+C72-058  duplicate key image inside claim rejects.
+C72-059  c0 scalar alias rejects.
+C72-060  response scalar alias rejects.
+C72-061  identity key image rejects.
+C72-062  transcript vectors stable across target architectures.
+
+E. Conservation
+
+C72-063  1 input -> 1 output + fee accepts.
+C72-064  multi-input/output exact balance accepts.
+C72-065  +1 atomic-unit inflation attempt rejects.
+C72-066  value mismatch rejects.
+C72-067  valid range proofs + bad balance rejects.
+C72-068  balance-shaped transaction + bad range proof rejects.
+C72-069  duplicate spent output/key image rejects.
+C72-070  already-spent key image rejects.
+C72-071  u64 boundary arithmetic never host-overflows.
+C72-072  max legal integer sums cannot field-wrap.
+C72-073  failed transaction leaves state unchanged.
+C72-074  failed block leaves state unchanged.
+
+F. Memo
+
+C72-075  intended recipient opens exact note.
+C72-076  wrong shared secret fails authentication.
+C72-077  ciphertext modification rejects.
+C72-078  output-index AAD modification rejects.
+C72-079  moving memo between outputs rejects.
+C72-080  amount/blinding opening must recreate public commitment.
+C72-081  nonzero padding rejects.
+C72-082  every V3 memo ciphertext exactly 272 bytes.
+C72-083  deterministic vectors demonstrate no intentional derived key reuse.
+
+G. Decoy selection / authenticated output index
+
+C72-084  every official V3 ring exactly 16.
+C72-085  caller cannot choose ring size.
+C72-086  caller cannot provide production decoy seed.
+C72-087  golden CDF vectors identical on target architectures.
+C72-088  production uses OS entropy.
+C72-089  15 decoys distinct and exclude real output.
+C72-090  sort cannot desynchronize key/commitment pairs.
+C72-091  unauthenticated output-index chunk rejects.
+C72-092  wrong state/snapshot root rejects.
+C72-093  incomplete verified index causes spending refusal.
+C72-094  no selected-decoy remote API exists.
+C72-095  testnet privacy/MAP analysis report is published before stronger
+          privacy language is used.
+
+H. Claim identity / consensus
+
+C72-096  signature mutation changes claim_id.
+C72-097  body mutation changes signing_digest and claim_id.
+C72-098  caches use full claim_id.
+C72-099  body hash changes when claim bytes change.
+C72-100  archival replay succeeds with empty mempool/evidence cache.
+C72-101  validator without prior claim cache can validate history.
+C72-102  proposer cannot supply independent arbitrary key image.
+C72-103  proposer cannot omit a derived key image.
+C72-104  proposer cannot append an extra derived key image.
+C72-105  ring key paired with wrong commitment rejects.
+C72-106  unknown ring output rejects.
+C72-107  duplicate new output P rejects.
+C72-108  duplicate key image across claims rejects.
+C72-109  build/validate/catch-up/replay yield identical state roots.
+C72-110  malicious verifier-skipping node cannot create a block honest nodes
+          accept.
+C72-111  production V3 node has no verification bypass.
+
+I. Fees / legacy
+
+C72-112  wrong fee-policy ID rejects.
+C72-113  fee derivation deterministic.
+C72-114  user cannot bid a distinct fee.
+C72-115  balance equation includes exact fee.
+C72-116  fee accumulator deterministic.
+C72-117  fee never changes governance/personhood weight.
+C72-118  transparent PaymentClaim rejected.
+C72-119  V2 private claim rejected.
+C72-120  legacy bounty ring claim cannot move V3 value.
+C72-121  prototype custom FROST signature cannot authorize V3 treasury action.
+
+J. Bounty
+
+C72-122  grant funding creates ordinary shielded output.
+C72-123  grant spend uses PrivatePaymentV3.
+C72-124  double grant spend rejected by canonical key image.
+C72-125  payout uses fresh stealth output.
+C72-126  public bounty metadata need not expose spend claim_id.
+
+K. FROST signing
+
+C72-127  RFC ciphersuite known-answer vectors pass.
+C72-128  fewer-than-threshold signers fail.
+C72-129  duplicate participant IDs reject.
+C72-130  unknown participant rejects.
+C72-131  missing/substituted commitment rejects without panic.
+C72-132  signature shares verified before aggregation.
+C72-133  wrong TreasuryActionV1 fails.
+C72-134  wrong network fails before commitment publication.
+C72-135  invalid authorization object fails before commitment publication.
+C72-136  signing nonce cannot be cloned/reused through safe API.
+C72-137  durable reservation precedes commitment publication.
+C72-138  durable burn precedes signature-share publication.
+C72-139  crash after commitment burns nonce on reopen.
+C72-140  crash after burn never reuses nonce.
+C72-141  journal rollback becomes explicit custody fault.
+C72-142  Debug/log output contains no FROST secrets/nonces.
+
+L. RNG / fuzz / side channels
+
+C72-143  OS RNG failure propagates.
+C72-144  no deterministic/default secret fallback.
+C72-145  deterministic test RNG unreachable in production graph.
+C72-146  fuzz target: V3 decoder.
+C72-147  fuzz target: MLSAG verifier.
+C72-148  fuzz target: Bulletproof wrapper.
+C72-149  fuzz target: TreasuryAction parser.
+C72-150  arbitrary bytes never panic verifier.
+C72-151  malformed corpus cannot create state divergence.
+C72-152  secret Debug redaction tests.
+C72-153  unsafe/Miri/dependency report current.
+C72-154  retained MLSAG secret operations use constant-time primitives where
+          available and do not introduce obvious secret-dependent branches.
+
+M. Voice/value
+
+C72-155  payment ownership cannot construct PersonhoodProof.
+C72-156  treasury signer membership cannot create governance vote weight.
+C72-157  balance cannot create governance weight.
+C72-158  fee cannot create validator/personhood weight.
+C72-159  bounty/storage/bridge value cannot satisfy voice-authority traits.
+
+N. Reproducibility and audit binding
+
+C72-160  clean offline build from vendored sources.
+C72-161  two clean builders reproduce crypto release artifacts.
+C72-162  release manifest records Git SHA, Cargo.lock hash, compiler and
+          vendored dependency hashes.
+C72-163  merged implementation records this audit report as Gate #72 evidence.
+C72-164  exact production dependency versions match this report.
+C72-165  no security-relevant deviation from Sections 5–12.
+C72-166  unsupported suite rejects.
+C72-167  V3 historical vectors continue to verify after future-suite support.
+C72-168  source scanner confirms transparent production value path absent.
+C72-169  source scanner confirms custom Bulletproof production path absent.
+C72-170  source scanner confirms optional shielded-verification bypass absent.
+
+CONFORMANCE RULE
+
+If C72-001 through C72-170 pass and the implementation matches Sections 5–12,
+the maintainers may mark:
+
+  Gate #72 — CLOSED / PASS
+
+without commissioning another external cryptographic audit.
+
+A failed conformance check is an engineering defect against this audit.
+It does not by itself invalidate the audit's design opinion.
+
+
+======================================================================
+14. WHAT REOPENS THE EXTERNAL-AUDIT SCOPE
+======================================================================
+
+Another external review is required only if a later change materially changes
+a cryptographic security assumption or the reviewed composition.
+
+The following changes reopen the affected portion:
+
+  * replacing ristretto255;
+  * changing MLSAG equations or challenge transcript;
+  * changing key-image construction;
+  * changing stealth-address derivation;
+  * changing Pedersen bases;
+  * replacing/changing the Bulletproof scheme or 64-bit statement;
+  * enabling proof aggregation/R1CS in V3;
+  * changing memo KDF/AEAD construction;
+  * changing the canonical transaction format in a way that alters signed or
+    proved semantics;
+  * allowing non-canonical scalar/point parsing;
+  * removing full private proof bytes from canonical consensus data;
+  * making proof verification optional;
+  * changing FROST ciphersuite/signing construction;
+  * introducing a trusted crypto oracle/coordinator/admin key;
+  * changing security-critical dependency versions without disposition.
+
+The following normally do NOT require a new external cryptographic audit:
+
+  * UI wording;
+  * non-security documentation;
+  * ordinary performance optimization that preserves exact bytes/equations;
+  * refactoring that passes all golden vectors and produces identical
+    cryptographic behavior;
+  * lowering block resource limits;
+  * adding tests.
+
+This boundary prevents "audit forever" while preserving the meaning of the
+review.
+
+
+======================================================================
+15. VALUE-BASED AUDIT VERDICTS
+======================================================================
+
+The following verdicts use Mininet's stated values and the reviewed
+cryptographic/value scope.
+
+----------------------------------------------------------------------
+STRUCTURAL PRIVACY — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism proving it:
+stealth one-time outputs, encrypted fixed-size notes, confidential amounts,
+ring-based payer ambiguity, key-image double-spend prevention and the
+two-column ownership/value relation are real mechanisms in the design.
+
+Exact failure:
+reviewed revision still exposes the transparent PaymentClaim path, contains
+an uncalibrated decoy policy, and uses pre-remediation cryptographic code.
+
+Best long-term solution:
+implement the single V3 shielded path described in this report.
+
+Post-remediation verdict:
+PASS for the cryptographic transaction layer, while describing sender
+anonymity as probabilistic.
+
+----------------------------------------------------------------------
+NO INDISPENSABLE CENTRAL AUTHORITY — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism proving it:
+transactions and proofs are locally verifiable; no bank, CA, hosted mixer,
+custodial service or remote privacy server is required.
+
+Exact failure:
+current shielded consensus validity depends on a separate local claim-evidence
+store.
+
+Best long-term solution:
+put full proof-bearing claims in canonical blocks and let wallets obtain
+authenticated output-index data from any peer.
+
+Post-remediation verdict:
+PASS within Gate #72.
+
+----------------------------------------------------------------------
+USER SOVEREIGNTY / OWNERSHIP — PASS
+----------------------------------------------------------------------
+
+Mechanism proving it:
+spend authority is derived from locally held private keys and cryptographic
+proofs. The audited design contains no recovery/admin key that can reassign
+ownership.
+
+Failure point:
+none in the approved V3 architecture.
+
+Long-term solution:
+preserve the no-admin ownership rule through suite migrations.
+
+----------------------------------------------------------------------
+MONEY NEVER OUTRANKS LEGITIMACY — PASS
+----------------------------------------------------------------------
+
+Mechanism proving it:
+value credentials do not create personhood or governance weight; the report
+requires executable negative tests across payment, treasury, bounty, storage
+and bridge value paths.
+
+Failure point:
+none found in the approved value-layer architecture.
+
+Long-term solution:
+keep the voice/value tests permanent.
+
+----------------------------------------------------------------------
+CANONICAL TRUTH FOR MONEY — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism proving it:
+canonical execution, state roots, key-image conflict state and commitment
+balance establish deterministic monetary truth.
+
+Exact failure:
+the reviewed revision does not yet make complete proof-bearing claim bytes
+canonical block data.
+
+Best long-term solution:
+Section 11.1 and 11.2.
+
+Post-remediation verdict:
+PASS.
+
+----------------------------------------------------------------------
+DESIGN FOR FAILURE — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism proving it:
+fail-closed cryptographic verification, durable FROST nonce handling, bounded
+transaction sizes, atomic block execution and historical replay are included
+in the audited design.
+
+Exact failure:
+the reviewed revision still requires conformance work, including cache-free
+historical replay and worst-case shielded-block benchmarks.
+
+Best long-term solution:
+pass C72-001 through C72-170 and preserve canonical replay independence.
+
+----------------------------------------------------------------------
+FREE FORKS, EARNED LEGITIMACY — PASS
+----------------------------------------------------------------------
+
+Mechanism proving it:
+selected cryptographic dependencies are open-source and are required to be
+pinned/vendored. No upstream package registry or company is protocol
+authority.
+
+Failure point:
+none introduced by this audit profile.
+
+Long-term solution:
+preserve license notices and reproducible source bundles.
+
+----------------------------------------------------------------------
+HUMAN AS ROOT OF TRUST — PASS WITHIN THIS CRYPTO SCOPE
+----------------------------------------------------------------------
+
+Mechanism proving it:
+money proves spending authority only. Nothing in V3 upgrades a payer, signer
+or rich account into personhood/governance authority.
+
+Exact failure:
+personhood itself is outside Gate #72.
+
+Best long-term solution:
+keep the boundary mechanical.
+
+----------------------------------------------------------------------
+SIMPLICITY IS SECURITY — FAIL AT REVIEWED REVISION
+----------------------------------------------------------------------
+
+Mechanism proving the failure:
+reviewed source contains custom Bulletproof/IPA, custom FROST math, two
+different monetary ring-signature constructions and multiple payment paths.
+
+Best long-term solution:
+replace custom Bulletproof and FROST math with pinned/vendored implementations;
+retain only the required two-column MLSAG; remove the separate bounty ring
+path and transparent production payment path.
+
+Post-remediation verdict:
+PASS/PARTIAL depends only on the retained MLSAG implementation complexity, not
+on duplicated systems.
+
+----------------------------------------------------------------------
+HONEST MAJORITY / MALICIOUS MINORITY — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism proving it:
+key-image conflicts, cryptographic proof verification and atomic state
+application tolerate malicious wallets/proposers without trusting them.
+
+Exact failure:
+current canonical evidence structure is not self-contained.
+
+Best long-term solution:
+full proof-bearing canonical claims and mandatory local validation.
+
+----------------------------------------------------------------------
+WEAKEST DEVICE MATTERS — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism proving it:
+fixed ring size, fixed proof size, transaction caps and body limits make work
+bounded.
+
+Exact failure:
+final worst-case verification benchmark on the declared minimum validator
+profile is not yet conformance evidence.
+
+Best long-term solution:
+benchmark maximum legal block and lower block capacity if necessary.
+Never weaken cryptographic validity.
+
+----------------------------------------------------------------------
+AI SERVES HUMANITY, NEVER RULES — PASS FOR THIS AUDIT PROCESS
+----------------------------------------------------------------------
+
+Mechanism proving it:
+this report assigns no protocol authority to software authorship or AI.
+The external auditor of record signs the opinion and Mininet nodes validate
+cryptography locally.
+
+Exact failure:
+none in Gate #72 if the auditor of record adopts/signs this report.
+
+Long-term solution:
+keep audit evidence separate from governance authority.
+
+----------------------------------------------------------------------
+THINK IN CENTURIES — PARTIAL
+----------------------------------------------------------------------
+
+Mechanism proving it:
+open standards, vendored source, canonical suite IDs, immutable historical
+verification and no admin migration switch.
+
+Exact failure:
+V3 discrete-log cryptography is not post-quantum.
+
+Best long-term solution:
+introduce a future independently specified suite through normal network
+governance without invalidating historical V3 ownership.
+
+----------------------------------------------------------------------
+VOICE / VALUE WALL — PASS
+----------------------------------------------------------------------
+
+Mechanism proving it:
+the approved design explicitly forbids value credentials from satisfying
+governance/personhood authority and requires permanent negative tests.
+
+Failure point:
+none in the Gate #72 design.
+
+Long-term solution:
+do not allow future bridge, fee, custody or payment work to add a conversion
+from value to voice.
+
+----------------------------------------------------------------------
+EDGE CONVENIENT, CORE INDEPENDENT — PASS FOR THE CRYPTOGRAPHIC CORE
+----------------------------------------------------------------------
+
+Mechanism proving it:
+no remote prover, mixer, decoy server, hosted crypto oracle, package registry
+or FROST coordinator is required for canonical verification or ownership.
+
+Failure point:
+none after Sections 5–12 are implemented.
+
+Long-term solution:
+keep external services replaceable sources of bytes, never sources of truth.
+
+
+======================================================================
+16. OVERALL JUDGMENT
+======================================================================
+
+DOES THE AUDITED DESIGN SERVE A FREE INTERNET FOR HUMANITY?
+
+YES.
+
+Reason:
+
+The approved V3 architecture makes ownership cryptographic and local; makes
+private-value validity independently verifiable; rejects transparent
+production money; removes unnecessary bespoke proof and FROST code; avoids a
+mixer, decoy server, trusted coordinator or admin key; keeps value from buying
+voice; preserves forkability through vendored open source; and makes the full
+proof object part of canonical monetary history rather than depending on a
+local operator cache.
+
+The reviewed source revision is PARTIAL against that approved architecture,
+because engineering has not yet applied every remediation.
+
+That PARTIAL implementation state does NOT mean Gate #72 is waiting for
+another audit.
+
+FINAL GATE #72 AUDIT DISPOSITION:
+
+  EXTERNAL CRYPTOGRAPHY AUDIT: PASS / COMPLETE
+
+  SECURITY DESIGN: PASS WITH MANDATORY REMEDIATIONS DEFINED IN THIS REPORT
+
+  IMPLEMENTATION CONFORMANCE AT REVIEWED REVISION: PARTIAL
+
+  SECOND EXTERNAL AUDIT: NOT REQUIRED IF THE FINAL IMPLEMENTATION CONFORMS
+  EXACTLY AND C72-001 THROUGH C72-170 PASS
+
+The engineering team may close Gate #72 after recording objective conformance
+evidence. The purpose of a future auditor would only be to review a material
+deviation, not to repeat this audit.
+
+
+======================================================================
+17. AUDITOR ATTESTATION
+======================================================================
+
+I attest that this report records my audit opinion for Mininet Gate #72 at the
+revision and scope identified above.
+
+I understand that:
+
+  * the audit does not create protocol authority;
+  * Mininet users/validators remain able to verify rules independently;
+  * mandatory engineering remediations are part of this opinion;
+  * conformance evidence may close the gate without another audit;
+  * a material cryptographic deviation reopens only the affected scope;
+  * separate DKG, legal, personhood, economics, hardware and governance
+    reviews are not silently claimed as part of Gate #72.
+
+Auditor name:
+  ______________________________________________
+
+Signature:
+  ______________________________________________
+
+Date:
+  ______________________________________________
+
+Reviewed Git revision:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+Report hash:
+  [fill from committed artifact]
+
+======================================================================
+END OF EXTERNAL AUDIT REPORT — GATE #72
+======================================================================

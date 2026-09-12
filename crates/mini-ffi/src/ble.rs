@@ -14,12 +14,14 @@
 //! is the UniFFI object wrapping `mini_bearer::AndroidBleBearer` that
 //! Kotlin drives with `send`/`recv`/`try_recv`.
 //!
-//! **Honest limit:** this module still never touches a real radio. No
-//! Kotlin `BluetoothGattServer`/`BluetoothGattCallback` implementation of
-//! [`BleRadio`] exists yet, and nothing here can be exercised end to end
-//! without one — Android CI's `assembleDebug` plus a real two-device test
-//! remain the only gates that actually prove this wiring works, exactly
-//! as D-0374 named.
+//! **Honest limit:** this module itself still never touches a real radio
+//! — by design, it is pure chunk-shuttling logic. D-0502 added the
+//! Kotlin-side `BluetoothGattServer`/`BluetoothGattCallback`
+//! implementations of [`BleRadio`]
+//! (`org.mininet.app.BlePeripheralRadio`/`BleCentralRadio`), but nothing
+//! in that chain has been exercised end to end yet — Android CI's
+//! `assembleDebug` plus a real two-device test remain the only gates that
+//! actually prove this wiring works, exactly as D-0374 named.
 
 use std::sync::Mutex;
 
@@ -44,6 +46,14 @@ pub trait BleRadio: Send + Sync {
     /// Return the next already-buffered chunk, or `Ok(None)` if none is
     /// pending yet. Must never block.
     fn try_read_chunk(&self) -> Result<Option<Vec<u8>>, BleRadioError>;
+    /// Best-effort: close the underlying platform connection. See
+    /// [`RadioAdapter`]'s `Drop` impl for when Rust calls this — not only
+    /// on an explicit caller-driven close, but whenever the bearer
+    /// wrapping this radio is dropped for any reason, including
+    /// `mini_mesh::MeshNode` pruning a link after a protocol or send
+    /// failure. Never blocks; failures here have nothing further for Rust
+    /// to act on.
+    fn disconnect(&self);
 }
 
 /// Failure reported by a caller-implemented [`BleRadio`]. Carries no
@@ -71,7 +81,7 @@ impl std::error::Error for BleRadioError {}
 /// to drive it — a UniFFI callback interface can only ever offer `&self`
 /// methods (Kotlin owns no borrow checker), so this adapter is the entire
 /// difference between the two.
-struct RadioAdapter(Box<dyn BleRadio>);
+pub(crate) struct RadioAdapter(Box<dyn BleRadio>);
 
 impl mini_bearer::BleRadio for RadioAdapter {
     fn write_chunk(&mut self, chunk: &[u8]) -> mini_bearer::Result<()> {
@@ -91,6 +101,39 @@ impl mini_bearer::BleRadio for RadioAdapter {
             .try_read_chunk()
             .map_err(|_| mini_bearer::BearerError::Closed)
     }
+}
+
+impl Drop for RadioAdapter {
+    /// Closes the underlying platform connection whenever this adapter (and
+    /// so the `AndroidBleBearer`/`EncryptedLink`/`mini_mesh` link it backs)
+    /// is dropped for *any* reason — not only an explicit caller-driven
+    /// close. This is what actually closes the gap a `mini_mesh::MeshNode`
+    /// pruning a link after a protocol or send failure would otherwise
+    /// leave open: dropping the Rust-side `EncryptedLink` never used to
+    /// have any operation that told the platform radio to disconnect, so a
+    /// pruned link's GATT connection (and, on the peripheral side, its
+    /// `centralLinks`/`LinkState` entry) stayed live and occupied,
+    /// suppressing rediscovery of the same peer. Tied to `Drop` rather
+    /// than threaded through `MeshNode`'s own pruning call sites so every
+    /// present and future way a link's bearer can end (mesh pruning, a
+    /// failed handshake, an explicit close) gets the same treatment for
+    /// free.
+    fn drop(&mut self) {
+        self.0.disconnect();
+    }
+}
+
+/// Builds the same `mini_bearer::AndroidBleBearer<RadioAdapter>`
+/// [`BleBearerHandle::new`] wraps, without the UniFFI object wrapper — for
+/// [`crate::mesh`], which needs a bare [`mini_bearer::Bearer`] it can box
+/// into a `mini_mesh::MeshNode` link rather than a `send`/`recv`-only
+/// handle. `RadioAdapter` itself stays private to this module; this is the
+/// one sanctioned way another module in this crate gets one built.
+pub(crate) fn android_bearer(
+    radio: Box<dyn BleRadio>,
+    mtu: u32,
+) -> mini_bearer::AndroidBleBearer<RadioAdapter> {
+    mini_bearer::AndroidBleBearer::new(RadioAdapter(radio), mtu as usize)
 }
 
 /// UniFFI object wrapping `mini_bearer::AndroidBleBearer` (D-0374) so
@@ -220,6 +263,7 @@ mod tests {
                 Err(TryRecvError::Disconnected) => Err(BleRadioError::Failed),
             }
         }
+        fn disconnect(&self) {}
     }
 
     fn pair_with_mtu(mtu: u32) -> (BleBearerHandle, BleBearerHandle) {
@@ -287,6 +331,7 @@ mod tests {
             fn try_read_chunk(&self) -> Result<Option<Vec<u8>>, BleRadioError> {
                 Err(BleRadioError::Failed)
             }
+            fn disconnect(&self) {}
         }
         let handle = BleBearerHandle::new(Box::new(AlwaysFailingRadio), 64);
         assert_eq!(

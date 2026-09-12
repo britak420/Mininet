@@ -155,7 +155,7 @@ mod tests {
         // Bulletproofs per test.
         let mint = |set: &mut InMemoryOutputSet, value: u64| {
             let key = StealthKeypair::generate().unwrap();
-            let blinding = mini_crypto::random_32().unwrap();
+            let blinding = mini_value::random_scalar_bytes().unwrap();
             let commitment = mini_value::pedersen_commitment(value, &blinding).unwrap();
             set.push(key.spend_public_bytes().to_vec(), commitment);
             (key, blinding)

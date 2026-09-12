@@ -52,8 +52,10 @@ mod bearer;
 mod ble;
 mod channel;
 mod discovery;
+mod encrypted_link;
 mod error;
 mod inprocess;
+mod local_route;
 mod tcp;
 
 pub use android_ble::{AndroidBleBearer, BleRadio};
@@ -66,6 +68,8 @@ pub use channel::{
 pub use discovery::{
     LocalAnnouncer, LocalScanner, DEFAULT_MULTICAST_GROUP, DEFAULT_MULTICAST_PORT,
 };
+pub use encrypted_link::EncryptedLink;
 pub use error::{BearerError, Result};
 pub use inprocess::{pair, InProcessBearer};
+pub use local_route::{LocalRouteHint, LocalServiceRecord, MAX_LOCAL_SERVICE_RECORD_TXT_BYTES};
 pub use tcp::TcpBearer;

@@ -61,6 +61,9 @@ pub enum BearerError {
         /// The chunk index that actually arrived.
         got: u16,
     },
+    /// A [`crate::local_route::LocalServiceRecord`] TXT-record encoding was
+    /// truncated, oversized, or structurally invalid.
+    MalformedLocalServiceRecord,
 }
 
 impl core::fmt::Display for BearerError {
@@ -95,6 +98,9 @@ impl core::fmt::Display for BearerError {
                     f,
                     "out-of-order chunk: expected index {expected}, got {got}"
                 )
+            }
+            BearerError::MalformedLocalServiceRecord => {
+                write!(f, "malformed local-service-record TXT encoding")
             }
         }
     }

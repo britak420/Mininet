@@ -1,9 +1,13 @@
-//! Live multi-device FROST treasury-custody signing demo.
+//! Live multi-device FROST treasury-custody signing demo, over
+//! `frost_sign`'s hand-rolled signing math -- kept for that module's own
+//! historical/comparison coverage, behind the `legacy-hand-rolled-signing`
+//! feature (Gate #72 remediation; see `mini_treasury`'s crate docs).
+//! `mini_custody::signing` is the production signing path now.
 //!
 //! Run it with:
 //!
 //! ```sh
-//! cargo run -p mini-treasury --example frost_live_demo
+//! cargo run -p mini-treasury --example frost_live_demo --features legacy-hand-rolled-signing
 //! ```
 //!
 //! ## What "live" means here, honestly

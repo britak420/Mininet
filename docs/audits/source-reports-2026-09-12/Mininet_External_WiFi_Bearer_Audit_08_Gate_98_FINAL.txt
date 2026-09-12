@@ -1,0 +1,2563 @@
+MININET REAL-VALUE READINESS — FILE 8/8
+Gate #98 — FINAL LOCAL WI-FI BEARER ENGINEERING DECISION
+AND PHYSICAL HARDWARE VALIDATION PACKAGE
+
+Infrastructure LAN / RFC 6762 mDNS / RFC 6763 DNS-SD / TCP
+Android NSD / Wi-Fi Direct / Wi-Fi Aware
+Apple Network.framework / Bonjour / Wi-Fi Aware
+VPN / public-Wi-Fi / AP-isolation negative controls
+Privacy / denial-of-service / weak-device / battery / store-and-forward
+Personhood and physical-presence hard separation
+
+Report date: 2026-09-11
+Repository: mininet-labs/Mininet
+Exact main revision reviewed:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+========================================================================
+0. FINAL STATUS
+========================================================================
+
+ARCHITECTURE / ENGINEERING DECISIONS:                 PASS
+CURRENT CORE TCP BEARER SUBSTRATE:                    PASS
+CURRENT LOCAL DISCOVERY IMPLEMENTATION:               PARTIAL
+CURRENT ANDROID PRODUCT WIRING FOR #98:               FAIL
+CURRENT WI-FI DIRECT / WI-FI AWARE SUPPORT:           FAIL
+CURRENT PHYSICAL PHONE/ROUTER VALIDATION:             FAIL
+PERSONHOOD / PROXIMITY SEPARATION:                    PASS AFTER ADOPTION
+GATE #98 AS A SHIPPING WI-FI CAPABILITY:              FAIL TODAY
+GATE #98 AS A TERRESTRIAL REAL-VALUE LAUNCH BLOCKER:  PASS — NON-BLOCKING
+OVERALL DESIGN SERVES A FREE INTERNET FOR HUMANITY:   YES
+
+NO HEDGING:
+
+Issue #98 cannot truthfully be closed as "hardware-tested" on this revision.
+
+The repository has:
+  * a real TCP bearer;
+  * a correct live encrypted-channel abstraction;
+  * a small custom IPv4 multicast rendezvous prototype.
+
+It does not yet have:
+  * production platform-native RFC 6762/6763 discovery;
+  * Android NsdManager wiring;
+  * Android Wi-Fi Direct wiring;
+  * Android Wi-Fi Aware wiring;
+  * iOS/Bonjour/Aware wiring;
+  * signed W1-W7-equivalent physical-phone/router evidence.
+
+That is the exact point of failure.
+
+It does NOT block terrestrial real value.
+
+Issue #98 explicitly says the feature blocks convenience/robustness rather than
+a launch-blocking security signal. Preserve that boundary.
+
+The correct project state after human adoption of this package is:
+
+  DESIGN QUESTION: CLOSED.
+  FEATURE: LAB-ONLY / NOT HARDWARE-VALIDATED.
+  MAINNET / REAL-VALUE GATING: NON-BLOCKING.
+  WI-FI NETWORK-CONTEXT PERSONHOOD WEIGHT: ZERO.
+
+The feature issue closes only after the physical evidence in this file is
+actually run and signed.
+
+No founder, auditor, AI, router owner, hotspot owner, VPN operator, ISP,
+satellite operator, Apple, Google, IANA registry, discovery responder or
+platform vendor receives runtime Mininet authority.
+
+
+========================================================================
+1. SOURCE-DERIVED REQUIREMENTS
+========================================================================
+
+Issue #98 is the local-data-transport half split from the stronger
+presence/ranging gate.
+
+Its source scope is:
+
+  * mDNS peer discovery over local Wi-Fi;
+  * LAN TCP/QUIC transport through mini-bearer;
+  * Wi-Fi Direct where supported;
+  * store-and-forward integration with bootstrap/sync.
+
+Its hard rule is:
+
+  connectivity and physical-proximity evidence are different problems.
+
+This report makes the security consequence explicit:
+
+  WI-FI NETWORK CONTEXT CONTRIBUTES ZERO PERSONHOOD,
+  ZERO HUMAN-UNIQUENESS,
+  ZERO PHYSICAL-PRESENCE,
+  ZERO HUMAN-CONTINUITY NETWORK-CONTEXT SCORE.
+
+Wi-Fi may TRANSPORT a protected device-key continuity challenge.
+
+The cryptographic key response may be continuity evidence under the independent
+continuity design.
+
+The fact that the bytes traversed:
+  same SSID;
+  same BSSID;
+  same router;
+  same subnet;
+  same hotspot;
+  low-latency LAN;
+  Wi-Fi Direct;
+  Wi-Fi Aware;
+  VPN/tunnel;
+  public Wi-Fi
+contributes zero evidence.
+
+This supersedes the old gate document's implication that Wi-Fi co-networking
+might itself feed the "device/home continuity" score.
+
+The current human-continuity design gives the safer rule already:
+device/home continuity is a protected key answering unpredictable challenges
+over separated epochs and explicitly excludes IP address, Wi-Fi name, street
+address and similar raw network/location identifiers.
+
+Why zero is the only durable rule:
+
+  * VPNs can extend private subnets;
+  * mDNS reflectors can cross VLANs/sites;
+  * hotspots can host Sybil farms;
+  * public Wi-Fi joins unrelated strangers;
+  * enterprise WLANs span large areas;
+  * MAC addresses randomize/spoof;
+  * SSID/BSSID are mutable/spoofable;
+  * local proxies can represent remote peers;
+  * latency is not distance;
+  * routers are infrastructure, not humans.
+
+No future convenience feature may silently reopen this boundary.
+
+
+========================================================================
+2. CURRENT REPOSITORY AUDIT
+========================================================================
+
+F98-01 — PASS
+`crates/mini-bearer/src/tcp.rs` is a real live TCP bearer.
+
+Mechanism:
+  OS TCP stream;
+  length-prefixed framing;
+  bounded bearer frame;
+  blocking and nonblocking receive behavior.
+
+This is a valid data-plane primitive.
+
+F98-02 — PASS
+`crates/mini-bearer/src/bearer.rs` keeps the abstraction narrow.
+
+Bearer means:
+  duplex;
+  frame-oriented;
+  best-effort live transport.
+
+It does not claim:
+  identity;
+  personhood;
+  persistence;
+  finality.
+
+Preserve this.
+
+F98-03 — PASS
+`crates/mini-bearer/src/channel.rs` gives the live link:
+  ephemeral X25519;
+  HKDF-SHA256;
+  ChaCha20-Poly1305;
+  transcript binding;
+  forward secrecy;
+  directional monotonic nonces.
+
+Its documentation correctly says it does not authenticate a human endpoint by
+itself.
+
+Application identity remains a signed/capability concern.
+
+F98-04 — PARTIAL
+`crates/mini-bearer/src/discovery.rs` is a functional custom local multicast
+prototype.
+
+Current constants/protocol:
+  IPv4 multicast group 239.255.77.1
+  UDP port 7770
+  TTL 1
+  magic `MININET1`
+  payload = magic + TCP port
+
+Positive mechanism:
+  no DID or human identity is advertised.
+
+Exact failure:
+  this is not RFC 6762 mDNS and not RFC 6763 DNS-SD.
+
+The source itself states that fact.
+
+F98-05 — FAIL
+Issue #98 asks for mDNS discovery, but current production candidate is a custom
+Mininet-owned announce datagram.
+
+Best long-term solution:
+  use actual OS-native DNS-SD/mDNS.
+
+Keep the custom datagram only as:
+  development/test/legacy adapter
+if it has ongoing value.
+
+Do not market it as mDNS.
+
+F98-06 — FAIL
+Current Android manifest declares only:
+  android.permission.INTERNET
+
+for networking.
+
+No current:
+  ACCESS_NETWORK_STATE;
+  NEARBY_WIFI_DEVICES;
+  platform Wi-Fi P2P/Aware permissions;
+  future API37 ACCESS_LOCAL_NETWORK flow
+is wired.
+
+F98-07 — PARTIAL / TIME-BOUND
+Current Android:
+  minSdk 26
+  compileSdk 36
+  targetSdk 36.
+
+Android 17/API37 makes broad local-network permission mandatory for apps
+targeting 37+.
+
+The current target avoids the mandatory future behavior today.
+
+That is not a long-term solution.
+
+F98-08 — FAIL
+No production Android `NsdManager` adapter was found.
+
+F98-09 — FAIL
+No production Android `WifiP2pManager` adapter was found.
+
+F98-10 — FAIL
+No production Android `WifiAwareManager` adapter was found.
+
+F98-11 — FAIL
+`MainActivity.kt` chooses the first non-loopback site-local IPv4 from
+`NetworkInterface`.
+
+Exact failure:
+  it is not network-scoped and assumes IPv4.
+
+It can select the wrong route under:
+  multiple local networks;
+  VPNs;
+  network handoff;
+  IPv6-only LAN;
+  address churn.
+
+Solution:
+  use current OS discovery `Network` + returned host addresses.
+
+F98-12 — PARTIAL
+Current QR pairing is a useful discovery-independent fallback.
+
+But the route hint must remain:
+  ephemeral route metadata,
+not identity.
+
+F98-13 — FAIL
+No physical two-phone consumer-router mDNS/TCP evidence exists in the reviewed
+material.
+
+F98-14 — FAIL
+No AP-client-isolation physical negative control exists.
+
+F98-15 — FAIL
+No VPN/tunnel false-locality physical result exists.
+
+F98-16 — FAIL
+No public-Wi-Fi false-positive physical result exists.
+
+F98-17 — FAIL
+No mobile-hotspot physical result exists.
+
+F98-18 — FAIL
+No Wi-Fi Direct physical result exists.
+
+F98-19 — FAIL
+No Wi-Fi Aware physical result exists.
+
+F98-20 — FAIL
+No Android local-network permission denial/revocation physical result exists.
+
+F98-21 — FAIL
+No battery/background discovery evidence exists.
+
+F98-22 — PASS FOUNDATION
+Mininet's immutable/content-addressed objects fit route changes and duplicate
+delivery.
+
+F98-23 — PASS FOUNDATION
+Private object envelopes can cross an untrusted LAN without giving routers
+application plaintext.
+
+F98-24 — PASS FOUNDATION
+File 7 settled delayed store-carry semantics above live bearers.
+
+Therefore Wi-Fi remains a live contact bearer.
+
+F98-25 — FAIL / DOCUMENT CONTRADICTION
+Old Wi-Fi gate text implied weak network-context continuity weight.
+
+Issue #98 says connectivity only.
+
+The human-continuity design excludes raw Wi-Fi/IP identity data.
+
+Decision:
+  network-context weight = 0.
+
+
+========================================================================
+3. EXTERNAL STANDARDS / PLATFORM RESEARCH
+========================================================================
+
+R98-01 — RFC 6762 mDNS
+
+RFC 6762 is the actual standards-track Multicast DNS protocol.
+
+Relevant wire facts:
+  UDP port 5353;
+  IPv4 224.0.0.251;
+  IPv6 FF02::FB;
+  DNS message semantics;
+  local-link operation without conventional DNS infrastructure.
+
+Decision:
+  production infrastructure-LAN discovery uses actual RFC6762 semantics through
+  platform APIs.
+
+R98-02 — RFC 6763 DNS-SD
+
+DNS-SD discovers service instances using standard DNS records:
+  PTR;
+  SRV;
+  TXT.
+
+Decision:
+  Mininet uses a DNS-SD TCP service profile.
+
+Proposed type:
+  `_mininet._tcp`
+
+Before public interoperability release:
+  verify/register the service name with IANA as appropriate.
+
+IANA is namespace coordination only.
+
+Runtime local discovery must never require reaching IANA.
+
+R98-03 — Android NsdManager
+
+Android documents NsdManager as DNS-SD over mDNS.
+
+Current API guidance favors asynchronous tracking of found/updated/lost
+services and warns that resolved addresses can become stale.
+
+Decision:
+  Android infrastructure LAN uses NsdManager.
+
+R98-04 — Android multicast power model
+
+Android documents that raw Wi-Fi multicast may be filtered and that acquiring a
+MulticastLock can cause noticeable battery drain.
+
+Decision:
+  no permanent raw multicast lock on an ordinary phone.
+
+R98-05 — Android 17 local-network permission
+
+For target API37+, Android requires local-network permission for broad LAN
+advertise/connect workflows, with system-mediated scoped alternatives for some
+service discovery flows.
+
+Decision:
+  permission denial is a supported normal state.
+
+It cannot:
+  revoke identity;
+  reduce personhood;
+  freeze funds;
+  remove governance rights.
+
+R98-06 — Android nearby Wi-Fi permission
+
+Modern Wi-Fi Direct/Aware APIs require `NEARBY_WIFI_DEVICES` in applicable
+versions.
+
+Decision:
+  request only when the user invokes/enables that functionality.
+
+Never request/use Wi-Fi data to infer human physical location for Gate #98.
+
+R98-07 — Android Wi-Fi Direct
+
+Android supports peer-to-peer Wi-Fi without Internet and supports service
+discovery.
+
+Decision:
+  optional Android direct bearer.
+
+Not a universal requirement.
+
+R98-08 — Wi-Fi Aware/NAN
+
+Wi-Fi Aware is a Wi-Fi Alliance peer-to-peer standard for discovery and data
+communication without an AP or Internet.
+
+Android supports it.
+
+Apple introduced Wi-Fi Aware support in iOS 26 and documents it on compatible
+modern devices.
+
+Decision:
+  preferred long-term standards-based cross-platform direct-Wi-Fi substrate
+  where both endpoints support it.
+
+R98-09 — Apple Multipeer Connectivity
+
+Apple marks Multipeer Connectivity deprecated and directs developers to
+Network.framework.
+
+Decision:
+  no new Mininet core dependence on Multipeer Connectivity.
+
+R98-10 — Apple Network.framework
+
+Use Network.framework/Bonjour for future iOS LAN networking.
+
+R98-11 — TCP vs QUIC
+
+Issue #98 allowed TCP/QUIC.
+
+Mininet already has TCP.
+
+Apple's current TN3213 says Wi-Fi Aware + QUIC is not supported prior to iOS 27
+and aligned releases.
+
+Decision:
+  TCP is V1.
+
+QUIC may be additive later after cross-platform evidence.
+
+R98-12 — Apple local-network privacy
+
+Future iOS support must declare truthful local-network usage and Bonjour service
+types.
+
+Permission denial is normal.
+
+No Apple account becomes a Mininet prerequisite.
+
+
+========================================================================
+4. FINAL ENGINEERING DECISIONS — D98-001 THROUGH D98-100
+========================================================================
+
+D98-001  Wi-Fi is a bearer, never an authority.
+D98-002  Wi-Fi network-context personhood weight is exactly zero.
+D98-003  Wi-Fi network-context physical-presence weight is exactly zero.
+D98-004  Wi-Fi network-context continuity score is exactly zero.
+D98-005  A protected device-key continuity challenge may travel over Wi-Fi.
+D98-006  The cryptographic response, not the network, is the continuity evidence.
+D98-007  Gate #97 remains the physical-presence lane.
+D98-008  Wi-Fi RTT/ranging, if ever used, belongs under Gate #97-style review.
+D98-009  Infrastructure discovery uses RFC6762/6763 mDNS/DNS-SD.
+D98-010  Current custom MININET1 multicast is legacy/test, not production mDNS.
+D98-011  Proposed service type is `_mininet._tcp`.
+D98-012  Service-name IANA status is verified before public release.
+D98-013  IANA is not a runtime authority or dependency.
+D98-014  DNS-SD instance name is random and ephemeral.
+D98-015  Instance randomness is at least 96 bits from OS entropy.
+D98-016  Instance rotates on advertise restart/network change.
+D98-017  DNS-SD exposes no root DID.
+D98-018  DNS-SD exposes no device DID/pseudonym.
+D98-019  DNS-SD exposes no human/device display name by default.
+D98-020  DNS-SD exposes no balance/validator/treasury/personhood role.
+D98-021  DNS-SD exposes no SSID/BSSID/router/household identifier.
+D98-022  V1 TXT contains only protocol version and bounded capability data.
+D98-023  Mininet TXT material is capped at 1024 bytes.
+D98-024  Discovery result is an unauthenticated route hint.
+D98-025  Forged discovery can cause an attempt, never identity acceptance.
+D98-026  Listener port is dynamic/unprivileged.
+D98-027  IPv4 and IPv6 are first-class.
+D98-028  No production first-site-local-IPv4 selection.
+D98-029  Connect using current OS network-scoped service addresses.
+D98-030  Never persist IP as peer identity.
+D98-031  Android infrastructure LAN uses NsdManager.
+D98-032  Android target37 path handles ACCESS_LOCAL_NETWORK/scoped alternative.
+D98-033  Local-network permission denial preserves all human/economic rights.
+D98-034  Android Wi-Fi Direct is optional.
+D98-035  Android Direct uses system platform APIs/service discovery.
+D98-036  Android Wi-Fi Aware is optional/runtime-detected.
+D98-037  Wi-Fi Aware is preferred future cross-platform direct substrate.
+D98-038  iOS new work uses Network.framework.
+D98-039  Do not start a new core on deprecated MultipeerConnectivity.
+D98-040  TCP is V1 local data plane.
+D98-041  QUIC is optional later, not a Gate98 blocker.
+D98-042  Sensitive app data traverses encrypted Channel or stronger app E2E.
+D98-043  Channel ephemeral handshake is not human identity.
+D98-044  Application signatures/KEL/capabilities prove application authority.
+D98-045  QR/manual pairing remains a fallback.
+D98-046  QR route hint is ephemeral, not identity.
+D98-047  QR offer may carry multiple route hints over time.
+D98-048  VPN interfaces are zero-trust route possibilities.
+D98-049  Default auto-local discovery excludes VPN/tunnel networks.
+D98-050  Public Wi-Fi co-membership is zero trust.
+D98-051  Hotspot co-membership is zero trust.
+D98-052  Same router/subnet is zero trust.
+D98-053  SSID/BSSID/MAC/RSSI/latency/TTL are zero personhood inputs.
+D98-054  AP client isolation is a normal liveness failure.
+D98-055  Discovery failure never resets identity.
+D98-056  Permission denial never resets identity.
+D98-057  Store-and-forward stays above TcpBearer.
+D98-058  TcpBearer remains a live transport abstraction.
+D98-059  Application content ID is the semantic dedup key.
+D98-060  Reconnect/duplicate transfer is tolerated by app semantics.
+D98-061  Default max unpaired discovered candidates = 64.
+D98-062  Default max concurrent outbound preauth connections = 4.
+D98-063  Default max concurrent inbound preauth connections = 8 on weak phone.
+D98-064  Default local TCP connect timeout = 5 seconds.
+D98-065  Default channel/preauth timeout = 10 seconds.
+D98-066  Failure backoff starts at 30 seconds + jitter.
+D98-067  Failure backoff grows exponentially to max 10 minutes.
+D98-068  Preauth app payload cap = 64 KiB.
+D98-069  Existing bearer hard frame cap remains 16 MiB.
+D98-070  App limits remain stricter where appropriate.
+D98-071  Normal user discovery session max = 15 minutes.
+D98-072  Continuous node advertising/browsing is explicit opt-in.
+D98-073  No permanent raw Android MulticastLock by default.
+D98-074  Stop discovery promptly when no longer needed.
+D98-075  Discovery candidate cache is transient by default.
+D98-076  One advertise session emits one service, not one per DID/content item.
+D98-077  Router reboot does not change human identity.
+D98-078  DHCP address change does not change human identity.
+D98-079  MAC randomization does not change human identity.
+D98-080  SSID/BSSID roam/change does not change human identity.
+D98-081  VPN enable/disable does not change human status.
+D98-082  Public/private network change does not change human status.
+D98-083  No Google Play Services dependency is required for core LAN path.
+D98-084  No Apple/iCloud account is required for core LAN path.
+D98-085  No router admin/cloud account is required.
+D98-086  No UPnP/NAT-PMP public opening is required for local discovery.
+D98-087  No proprietary Nearby cloud/service is core.
+D98-088  User may browse without advertising where platform allows.
+D98-089  User may disable discovery and keep manual/other-bearer access.
+D98-090  Production diagnostics are local-first and privacy-minimal.
+D98-091  Production logs omit SSID/BSSID and message plaintext by default.
+D98-092  Controlled hardware evidence may record test network identifiers.
+D98-093  Support labels are UNIMPLEMENTED/LAB-ONLY/HARDWARE-VALIDATED/
+         CROSS-PLATFORM-VALIDATED.
+D98-094  Current reviewed revision is LAB-ONLY for local discovery.
+D98-095  Android validation never automatically implies iOS validation.
+D98-096  same-LAN validation never automatically implies Direct/Aware validation.
+D98-097  Gate #98 remains non-blocking for terrestrial real value.
+D98-098  Issue #98 stays open until physical evidence exists.
+D98-099  Architecture approval is not hardware evidence.
+D98-100  Any future network-context personhood/proximity scoring reopens the
+         relevant security gate.
+
+
+========================================================================
+5. PRODUCTION LAN DISCOVERY PROFILE
+========================================================================
+
+Service type:
+  `_mininet._tcp`
+
+Instance:
+  `mini-<random 96+ bits>`
+
+TXT:
+  `v=1`
+  optional bounded capability version/bitset.
+
+Forbidden TXT/instance contents:
+  root DID;
+  device DID;
+  pseudonym;
+  name;
+  balance;
+  validator/treasury role;
+  personhood tier;
+  SSID/BSSID;
+  IP history;
+  router/home identifier.
+
+Bind:
+  dynamic TCP port on current local network.
+
+Discover:
+  exact service type.
+
+Candidate cache:
+  <=64 unpaired services.
+
+Connect:
+  current OS-returned address/network;
+  <=4 outbound concurrent attempts;
+  5s initial TCP timeout;
+  failure backoff 30s+jitter -> max10m.
+
+Secure:
+  establish Mininet Channel before sensitive application payload.
+
+Authorize:
+  verify signed application/pairing/KEL/capability semantics independently.
+
+No trust inheritance:
+
+  mDNS proves only an advertisement was observed.
+  TCP proves only a stream endpoint responded.
+  Channel proves only possession of an ephemeral session secret.
+  application identity proves whatever its signed protocol proves.
+  personhood proves only whatever the personhood protocol proves.
+
+
+========================================================================
+6. ANDROID PROFILE
+========================================================================
+
+A98-01  Use `NsdManager` for infrastructure mDNS/DNS-SD.
+A98-02  Prefer current service-info callbacks that track address/network changes.
+A98-03  Treat older resolved addresses as ephemeral.
+A98-04  Scope discovery/sockets to the intended Android `Network`.
+A98-05  Handle API37 `ACCESS_LOCAL_NETWORK` when target/platform requires it.
+A98-06  Offer scoped/system-mediated discovery when suitable.
+A98-07  Request `NEARBY_WIFI_DEVICES` only for APIs that require it.
+A98-08  Do not derive personhood/location from Wi-Fi APIs.
+A98-09  Legacy OS location permission, if required by old API, is not stored.
+A98-10  Legacy OS location permission is not personhood input.
+A98-11  No permanent MulticastLock.
+A98-12  If compatibility requires a lock, hold it only during bounded discovery.
+A98-13  Release the lock on stop/error/revocation.
+A98-14  Support IPv6.
+A98-15  Support IPv4.
+A98-16  Remove `findLanAddress()` from production discovery route selection.
+A98-17  Keep manual QR route as explicit fallback.
+A98-18  Background behavior obeys OS lifecycle.
+A98-19  No hidden always-on service merely to keep mDNS alive.
+A98-20  Continuous home-node mode is user-enabled and battery-tested.
+
+
+========================================================================
+7. IOS / APPLE PROFILE
+========================================================================
+
+Required only when iOS local-Wi-Fi support is claimed.
+
+I98-01  New networking uses Network.framework.
+I98-02  Infrastructure LAN uses Bonjour/DNS-SD.
+I98-03  `NSLocalNetworkUsageDescription` is present and truthful.
+I98-04  Bonjour service declarations are minimal.
+I98-05  No new core dependence on deprecated MultipeerConnectivity.
+I98-06  Wi-Fi Aware is used on supported hardware when implementing direct mode.
+I98-07  Runtime capability detection is mandatory.
+I98-08  Unsupported Aware falls back.
+I98-09  V1 local/Aware data plane uses TCP.
+I98-10  QUIC-over-Aware is not overclaimed before iOS/platform support/test.
+I98-11  Stop peer-to-peer browse when no longer needed.
+I98-12  Permission denial preserves identity/rights.
+I98-13  No Apple account is a Mininet prerequisite.
+I98-14  No human-readable device name is protocol identity.
+I98-15  Android<->iOS support requires physical interoperability evidence.
+
+
+========================================================================
+8. NEGATIVE-CONTROL SECURITY PROFILE
+========================================================================
+
+VPN:
+  may make a distant device reachable;
+  trust delta = 0.
+
+mDNS reflector:
+  may make a distant service discoverable;
+  trust delta = 0.
+
+public Wi-Fi:
+  may join strangers;
+  household/personhood delta = 0.
+
+hotspot:
+  may join a device farm;
+  personhood delta = 0.
+
+same subnet:
+  is route topology only.
+
+low latency:
+  is route performance only.
+
+router fingerprint:
+  is not human evidence.
+
+RSSI:
+  is not human evidence.
+
+client isolation:
+  is expected connectivity failure, never reason to weaken authentication.
+
+An attacker who controls the AP can:
+  observe metadata;
+  delay;
+  drop;
+  block discovery;
+  redirect connection attempts.
+
+They must not be able to:
+  forge signed application objects;
+  create personhood;
+  finalize money;
+  count governance votes;
+  gain validator/treasury authority.
+
+
+========================================================================
+9. RESOURCE / PRIVACY / BATTERY LIMITS
+========================================================================
+
+Default limits:
+
+  discovered unpaired candidates:     64
+  DNS-SD Mininet TXT bytes:           1024
+  outbound preauth connections:       4
+  inbound preauth connections:        8
+  local TCP connect timeout:          5 seconds
+  channel/preauth timeout:            10 seconds
+  failure backoff first:              30 seconds + jitter
+  failure backoff max:                10 minutes
+  preauth application bytes:          64 KiB
+  ordinary browse session:            15 minutes
+
+Privacy:
+
+  no stable DID in discovery;
+  no human/device name;
+  no SSID/BSSID collection for scoring;
+  no neighbor graph upload;
+  no message plaintext logging;
+  no permanent discovery history by default;
+  random instance rotates across sessions/networks.
+
+Battery:
+
+  no default permanent multicast lock;
+  no default permanent browse;
+  continuous node mode opt-in;
+  no idle spin;
+  stop discovery after use;
+  bulk sync may defer under battery/thermal policy;
+  verification is never skipped to save energy.
+
+Weak-device target:
+
+  4 GiB RAM Android-class phone.
+  Additional discovery/connection state target <=128 MiB in the stress test.
+
+
+========================================================================
+10. STORE-AND-FORWARD INTEGRATION
+========================================================================
+
+Wi-Fi is live contact.
+
+When both peers are online:
+
+  discover -> connect -> Channel -> app authenticate -> exchange inventory ->
+  transfer missing immutable objects.
+
+When the path disappears:
+
+  unsent content stays in app/sync/deferred durable state.
+
+Do not turn TcpBearer into persistent mail.
+
+Later Wi-Fi contact may drain:
+  private messages;
+  public objects;
+  CRDT ops;
+  KEL events;
+  storage chunks;
+  forge objects;
+  signed transaction/payment submissions;
+  governance submissions.
+
+Transport delivery is never:
+  payment finality;
+  governance count;
+  personhood;
+  physical presence.
+
+Application semantic ID deduplicates repeated delivery.
+
+
+========================================================================
+11. PHYSICAL HARDWARE SET REQUIRED FOR CLOSURE
+========================================================================
+
+Minimum:
+
+  * Android phone A — exact model, Android 13/14-class.
+  * Android phone B — exact model, Android 16/API36-class.
+  * real consumer Wi-Fi router/AP — exact model/firmware.
+  * second AP or configurable client-isolation mode.
+  * laptop for controlled logs/packet capture.
+  * mobile hotspot source.
+  * VPN/tunnel setup under tester control.
+  * permitted public/guest Wi-Fi test environment.
+
+For Wi-Fi Direct support claim:
+  two real supported devices.
+
+For Wi-Fi Aware support claim:
+  two real supported devices.
+
+For iOS/cross-platform support claim:
+  supported real iPhone/iPad + exact iOS,
+  plus Android<->iOS interoperability.
+
+Emulators are useful for code tests.
+
+They do not substitute for radio/router hardware evidence.
+
+
+========================================================================
+12. PHYSICAL TESTS — W98-001 THROUGH W98-120
+========================================================================
+
+W98-001  Same consumer router 5GHz: DNS-SD discover, TCP, Channel, signed object.
+W98-002  Same router 2.4GHz.
+W98-003  Mixed 2.4/5GHz bridged LAN.
+W98-004  Router reboot: route recovers, identity unchanged.
+W98-005  DHCP address change: rediscover current address.
+W98-006  IPv6 local path.
+W98-007  IPv4 local path.
+W98-008  IPv6-only lab path if available.
+W98-009  AP client isolation ON: graceful failure.
+W98-010  AP client isolation OFF: connectivity returns without new identity.
+W98-011  Mobile hotspot path: connectivity, zero trust.
+W98-012  Hotspot multi-device/Sybil simulation: zero personhood effect.
+W98-013  Public/guest Wi-Fi: zero household/personhood effect.
+W98-014  Public network client isolation: graceful failure.
+W98-015  VPN on A: zero locality/personhood effect.
+W98-016  VPN on B.
+W98-017  VPN on both.
+W98-018  mDNS-reflecting VPN if available: remote discovery still zero trust.
+W98-019  VPN gives same private subnet: zero trust.
+W98-020  Remote TCP proxy: app identity remains cryptographic.
+W98-021  MAC randomization enabled: identity unaffected.
+W98-022  MAC changes between joins: identity unaffected.
+W98-023  SSID rename: identity unaffected.
+W98-024  BSSID/AP roam: identity unaffected.
+W98-025  Same SSID on different router: no household inference.
+W98-026  Controlled cloned SSID/BSSID: no authentication effect.
+W98-027  Screen off 10m: behavior recorded.
+W98-028  App background 30m: no spin, behavior recorded.
+W98-029  Force-stop: advertisement ends, identity persists.
+W98-030  Phone reboot: identity persists, discovery instance rotates.
+W98-031  Wi-Fi off/on: recovery without identity reset.
+W98-032  Airplane mode + local Wi-Fi where OS allows: no cloud dependency.
+W98-033  Internet unplugged, router alive: local discovery/connect.
+W98-034  external DNS unavailable: mDNS remains local.
+W98-035  no Mininet account/directory server: LAN remains possible.
+W98-036  multicast loss 10% fixture.
+W98-037  multicast loss 30% fixture.
+W98-038  unicast loss 10% fixture.
+W98-039  300ms emulated route latency: no proximity inference.
+W98-040  1s emulated route latency: no human-status inference.
+W98-041  50 fake services: bounded.
+W98-042  500 fake services: bounded.
+W98-043  10k malformed discovery records/events: no crash.
+W98-044  TXT at 1024 bytes.
+W98-045  TXT >1024 bytes rejected/ignored by profile.
+W98-046  TXT claiming DID is not trusted.
+W98-047  TXT claiming balance is ignored.
+W98-048  TXT claiming admin is ignored.
+W98-049  human-readable service name is not identity.
+W98-050  spoofed service target cannot impersonate app identity.
+W98-051  TCP accepted but Channel fails: no sensitive payload.
+W98-052  Channel succeeds but app signature fails: action rejected.
+W98-053  stale session/replay material rejected.
+W98-054  preauth payload >64KiB rejected.
+W98-055  authenticated/app-authorized limits still enforced.
+W98-056  bearer frame >16MiB rejected.
+W98-057  slowloris peer bounded by preauth timeout.
+W98-058  rapid connect/disconnect 1000 cycles: no unbounded leak.
+W98-059  4 outbound preauth connections allowed under default.
+W98-060  5th attempt waits/sheds.
+W98-061  8 inbound preauth default limit.
+W98-062  9th+ unauthenticated peer shed safely.
+W98-063  first failure backoff ~30s+jitter.
+W98-064  repeated failure backoff grows <=10m.
+W98-065  successful authenticated interaction resets route backoff appropriately.
+W98-066  normal discovery auto-stops at 15m.
+W98-067  user cancel stops immediately.
+W98-068  permission revoked mid-discovery: graceful.
+W98-069  Android NSD found/update/lost callbacks.
+W98-070  Android service address changes without identity change.
+W98-071  Android target36 current permission behavior recorded.
+W98-072  Android target37 local-network permission test when target/build used.
+W98-073  NEARBY_WIFI_DEVICES denied: Direct/Aware graceful fallback.
+W98-074  NEARBY_WIFI_DEVICES granted: supported mode proceeds.
+W98-075  location permission absent: no personhood penalty.
+W98-076  legacy P2P location requirement, if tested: no raw-location storage.
+W98-077  legacy MulticastLock lifecycle if used.
+W98-078  modern NSD path has no permanent raw lock.
+W98-079  Android Wi-Fi Direct discovery on supported pair.
+W98-080  Direct TCP + Channel + signed object.
+W98-081  Direct works without Internet.
+W98-082  Direct group-owner change does not grant authority.
+W98-083  Direct display-name spoof has no app-identity effect.
+W98-084  Direct permission revocation graceful.
+W98-085  Wi-Fi Aware unavailable -> fallback.
+W98-086  Aware publish/subscribe on supported pair.
+W98-087  Aware TCP + Channel.
+W98-088  Aware peer disappears -> clean route loss.
+W98-089  Aware link security does not bypass app auth.
+W98-090  Aware no-Internet operation.
+W98-091  iOS local-network permission allowed if iOS claim.
+W98-092  iOS local-network permission denied -> fallback.
+W98-093  iOS Bonjour discovery if claimed.
+W98-094  iOS Network.framework TCP if claimed.
+W98-095  iOS Aware supported hardware if claimed.
+W98-096  iOS Aware unsupported hardware -> fallback.
+W98-097  Android->iOS Bonjour/TCP if cross-platform claimed.
+W98-098  iOS->Android Bonjour/TCP.
+W98-099  Android<->iOS Aware only if that support is claimed.
+W98-100  no MultipeerConnectivity core requirement.
+W98-101  encrypted private-message object transfer.
+W98-102  public signed object transfer.
+W98-103  duplicate object dedup.
+W98-104  out-of-order application objects use app semantics.
+W98-105  storage chunk integrity.
+W98-106  large content manifest/chunk transfer.
+W98-107  governance delivery does not count vote.
+W98-108  payment delivery does not finalize.
+W98-109  personhood action delivery does not itself create personhood.
+W98-110  presence object delivery does not upgrade presence assurance.
+W98-111  device-key continuity challenge over Wi-Fi verifies key response.
+W98-112  same challenge over Internet has equivalent continuity semantics.
+W98-113  same challenge over VPN has equivalent continuity semantics.
+W98-114  router fingerprint contributes zero score.
+W98-115  SSID/BSSID contribute zero score.
+W98-116  IP address contributes zero score.
+W98-117  MAC contributes zero score.
+W98-118  RSSI/channel contributes zero score.
+W98-119  latency/TTL contributes zero score.
+W98-120  final hardware evidence package is hashed and signed.
+
+Every W98 row MUST record:
+
+  personhood_delta = 0
+  presence_delta = 0
+  continuity_network_context_delta = 0
+
+Any nonzero value is automatic FAIL.
+
+
+========================================================================
+13. PERFORMANCE / BATTERY ACCEPTANCE
+========================================================================
+
+Same-router discovery, 50 attempts:
+
+  p50 <= 3 seconds
+  p95 <= 10 seconds
+  success >= 98%
+
+After service resolution:
+  TCP + Channel p95 <= 3 seconds.
+
+Established session, 1KiB encrypted application round trip:
+  p95 <= 500ms on ordinary LAN.
+
+These are UX/performance thresholds.
+
+They are NEVER distance/proximity evidence.
+
+10MiB transfer:
+  content hash verifies;
+  no UI-thread freeze.
+
+1000 x 1KiB objects:
+  unique success/duplicate/failure counts all reported.
+
+Roam recovery:
+  p95 <=30s after the new network is actually usable.
+
+100 connect/disconnect cycles:
+  no >10% monotonic settled resource growth attributable to leaked
+  sockets/threads/discovery state.
+
+Weak-device:
+  4GiB Android-class target;
+  <=128MiB additional discovery/connection memory in stress profile.
+
+Battery:
+  8h control with local discovery disabled;
+  matched 8h run with four explicit 15m discovery sessions.
+
+Target incremental battery:
+  <=3 percentage points of full battery.
+
+Continuous node mode:
+  measured separately;
+  no ordinary-phone pass claim required if it remains explicit opt-in;
+  report drain/wakeups/thermal/multicast-lock duration honestly.
+
+
+========================================================================
+14. HARDWARE LOG SCHEMA
+========================================================================
+
+`wifi98_runs.csv`:
+
+  run_id
+  test_id
+  timestamp_utc
+  mininet_commit
+  apk_or_binary_sha256
+  platform_a
+  device_a_model
+  os_a
+  platform_b
+  device_b_model
+  os_b
+  router_or_ap_model
+  router_firmware
+  network_mode
+  frequency_band
+  ipv4_available
+  ipv6_available
+  ap_isolation
+  vpn_a
+  vpn_b
+  public_network
+  hotspot
+  direct_mode
+  wifi_aware
+  local_network_permission_a
+  local_network_permission_b
+  nearby_wifi_permission_a
+  nearby_wifi_permission_b
+  discovery_protocol
+  service_type
+  discovery_ms
+  resolved_address_family
+  tcp_connect_ms
+  channel_handshake_ms
+  app_auth_success
+  payload_bytes
+  transfer_ms
+  object_hash_verified
+  personhood_delta
+  presence_delta
+  continuity_network_context_delta
+  peak_memory_bytes
+  battery_start_percent
+  battery_end_percent
+  success
+  failure_class
+  notes
+
+Allowed failure classes:
+
+  IMPLEMENTATION_BUG
+  PLATFORM_PERMISSION
+  PLATFORM_UNSUPPORTED
+  AP_CLIENT_ISOLATION
+  MULTICAST_FILTERED
+  NETWORK_CHANGED
+  VPN_ROUTE_POLICY
+  PUBLIC_NETWORK_POLICY
+  TIMEOUT
+  PEER_UNAVAILABLE
+  CRYPTO_REJECT
+  APPLICATION_REJECT
+  RESOURCE_LIMIT
+  TEST_SETUP
+  EXPECTED_NEGATIVE_CONTROL
+  UNKNOWN
+
+Do not erase negative controls because they do not connect.
+
+A safe AP-isolation failure is useful evidence.
+
+
+========================================================================
+15. SOFTWARE / ADVERSARIAL TEST INDEX — T98-001 THROUGH T98-250
+========================================================================
+T98-001  TcpBearer round-trips a framed payload over a real OS TCP socket.
+T98-002  TcpBearer nonblocking receive returns without waiting when no complete frame exists.
+T98-003  TcpBearer receives a frame split across multiple TCP reads.
+T98-004  TcpBearer receives two back-to-back frames without frame-boundary confusion.
+T98-005  Bearer rejects a declared frame larger than 16 MiB before allocating that size.
+T98-006  Bearer rejects arithmetic-overflow frame lengths safely.
+T98-007  Tcp disconnect mid-frame returns an error/incomplete result without fabricating a frame.
+T98-008  Reconnect creates a new bearer instance without reusing stale framing state.
+T98-009  Legacy MININET1 announcement decoder accepts exactly the documented 10-byte format.
+T98-010  Legacy announcement decoder ignores shorter foreign datagrams.
+T98-011  Legacy announcement decoder ignores oversized foreign datagrams.
+T98-012  Legacy announcement decoder ignores wrong magic.
+T98-013  Legacy custom discovery is labeled non-mDNS in public/API documentation.
+T98-014  Production discovery adapter emits RFC6762/6763 DNS-SD rather than MININET1.
+T98-015  Production DNS-SD service type matches the approved Mininet type.
+T98-016  DNS-SD service instance contains no root DID.
+T98-017  DNS-SD service instance contains no device DID.
+T98-018  DNS-SD service instance contains no username/display name.
+T98-019  DNS-SD TXT contains no balance, validator, treasury or personhood state.
+T98-020  DNS-SD TXT contains no SSID, BSSID, MAC or router identifier.
+T98-021  DNS-SD TXT <=1024 bytes is accepted if semantically valid.
+T98-022  DNS-SD TXT >1024 Mininet-profile bytes is rejected/ignored.
+T98-023  Service instance randomness is generated from OS entropy.
+T98-024  Service instance has at least 96 random bits.
+T98-025  Service instance rotates after discovery session restart.
+T98-026  Service instance rotates after network change.
+T98-027  Service instance is not persisted as application peer identity.
+T98-028  One local advertise session creates at most one Mininet DNS-SD service.
+T98-029  Dynamic listener port is accurately reflected in SRV/service info.
+T98-030  Stopping advertise removes/unregisters the service best-effort.
+T98-031  IPv4 service address can establish the local TCP path.
+T98-032  IPv6 service address can establish the local TCP path.
+T98-033  IPv6-only LAN does not fail due to a hard IPv4 requirement.
+T98-034  Address-list processing tolerates multiple IPv6 addresses.
+T98-035  Address-list processing tolerates multiple IPv4 addresses.
+T98-036  Current platform network token is retained with the discovered route.
+T98-037  Service-info address update replaces stale route candidates.
+T98-038  Service-lost callback removes transient route candidate.
+T98-039  Service loss does not delete an authenticated paired contact.
+T98-040  DHCP address change does not alter cryptographic peer identity.
+T98-041  Router reboot does not alter cryptographic peer identity.
+T98-042  SSID change does not alter cryptographic peer identity.
+T98-043  BSSID roam does not alter cryptographic peer identity.
+T98-044  MAC randomization does not alter cryptographic peer identity.
+T98-045  Network interface ordering cannot determine production advertised address.
+T98-046  Production path does not call first-site-local-IPv4 as its sole route selector.
+T98-047  VPN interface is excluded from default local-auto-discovery policy.
+T98-048  Explicit VPN transport mode can carry bytes without increasing locality trust.
+T98-049  Route change preserves object IDs and signed identity state.
+T98-050  Failure to resolve any address is a liveness error, not an identity error.
+T98-051  Channel initiator/responder handshake succeeds over TcpBearer.
+T98-052  Malformed Channel hello length is rejected.
+T98-053  Unsupported Channel protocol version is rejected.
+T98-054  Unsupported Channel key-agreement tag is rejected.
+T98-055  Unsupported Channel KDF tag is rejected.
+T98-056  Unsupported Channel AEAD tag is rejected.
+T98-057  Channel transcript binding changes when either hello changes.
+T98-058  Channel derives distinct directional traffic keys.
+T98-059  Channel send nonce counter is monotonic.
+T98-060  Channel receive nonce counter is monotonic.
+T98-061  Channel counter exhaustion fails closed.
+T98-062  Ciphertext bit modification causes authentication failure.
+T98-063  Wrong associated data causes authentication failure.
+T98-064  Sensitive app bytes are not sent before Channel establishment.
+T98-065  Channel completion alone does not mark peer identity authenticated.
+T98-066  Application signature failure rejects the action after a valid Channel.
+T98-067  KEL/delegation failure rejects an otherwise well-formed app object.
+T98-068  Capability failure rejects an otherwise well-formed privileged action.
+T98-069  Forged DNS-SD service can cause at most a bounded connection attempt.
+T98-070  DNS-SD display-like name is never accepted as app identity.
+T98-071  TXT claiming a DID is ignored as identity proof.
+T98-072  TXT claiming 'admin' is ignored as authority proof.
+T98-073  TXT claiming high balance has zero scheduling/governance effect.
+T98-074  Remote TCP proxy cannot forge a signed Mininet object.
+T98-075  Hostile AP modification is detected by Channel/app cryptography.
+T98-076  Hostile AP replay cannot create a second valid semantic app action.
+T98-077  Preauth application payload >64 KiB is rejected.
+T98-078  Slowloris preauth connection times out.
+T98-079  Unauthenticated socket flood is shed before unbounded expensive app verification.
+T98-080  Rapid connect/disconnect 1000-cycle test has no unbounded socket/thread leak.
+T98-081  Personhood code has no SSID input path from Gate98.
+T98-082  Personhood code has no BSSID input path from Gate98.
+T98-083  Personhood code has no IP-address input path from Gate98.
+T98-084  Personhood code has no MAC-address input path from Gate98.
+T98-085  Personhood code has no router-fingerprint input path from Gate98.
+T98-086  Personhood code has no same-subnet input path from Gate98.
+T98-087  Personhood code has no VPN/locality-class input path from Gate98.
+T98-088  Personhood code has no RSSI input path from Gate98.
+T98-089  Personhood code has no Wi-Fi-channel/frequency input path from Gate98.
+T98-090  Personhood code has no latency threshold input path from Gate98.
+T98-091  Personhood code has no TTL/hop-count input path from Gate98.
+T98-092  Gate98 integration returns personhood_delta exactly zero.
+T98-093  Gate98 integration returns presence_delta exactly zero.
+T98-094  Gate98 integration returns continuity_network_context_delta exactly zero.
+T98-095  Same-router connectivity alone cannot create FullHuman/MatureHuman state.
+T98-096  Same-router connectivity alone cannot increase vouch allowance.
+T98-097  Same-router connectivity alone cannot unlock Human Share.
+T98-098  Same-router connectivity alone cannot increase governance weight.
+T98-099  Same-router connectivity alone cannot create validator eligibility.
+T98-100  Same-router connectivity alone cannot create treasury authority.
+T98-101  Public-Wi-Fi co-membership produces zero personhood effect.
+T98-102  Mobile-hotspot co-membership produces zero personhood effect.
+T98-103  VPN co-membership produces zero personhood effect.
+T98-104  mDNS-reflected remote service produces zero physical-presence effect.
+T98-105  Low-latency remote proxy produces zero physical-presence effect.
+T98-106  High-latency local peer receives no human-status penalty.
+T98-107  Protected device-key continuity challenge works over Wi-Fi.
+T98-108  Same valid device-key challenge over Internet yields same continuity semantics.
+T98-109  Same valid device-key challenge over VPN yields same continuity semantics.
+T98-110  Wi-Fi RTT/ranging data is not consumed by Gate98 personhood/presence code.
+T98-111  Android NsdManager adapter registers the approved DNS-SD service.
+T98-112  Android NsdManager adapter browses the approved service type.
+T98-113  Android found callback creates a bounded transient candidate.
+T98-114  Android service-info update refreshes current addresses.
+T98-115  Android lost callback removes transient route state.
+T98-116  Android discovery-start failure is surfaced gracefully.
+T98-117  Android registration failure is surfaced gracefully.
+T98-118  Android discovery stop cleans callback/listener state.
+T98-119  Android app works when local-network permission is denied.
+T98-120  Android app works when local-network permission is revoked after grant.
+T98-121  Android target37 broad-LAN path requests ACCESS_LOCAL_NETWORK only when needed.
+T98-122  Android target37 scoped service-selection path works where chosen.
+T98-123  Android NEARBY_WIFI_DEVICES denial disables only Direct/Aware functionality.
+T98-124  Android NEARBY_WIFI_DEVICES grant enables supported Direct/Aware functionality.
+T98-125  Android does not request precise location to derive household/personhood confidence.
+T98-126  Legacy Android P2P location requirement, if used, does not persist raw location.
+T98-127  Legacy Android P2P location requirement does not feed personhood.
+T98-128  Modern NSD path does not hold a permanent raw multicast lock.
+T98-129  Legacy compatibility multicast lock, if used, is released on normal stop.
+T98-130  Legacy compatibility multicast lock is released on error/revocation.
+T98-131  Android network loss cancels route attempt without identity reset.
+T98-132  Android Wi-Fi off/on recovers route without identity reset.
+T98-133  Android Internet-gateway loss still permits same-LAN mode.
+T98-134  Android external DNS loss still permits mDNS same-link mode.
+T98-135  Android process restart rotates ephemeral discovery instance but restores identity.
+T98-136  Wi-Fi Direct capability is runtime-detected before use.
+T98-137  Wi-Fi Direct unsupported device falls back without erroring core identity.
+T98-138  Wi-Fi Direct peer discovery works on supported hardware.
+T98-139  Wi-Fi Direct service discovery returns a route hint, not identity.
+T98-140  Wi-Fi Direct TCP path establishes Channel.
+T98-141  Wi-Fi Direct works without Internet on supported devices.
+T98-142  Wi-Fi Direct group-owner role grants zero Mininet authority.
+T98-143  Wi-Fi Direct display-name spoof grants zero app identity.
+T98-144  Wi-Fi Direct permission revocation fails safely.
+T98-145  Wi-Fi Direct reconnect preserves app identity.
+T98-146  Wi-Fi Aware capability is runtime-detected before use.
+T98-147  Wi-Fi Aware unavailable state falls back.
+T98-148  Wi-Fi Aware publish/subscribe works on supported hardware.
+T98-149  Wi-Fi Aware TCP data path establishes Channel.
+T98-150  Wi-Fi Aware link-layer authentication does not bypass app authentication.
+T98-151  Wi-Fi Aware peer disappearance is a clean route loss.
+T98-152  Wi-Fi Aware works without Internet when supported.
+T98-153  iOS implementation uses Network.framework for new local/P2P networking.
+T98-154  iOS implementation does not require deprecated MultipeerConnectivity core.
+T98-155  Android-iOS local/Aware support is not labeled cross-platform until physical interop passes.
+T98-156  Unpaired discovery candidate cache never exceeds 64 default entries.
+T98-157  65th+ candidate causes bounded eviction/ignore behavior.
+T98-158  Maximum concurrent outbound preauth connections is 4 by default.
+T98-159  Maximum concurrent inbound preauth connections is 8 by default.
+T98-160  Fifth outbound attempt waits/sheds until capacity.
+T98-161  Ninth inbound unauthenticated connection is shed safely.
+T98-162  Local TCP connect timeout defaults to 5 seconds.
+T98-163  Channel/preauth timeout defaults to 10 seconds.
+T98-164  First failed route attempt enters ~30s+jitter backoff.
+T98-165  Repeated failures increase backoff exponentially.
+T98-166  Backoff never exceeds 10 minutes.
+T98-167  Successful authenticated interaction resets eligible route backoff.
+T98-168  One peer cannot monopolize all outbound slots indefinitely.
+T98-169  500 spoofed services stay within memory/candidate bounds.
+T98-170  10,000 malformed discovery events do not panic.
+T98-171  Malformed TXT values do not trigger unbounded allocation.
+T98-172  Normal browse session auto-stops after 15 minutes.
+T98-173  User cancellation stops browsing immediately.
+T98-174  User can browse without advertising where platform supports it.
+T98-175  User can disable all local discovery without losing identity.
+T98-176  User can disable local discovery without losing funds.
+T98-177  User can disable local discovery without losing governance rights.
+T98-178  Continuous node mode requires explicit opt-in.
+T98-179  Background no-network state does not busy-spin.
+T98-180  Background permission-denied state does not busy-spin.
+T98-181  Private message ObjectEnvelopeV2 remains ciphertext through LAN transport.
+T98-182  Authorized recipient can decrypt transferred private message object.
+T98-183  Public object content ID verifies after Wi-Fi transfer.
+T98-184  Public object signature/provenance verifies independent of route.
+T98-185  Duplicate object after reconnect is application-deduplicated.
+T98-186  Out-of-order CRDT operations are processed by CRDT semantics.
+T98-187  Late old signed pointer does not overwrite newer state by arrival order alone.
+T98-188  Storage chunk content hash verifies after transfer.
+T98-189  Corrupt storage chunk is rejected.
+T98-190  Large media uses manifest/chunks instead of a special oversized control message.
+T98-191  Forge object hash/signature is preserved through Wi-Fi transport.
+T98-192  Wi-Fi relay role cannot merge a forge patch.
+T98-193  Governance submission delivery does not count the vote.
+T98-194  Payment claim delivery does not finalize the payment.
+T98-195  Personhood-vouch delivery does not itself create human status.
+T98-196  Presence evidence transported over Wi-Fi retains only its original assurance.
+T98-197  Transport-level receipt is not message read receipt.
+T98-198  Transport-level receipt is not monetary finality receipt.
+T98-199  Transport-level receipt is not governance inclusion proof.
+T98-200  Later deferred/Wi-Fi delivery preserves the same application semantic ID.
+T98-201  Production logs omit private message plaintext.
+T98-202  Production logs omit SSID/BSSID by default.
+T98-203  Production logs do not upload peer IPs automatically.
+T98-204  Production logs do not upload a LAN-neighbor graph.
+T98-205  Discovery existence/timing metadata residual is documented.
+T98-206  Local peer IP/traffic-size metadata residual is documented.
+T98-207  Ephemeral instance rotation is verified across sessions.
+T98-208  Ephemeral instance rotation is verified across network changes.
+T98-209  One installation does not advertise one service per DID/pseudonym.
+T98-210  One installation does not advertise one service per content object.
+T98-211  Node mode can be disabled immediately.
+T98-212  Discovery does not silently reactivate after explicit opt-out.
+T98-213  Matched 8h battery control run is recorded.
+T98-214  Matched four-by-15m discovery battery run is recorded.
+T98-215  Bounded-discovery battery delta <=3 percentage points target is evaluated.
+T98-216  Continuous node-mode battery is reported separately.
+T98-217  Legacy MulticastLock held duration is recorded if relevant.
+T98-218  4GiB weak-device discovery/pair/sync test is run.
+T98-219  Additional discovery/connection memory <=128MiB target is evaluated.
+T98-220  10MiB transfer verifies hash without UI-thread freeze.
+T98-221  1000x1KiB object transfer reports unique success/duplicate/failure counts.
+T98-222  100 reconnect-cycle settled resource leak target is evaluated.
+T98-223  50-run discovery p50 <=3s target is evaluated.
+T98-224  50-run discovery p95 <=10s target is evaluated.
+T98-225  50-run discovery success >=98% target is evaluated.
+T98-226  TCP+Channel establishment p95 <=3s target is evaluated.
+T98-227  Established 1KiB message RTT p95 <=500ms target is evaluated.
+T98-228  Roam recovery p95 <=30s after network usable target is evaluated.
+T98-229  Exact Mininet commit is recorded in hardware evidence.
+T98-230  Exact APK/binary SHA256 is recorded.
+T98-231  Exact device models are recorded.
+T98-232  Exact OS/security-patch versions are recorded.
+T98-233  Exact router/AP model and firmware are recorded.
+T98-234  Exact AP-isolation setting is recorded.
+T98-235  Exact VPN/hotspot/public-network condition is recorded.
+T98-236  Exact local-network/nearby-Wi-Fi permission state is recorded.
+T98-237  Exact address family/network path is recorded.
+T98-238  Exact discovery protocol/service type is recorded.
+T98-239  Discovery/connect/channel timings are recorded.
+T98-240  Application authentication result is recorded.
+T98-241  Payload bytes/hash verification result is recorded.
+T98-242  Every hardware row records personhood_delta=0.
+T98-243  Every hardware row records presence_delta=0.
+T98-244  Every hardware row records continuity_network_context_delta=0.
+T98-245  Failed/negative-control rows are preserved.
+T98-246  Failure rows use declared classification.
+T98-247  Human tester signs final hardware report.
+T98-248  Another human reviews the evidence before issue closure.
+T98-249  Evidence artifact/report hash is recorded.
+T98-250  Issue #98 links the exact evidence package when closed.
+
+
+========================================================================
+16. ENGINEERING CONFORMANCE MATRIX — C98-001 THROUGH C98-170
+========================================================================
+
+C98-001  Production Wi-Fi path is connectivity only; no authority semantics.
+C98-002  Personhood receives no SSID input.
+C98-003  Personhood receives no BSSID input.
+C98-004  Personhood receives no IP-address input.
+C98-005  Personhood receives no MAC-address input.
+C98-006  Personhood receives no router-fingerprint input.
+C98-007  Personhood receives no same-subnet input.
+C98-008  Personhood receives no VPN-locality input.
+C98-009  Personhood receives no RSSI/channel input.
+C98-010  Personhood receives no latency/TTL input.
+C98-011  Presence receives no Gate98 network-context weight.
+C98-012  Continuity network-context contribution is exactly zero.
+C98-013  Device-key continuity challenge is separable from the bearer carrying it.
+C98-014  Gate97 remains the only Wi-Fi/radio physical-ranging security lane if ranging is added.
+C98-015  Permission refusal never reduces human status.
+C98-016  Advanced Wi-Fi hardware absence never reduces human status.
+C98-017  Production infrastructure discovery is actual RFC6762/6763-compatible DNS-SD/mDNS.
+C98-018  Custom MININET1 multicast is explicitly legacy/test or removed.
+C98-019  Service type is documented and IANA status checked before public interoperability release.
+C98-020  No runtime IANA lookup is required.
+C98-021  Service instance is random/ephemeral.
+C98-022  Service instance contains no DID or human name.
+C98-023  Service instance contains no balance/role/personhood state.
+C98-024  TXT record is minimal and <=1024 bytes.
+C98-025  No SSID/BSSID/home identifier is advertised by Mininet.
+C98-026  Listener uses a dynamic local TCP port.
+C98-027  IPv4 path is supported.
+C98-028  IPv6 path is supported.
+C98-029  IPv6-only LAN is not rejected solely for lacking IPv4.
+C98-030  OS/network-scoped addresses replace first-site-local-IPv4 route selection.
+C98-031  Resolved addresses are transient route hints, not identity.
+C98-032  Service-info update refreshes route hint.
+C98-033  Service loss removes transient candidate, not paired identity.
+C98-034  Forged discovery cannot authorize app actions.
+C98-035  TCP reachability cannot authorize app actions.
+C98-036  Channel handshake cannot by itself authorize human identity.
+C98-037  Sensitive app data is encrypted above TCP.
+C98-038  Application signatures/KEL/capabilities remain the authorization layer.
+C98-039  TcpBearer remains live/best-effort.
+C98-040  Store-and-forward persistence remains in sync/DTN/application layer.
+C98-041  Application semantic IDs deduplicate reconnect/duplicate transfer.
+C98-042  Android production LAN discovery uses NsdManager.
+C98-043  Android NSD lifecycle handles found/update/lost/error/stop.
+C98-044  Android target37 path handles ACCESS_LOCAL_NETWORK or scoped alternative.
+C98-045  Android permission denial leaves core app usable.
+C98-046  Android Direct/Aware permissions are requested only when used.
+C98-047  Android does not request location for household/personhood inference.
+C98-048  Legacy location requirement, if unavoidable, does not store/use location as trust.
+C98-049  Android modern NSD path does not hold a permanent MulticastLock.
+C98-050  Any compatibility MulticastLock is time/lifecycle bounded.
+C98-051  Android Direct is optional/runtime-detected.
+C98-052  Android Direct group-owner status grants no Mininet authority.
+C98-053  Android Aware is optional/runtime-detected.
+C98-054  Wi-Fi Aware link security does not bypass Mininet app authentication.
+C98-055  Future iOS path uses Network.framework.
+C98-056  Future iOS LAN path uses Bonjour/DNS-SD.
+C98-057  Future iOS local-network permission explanation is truthful.
+C98-058  New iOS core does not depend on deprecated MultipeerConnectivity.
+C98-059  V1 local data plane is TCP.
+C98-060  QUIC remains additive until cross-platform support is proven.
+C98-061  Cross-platform support is claimed only from physical interop evidence.
+C98-062  Default unpaired candidate cache is bounded at 64.
+C98-063  Default outbound preauth concurrency is bounded at 4.
+C98-064  Default inbound preauth concurrency is bounded at 8 on weak phone.
+C98-065  Default local connect timeout is 5 seconds.
+C98-066  Default preauth/channel timeout is 10 seconds.
+C98-067  Failure retry backoff starts at 30 seconds plus jitter.
+C98-068  Failure retry backoff caps at 10 minutes.
+C98-069  Preauth application payload is capped at 64 KiB.
+C98-070  Bearer's 16 MiB hard frame cap remains enforced.
+C98-071  Normal discovery window is bounded to 15 minutes.
+C98-072  Continuous node mode is explicit opt-in.
+C98-073  Discovery stops promptly on user cancellation.
+C98-074  Discovery stops/adjusts on permission revocation.
+C98-075  Background no-network state does not busy-spin.
+C98-076  Background permission-denied state does not busy-spin.
+C98-077  No unauthenticated service flood can grow persistent state without bound.
+C98-078  Malformed discovery data cannot panic the app.
+C98-079  Slow peers cannot hold unauthenticated slots forever.
+C98-080  Public-Wi-Fi co-membership changes no trust/personhood.
+C98-081  Hotspot co-membership changes no trust/personhood.
+C98-082  VPN co-membership changes no trust/personhood.
+C98-083  mDNS reflection changes no physical-presence/personhood result.
+C98-084  AP client isolation is classified as liveness failure.
+C98-085  Router reboot is liveness, not identity.
+C98-086  DHCP churn is liveness, not identity.
+C98-087  SSID/BSSID change is liveness, not identity.
+C98-088  MAC randomization is not identity.
+C98-089  Network latency is not distance proof.
+C98-090  TTL/hop count is not distance proof.
+C98-091  Private messages remain opaque to LAN infrastructure.
+C98-092  Public objects remain content-ID verifiable.
+C98-093  Public authorship remains signature/provenance verifiable.
+C98-094  Storage chunks remain content-addressed.
+C98-095  Forge objects retain their app authorization semantics.
+C98-096  Governance delivery is not vote counting.
+C98-097  Payment delivery is not monetary finality.
+C98-098  Personhood object delivery is not personhood itself.
+C98-099  Presence-evidence delivery adds no assurance.
+C98-100  Transport receipt is not app read/finality/governance receipt.
+C98-101  No hosted Mininet directory is required for same-LAN discovery.
+C98-102  No Google Play Services is core-required.
+C98-103  No Apple account/iCloud is core-required.
+C98-104  No router admin/cloud account is required.
+C98-105  No UPnP/NAT-PMP WAN opening is required.
+C98-106  No proprietary Nearby service is core-required.
+C98-107  Third-party convenience adapters remain replaceable and non-authoritative.
+C98-108  User can disable advertising.
+C98-109  User can disable browsing.
+C98-110  User can disable all LAN discovery and retain identity/funds/voice.
+C98-111  Production diagnostics omit message plaintext.
+C98-112  Production diagnostics omit SSID/BSSID by default.
+C98-113  Production diagnostics do not centrally upload neighbor graphs.
+C98-114  Discovery-existence/timing/IP/size metadata leakage is documented.
+C98-115  Ephemeral service IDs rotate across sessions and networks.
+C98-116  One installation does not advertise a service per DID/pseudonym/content item.
+C98-117  4 GiB weak-device physical test is required for hardware-validation claim.
+C98-118  Additional discovery/connection memory target <=128 MiB is evaluated.
+C98-119  8-hour matched battery evidence is recorded.
+C98-120  Bounded-discovery battery delta target <=3 percentage points is evaluated.
+C98-121  Continuous node-mode battery is reported separately.
+C98-122  Discovery 50-run p50 <=3s target is evaluated.
+C98-123  Discovery 50-run p95 <=10s target is evaluated.
+C98-124  Discovery 50-run success >=98% target is evaluated.
+C98-125  TCP+Channel p95 <=3s target is evaluated.
+C98-126  Established 1 KiB message RTT p95 <=500ms target is evaluated.
+C98-127  Roam recovery p95 <=30s target is evaluated.
+C98-128  10 MiB transfer integrity is measured.
+C98-129  1000-small-object transfer records successes, duplicates and failures.
+C98-130  100 reconnect cycles check for resource leaks.
+C98-131  Hardware closure uses at least two real phones for Android claim.
+C98-132  Hardware closure uses a real router/AP.
+C98-133  Hardware closure includes hotspot.
+C98-134  Hardware closure includes VPN/tunnel negative control.
+C98-135  Hardware closure includes public/guest Wi-Fi negative control.
+C98-136  Hardware closure includes AP isolation.
+C98-137  Hardware closure includes router/address/MAC churn.
+C98-138  Hardware closure includes permission denial/revocation.
+C98-139  Hardware closure includes spoof/resource-abuse tests.
+C98-140  Wi-Fi Direct is physically tested before its validated label.
+C98-141  Wi-Fi Aware is physically tested before its validated label.
+C98-142  iOS is physically tested before iOS validated label.
+C98-143  Android-iOS is physically tested before cross-platform validated label.
+C98-144  Emulator-only evidence cannot close the physical hardware feature.
+C98-145  Exact Mininet commit is recorded.
+C98-146  Exact APK/binary SHA256 is recorded.
+C98-147  Exact device models/OS versions are recorded.
+C98-148  Exact router/AP model/firmware is recorded.
+C98-149  Exact permission and network test state is recorded.
+C98-150  Raw success and failure rows are preserved.
+C98-151  Every evidence row records personhood_delta=0.
+C98-152  Every evidence row records presence_delta=0.
+C98-153  Every evidence row records continuity_network_context_delta=0.
+C98-154  Final hardware report is signed by the tester.
+C98-155  Final hardware report receives another human review.
+C98-156  Issue closure links exact evidence artifact.
+C98-157  Support label is exact: UNIMPLEMENTED/LAB-ONLY/HARDWARE-VALIDATED/CROSS-PLATFORM-VALIDATED.
+C98-158  Current reviewed revision remains LAB-ONLY until evidence passes.
+C98-159  Real-value launch remains explicitly non-blocked by Gate98.
+C98-160  Old 15/100 Wi-Fi-network-context implication is removed/superseded.
+C98-161  Any future network-context scoring proposal reopens personhood/presence review.
+C98-162  Any future central discovery directory remains optional edge convenience only.
+C98-163  Any future paid routing/prioritization cannot affect governance/personhood legitimacy.
+C98-164  Any future permission expansion gets least-privilege/privacy review.
+C98-165  Any future always-on discovery mode gets battery/privacy review.
+C98-166  Gate98 feature can be removed/replaced without changing canonical chain truth.
+C98-167  Gate98 feature can be removed/replaced without changing DID validity.
+C98-168  Gate98 feature can be removed/replaced without changing personhood validity.
+C98-169  Gate98 feature can be removed/replaced without changing object IDs.
+C98-170  Gate98 remains optional connectivity/resilience, not a human-rights prerequisite.
+
+
+========================================================================
+17. EXACT CODE CHANGE MAP
+========================================================================
+
+17.1 `crates/mini-bearer/src/discovery.rs`
+
+CURRENT:
+  custom IPv4 multicast `MININET1` advertisement.
+
+ACTION:
+  rename/document it as legacy/test discovery or remove it from production
+  exports.
+
+Do not preserve misleading language implying that merely using multicast
+constitutes RFC6762 mDNS.
+
+If retained:
+  no personhood/proximity APIs;
+  no product support claim;
+  no background mobile default.
+
+17.2 `crates/mini-bearer/src/tcp.rs`
+
+KEEP:
+  TcpBearer's narrow framed stream semantics.
+
+ADD only what platform integration requires:
+  constructors/adapters for already-established platform sockets;
+  explicit safe timeout configuration if required.
+
+DO NOT ADD:
+  DID logic;
+  personhood;
+  service registry;
+  persistent queue;
+  finality.
+
+17.3 `crates/mini-bearer/src/channel.rs`
+
+KEEP:
+  encrypted live session.
+
+ADD:
+  integration coverage over LAN/Direct/Aware socket adapters.
+
+DO NOT claim:
+  anonymous X25519 Channel == human authentication.
+
+17.4 New local-discovery boundary
+
+Suggested Rust-facing types:
+
+  struct LocalServiceSessionId([u8; 12]);
+
+  struct LocalServiceRecord {
+      protocol_version: u8,
+      capabilities: u32,
+      port: u16,
+  }
+
+  struct LocalRouteHint {
+      platform_network_token: PlatformNetworkToken,
+      addresses: Vec<IpAddr>,
+      port: u16,
+      expires_local: Instant,
+  }
+
+These types MUST NOT contain:
+  PersonhoodStatus;
+  FullHuman/MatureHuman flag;
+  balance;
+  governance weight;
+  router fingerprint.
+
+17.5 Android adapter
+
+Suggested files:
+
+  app/android/.../LocalNsd.kt
+  app/android/.../LocalNetworkPermissions.kt
+  app/android/.../WifiDirectBearer.kt
+  app/android/.../WifiAwareBearer.kt
+
+`LocalNsd.kt`:
+  register/browse approved service type;
+  lifecycle-bound callbacks;
+  bounded candidate set;
+  current Network + addresses;
+  no stable identity in advertisement.
+
+17.6 Android manifest
+
+Add only permissions required by the implemented feature and target.
+
+Likely categories:
+  INTERNET
+  ACCESS_NETWORK_STATE
+  ACCESS_WIFI_STATE / CHANGE_WIFI_STATE where Direct/Aware API requires
+  NEARBY_WIFI_DEVICES where required
+  ACCESS_LOCAL_NETWORK for API37-targeted broad local-network operation
+
+Every permission has:
+  exact call site;
+  runtime request point;
+  denial path;
+  privacy explanation.
+
+Do not paste permissions simply because a tutorial includes them.
+
+17.7 `MainActivity.kt`
+
+Remove production dependence on:
+
+  `findLanAddress()`
+
+for discovery-driven pairing.
+
+Use:
+  platform-discovered current route.
+
+UI wording:
+  "Local connection available"
+is acceptable.
+
+UI wording:
+  "Physically verified"
+is forbidden from Gate98 evidence.
+
+17.8 Pairing transport hint
+
+Pairing offer may carry:
+  ephemeral local service session ID;
+  current IP/port hint;
+  Direct/Aware route;
+  relay/Internet alternative.
+
+The signed pairing identity remains separate from every route.
+
+17.9 `mini-transport-policy`
+
+Add explicit route capability variants as needed:
+
+  LocalInfrastructureWifi
+  WifiDirect
+  WifiAware
+
+No route capability may be imported by personhood scoring.
+
+17.10 `mini-sync`
+
+Add resumable inventory/content exchange above an authenticated bearer.
+
+Design for:
+  reconnect;
+  duplicate;
+  reordering;
+  missing objects;
+  changed IP.
+
+17.11 personhood/continuity documentation
+
+Update:
+  `docs/gates/wifi-bearer-test-protocol.md`
+
+Required final rule:
+
+  Wi-Fi can transport device/home continuity challenge-response.
+  Wi-Fi network topology/context itself contributes zero score.
+
+Remove:
+  router fingerprint;
+  same SSID;
+  same BSSID;
+  same subnet
+from any personhood evidence path.
+
+17.12 future iOS adapter
+
+Use:
+  Network.framework;
+  Bonjour;
+  Wi-Fi Aware where supported.
+
+Platform layer owns:
+  permissions;
+  discovery lifecycle;
+  socket establishment.
+
+Rust core owns:
+  bearer framing;
+  encrypted Channel;
+  app object verification.
+
+No Apple framework type becomes canonical identity.
+
+
+========================================================================
+18. IMPLEMENTATION ORDER
+========================================================================
+
+P98-01
+  Human-approve this package.
+
+P98-02
+  Update old Gate98 document to zero network-context personhood/proximity weight.
+
+P98-03
+  Mark current MININET1 discovery legacy/test.
+
+P98-04
+  Add platform-neutral local service/route types.
+
+P98-05
+  Implement Android NsdManager infrastructure discovery.
+
+P98-06
+  Implement correct Android local-network permission/lifecycle handling.
+
+P98-07
+  Remove first-site-local-IPv4 production route selection.
+
+P98-08
+  Bind route to current Android Network/address callbacks.
+
+P98-09
+  Wire:
+    local TCP -> Channel -> signed app identity/capability.
+
+P98-10
+  Add candidate/concurrency/timeout/backoff limits.
+
+P98-11
+  Add reconnect/address-change tests.
+
+P98-12
+  Add object/sync transfer.
+
+P98-13
+  Wire delayed store-forward handoff above bearer where File7 DTN exists.
+
+P98-14
+  Add Android Wi-Fi Direct only if desired in the first support scope.
+
+P98-15
+  Add Android Wi-Fi Aware only if desired in the first support scope.
+
+P98-16
+  Run T98-001..250 software/adversarial tests.
+
+P98-17
+  Build exact Android artifact and record SHA256.
+
+P98-18
+  Run applicable W98-001..120 physical tests.
+
+P98-19
+  Preserve raw logs and failures.
+
+P98-20
+  Produce tester-signed report.
+
+P98-21
+  Have another human review it.
+
+P98-22
+  Mark Android path HARDWARE-VALIDATED only if supported scope passes.
+
+P98-23
+  Implement Network.framework/Bonjour before claiming iOS.
+
+P98-24
+  Implement/test Wi-Fi Aware before claiming cross-platform direct Wi-Fi.
+
+P98-25
+  Run Android-iOS physical interop before CROSS-PLATFORM-VALIDATED.
+
+P98-26
+  Close #98 only when issue wording/support scope matches attached evidence.
+
+P98-27
+  Never delay terrestrial real-value launch waiting for optional P98-14..25.
+
+
+========================================================================
+19. EVIDENCE DIRECTORY
+========================================================================
+
+Recommended repository structure:
+
+  docs/gates/evidence/98/
+    README.md
+    decision-package-sha256.txt
+    tested-revision.txt
+    build-artifact-sha256.txt
+    support-matrix.csv
+    wifi98_runs.csv
+    hardware/
+      devices.md
+      router-configs.md
+      vpn-config.md
+      public-network-notes.md
+    packet-captures/
+      redacted/
+    android/
+      permissions/
+      nsd/
+      wifi-direct/
+      wifi-aware/
+      battery/
+    ios/
+      permissions/
+      bonjour/
+      wifi-aware/
+    interop/
+      android-android/
+      android-ios/
+    adversarial/
+    performance/
+    FINAL_WIFI98_HARDWARE_REPORT.md
+
+`support-matrix.csv` fields:
+
+  platform
+  path
+  discovery
+  data_plane
+  minimum_os
+  hardware_requirement
+  permission_requirement
+  software_tests
+  physical_tests
+  status
+  exact_evidence_path
+  known_limits
+
+Allowed `status` values:
+
+  UNIMPLEMENTED
+  LAB-ONLY
+  HARDWARE-VALIDATED
+  CROSS-PLATFORM-VALIDATED
+
+No marketing aliases.
+
+
+========================================================================
+20. ISSUE #98 CLOSURE RULE
+========================================================================
+
+Close #98 only when the claimed support scope satisfies all applicable
+requirements below.
+
+G98-01
+  Exact Mininet commit recorded.
+
+G98-02
+  Exact APK/binary SHA256 recorded.
+
+G98-03
+  At least two real phones used for Android hardware-validation claim.
+
+G98-04
+  Same-router consumer-LAN baseline passes.
+
+G98-05
+  Mobile hotspot case run.
+
+G98-06
+  AP client-isolation negative control run.
+
+G98-07
+  VPN/tunnel negative control run.
+
+G98-08
+  Public/guest Wi-Fi negative control run.
+
+G98-09
+  MAC/DHCP/router/network-churn tests run.
+
+G98-10
+  Permission denial/revocation tests run.
+
+G98-11
+  Spoof/DoS/resource-bound tests run.
+
+G98-12
+  Weak-device and battery evidence run.
+
+G98-13
+  Every result has:
+    personhood_delta = 0
+    presence_delta = 0
+    continuity_network_context_delta = 0.
+
+G98-14
+  Production infrastructure discovery is actual DNS-SD/mDNS, not MININET1
+  mislabeled as mDNS.
+
+G98-15
+  TCP path establishes the encrypted Channel before sensitive app data.
+
+G98-16
+  Application identity/authorization is independent of discovery.
+
+G98-17
+  Wi-Fi Direct is either:
+    physically validated,
+  or:
+    marked UNIMPLEMENTED/LAB-ONLY and excluded from validated scope.
+
+G98-18
+  Wi-Fi Aware is either:
+    physically validated,
+  or:
+    marked UNIMPLEMENTED/LAB-ONLY and excluded from validated scope.
+
+G98-19
+  iOS/cross-platform is excluded until its own physical evidence exists.
+
+G98-20
+  Human operator signs the final report.
+
+G98-21
+  A second human reviews logs/report before issue closure.
+
+G98-22
+  Failed and expected-negative-control rows remain attached.
+
+G98-23
+  Old Gate98 text no longer implies network-context personhood/continuity weight.
+
+G98-24
+  Release docs use only the support label justified by evidence.
+
+CURRENT REVISION:
+
+  ISSUE #98 = FAIL / OPEN.
+
+That is the only truthful hardware status.
+
+MAINNET / REAL VALUE:
+
+  NOT BLOCKED.
+
+Issue #98 itself states it is lower urgency than the presence/ranging gate and
+blocks convenience/robustness rather than a launch-blocking security signal.
+
+A terrestrial release may therefore proceed without automatic local-Wi-Fi
+support if it says clearly that the capability is not yet hardware validated.
+
+
+========================================================================
+21. VALUE-BY-VALUE VERDICTS
+========================================================================
+
+HUMANITY BEFORE TECHNOLOGY — PASS
+
+Mechanism:
+  Wi-Fi Direct/Aware/new radios are optional;
+  permission refusal and old hardware do not change human status;
+  manual/other bearers remain valid.
+
+Exact feature failure:
+  local Wi-Fi production support is not yet hardware-validated.
+
+Best long-term:
+  standards-based optional adapters with fallback.
+
+
+NO INDISPENSABLE CENTRAL AUTHORITY — PASS DESIGN
+
+Mechanism:
+  mDNS/DNS-SD discovers locally without a central Mininet server;
+  TCP/Channel and app signatures remain peer-verifiable;
+  IANA only coordinates a service-name namespace and is not queried for runtime
+  authority.
+
+Red flag avoided:
+  no official Mininet Wi-Fi directory.
+
+Best long-term:
+  local standards discovery + QR/manual + replaceable platform adapters.
+
+
+NETWORK OUTLIVES ITS CREATORS — PASS DESIGN / PARTIAL CURRENT
+
+Mechanism:
+  open RFCs;
+  TCP;
+  content-addressed/signed objects;
+  no founder server.
+
+Exact current failure:
+  mobile production adapter/hardware proof absent.
+
+Solution:
+  implement and publish evidence.
+
+
+MONEY NEVER OUTRANKS LEGITIMACY — PASS
+
+Mechanism:
+  balance/fees/router ownership do not affect personhood, priority legitimacy or
+  governance;
+  Wi-Fi delivery cannot finalize money.
+
+Failure:
+  none permitted.
+
+
+CANONICAL MONEY TRUTH — PASS
+
+Mechanism:
+  bearer transports signed bytes;
+  canonical ledger remains the only finality source.
+
+Failure:
+  none introduced by Gate98.
+
+
+DESIGN FOR FAILURE — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  AP isolation, VPN, permission denial, Internet outage, DHCP/roam and malicious
+  discovery all have explicit safe semantics.
+
+Exact current failure:
+  physical behavior has not been measured.
+
+Solution:
+  W98 evidence.
+
+
+FREE FORKS / EARNED LEGITIMACY — PASS
+
+Mechanism:
+  standards path;
+  no vendor runtime root;
+  discovery implementation can be replaced without changing DID/object/chain
+  truth.
+
+
+HUMAN ROOT OF TRUST — PASS AFTER ADOPTION
+
+Mechanism:
+  network context contributes exactly zero humanity/personhood score.
+
+Exact old failure:
+  stale Gate98 language suggested a weak 15/100 network-context continuity role.
+
+Solution:
+  supersede that language and test zero-delta regression.
+
+
+STRUCTURAL PRIVACY — PARTIAL
+
+Mechanism:
+  random ephemeral service instance;
+  minimal TXT;
+  no DID/name/balance;
+  encrypted app traffic;
+  no SSID/BSSID personhood collection.
+
+Exact residual:
+  local observers can still learn:
+    Mininet service exists;
+    timing;
+    source/route IP;
+    traffic volume/size.
+
+Best long-term:
+  bounded opt-in discovery, rotating identifiers, minimal metadata and optional
+  higher-privacy routes.
+
+Perfect local metadata privacy is not claimed.
+
+
+SIMPLICITY IS SECURITY — PASS TARGET / PARTIAL CURRENT
+
+Mechanism:
+  use RFC6762/6763 + platform NSD + existing TCP.
+
+Exact current issue:
+  custom MININET1 multicast is extra bespoke surface.
+
+Solution:
+  retire/legacy-mark it for production.
+
+
+MALICIOUS-MINORITY RESILIENCE — PARTIAL
+
+Mechanism:
+  spoofed discovery gives only bounded connection attempts;
+  app cryptography detects impersonation/modification.
+
+Exact residual:
+  a hostile AP/operator can jam/drop/block all local traffic on that path.
+
+No software can create a missing RF path.
+
+Solution:
+  multiple bearers, direct paths, manual/deferred fallback.
+
+
+WEAKEST DEVICE MATTERS — PASS DESIGN / PARTIAL EVIDENCE
+
+Mechanism:
+  advanced P2P optional;
+  ordinary infrastructure Wi-Fi baseline;
+  bounded state;
+  4GiB target;
+  permission-free alternate paths.
+
+Exact current failure:
+  weak-device hardware measurements absent.
+
+Solution:
+  run them.
+
+
+AI SERVES HUMANITY, NEVER RULES — PASS ON HUMAN REVIEW
+
+Mechanism:
+  human hardware tester and reviewer sign evidence;
+  no AI route/locality scorer has authority.
+
+Failure condition:
+  an AI "household confidence" score derived from Wi-Fi that changes personhood
+  would fail.
+
+
+THINK IN CENTURIES — PASS DESIGN
+
+Mechanism:
+  IPv6;
+  open standards;
+  replaceable platform edges;
+  cryptographic identity independent of transient IP/SSID/MAC/vendor framework.
+
+
+VOICE / VALUE WALL — PASS
+
+Mechanism:
+  network ownership, bandwidth and money produce zero extra governance voice.
+
+
+EDGE CONVENIENT, CORE INDEPENDENT — PASS
+
+Mechanism:
+  Wi-Fi is optional edge connectivity.
+  DID, personhood, objects, money and governance remain valid without it.
+
+
+LOCAL-FIRST / NETWORK OF NETWORKS — PARTIAL CURRENT / PASS TARGET
+
+Mechanism:
+  TCP/local object substrate exists;
+  target mDNS/Aware does not require Internet.
+
+Exact current failure:
+  production mobile discovery and hardware evidence absent.
+
+Solution:
+  P98 implementation sequence.
+
+
+CENSORSHIP RESISTANCE — PARTIAL
+
+Mechanism:
+  local LAN/direct operation can bypass Internet censorship.
+
+Residual:
+  AP/radio owner can block that particular path.
+
+Solution:
+  route diversity, Direct/Aware, BLE, manual/deferred and Internet/relay
+  alternatives.
+
+
+DATA SOVEREIGNTY — PASS
+
+Mechanism:
+  discovery/advertising opt-out;
+  no forced neighbor graph;
+  no network-identifier personhood collection;
+  private payload encrypted.
+
+Failure:
+  none in target architecture.
+
+
+PLATFORM INDEPENDENCE — PARTIAL
+
+Mechanism:
+  core framing/crypto/app truth lives in Rust/open protocols.
+
+Exact residual:
+  Android/iOS control access to their Wi-Fi radios and permissions.
+
+Best long-term:
+  isolate platform APIs at replaceable edge adapters and preserve
+  manual/other-bearer paths.
+
+Pretending mobile OS vendors have no control over their own radios would be
+false.
+
+
+========================================================================
+22. OVERALL JUDGMENT
+========================================================================
+
+DOES THIS FINAL WI-FI DESIGN SERVE A FREE INTERNET FOR HUMANITY?
+
+YES.
+
+It does because:
+
+  * no central discovery server exists;
+  * no vendor account is legitimacy;
+  * no router/AP/hotspot/VPN owner gains authority;
+  * Wi-Fi contributes zero personhood/proximity score;
+  * SSID/BSSID/IP/MAC/router fingerprints are not human evidence;
+  * standards-based LAN discovery works without Internet;
+  * advanced hardware is optional;
+  * users can refuse permissions;
+  * users can disable advertising/discovery;
+  * private application data remains cryptographically protected;
+  * route coordinates are not identity;
+  * application truth survives route changes;
+  * money and governance do not become final through local delivery;
+  * public Wi-Fi/VPN/hotspot are negative controls, not trust sources;
+  * the whole bearer can be replaced without changing core legitimacy.
+
+CURRENT SHIPPING GATE98 FEATURE:
+
+  FAIL / LAB-ONLY.
+
+Exact point of failure:
+
+  `crates/mini-bearer/src/discovery.rs`
+    is custom non-mDNS multicast;
+
+  Android product
+    lacks NsdManager/Direct/Aware production wiring;
+
+  Android manifest
+    currently has only INTERNET for networking;
+
+  MainActivity
+    chooses first site-local IPv4;
+
+  repository evidence
+    contains no signed physical phone/router validation.
+
+REAL-VALUE / REAL-PEOPLE LAUNCH:
+
+  NOT BLOCKED BY #98.
+
+ISSUE #98:
+
+  KEEP OPEN UNTIL G98-01..24 PASS.
+
+Architecture approval cannot manufacture hardware evidence.
+
+
+========================================================================
+23. HUMAN HARDWARE TESTER SIGN-OFF
+========================================================================
+
+I ran/reviewed the applicable Gate #98 physical test matrix on the exact build
+identified below.
+
+I confirm:
+
+  [ ] infrastructure LAN discovery used actual DNS-SD/mDNS.
+  [ ] two real phones were tested.
+  [ ] a real router/AP was tested.
+  [ ] hotspot was tested.
+  [ ] AP isolation was tested.
+  [ ] VPN/tunnel negative control was tested.
+  [ ] public/guest Wi-Fi negative control was tested.
+  [ ] MAC/DHCP/router churn was tested.
+  [ ] permission denial/revocation was tested.
+  [ ] spoof/DoS/resource limits were tested.
+  [ ] weak-device behavior was measured.
+  [ ] battery behavior was measured.
+  [ ] every result has zero personhood delta.
+  [ ] every result has zero physical-presence delta.
+  [ ] every result has zero network-context continuity delta.
+  [ ] Wi-Fi Direct support level is accurately labeled.
+  [ ] Wi-Fi Aware support level is accurately labeled.
+  [ ] iOS/cross-platform is not claimed without physical evidence.
+  [ ] failed/negative-control rows are included.
+  [ ] no Gate98 result is being used as Gate97 ranging evidence.
+
+Tester:
+  ______________________________________________________________
+
+Independent human reviewer:
+  ______________________________________________________________
+
+Date:
+  ______________________________________________________________
+
+Mininet commit:
+  bc7da80f8817f856a96bcb3772232b080eef531d
+
+APK/binary SHA256:
+  ______________________________________________________________
+
+Evidence package SHA256:
+  ______________________________________________________________
+
+Android device A / OS:
+  ______________________________________________________________
+
+Android device B / OS:
+  ______________________________________________________________
+
+Router/AP / firmware:
+  ______________________________________________________________
+
+Optional iOS device / OS:
+  ______________________________________________________________
+
+Tester signature:
+  ______________________________________________________________
+
+Reviewer signature:
+  ______________________________________________________________
+
+
+========================================================================
+24. BIBLIOGRAPHY / EVIDENCE BASIS
+========================================================================
+
+MININET CURRENT REPOSITORY
+
+[MN98-01]
+  GitHub issue #98
+  "[Phase 3.1b] Local Wi-Fi data bearer — sync/outage connectivity."
+  Hard rule: connectivity only; not physical-proximity evidence.
+
+[MN98-02]
+  `docs/gates/wifi-bearer-test-protocol.md`
+  Previous physical-test draft.
+  Its network-context continuity-score implication is superseded by this
+  package's zero-score decision.
+
+[MN98-03]
+  `crates/mini-bearer/src/bearer.rs`
+  Live frame-oriented bearer abstraction.
+
+[MN98-04]
+  `crates/mini-bearer/src/tcp.rs`
+  TCP bearer.
+
+[MN98-05]
+  `crates/mini-bearer/src/channel.rs`
+  Ephemeral X25519/HKDF/ChaCha20-Poly1305 live channel.
+
+[MN98-06]
+  `crates/mini-bearer/src/discovery.rs`
+  Custom `MININET1` multicast on 239.255.77.1:7770.
+  Source explicitly says it is not full RFC6762/6763 mDNS/DNS-SD.
+
+[MN98-07]
+  `app/android/app/src/main/AndroidManifest.xml`
+  Current networking declaration: INTERNET only.
+
+[MN98-08]
+  `app/android/app/build.gradle.kts`
+  Current:
+    minSdk 26;
+    compileSdk 36;
+    targetSdk 36.
+
+[MN98-09]
+  `app/android/app/src/main/java/org/mininet/app/MainActivity.kt`
+  Current pairing route chooses the first non-loopback site-local IPv4.
+
+[MN98-10]
+  `docs/design/human-continuity-proof.md`
+  Protected device/home-key challenge continuity; raw IP/Wi-Fi identity is
+  explicitly not continuity evidence.
+
+[MN98-11]
+  File7 / Gate #28 DTN decision.
+  Deferred store-carry stays above live bearer semantics.
+
+
+EXTERNAL STANDARDS / PLATFORM SOURCES
+
+[EXT98-01]
+  RFC 6762 — Multicast DNS.
+  https://www.rfc-editor.org/rfc/rfc6762.html
+
+[EXT98-02]
+  RFC 6763 — DNS-Based Service Discovery.
+  https://www.rfc-editor.org/rfc/rfc6763.html
+
+[EXT98-03]
+  IANA Service Name and Transport Protocol Port Number Registry.
+  https://www.iana.org/assignments/service-names-port-numbers/
+
+[EXT98-04]
+  Android Developers — NsdManager.
+  https://developer.android.com/reference/android/net/nsd/NsdManager
+
+[EXT98-05]
+  Android Developers — Android 17 behavior changes / local network permission.
+  https://developer.android.com/about/versions/17/behavior-changes-17
+
+[EXT98-06]
+  Android Developers — Nearby Wi-Fi devices permission.
+  https://developer.android.com/develop/connectivity/wifi/wifi-permissions
+
+[EXT98-07]
+  Android Developers — Wi-Fi Direct.
+  https://developer.android.com/develop/connectivity/wifi/wifi-direct
+
+[EXT98-08]
+  Android Developers — Wi-Fi Direct service discovery.
+  https://developer.android.com/develop/connectivity/wifi/nsd-wifi-direct
+
+[EXT98-09]
+  Android Developers — WifiManager.MulticastLock.
+  https://developer.android.com/reference/android/net/wifi/WifiManager.MulticastLock
+
+[EXT98-10]
+  Apple Developer — Wi-Fi Aware.
+  https://developer.apple.com/documentation/WiFiAware
+
+[EXT98-11]
+  Apple Developer — TN3111 iOS Wi-Fi API overview.
+  https://developer.apple.com/documentation/technotes/tn3111-ios-wifi-api-overview
+
+[EXT98-12]
+  Apple Developer — Multipeer Connectivity.
+  https://developer.apple.com/documentation/multipeerconnectivity
+
+[EXT98-13]
+  Apple Developer — TN3213 Moving from Multipeer Connectivity to Network
+  framework.
+  https://developer.apple.com/documentation/technotes/tn3213-moving-from-multipeer-connectivity-to-network-framework
+
+[EXT98-14]
+  Apple Developer — NSLocalNetworkUsageDescription.
+  https://developer.apple.com/documentation/bundleresources/information-property-list/nslocalnetworkusagedescription
+
+[EXT98-15]
+  Apple Developer — TN3179 Understanding local network privacy.
+  https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy
+
+These external sources establish:
+  protocol and current platform behavior.
+
+They do not prove:
+  Mininet's physical implementation.
+
+Only the signed W98 evidence can do that.
+
+
+========================================================================
+25. ENGINEER'S FINAL ACTION SUMMARY
+========================================================================
+
+1.  Keep Gate #98 non-blocking for terrestrial real value.
+2.  Make Wi-Fi network-context personhood/proximity/continuity contribution 0.
+3.  Remove the old 15/100 Wi-Fi network-context ambiguity.
+4.  Keep protected device-key challenge as the actual continuity mechanism.
+5.  Use RFC6762/6763 mDNS/DNS-SD for production infrastructure discovery.
+6.  Stop calling MININET1 custom multicast mDNS.
+7.  Verify/register `_mininet._tcp` service-name status before public release.
+8.  Broadcast only random ephemeral service instance IDs.
+9.  Put no DID/name/balance/role/SSID/BSSID in DNS-SD.
+10. Use a dynamic TCP listener.
+11. Support IPv4 and IPv6.
+12. Use OS/network-scoped current addresses.
+13. Remove first-site-local-IPv4 production routing.
+14. Use Android NsdManager.
+15. Prepare Android target37 local-network permission behavior now.
+16. Request NEARBY_WIFI_DEVICES only for Direct/Aware paths that need it.
+17. Never request/store Wi-Fi location for household/personhood scoring.
+18. Do not hold a raw multicast lock permanently.
+19. Keep TCP as V1 local data plane.
+20. Layer encrypted Channel above TCP.
+21. Verify application identity/capability separately.
+22. Keep QR/manual pairing as fallback.
+23. Keep QR route hints ephemeral.
+24. Make Wi-Fi Direct optional.
+25. Prefer Wi-Fi Aware as future standards-based cross-platform direct mode.
+26. Do not build new iOS core on deprecated MultipeerConnectivity.
+27. Use Network.framework for future iOS.
+28. Keep QUIC additive until platform interoperability is proven.
+29. Cap candidate/preauth resources.
+30. Use bounded timeout/backoff.
+31. Default browse to 15 minutes.
+32. Make continuous node mode opt-in.
+33. Treat AP isolation as liveness failure.
+34. Treat VPN/public Wi-Fi/hotspot as zero-trust negative controls.
+35. Never use latency/TTL/RSSI/router fingerprint as personhood/proximity.
+36. Dedupe immutable objects above the bearer.
+37. Keep delayed persistence in sync/File7 DTN layer.
+38. Run W98-001..120 on real hardware.
+39. Run T98-001..250 software/adversarial tests.
+40. Satisfy C98 conformance matrix.
+41. Preserve failures.
+42. Record exact build/device/router/permission state.
+43. Have human tester sign.
+44. Have another human review.
+45. Mark Android HARDWARE-VALIDATED only after evidence.
+46. Mark iOS/cross-platform separately.
+47. Close #98 only when claimed scope is physically demonstrated.
+48. Never close it from emulator/docs alone.
+49. Never let Gate98 become a personhood/proximity backdoor.
+50. Never hold real-value launch hostage to this optional connectivity feature.
+
+FINAL VERDICTS:
+
+  ARCHITECTURE: PASS.
+  CURRENT SHIPPING WI-FI CAPABILITY: FAIL / LAB-ONLY.
+  PERSONHOOD BOUNDARY: PASS AFTER ZERO-WEIGHT ADOPTION.
+  ISSUE #98: KEEP OPEN UNTIL PHYSICAL EVIDENCE.
+  TERRESTRIAL REAL VALUE / REAL PEOPLE: NOT BLOCKED.
+  FREE-INTERNET ALIGNMENT: YES.
+
+========================================================================
+END — MININET FILE 8/8 — GATE #98 LOCAL WI-FI BEARER
+========================================================================

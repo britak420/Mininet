@@ -7,6 +7,25 @@ protocol implications once someone with that background sets the actual
 latency/connectivity constraints — guessing at them produces a design
 that's wrong for the regime it wasn't built for.
 
+> **2026-09-11 update (D-0513):** an uploaded external DTN/satellite
+> design report answered exactly the questions this file poses below —
+> four in-scope regimes, RFC 9171 BPv7 as the interoperability baseline,
+> optional (not mandatory) custody transfer, and the "no
+> same-global-MINI local finality" rule. D-0513 adopts that architecture
+> on engineering merit and ships an initial `mini-dtn` crate scaffold plus
+> `mini-settlement::PaymentClaimV2` (height-anchored, not the report's own
+> unverifiable "economic epoch" concept — see D-0513 for why). Per this
+> tree's standing D-0047/D-0083 discipline, an anonymously-uploaded
+> document is not itself "the auditor/domain-expert of record" issue #28's
+> own closure rule requires to sign off, so **issue #28 remains open**;
+> this file's original founder-action-required framing and the
+> engineering reasoning below remain an accurate historical record of the
+> question as it stood before that report arrived. See D-0513 for the
+> full adoption, what shipped, and what explicitly did not (a real BPv7
+> wire codec with interop evidence, TCPCLv4, BPSec, durable persistence,
+> and application-crate wiring all remain open implementation work, not
+> blocking real-value launch).
+
 ## Why "extreme environment" isn't one problem
 
 The issue groups disaster, satellite, and interplanetary operation

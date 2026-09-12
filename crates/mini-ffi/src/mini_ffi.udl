@@ -28,6 +28,16 @@ callback interface BleRadio {
 
   [Throws=BleRadioError]
   sequence<u8>? try_read_chunk();
+
+  // Best-effort: close the underlying platform connection (GATT
+  // disconnect/cancelConnection). Called from Rust exactly once, when the
+  // bearer wrapping this radio is dropped for any reason -- including a
+  // `mini_mesh::MeshNode` pruning this link after a protocol or send
+  // failure, not only an explicit `close()`/`disconnect()` call a caller
+  // makes directly. No `Throws`: a failure here has nothing further for
+  // Rust to act on, the same reasoning `RadioAdapter`'s other methods
+  // already collapse every platform-specific failure into one error for.
+  void disconnect();
 };
 
 interface BleBearerHandle {
@@ -41,6 +51,32 @@ interface BleBearerHandle {
 
   [Throws=BleBearerError]
   sequence<u8>? try_recv();
+};
+
+dictionary MeshMessage {
+  sequence<u8> id;
+  sequence<u8> payload;
+};
+
+interface MeshHandle {
+  constructor();
+
+  [Throws=MeshError]
+  void add_dialed_link(BleRadio radio, u32 mtu);
+
+  [Throws=MeshError]
+  void add_accepted_link(BleRadio radio, u32 mtu);
+
+  u32 link_count();
+
+  [Throws=MeshError]
+  sequence<u8> broadcast(sequence<u8> payload);
+
+  sequence<MeshMessage> poll();
+
+  void flush_reflood();
+
+  sequence<MeshMessage> poll_and_flush();
 };
 
 interface RootCore {
@@ -272,6 +308,12 @@ enum BleBearerError {
   "MtuTooSmall",
   "TooManyChunks",
   "Protocol",
+};
+
+[Error]
+enum MeshError {
+  "HandshakeFailed",
+  "PayloadTooLarge",
 };
 
 [Error]

@@ -40,13 +40,17 @@ code, and frozen. A full, code-mapped register is in
   choose to run.
 - **Offline money is a signed promise, never final ownership** until canonical
   consensus accepts it — so a network partition can never manufacture a
-  double-spend ([`crates/mini-settlement`](crates/mini-settlement)).
+  double-spend ([`crates/mini-settlement`](crates/mini-settlement), whose
+  height-anchored `PaymentClaimV2` and the new
+  [`crates/mini-dtn`](crates/mini-dtn) store-carry-forward scaffold extend
+  that same rule to disaster/satellite-scale delay — D-0513 — without
+  ever letting a partitioned region finalize canonical money on its own).
 - **Forking is always free; legitimacy is earned by continuity,** never owned
   by a repository or a trademark ([`docs/design/fork-legitimacy.md`](docs/design/fork-legitimacy.md)).
 
 ## What exists today — honestly
 
-This repository is the **self-contained Rust core**: 75 crates indexed by
+This repository is the **self-contained Rust core**: 79 crates indexed by
 `tools/mininet_nav.py`, with no external
 dependency on any single company's infrastructure to keep running. Nothing
 here is ready for real people, real money, or real custody yet — and it says
@@ -407,15 +411,22 @@ to people who will never meet them:
 2. [`docs/INVARIANTS.md`](docs/INVARIANTS.md) — *what can never be broken*,
    each row traced Directive → Invariant → Source → enforcing code + test.
 3. [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — *why each choice was made,
-   and when it was superseded* (append-only; main sequence `D-0001`–`D-0501`
-   (`D-0501` corrects one of D-0500's three CodeQL nonce-alert fixes —
-   `mini-contribution`'s test still passed a literal directly into a
-   digest call at the flagged site instead of through a helper parameter
-   like the other two files, measurably confirmed by the alert count
-   dropping 8→1 rather than 8→0 — is the newest at the time of this edit;
-   the Mininet Node Appliance deployment profile this line previously
-   credited to `D-0439` is `D-0446` — `D-0439` is the identity-bound
-   replica-registration decision),
+   and when it was superseded* (append-only; main sequence `D-0001`–`D-0518`
+   (`D-0513`–`D-0516`: adopting external Gate #28 DTN/satellite and Gate #98
+   Wi-Fi bearer design-report architectures on engineering merit (new
+   `mini-dtn` crate scaffold, `mini-settlement::PaymentClaimV2`
+   height-anchored settlement, `mini-bearer::LocalServiceRecord`/
+   `LocalRouteHint` closed types, zero Wi-Fi network-context personhood
+   weight) while explicitly leaving issues #28/#98 open; a governance-doc
+   numbering/registry fix (`D-0515`); and a third Codex remediation batch
+   (`D-0516`) making `mini-custody`'s DKG Round-1 barrier a structural type
+   requirement, requiring real two-device corroboration for Gate #97
+   "two-sided" ranging evidence, and giving `mini-mesh` genuine per-link
+   locking so one slow peer's send can no longer stall every other link's
+   receive path — are the newest at the time of this edit; the Mininet Node
+   Appliance deployment profile this line previously credited to `D-0439`
+   is `D-0446` — `D-0439` is the identity-bound replica-registration
+   decision),
    plus the networking/consensus track's reserved `D-0200`–`D-0206`, the
    privacy/cost-doctrine track's `D-0300`–, and the edge/provider-layer
    track's `D-0400`– — see the log's "Decision-number allocation across

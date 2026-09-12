@@ -290,9 +290,15 @@ pub fn verify_range(commitment: [u8; 32], proof: &RangeProof) -> bool {
     let x = hash_to_scalar(&[&transcript, b"x"]);
     transcript.extend_from_slice(&x.to_bytes());
 
-    let t_hat = Scalar::from_bytes_mod_order(proof.t_hat);
-    let tau_x = Scalar::from_bytes_mod_order(proof.tau_x);
-    let mu = Scalar::from_bytes_mod_order(proof.mu);
+    let Some(t_hat) = crate::canonical::canonical_scalar(&proof.t_hat) else {
+        return false;
+    };
+    let Some(tau_x) = crate::canonical::canonical_scalar(&proof.tau_x) else {
+        return false;
+    };
+    let Some(mu) = crate::canonical::canonical_scalar(&proof.mu) else {
+        return false;
+    };
 
     let y_pow = powers(y, n);
     let two_pow = powers(Scalar::from(2u64), n);

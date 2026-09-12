@@ -60,3 +60,7 @@ new dated entry rather than silently editing an old one. That's the same
 append-only discipline `docs/DECISION_LOG.md` and `docs/FAILURE_BOOK.md`
 already use, for the same reason: the reasoning trail matters as much as
 the current state.
+
+## User-supplied source reports
+
+[Eight reports received 2026-09-12 for PR #333](source-reports-2026-09-12/README.md) preserve the supplied text with SHA-256 hashes and intake scope. Remediation and gate disposition are recorded separately.
