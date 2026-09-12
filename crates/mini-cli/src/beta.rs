@@ -289,6 +289,22 @@ pub fn finding_submit(
     store_path: &Path,
     mut args: Vec<String>,
 ) -> Result<CommandResult> {
+    // The privacy gate is checked before any other argument is parsed or
+    // validated, deliberately. A caller who forgets --privacy-redacted must
+    // see the privacy warning first, every time -- not whichever other
+    // validation error happens to trigger first depending on what else is
+    // malformed in the command line. Surfacing the redaction requirement
+    // only when the rest of the input is otherwise well-formed would make
+    // it easy to miss on exactly the submissions most likely to be
+    // hurried and least likely to have been re-read for leftover secrets
+    // or device identifiers.
+    let redacted = extract_bool_flag(&mut args, "--privacy-redacted");
+    if !redacted {
+        return Err(CliError::Usage(
+            "beta finding submit requires --privacy-redacted after removing secrets, stable device identifiers, private location/content, and unnecessary personal data"
+                .to_string(),
+        ));
+    }
     let campaign_id = parse_id(&next(&mut args, "beta finding submit")?)?;
     let evidence_class = parse_evidence_class(&required_flag(
         &mut args,
@@ -308,13 +324,6 @@ pub fn finding_submit(
     let observed = required_flag(&mut args, "--observed", "beta finding submit")?;
     let evidence = required_items(&mut args, "--evidence", "beta finding submit")?;
     let limitations = required_flag(&mut args, "--limitations", "beta finding submit")?;
-    let redacted = extract_bool_flag(&mut args, "--privacy-redacted");
-    if !redacted {
-        return Err(CliError::Usage(
-            "beta finding submit requires --privacy-redacted after removing secrets, stable device identifiers, private location/content, and unnecessary personal data"
-                .to_string(),
-        ));
-    }
     reject_remaining(args, "beta finding submit")?;
 
     let tag = SubmissionTag::new(random_32().map_err(crypto_err)?).map_err(beta_err)?;
