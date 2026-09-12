@@ -1,0 +1,50 @@
+name: PR341 one-shot build and lock repair
+
+on:
+  push:
+    branches:
+      - gpt/issue-339-decentralized-beta-grants
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: gpt/issue-339-decentralized-beta-grants
+          fetch-depth: 0
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Format new code
+        run: cargo fmt --all
+      - name: Build and update lock through Cargo
+        run: |
+          cargo check -p mini-beta-grants --all-targets --all-features
+          grep -q '^name = "mini-beta-grants"$' Cargo.lock
+      - name: Prove the lock change is only a small path-package addition
+        run: |
+          read adds dels <<EOF
+          $(git diff --numstat -- Cargo.lock | awk '{print $1, $2}')
+          EOF
+          test -n "$adds"
+          test "$dels" = "0"
+          test "$adds" -le 12
+      - name: Focused strict verification
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy -p mini-beta-grants --all-targets --all-features -- -D warnings
+          cargo test -p mini-beta-grants --all-features
+      - name: Remove one-shot workflow and commit generated repair
+        run: |
+          rm .github/workflows/pr341-one-shot-build-repair.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Cargo.lock Cargo.toml crates/mini-beta-grants forge-native/schemas docs/design/decentralized-beta-grant-acceptance.md .github/workflows/pr341-one-shot-build-repair.yml
+          git diff --cached --check
+          git diff --cached --quiet && exit 0
+          git commit -m 'Compile-proof decentralized Beta grant acceptance'
+          git push origin HEAD:gpt/issue-339-decentralized-beta-grants
